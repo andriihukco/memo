@@ -1,5 +1,5 @@
 import { Context } from "grammy";
-import { InlineKeyboard, Keyboard } from "grammy";
+import { Keyboard } from "grammy";
 import type { Profile } from "@/lib/profile";
 import { loadUserRules, deleteUserRule } from "@/lib/bot/teach";
 import { generateRetrospective, saveReport, formatReportForTelegram, getReportSchedule } from "@/lib/bot/retrospective";

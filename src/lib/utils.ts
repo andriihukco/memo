@@ -11,11 +11,11 @@ export function cn(...inputs: ClassValue[]) {
  */
 export function sanitizeMarkdown(text: string): string {
   return text
-    .replace(/\*\*?(.*?)\*\*?/gs, "$1")        // *bold* / **bold**
-    .replace(/__(.*?)__/gs, "$1")               // __bold__
-    .replace(/_(.*?)_/gs, "$1")                 // _italic_
-    .replace(/`{3}[\s\S]*?`{3}/g, (m) =>        // ```code block``` → keep content
+    .replace(/\*\*?([\s\S]*?)\*\*?/g, "$1")        // *bold* / **bold**
+    .replace(/__([\s\S]*?)__/g, "$1")               // __bold__
+    .replace(/_([\s\S]*?)_/g, "$1")                 // _italic_
+    .replace(/`{3}[\s\S]*?`{3}/g, (m) =>            // ```code block``` → keep content
       m.replace(/`{3}(?:\w+)?\n?/g, "").replace(/`{3}/g, ""))
-    .replace(/`([^`]+)`/g, "$1")               // `inline code`
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");  // [text](url) → text
+    .replace(/`([^`]+)`/g, "$1")                    // `inline code`
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");       // [text](url) → text
 }
