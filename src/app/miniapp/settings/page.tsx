@@ -1,9 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Check, ChevronRight, Lock, Shield } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Check, ChevronRight, Lock, Shield, Trash2, BookOpen, Bell } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
+import { useAuth } from '@/lib/supabase/auth-context';
 import {
   getPasscodeHash, setPasscodeHash, removePasscode,
   getLockTimer, setLockTimer, type LockTimer, LOCK_TIMER_LABELS,
@@ -12,17 +15,86 @@ import { cn } from '@/lib/utils';
 
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
+interface CustomRule { id: string; instruction: string; created_at: string; }
+interface ReportSchedule { daily: boolean; weekly: boolean; monthly: boolean; time: string; }
+
+// ── Toggle row ────────────────────────────────────────────────────────────────
+
+function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <span className="text-sm">{label}</span>
+      <button
+        onClick={() => onChange(!checked)}
+        className={cn(
+          'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
+          checked ? 'bg-primary' : 'bg-input',
+        )}
+      >
+        <span className={cn(
+          'pointer-events-none inline-block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform',
+          checked ? 'translate-x-5' : 'translate-x-0',
+        )} />
+      </button>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
+  const { accessToken } = useAuth();
   const [hasPasscode, setHasPasscode] = useState(false);
   const [lockTimer, setLockTimerState] = useState<LockTimer>(0);
   const [step, setStep] = useState<SetupStep>('idle');
   const [pendingPin, setPendingPin] = useState('');
   const [showTimerPicker, setShowTimerPicker] = useState(false);
 
+  // Rules
+  const [rules, setRules] = useState<CustomRule[]>([]);
+
+  // Schedule
+  const [schedule, setSchedule] = useState<ReportSchedule>({ daily: false, weekly: true, monthly: true, time: '09:00' });
+
   useEffect(() => {
     setHasPasscode(!!getPasscodeHash());
     setLockTimerState(getLockTimer());
   }, []);
+
+  const loadRules = useCallback(async () => {
+    if (!accessToken) return;
+    const res = await fetch('/api/rules', { headers: { Authorization: `Bearer ${accessToken}` } });
+    const d = await res.json();
+    setRules(d.rules ?? []);
+  }, [accessToken]);
+
+  const loadSchedule = useCallback(async () => {
+    if (!accessToken) return;
+    const res = await fetch('/api/schedule', { headers: { Authorization: `Bearer ${accessToken}` } });
+    const d = await res.json();
+    if (d.schedule) setSchedule(d.schedule);
+  }, [accessToken]);
+
+  useEffect(() => { loadRules(); loadSchedule(); }, [loadRules, loadSchedule]);
+
+  const deleteRule = async (id: string) => {
+    if (!accessToken) return;
+    await fetch('/api/rules', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ id }),
+    });
+    setRules(prev => prev.filter(r => r.id !== id));
+  };
+
+  const updateSchedule = async (patch: Partial<ReportSchedule>) => {
+    if (!accessToken) return;
+    const next = { ...schedule, ...patch };
+    setSchedule(next);
+    await fetch('/api/schedule', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(patch),
+    });
+  };
 
   const handleEnablePasscode = () => setStep('set_new');
   const handleChangePasscode = () => { if (hasPasscode) setStep('enter_current'); else setStep('set_new'); };
@@ -39,15 +111,9 @@ export default function SettingsPage() {
     setPendingPin('');
   };
 
-  if (step === 'enter_current') {
-    return <PasscodeScreen key="enter_current" mode="enter" title="Поточний код" subtitle="Введіть поточний код доступу" expectedHash={getPasscodeHash() ?? undefined} onSuccess={handleCurrentVerified} onCancel={() => setStep('idle')} />;
-  }
-  if (step === 'set_new') {
-    return <PasscodeScreen key="set_new" mode="set" title="Новий код" subtitle="Введіть новий 4-значний код" onSuccess={handleNewPin} onCancel={() => setStep('idle')} />;
-  }
-  if (step === 'confirm_new') {
-    return <PasscodeScreen key="confirm_new" mode="confirm" title="Підтвердіть код" subtitle="Введіть код ще раз" onSuccess={handleConfirmPin} onCancel={() => setStep('idle')} />;
-  }
+  if (step === 'enter_current') return <PasscodeScreen key="enter_current" mode="enter" title="Поточний код" subtitle="Введіть поточний код доступу" expectedHash={getPasscodeHash() ?? undefined} onSuccess={handleCurrentVerified} onCancel={() => setStep('idle')} />;
+  if (step === 'set_new') return <PasscodeScreen key="set_new" mode="set" title="Новий код" subtitle="Введіть новий 4-значний код" onSuccess={handleNewPin} onCancel={() => setStep('idle')} />;
+  if (step === 'confirm_new') return <PasscodeScreen key="confirm_new" mode="confirm" title="Підтвердіть код" subtitle="Введіть код ще раз" onSuccess={handleConfirmPin} onCancel={() => setStep('idle')} />;
 
   const TIMERS: LockTimer[] = [0, 1, 5, 15, 60];
 
@@ -55,44 +121,107 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-6 px-4 pt-5 pb-6">
       <h1 className="text-lg font-semibold">Профіль</h1>
 
+      {/* ── Auto-reports ──────────────────────────────────────────────────── */}
       <section>
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-[var(--tgui--hint_color)]">Конфіденційність</p>
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Автозвіти</p>
+        <Card>
+          <CardContent className="p-0">
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Bell size={16} className="text-primary" />
+              </div>
+              <p className="flex-1 text-sm font-medium">Час відправки</p>
+              <input
+                type="time"
+                value={schedule.time}
+                onChange={e => updateSchedule({ time: e.target.value })}
+                className="rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <Separator />
+            <ToggleRow label="Щоденний звіт" checked={schedule.daily} onChange={v => updateSchedule({ daily: v })} />
+            <Separator />
+            <ToggleRow label="Тижневий звіт" checked={schedule.weekly} onChange={v => updateSchedule({ weekly: v })} />
+            <Separator />
+            <ToggleRow label="Місячний звіт" checked={schedule.monthly} onChange={v => updateSchedule({ monthly: v })} />
+          </CardContent>
+        </Card>
+        <p className="mt-1.5 px-1 text-xs text-muted-foreground">Або скажи боту: &ldquo;Вмикай тижневий звіт о 10:00&rdquo;</p>
+      </section>
+
+      {/* ── Rules ─────────────────────────────────────────────────────────── */}
+      <section>
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Правила бота</p>
+        {rules.length === 0 ? (
+          <Card>
+            <CardContent className="flex items-center gap-3 p-4">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
+                <BookOpen size={16} className="text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">Правил ще немає. Напиши боту: &ldquo;Запам&apos;ятай: мій стакан = 300мл&rdquo;</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-0">
+              {rules.map((rule, i) => (
+                <div key={rule.id}>
+                  {i > 0 && <Separator />}
+                  <div className="flex items-start gap-3 px-4 py-3">
+                    <p className="flex-1 text-sm leading-relaxed">{rule.instruction}</p>
+                    <button
+                      onClick={() => deleteRule(rule.id)}
+                      className="mt-0.5 shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+      </section>
+
+      {/* ── Privacy ───────────────────────────────────────────────────────── */}
+      <section>
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Конфіденційність</p>
         <Card>
           <CardContent className="p-0">
             <button onClick={hasPasscode ? handleChangePasscode : handleEnablePasscode}
-              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/50">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tgui--link_color)]/10">
-                <Lock size={16} className="text-[var(--tgui--link_color)]" />
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Lock size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">{hasPasscode ? 'Змінити код' : 'Увімкнути код'}</p>
-                <p className="text-xs text-[var(--tgui--hint_color)]">{hasPasscode ? 'Змінити 4-значний код доступу' : 'Захистити додаток кодом'}</p>
+                <p className="text-xs text-muted-foreground">{hasPasscode ? 'Змінити 4-значний код доступу' : 'Захистити додаток кодом'}</p>
               </div>
-              <ChevronRight size={16} className="text-[var(--tgui--hint_color)]" />
+              <ChevronRight size={16} className="text-muted-foreground" />
             </button>
 
-            {hasPasscode && <div className="mx-4 h-px bg-[var(--tgui--hint_color)]/20" />}
+            {hasPasscode && <Separator />}
 
             {hasPasscode && (
               <div>
                 <button onClick={() => setShowTimerPicker(v => !v)}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/50">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tgui--link_color)]/10">
-                    <Shield size={16} className="text-[var(--tgui--link_color)]" />
+                  className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                    <Shield size={16} className="text-primary" />
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium">Блокування</p>
-                    <p className="text-xs text-[var(--tgui--hint_color)]">{LOCK_TIMER_LABELS[lockTimer]}</p>
+                    <p className="text-xs text-muted-foreground">{LOCK_TIMER_LABELS[lockTimer]}</p>
                   </div>
-                  <ChevronRight size={16} className={cn('text-[var(--tgui--hint_color)] transition-transform', showTimerPicker && 'rotate-90')} />
+                  <ChevronRight size={16} className={cn('text-muted-foreground transition-transform', showTimerPicker && 'rotate-90')} />
                 </button>
                 {showTimerPicker && (
                   <div className="border-t pb-1">
                     {TIMERS.map(t => (
                       <button key={t} onClick={() => handleTimerChange(t)}
-                        className="flex w-full items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/50">
-                        <span className={cn(t === lockTimer && 'font-medium text-[var(--tgui--link_color)]')}>{LOCK_TIMER_LABELS[t]}</span>
-                        {t === lockTimer && <Check size={16} className="text-[var(--tgui--link_color)]" />}
+                        className="flex w-full items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-muted/50">
+                        <span className={cn(t === lockTimer && 'font-medium text-primary')}>{LOCK_TIMER_LABELS[t]}</span>
+                        {t === lockTimer && <Check size={16} className="text-primary" />}
                       </button>
                     ))}
                   </div>
@@ -100,17 +229,16 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {hasPasscode && <Separator />}
+
             {hasPasscode && (
-              <>
-                <div className="mx-4 h-px bg-[var(--tgui--hint_color)]/20" />
-                <button onClick={handleDisablePasscode}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-[var(--tgui--destructive_text_color)] transition-colors hover:bg-[var(--tgui--destructive_text_color)]/5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tgui--destructive_text_color)]/10">
-                    <Lock size={16} className="text-[var(--tgui--destructive_text_color)]" />
-                  </div>
-                  <p className="text-sm font-medium">Вимкнути код</p>
-                </button>
-              </>
+              <button onClick={handleDisablePasscode}
+                className="flex w-full items-center gap-3 px-4 py-3.5 text-destructive transition-colors hover:bg-destructive/5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
+                  <Lock size={16} className="text-destructive" />
+                </div>
+                <p className="text-sm font-medium">Вимкнути код</p>
+              </button>
             )}
           </CardContent>
         </Card>

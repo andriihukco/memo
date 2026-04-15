@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { Trash2, MessageCircle } from 'lucide-react';
+import { Trash2, MessageCircle, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -10,12 +10,10 @@ import { cn } from '@/lib/utils';
 import { LockButton } from '@/components/ui/lock-button';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
 
-type Category = string;
-
 interface Entry {
   id: string;
   content: string;
-  category: Category;
+  category: string;
   category_label?: string;
   metadata: Record<string, unknown>;
   created_at: string;
@@ -24,14 +22,11 @@ interface Entry {
   reply_to_entry_id?: string | null;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleString('uk-UA', { hour: '2-digit', minute: '2-digit' });
 }
-
-function summarizeMetrics(metadata: Record<string, unknown>): string {
-  const metrics = metadata.dashboard_metrics as Array<{ label: string; value: number; unit: string }> | undefined;
-  if (!Array.isArray(metrics) || metrics.length === 0) return '';
-  return '📊 ' + metrics.slice(0, 4).map(m => `${m.label}: ${m.value}${m.unit}`).join(' · ');
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleString('uk-UA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 // ── DeleteConfirmDialog ───────────────────────────────────────────────────────
@@ -43,33 +38,30 @@ function DeleteConfirmDialog({ count, onConfirm, onCancel }: { count: number; on
       <Card className="relative w-full max-w-sm p-5 shadow-2xl">
         <h2 className="mb-1 text-base font-semibold">Видалити записи?</h2>
         <p className="mb-5 text-sm text-muted-foreground">
-          {count === 1 ? 'Цей запис буде назавжди видалено. Відновити неможливо.' : `${count} записів буде назавжди видалено. Відновити неможливо.`}
+          {count === 1 ? 'Цей запис буде назавжди видалено.' : `${count} записів буде назавжди видалено.`}
         </p>
         <div className="flex gap-3">
-          <Button variant="outline" className="flex-1 rounded-full" onClick={onCancel}>Скасувати</Button>
-          <Button variant="destructive" className="flex-1 rounded-full" onClick={onConfirm}>Видалити</Button>
+          <Button variant="outline" className="flex-1" onClick={onCancel}>Скасувати</Button>
+          <Button variant="destructive" className="flex-1" onClick={onConfirm}>Видалити</Button>
         </div>
       </Card>
     </div>
   );
 }
 
-// ── EntryContent — truncated with show more ───────────────────────────────────
+// ── EntryContent ──────────────────────────────────────────────────────────────
 
 function EntryContent({ content, className }: { content: string; className?: string }) {
   const [expanded, setExpanded] = useState(false);
-  const LIMIT = 160;
+  const LIMIT = 180;
   const isLong = content.length > LIMIT;
   return (
     <div className={className}>
-      <p className="text-sm leading-relaxed">
+      <p className="text-sm leading-relaxed text-foreground">
         {isLong && !expanded ? content.slice(0, LIMIT) + '…' : content}
       </p>
       {isLong && (
-        <button
-          onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-          className="mt-1 text-xs text-primary/70 hover:text-primary"
-        >
+        <button onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }} className="mt-1 text-xs text-primary/70 hover:text-primary">
           {expanded ? 'Згорнути' : 'Показати більше'}
         </button>
       )}
@@ -77,53 +69,7 @@ function EntryContent({ content, className }: { content: string; className?: str
   );
 }
 
-// ── CategoryChips — skip duplicates vs previous entry ────────────────────────
-
-function CategoryChips({ category, categoryLabel, prevCategory, className }: {
-  category: string; categoryLabel?: string; prevCategory?: string; className?: string;
-}) {
-  const cats = category.split(',').map(c => c.trim()).filter(Boolean);
-  const prev = prevCategory ? prevCategory.split(',').map(c => c.trim()).filter(Boolean) : [];
-  const newCats = cats.filter(c => !prev.includes(c));
-  if (newCats.length === 0) return null;
-  return (
-    <div className={cn('flex flex-wrap gap-1', className)}>
-      {newCats.map(cat => (
-        <Badge key={cat} className={cn('border text-[10px] font-medium', getCategoryColor(cat))} variant="outline">
-          {getCategoryLabel(cat, categoryLabel)}
-        </Badge>
-      ))}
-    </div>
-  );
-}
-
-// ── BotReplyBubble ────────────────────────────────────────────────────────────
-
-function BotReplyBubble({ text, metrics }: { text: string; metrics?: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const LIMIT = 120;
-  const isLong = text.length > LIMIT;
-  return (
-    <div className="ml-4 mt-1 flex items-start gap-2">
-      <div className="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/15">
-        <MessageCircle size={9} className="text-primary" />
-      </div>
-      <div className="flex-1">
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          {isLong && !expanded ? text.slice(0, LIMIT) + '…' : text}
-        </p>
-        {isLong && (
-          <button onClick={() => setExpanded(v => !v)} className="mt-0.5 text-[10px] text-primary/60 hover:text-primary">
-            {expanded ? 'Згорнути' : 'Більше'}
-          </button>
-        )}
-        {metrics && <p className="mt-0.5 text-[10px] text-muted-foreground/50">{metrics}</p>}
-      </div>
-    </div>
-  );
-}
-
-// ── SwipeableCard ─────────────────────────────────────────────────────────────
+// ── SwipeableCard — standalone entry ─────────────────────────────────────────
 
 const SWIPE_THRESHOLD = 72;
 const SWIPE_COMMIT = 200;
@@ -179,7 +125,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
           </div>
         </div>
         <Card
-          className={cn('relative select-none transition-colors', isSelected && 'border-destructive bg-destructive/5', Math.abs(offsetX) >= SWIPE_COMMIT && 'opacity-50')}
+          className={cn('relative select-none', isSelected && 'border-destructive bg-destructive/5', Math.abs(offsetX) >= SWIPE_COMMIT && 'opacity-50')}
           style={{ transform: `translateX(${offsetX}px)`, transition: dragging ? 'none' : 'transform 0.25s ease' }}
           onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
           onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onML}
@@ -193,15 +139,21 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
                 </div>
               </div>
             )}
-            <div className={cn('mb-2 flex flex-wrap items-start gap-1.5', isSelectMode && 'pl-7')}>
+            <div className={cn('mb-2 flex flex-wrap items-center gap-1.5', isSelectMode && 'pl-7')}>
               {entry.category.split(',').map(c => c.trim()).filter(Boolean).map(cat => (
-                <Badge key={cat} className={cn('border font-medium', getCategoryColor(cat))} variant="outline">
+                <Badge key={cat} className={cn('border text-[10px] font-medium', getCategoryColor(cat))} variant="outline">
                   {getCategoryLabel(cat, entry.category_label)}
                 </Badge>
               ))}
               <time className="ml-auto shrink-0 text-xs text-muted-foreground">{formatDate(entry.created_at)}</time>
             </div>
             <EntryContent content={entry.content} className={cn(isSelectMode && 'pl-7')} />
+            {entry.bot_reply && (
+              <div className="mt-2 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
+                <Bot size={12} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -212,10 +164,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
 
 // ── Thread grouping ───────────────────────────────────────────────────────────
 
-interface ThreadGroup {
-  threadId: string;
-  entries: Entry[];
-}
+interface ThreadGroup { threadId: string; entries: Entry[]; }
 
 function groupByThread(entries: Entry[]): (Entry | ThreadGroup)[] {
   const threadMap = new Map<string, Entry[]>();
@@ -244,123 +193,120 @@ function groupByThread(entries: Entry[]): (Entry | ThreadGroup)[] {
   return result;
 }
 
-// ── ThreadEntry — single entry in a thread ────────────────────────────────────
-
-function ThreadEntry({ entry, prevEntry, depth, isSelectMode, isSelected, onLongPress, onToggleSelect, onUpdate, accessToken }: {
-  entry: Entry; prevEntry?: Entry; depth: number;
-  isSelectMode: boolean; isSelected: boolean;
-  onLongPress: () => void; onToggleSelect: () => void;
-  onUpdate: (id: string, content: string, category: string) => Promise<void>;
-  accessToken?: string | null;
-}) {
-  const [editOpen, setEditOpen] = useState(false);
-  return (
-    <>
-      <div className={cn('relative', depth > 0 && 'ml-4 border-l-2 border-muted pl-3')}>
-        <CategoryChips
-          category={entry.category}
-          categoryLabel={entry.category_label}
-          prevCategory={prevEntry?.category}
-          className="mb-1"
-        />
-        <div
-          className={cn(
-            'rounded-xl bg-card px-3 py-2.5 shadow-sm cursor-pointer select-none transition-colors active:bg-muted/40',
-            isSelected && 'ring-2 ring-destructive'
-          )}
-          onClick={() => { if (isSelectMode) { onToggleSelect(); return; } setEditOpen(true); }}
-          onContextMenu={(e) => { e.preventDefault(); onLongPress(); }}
-        >
-          <EntryContent content={entry.content} />
-          <div className="mt-1.5 flex items-center justify-between">
-            <time className="text-[10px] text-muted-foreground/60">{formatDate(entry.created_at)}</time>
-            {isSelectMode && (
-              <div className={cn('flex h-4 w-4 items-center justify-center rounded-full border-2', isSelected ? 'border-destructive bg-destructive' : 'border-muted-foreground/30')}>
-                {isSelected && <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 6 5 9 10 3" /></svg>}
-              </div>
-            )}
-          </div>
-        </div>
-        {entry.bot_reply && <BotReplyBubble text={entry.bot_reply} metrics={summarizeMetrics(entry.metadata)} />}
-      </div>
-      {editOpen && <EditDrawer entry={entry} onSave={onUpdate} onClose={() => setEditOpen(false)} accessToken={accessToken} />}
-    </>
-  );
-}
-
-// ── ThreadCard — Reddit-style nested thread ───────────────────────────────────
+// ── ThreadCard — Reddit-style ─────────────────────────────────────────────────
 
 function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSelect, onUpdate, accessToken }: {
   group: ThreadGroup; isSelectMode: boolean; selectedIds: Set<string>;
   onLongPress: (id: string) => void; onToggleSelect: (id: string) => void;
-  onSwipeDelete?: (id: string) => void;
   onUpdate: (id: string, content: string, category: string) => Promise<void>;
   accessToken?: string | null;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const PREVIEW = 2;
+  const PREVIEW = 3;
   const entries = group.entries;
   const visible = showAll ? entries : entries.slice(0, PREVIEW);
   const hidden = entries.length - PREVIEW;
+  const [editEntry, setEditEntry] = useState<Entry | null>(null);
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1.5 px-0.5">
-        <MessageCircle size={10} className="text-muted-foreground/50" />
-        <span className="text-[10px] text-muted-foreground/50">Розмова · {entries.length}</span>
-      </div>
-      {visible.map((entry, i) => (
-        <ThreadEntry
-          key={entry.id}
-          entry={entry}
-          prevEntry={i > 0 ? entries[i - 1] : undefined}
-          depth={i}
-          isSelectMode={isSelectMode}
-          isSelected={selectedIds.has(entry.id)}
-          onLongPress={() => onLongPress(entry.id)}
-          onToggleSelect={() => onToggleSelect(entry.id)}
-          onUpdate={onUpdate}
-          accessToken={accessToken}
-        />
-      ))}
-      {hidden > 0 && !showAll && (
-        <button onClick={() => setShowAll(true)} className="ml-4 self-start text-xs text-primary/70 hover:text-primary">
-          ↓ Показати ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'}
-        </button>
+    <>
+      <Card className="overflow-hidden">
+        {/* Thread header */}
+        <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2">
+          <MessageCircle size={12} className="text-muted-foreground" />
+          <span className="text-xs font-medium text-muted-foreground">Розмова · {entries.length} повідомлень</span>
+          <Badge className={cn('ml-auto border text-[10px]', getCategoryColor(entries[0]?.category ?? ''))} variant="outline">
+            {getCategoryLabel(entries[0]?.category ?? '', entries[0]?.category_label)}
+          </Badge>
+        </div>
+
+        {/* Messages */}
+        <div className="divide-y">
+          {visible.map((entry, i) => {
+            const isUser = !entry.reply_to_entry_id || i === 0;
+            const isSelected = selectedIds.has(entry.id);
+            return (
+              <div
+                key={entry.id}
+                className={cn(
+                  'flex gap-3 px-4 py-3 cursor-pointer transition-colors active:bg-muted/30',
+                  isSelected && 'bg-destructive/5',
+                  !isUser && 'bg-muted/20',
+                )}
+                onClick={() => {
+                  if (isSelectMode) { onToggleSelect(entry.id); return; }
+                  setEditEntry(entry);
+                }}
+                onContextMenu={(e) => { e.preventDefault(); onLongPress(entry.id); }}
+              >
+                {/* Avatar */}
+                <div className={cn(
+                  'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                  isUser ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
+                )}>
+                  {isUser ? 'Я' : <Bot size={14} />}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="mb-0.5 flex items-center gap-2">
+                    <span className="text-xs font-medium">{isUser ? 'Ти' : 'Memo'}</span>
+                    <time className="text-[10px] text-muted-foreground">{formatTime(entry.created_at)}</time>
+                    {isSelectMode && (
+                      <div className={cn('ml-auto flex h-4 w-4 items-center justify-center rounded-full border-2', isSelected ? 'border-destructive bg-destructive' : 'border-muted-foreground/30')}>
+                        {isSelected && <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 6 5 9 10 3" /></svg>}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-sm leading-relaxed text-foreground">{entry.content}</p>
+                  {isUser && entry.bot_reply && (
+                    <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-muted/60 px-2.5 py-1.5">
+                      <Bot size={11} className="mt-0.5 shrink-0 text-muted-foreground" />
+                      <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Show more */}
+        {hidden > 0 && !showAll && (
+          <button onClick={() => setShowAll(true)} className="w-full border-t py-2 text-xs text-primary/70 hover:text-primary hover:bg-muted/20 transition-colors">
+            Показати ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'} ↓
+          </button>
+        )}
+        {showAll && entries.length > PREVIEW && (
+          <button onClick={() => setShowAll(false)} className="w-full border-t py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors">
+            Згорнути ↑
+          </button>
+        )}
+      </Card>
+
+      {editEntry && (
+        <EditDrawer entry={editEntry} onSave={onUpdate} onClose={() => setEditEntry(null)} accessToken={accessToken} />
       )}
-      {showAll && entries.length > PREVIEW && (
-        <button onClick={() => setShowAll(false)} className="ml-4 self-start text-xs text-muted-foreground hover:text-foreground">
-          ↑ Згорнути
-        </button>
-      )}
-    </div>
+    </>
   );
 }
 
-// ── CategoryFilterBar ─────────────────────────────────────────────────────────
+// ── CategoryFilterBar — single select ────────────────────────────────────────
 
 function CategoryFilterBar({ entries, selected, onChange }: {
   entries: Entry[];
-  selected: Set<string>;
-  onChange: (cats: Set<string>) => void;
+  selected: string | null;
+  onChange: (cat: string | null) => void;
 }) {
   const cats = Array.from(new Map(entries.map((e) => [e.category, e.category_label])).entries());
-  const allSelected = selected.size === 0;
-
-  const toggle = (cat: string) => {
-    const next = new Set(selected);
-    if (next.has(cat)) next.delete(cat);
-    else next.add(cat);
-    onChange(next);
-  };
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-      <Button size="sm" variant={allSelected ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => onChange(new Set())}>
+      <Button size="sm" variant={selected === null ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => onChange(null)}>
         Всі
       </Button>
       {cats.map(([cat, label]) => (
-        <Button key={cat} size="sm" variant={selected.has(cat) ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => toggle(cat)}>
+        <Button key={cat} size="sm" variant={selected === cat ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => onChange(selected === cat ? null : cat)}>
           {getCategoryLabel(cat, label ?? undefined)}
         </Button>
       ))}
@@ -372,17 +318,15 @@ function CategoryFilterBar({ entries, selected, onChange }: {
 
 export default function FeedPage() {
   const { accessToken } = useAuth();
-  const [entries, setEntries] = useState<Entry[]>([]);
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const listRef = useRef<HTMLDivElement>(null);
 
   const fetchEntries = useCallback(async () => {
     if (!accessToken) return;
@@ -396,9 +340,8 @@ export default function FeedPage() {
   }, [accessToken]);
 
   useEffect(() => {
-    if (selectedCategories.size === 0) setEntries(allEntries);
-    else setEntries(allEntries.filter((e) => selectedCategories.has(e.category)));
-  }, [allEntries, selectedCategories]);
+    setEntries(selectedCategory ? allEntries.filter(e => e.category === selectedCategory) : allEntries);
+  }, [allEntries, selectedCategory]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
@@ -419,7 +362,6 @@ export default function FeedPage() {
     } catch { /* keep */ } finally { setIsDeleting(false); setPendingDeleteIds(null); }
   };
 
-  const allIds = entries.map((e) => e.id);
   const handleUpdate = async (id: string, content: string, category: string) => {
     if (!accessToken) return;
     const res = await fetch('/api/entries', {
@@ -432,6 +374,7 @@ export default function FeedPage() {
     setAllEntries((prev) => prev.map((e) => e.id === id ? { ...e, ...updated } : e));
   };
 
+  const allIds = entries.map((e) => e.id);
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
   const toggleSelectAll = () => { if (allSelected) exitSelectMode(); else { setIsSelectMode(true); setSelectedIds(new Set(allIds)); } };
 
@@ -440,7 +383,7 @@ export default function FeedPage() {
       <div className="flex items-center justify-between">
         {isSelectMode ? (
           <>
-            <button onClick={toggleSelectAll} className="text-sm font-medium text-foreground underline-offset-2 hover:underline">
+            <button onClick={toggleSelectAll} className="text-sm font-medium underline-offset-2 hover:underline">
               {allSelected ? 'Зняти все' : `${selectedIds.size} вибрано — Вибрати все`}
             </button>
             <Button size="sm" variant="outline" onClick={exitSelectMode}>Скасувати</Button>
@@ -453,7 +396,9 @@ export default function FeedPage() {
         )}
       </div>
 
-      {!isSelectMode && <CategoryFilterBar entries={allEntries} selected={selectedCategories} onChange={setSelectedCategories} />}
+      {!isSelectMode && (
+        <CategoryFilterBar entries={allEntries} selected={selectedCategory} onChange={setSelectedCategory} />
+      )}
 
       {status === 'loading' && (
         <div className="flex flex-col items-center justify-center py-16">
@@ -471,12 +416,12 @@ export default function FeedPage() {
       {status === 'ready' && entries.length === 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <p className="text-sm text-muted-foreground">
-            {selectedCategories.size > 0 ? 'Немає записів у вибраних категоріях.' : 'Записів ще немає. Надішли повідомлення боту, щоб почати.'}
+            {selectedCategory ? 'Немає записів у цій категорії.' : 'Записів ще немає. Надішли повідомлення боту, щоб почати.'}
           </p>
         </div>
       )}
       {status === 'ready' && entries.length > 0 && (
-        <div ref={listRef} className="flex flex-col gap-3 pb-4">
+        <div className="flex flex-col gap-3 pb-4">
           {groupByThread(entries).map((item) => {
             if ('threadId' in item) {
               return (
@@ -487,7 +432,6 @@ export default function FeedPage() {
                   selectedIds={selectedIds}
                   onLongPress={handleLongPress}
                   onToggleSelect={handleToggleSelect}
-                  onSwipeDelete={(id) => setPendingDeleteIds([id])}
                   onUpdate={handleUpdate}
                   accessToken={accessToken}
                 />
@@ -511,10 +455,7 @@ export default function FeedPage() {
       )}
 
       {isSelectMode && (
-        <div
-          className="fixed left-0 right-0 z-40 flex justify-center px-4 py-3"
-          style={{ bottom: 'calc(var(--tab-bar-h, 60px) + var(--bottom-inset, 0px))' }}
-        >
+        <div className="fixed left-0 right-0 z-40 flex justify-center px-4 py-3" style={{ bottom: 'calc(var(--tab-bar-h, 60px) + var(--bottom-inset, 0px))' }}>
           <button
             disabled={selectedIds.size === 0}
             onClick={() => setPendingDeleteIds([...selectedIds])}

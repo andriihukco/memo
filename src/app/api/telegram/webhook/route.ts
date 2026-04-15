@@ -5,7 +5,7 @@ import { env } from "@/lib/env";
 import { resolveOrCreateProfile, ProfileError, Profile } from "@/lib/profile";
 import { handleTextMessage } from "@/lib/bot/handlers/text";
 import { handleVoiceMessage } from "@/lib/bot/handlers/voice";
-import { handleStart, handleHelp, handleRules, handleDelRule, handleReport, handleSchedule, handleReset, MAIN_KEYBOARD } from "@/lib/bot/commands";
+import { handleStart, handleHelp, handleReport, MAIN_KEYBOARD } from "@/lib/bot/commands";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -36,21 +36,15 @@ function getHandler(): (req: Request) => Promise<Response> {
 
   bot.command("start", handleStart);
   bot.command("help", handleHelp);
-  bot.command("rules", handleRules);
-  bot.command("delrule", handleDelRule);
   bot.command("report", handleReport);
-  bot.command("schedule", handleSchedule);
-  bot.command("reset", handleReset);
 
-  // Reply keyboard button taps (plain text matching)
+  // Reply keyboard button taps
   bot.hears("📊 Дашборд", async (ctx) => {
     const url = `https://t.me/${ctx.me.username}/app`;
     await ctx.reply(`Відкрий дашборд: ${url}`, { reply_markup: MAIN_KEYBOARD });
   });
   bot.hears("📖 Допомога", handleHelp);
-  bot.hears("📋 Правила", handleRules);
   bot.hears("📅 Звіт тижня", (ctx) => {
-    // Simulate /report weekly
     (ctx.message as { text: string }).text = "/report weekly";
     return handleReport(ctx);
   });
@@ -58,7 +52,6 @@ function getHandler(): (req: Request) => Promise<Response> {
     (ctx.message as { text: string }).text = "/report daily";
     return handleReport(ctx);
   });
-  bot.hears("🔄 Скинути", handleReset);
 
   bot.on("message:text", handleTextMessage);
   bot.on("message:voice", handleVoiceMessage);

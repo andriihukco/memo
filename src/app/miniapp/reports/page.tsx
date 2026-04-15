@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/supabase/auth-context';
 import { BarChart2, ChevronDown, RefreshCw, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { ReportInsight } from '@/lib/bot/retrospective';
 
@@ -36,13 +37,13 @@ function DeleteSheet({ onConfirm, onCancel }: { onConfirm: () => void; onCancel:
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative w-full rounded-t-2xl bg-[var(--tgui--bg_color)] px-4 pt-4 pb-8 shadow-2xl">
-        <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-[var(--tgui--secondary_bg_color)]" /></div>
+      <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
+        <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
         <h3 className="mb-1 text-base font-semibold">Видалити звіт?</h3>
-        <p className="mb-5 text-sm text-[var(--tgui--hint_color)]">Це незворотньо.</p>
+        <p className="mb-5 text-sm text-muted-foreground">Це незворотньо.</p>
         <div className="flex gap-3">
-          <Button variant="outline" className="flex-1 rounded-full" onClick={onCancel}>Скасувати</Button>
-          <Button variant="destructive" className="flex-1 rounded-full" onClick={onConfirm}>Видалити</Button>
+          <Button variant="outline" className="flex-1" onClick={onCancel}>Скасувати</Button>
+          <Button variant="destructive" className="flex-1" onClick={onConfirm}>Видалити</Button>
         </div>
       </div>
     </div>
@@ -61,27 +62,21 @@ function ReportCard({ report, onDelete }: { report: ReportSummary; onDelete: () 
     <>
       <Card className="overflow-hidden">
         <div className="flex items-start gap-3 p-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--tgui--link_color)]/10">
-            <BarChart2 size={18} className="text-[var(--tgui--link_color)]" />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <BarChart2 size={18} className="text-primary" />
           </div>
           <button onClick={() => setExpanded(v => !v)} className="flex-1 min-w-0 text-left">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium">{PERIOD_LABELS[report.period_type] ?? 'Звіт'}</p>
-              <span className="text-[10px] text-[var(--tgui--hint_color)]">{from} — {to}</span>
+              <span className="text-[10px] text-muted-foreground">{from} — {to}</span>
             </div>
-            <p className="mt-0.5 text-xs text-[var(--tgui--hint_color)] line-clamp-2">{report.summary}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{report.summary}</p>
           </button>
           <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => setExpanded(v => !v)}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--tgui--hint_color)]"
-            >
+            <button onClick={() => setExpanded(v => !v)} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground">
               <ChevronDown size={15} className={cn('transition-transform', expanded && 'rotate-180')} />
             </button>
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--tgui--hint_color)] hover:text-destructive"
-            >
+            <button onClick={() => setConfirmDelete(true)} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-destructive transition-colors">
               <Trash2 size={14} />
             </button>
           </div>
@@ -91,7 +86,7 @@ function ReportCard({ report, onDelete }: { report: ReportSummary; onDelete: () 
           <div className="border-t px-4 pb-4 pt-3">
             <div className="flex flex-col gap-2">
               {report.insights.map((ins, i) => (
-                <div key={i} className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-xs', INSIGHT_COLORS[ins.type] ?? 'bg-[var(--tgui--secondary_bg_color)]')}>
+                <div key={i} className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-xs', INSIGHT_COLORS[ins.type] ?? 'bg-muted')}>
                   <span className="shrink-0 text-base leading-none">{ins.emoji}</span>
                   <p className="leading-relaxed">{ins.text}</p>
                 </div>
@@ -102,10 +97,7 @@ function ReportCard({ report, onDelete }: { report: ReportSummary; onDelete: () 
       </Card>
 
       {confirmDelete && (
-        <DeleteSheet
-          onConfirm={() => { setConfirmDelete(false); onDelete(); }}
-          onCancel={() => setConfirmDelete(false)}
-        />
+        <DeleteSheet onConfirm={() => { setConfirmDelete(false); onDelete(); }} onCancel={() => setConfirmDelete(false)} />
       )}
     </>
   );
@@ -166,24 +158,18 @@ export default function ReportsPage() {
       {/* Generate */}
       <Card className="p-4">
         <p className="mb-3 text-sm font-medium">Згенерувати звіт</p>
-        <div className="mb-3 flex gap-2">
-          {(['daily', 'weekly', 'monthly'] as const).map(p => (
-            <button key={p} onClick={() => setGenPeriod(p)}
-              className={cn('flex-1 rounded-full py-2 text-xs font-medium transition-colors',
-                genPeriod === p
-                  ? 'bg-[var(--tgui--button_color)] text-white'
-                  : 'bg-[var(--tgui--secondary_bg_color)] text-[var(--tgui--hint_color)]')}>
-              {p === 'daily' ? 'День' : p === 'weekly' ? 'Тиждень' : 'Місяць'}
-            </button>
-          ))}
-        </div>
-        <Button className="w-full rounded-full gap-2" onClick={generateReport} disabled={generating}>
-          {generating
-            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            : <RefreshCw size={15} />}
+        <Tabs value={genPeriod} onValueChange={(v) => setGenPeriod(v as typeof genPeriod)} className="mb-3">
+          <TabsList className="w-full">
+            <TabsTrigger value="daily">День</TabsTrigger>
+            <TabsTrigger value="weekly">Тиждень</TabsTrigger>
+            <TabsTrigger value="monthly">Місяць</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <Button className="w-full gap-2" onClick={generateReport} disabled={generating}>
+          {generating ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" /> : <RefreshCw size={15} />}
           {generating ? 'Аналізую...' : 'Згенерувати'}
         </Button>
-        <p className="mt-2 text-center text-[10px] text-[var(--tgui--hint_color)]">
+        <p className="mt-2 text-center text-[10px] text-muted-foreground">
           Або напиши боту: /report weekly
         </p>
       </Card>
@@ -195,7 +181,7 @@ export default function ReportsPage() {
         </div>
       )}
       {!loading && reports.length === 0 && (
-        <p className="py-8 text-center text-sm text-[var(--tgui--hint_color)]">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           Звітів ще немає. Згенеруй перший або напиши боту /report
         </p>
       )}
