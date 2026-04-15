@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/supabase/auth-context';
-import { ScrollText, LayoutDashboard, Network, Settings, BarChart2 } from 'lucide-react';
+import { ScrollText, LayoutDashboard, Network, Settings, FileText } from 'lucide-react';
 import { PasscodeScreen } from '@/components/ui/passcode-screen';
 import { getPasscodeHash, shouldLock, touchLastActive } from '@/lib/passcode';
 
@@ -27,7 +27,7 @@ const tabs = [
   { label: 'Стрічка',  href: '/miniapp',           Icon: ScrollText },
   { label: 'Дашборд',  href: '/miniapp/dashboard',  Icon: LayoutDashboard },
   { label: 'Граф',     href: '/miniapp/graph',       Icon: Network },
-  { label: 'Звіти',    href: '/miniapp/reports',     Icon: BarChart2 },
+  { label: 'Звіти',    href: '/miniapp/reports',     Icon: FileText },
   { label: 'Профіль',  href: '/miniapp/settings',    Icon: Settings },
 ];
 

@@ -122,8 +122,10 @@ Intent rules:
 - question    → asking about past diary data (data-driven answer) — do NOT save
 - converse    → sharing feelings / venting / reflecting (save + empathetic reply)
 - smalltalk   → greetings, thanks, "ok", "👍", bye — do NOT save
-- action      → user wants to perform an operation: delete records, create/merge dashboard widgets, etc.
-- teach       → user is giving the AI a custom instruction, rule, or correction to remember for the future
+- action      → user wants to perform an operation: delete records, create/merge dashboard widgets, change report schedule, etc. — do NOT save as entry
+- teach       → user is giving the AI a custom instruction, rule, or correction to remember for the future — do NOT save as entry
+
+CRITICAL: If the user is giving a COMMAND or INSTRUCTION to the bot (e.g. "вимкни звіти", "налаштуй розклад", "покажи налаштування", "увімкни щоденний звіт", "зміни час на 9:00", "видали записи"), this is ALWAYS action or teach — NEVER save_entry with category "thoughts". Commands to the bot are NOT diary entries.
 
 IMPORTANT: If the user asks a question AND asks to record/save the answer (e.g. "скільки кофеїну в Monster і запиши мені"), use intent="save_entry" and extract the metrics from your knowledge. The content should be the factual statement (e.g. "Випив Monster Energy 500мл — 160мг кофеїну"). Always extract dashboard_metrics for such entries.
 
@@ -321,6 +323,9 @@ Output: {"intent":"action","category":"thoughts","category_label":"Думки","
 
 Input: "Хочу місячний звіт 1-го числа о 9:00"
 Output: {"intent":"action","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Хочу місячний звіт 1-го числа о 9:00","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"update_schedule","action_params":{"monthly":true,"time":"09:00"}}
+
+Input: "Налаштуй звіт щодня, вимкни щотижневі і щомісячні і постав на 7 годину"
+Output: {"intent":"action","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Налаштуй звіт щодня, вимкни щотижневі і щомісячні і постав на 7 годину","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"update_schedule","action_params":{"daily":true,"weekly":false,"monthly":false,"time":"07:00"}}
 
 Input: "Запам'ятай: мій стакан = 300мл"
 Output: {"intent":"teach","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Запам'ятай: мій стакан = 300мл","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"none","action_params":{}}

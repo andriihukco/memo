@@ -274,9 +274,49 @@ export default function GraphPage() {
         setSelectedNode(d);
       });
 
+    // Cluster labels — one label per connected component with >1 node
+    const parent = new Map<string, string>(nodes.map((n) => [n.id, n.id]));
+    function find(id: string): string {
+      if (parent.get(id) !== id) parent.set(id, find(parent.get(id)!));
+      return parent.get(id)!;
+    }
+    for (const l of links) {
+      const a = find((l.source as SimNode).id), b = find((l.target as SimNode).id);
+      if (a !== b) parent.set(a, b);
+    }
+    const components = new Map<string, SimNode[]>();
+    for (const n of nodes) {
+      const root = find(n.id);
+      if (!components.has(root)) components.set(root, []);
+      components.get(root)!.push(n);
+    }
+    const clusterLabels: Array<{ nodes: SimNode[]; label: string }> = [];
+    for (const group of components.values()) {
+      if (group.length < 2) continue;
+      const freq = new Map<string, number>();
+      for (const n of group) freq.set(n.category, (freq.get(n.category) ?? 0) + 1);
+      const topCat = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      // Use Ukrainian label from getCategoryLabel equivalent mapping
+      const UA: Record<string, string> = {
+        thoughts: 'Думки', ideas: 'Ідеї', feelings: 'Почуття', expenses: 'Витрати',
+        calories: 'Калорії', workout: 'Тренування', dreams: 'Сни', relationships: 'Стосунки',
+        health: "Здоров'я", travel: 'Подорожі', books: 'Книги', goals: 'Цілі', sleep: 'Сон',
+      };
+      clusterLabels.push({ nodes: group, label: UA[topCat] ?? topCat });
+    }
+
+    const clusterLabelSel = g.append('g').attr('class', 'cluster-labels')
+      .selectAll('text').data(clusterLabels).join('text')
+      .text((d) => d.label)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', 11)
+      .attr('font-family', 'system-ui, sans-serif')
+      .attr('font-weight', '600')
+      .attr('fill', '#6b7280')
+      .attr('pointer-events', 'none');
+
     // Drag
-    const dragBehavior = d3.drag<SVGCircleElement, SimNode>()
-      .on('start', (event, d) => {
+    const dragBehavior = d3.drag<SVGCircleElement, SimNode>()      .on('start', (event, d) => {
         if (!event.active) simulation.alphaTarget(0.3).restart();
         d.fx = d.x; d.fy = d.y;
       })
@@ -313,6 +353,9 @@ export default function GraphPage() {
           .attr('x2', (d) => (d.target as SimNode).x ?? 0)
           .attr('y2', (d) => (d.target as SimNode).y ?? 0);
         nodeSel.attr('cx', (d) => d.x ?? 0).attr('cy', (d) => d.y ?? 0);
+        clusterLabelSel
+          .attr('x', (d) => d.nodes.reduce((s, n) => s + (n.x ?? 0), 0) / d.nodes.length)
+          .attr('y', (d) => Math.min(...d.nodes.map((n) => n.y ?? 0)) - 12);
       });
 
     return () => { simulation.stop(); };
