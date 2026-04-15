@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { BarChart2, ChevronDown, RefreshCw, Trash2, X } from 'lucide-react';
+import { BarChart2, ChevronDown, RefreshCw, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

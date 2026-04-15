@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { Check, ChevronRight, Lock, Shield } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
-import { useAuth } from '@/lib/supabase/auth-context';
 import {
   getPasscodeHash, setPasscodeHash, removePasscode,
   getLockTimer, setLockTimer, type LockTimer, LOCK_TIMER_LABELS,
@@ -14,7 +13,6 @@ import { cn } from '@/lib/utils';
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
 export default function SettingsPage() {
-  const { accessToken: _accessToken } = useAuth();
   const [hasPasscode, setHasPasscode] = useState(false);
   const [lockTimer, setLockTimerState] = useState<LockTimer>(0);
   const [step, setStep] = useState<SetupStep>('idle');

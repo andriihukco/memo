@@ -489,7 +489,6 @@ export default function DashboardPage() {
 
   const metrics = aggregateMetrics(entries);
   const metricByKey = new Map(metrics.map(m => [m.key, m]));
-  const goals = aggregateGoals(entries);
 
   const expEntries  = entries.filter(e => e.category === 'expenses');
   const feelEntries = entries.filter(e => e.category === 'feelings');

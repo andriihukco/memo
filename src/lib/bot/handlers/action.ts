@@ -45,12 +45,6 @@ async function setPendingDelete(userId: string, key: string, ids: string[]): Pro
   }).eq("id", userId);
 }
 
-async function getPendingDelete(userId: string, key: string): Promise<string[] | null> {
-  const supabase = getServiceClient();
-  const { data } = await supabase.from("profiles").select("settings").eq("id", userId).single();
-  return (data?.settings as Record<string, unknown>)?.[key] as string[] | null ?? null;
-}
-
 async function clearPendingDelete(userId: string, key: string): Promise<void> {
   const supabase = getServiceClient();
   const { data } = await supabase.from("profiles").select("settings").eq("id", userId).single();
