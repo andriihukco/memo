@@ -6,7 +6,8 @@ import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { X } from 'lucide-react';
-import { EditDrawer, getCategoryLabel, categoryBadge } from '@/components/ui/edit-drawer';
+import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
+import { cn } from '@/lib/utils';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -114,7 +115,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPan
 
         {/* Category + date */}
         <div className="mb-3 flex items-center gap-2">
-          <Badge className={`capitalize ${categoryBadge(node.category)}`} variant="outline">
+          <Badge className={cn('capitalize border text-[10px]', getCategoryColor(node.category))} variant="outline">
             {getCategoryLabel(node.category)}
           </Badge>
           <time className="text-xs text-muted-foreground">{formatDate(node.created_at)}</time>
@@ -142,7 +143,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPan
                   onClick={() => setEditEntry(n)}
                 >
                   <div className="mb-1 flex items-center gap-1.5">
-                    <Badge className={`capitalize text-[10px] ${categoryBadge(n.category)}`} variant="outline">
+                    <Badge className={cn('capitalize text-[10px] border', getCategoryColor(n.category))} variant="outline">
                       {getCategoryLabel(n.category)}
                     </Badge>
                   </div>

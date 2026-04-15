@@ -21,30 +21,37 @@ const CATEGORY_LABELS_UA: Record<string, string> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  thoughts: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  ideas: 'bg-amber-100 text-amber-700 border-amber-200',
-  feelings: 'bg-pink-100 text-pink-700 border-pink-200',
-  expenses: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-  calories: 'bg-orange-100 text-orange-700 border-orange-200',
-  workout: 'bg-blue-100 text-blue-700 border-blue-200',
-  dreams: 'bg-violet-100 text-violet-700 border-violet-200',
+  thoughts:      'bg-indigo-100 text-indigo-700 border-indigo-200',
+  ideas:         'bg-amber-100 text-amber-700 border-amber-200',
+  feelings:      'bg-pink-100 text-pink-700 border-pink-200',
+  expenses:      'bg-emerald-100 text-emerald-700 border-emerald-200',
+  calories:      'bg-orange-100 text-orange-700 border-orange-200',
+  workout:       'bg-blue-100 text-blue-700 border-blue-200',
+  dreams:        'bg-violet-100 text-violet-700 border-violet-200',
   relationships: 'bg-rose-100 text-rose-700 border-rose-200',
-  health: 'bg-teal-100 text-teal-700 border-teal-200',
-  travel: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-  books: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-  gratitude: 'bg-lime-100 text-lime-700 border-lime-200',
-  goals: 'bg-sky-100 text-sky-700 border-sky-200',
-  sleep: 'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
-  music: 'bg-purple-100 text-purple-700 border-purple-200',
+  health:        'bg-teal-100 text-teal-700 border-teal-200',
+  travel:        'bg-cyan-100 text-cyan-700 border-cyan-200',
+  books:         'bg-yellow-100 text-yellow-700 border-yellow-200',
+  gratitude:     'bg-lime-100 text-lime-700 border-lime-200',
+  goals:         'bg-sky-100 text-sky-700 border-sky-200',
+  sleep:         'bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200',
+  music:         'bg-purple-100 text-purple-700 border-purple-200',
+  work:          'bg-slate-100 text-slate-700 border-slate-200',
+  social:        'bg-pink-100 text-pink-700 border-pink-200',
+  career:        'bg-blue-100 text-blue-700 border-blue-200',
 };
 
-const CATEGORY_BADGE_COLORS: Record<string, string> = {
-  thoughts: 'bg-indigo-100 text-indigo-700', ideas: 'bg-amber-100 text-amber-700',
-  feelings: 'bg-pink-100 text-pink-700', expenses: 'bg-emerald-100 text-emerald-700',
-  calories: 'bg-orange-100 text-orange-700', workout: 'bg-blue-100 text-blue-700',
-  dreams: 'bg-violet-100 text-violet-700', relationships: 'bg-rose-100 text-rose-700',
-  health: 'bg-teal-100 text-teal-700', sleep: 'bg-purple-100 text-purple-700',
-};
+// Dynamic fallback palette for unknown categories
+const FALLBACK_PALETTE = [
+  'bg-violet-100 text-violet-700 border-violet-200',
+  'bg-teal-100 text-teal-700 border-teal-200',
+  'bg-rose-100 text-rose-700 border-rose-200',
+  'bg-cyan-100 text-cyan-700 border-cyan-200',
+  'bg-lime-100 text-lime-700 border-lime-200',
+  'bg-sky-100 text-sky-700 border-sky-200',
+  'bg-amber-100 text-amber-700 border-amber-200',
+  'bg-indigo-100 text-indigo-700 border-indigo-200',
+];
 
 export function getCategoryLabel(cat: string, serverLabel?: string): string {
   if (CATEGORY_LABELS_UA[cat]) return CATEGORY_LABELS_UA[cat];
@@ -55,14 +62,12 @@ export function getCategoryLabel(cat: string, serverLabel?: string): string {
 
 export function getCategoryColor(cat: string): string {
   if (CATEGORY_COLORS[cat]) return CATEGORY_COLORS[cat];
-  const palette = ['bg-violet-100 text-violet-700 border-violet-200','bg-teal-100 text-teal-700 border-teal-200','bg-rose-100 text-rose-700 border-rose-200','bg-cyan-100 text-cyan-700 border-cyan-200','bg-lime-100 text-lime-700 border-lime-200','bg-sky-100 text-sky-700 border-sky-200'];
   let h = 0; for (let i = 0; i < cat.length; i++) h = (h * 31 + cat.charCodeAt(i)) & 0xffffffff;
-  return palette[Math.abs(h) % palette.length];
+  return FALLBACK_PALETTE[Math.abs(h) % FALLBACK_PALETTE.length];
 }
 
-export function categoryBadge(cat: string): string {
-  return CATEGORY_BADGE_COLORS[cat] ?? 'bg-gray-100 text-gray-700';
-}
+// Alias — same function, kept for graph/badge usage
+export const categoryBadge = getCategoryColor;
 
 // ── EditDrawer ────────────────────────────────────────────────────────────────
 
