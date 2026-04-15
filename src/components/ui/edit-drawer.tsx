@@ -18,6 +18,11 @@ const CATEGORY_LABELS_UA: Record<string, string> = {
   dreams: 'Сни', relationships: 'Стосунки', health: "Здоров'я",
   travel: 'Подорожі', books: 'Книги', gratitude: 'Вдячність',
   goals: 'Цілі', sleep: 'Сон', music: 'Музика',
+  work: 'Робота', career: 'Кар\'єра', social: 'Соціальне',
+  sex_life: 'Інтимне', sport: 'Спорт', food: 'Їжа',
+  finance: 'Фінанси', meditation: 'Медитація', hobby: 'Хобі',
+  family: 'Сім\'я', friends: 'Друзі', nature: 'Природа',
+  art: 'Мистецтво', learning: 'Навчання',
 };
 
 const CATEGORY_COLORS: Record<string, string> = {

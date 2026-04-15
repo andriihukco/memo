@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ChevronRight, Lock, LockOpen, RectangleEllipsis, ClockFading, Trash2, BookOpen, Bell } from 'lucide-react';
+import { Check, ChevronRight, Lock, LockOpen, RectangleEllipsis, ClockFading, Trash2, BookOpen, Bell, Plus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
@@ -49,6 +49,8 @@ export default function SettingsPage() {
 
   // Rules
   const [rules, setRules] = useState<CustomRule[]>([]);
+  const [showAddRule, setShowAddRule] = useState(false);
+  const [newRuleText, setNewRuleText] = useState('');
 
   // Schedule
   const [schedule, setSchedule] = useState<ReportSchedule>({ daily: false, weekly: true, monthly: true, time: '09:00' });
@@ -82,6 +84,21 @@ export default function SettingsPage() {
       body: JSON.stringify({ id }),
     });
     setRules(prev => prev.filter(r => r.id !== id));
+  };
+
+  const addRule = async () => {
+    if (!accessToken || !newRuleText.trim()) return;
+    const res = await fetch('/api/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ instruction: newRuleText.trim() }),
+    });
+    if (res.ok) {
+      const { rule } = await res.json();
+      setRules(prev => [...prev, rule]);
+      setNewRuleText('');
+      setShowAddRule(false);
+    }
   };
 
   const updateSchedule = async (patch: Partial<ReportSchedule>) => {
@@ -150,7 +167,38 @@ export default function SettingsPage() {
 
       {/* ── Rules ─────────────────────────────────────────────────────────── */}
       <section>
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Правила бота</p>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Правила бота</p>
+          <button
+            onClick={() => setShowAddRule(v => !v)}
+            className="flex items-center gap-1 text-xs text-primary"
+          >
+            <Plus size={12} />
+            Додати правило
+          </button>
+        </div>
+
+        {showAddRule && (
+          <div className="mb-2 flex gap-2">
+            <input
+              type="text"
+              placeholder="Наприклад: мій стакан = 300мл"
+              value={newRuleText}
+              onChange={e => setNewRuleText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') addRule(); }}
+              autoFocus
+              className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <button
+              onClick={addRule}
+              disabled={!newRuleText.trim()}
+              className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            >
+              Зберегти
+            </button>
+          </div>
+        )}
+
         {rules.length === 0 ? (
           <Card>
             <CardContent className="flex items-center gap-3 p-4">

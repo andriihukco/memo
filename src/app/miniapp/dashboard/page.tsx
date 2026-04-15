@@ -496,7 +496,6 @@ export default function DashboardPage() {
   const expEntries  = entries.filter(e => e.category === 'expenses');
   const feelEntries = entries.filter(e => e.category === 'feelings');
   const ideaEntries = entries.filter(e => e.category === 'ideas');
-  const thgtEntries = entries.filter(e => e.category === 'thoughts');
 
   const byCur: Record<string, number> = {};
   const byCat: Record<string, { total: number; currency: string }> = {};
@@ -665,22 +664,6 @@ export default function DashboardPage() {
                         <ChevronRight size={13} /> Ще {ideaEntries.length - 5} ідей
                       </button>
                     )}
-                  </div>
-                </Section>
-              )}
-
-              {/* ── Thoughts ─────────────────────────────────────────────────── */}
-              {thgtEntries.length > 0 && (
-                <Section title="Думки" count={thgtEntries.length} defaultOpen={false}>
-                  <div className="flex flex-col gap-2">
-                    {thgtEntries.slice(0, 3).map((e) => (
-                      <Card key={e.id} className="flex items-start gap-3 p-3">
-                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
-                          <Brain size={13} className="text-indigo-600" />
-                        </div>
-                        <p className="text-sm leading-relaxed line-clamp-3">{e.content}</p>
-                      </Card>
-                    ))}
                   </div>
                 </Section>
               )}

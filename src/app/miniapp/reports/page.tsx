@@ -70,6 +70,7 @@ function NewReportDrawer({ onClose, onGenerate }: {
   const [fromStr, setFromStr] = useState(isoDate(startOfDay(new Date())));
   const [toStr, setToStr] = useState(isoDate(new Date()));
   const [showCustom, setShowCustom] = useState(false);
+  const [selected, setSelected] = useState<{ type: string; from: Date; to: Date } | null>(null);
 
   const presets = [
     { label: 'Сьогодні', type: 'daily', fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
@@ -77,10 +78,15 @@ function NewReportDrawer({ onClose, onGenerate }: {
     { label: 'Місяць', type: 'monthly', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
   ];
 
-  const applyCustom = () => {
+  const selectCustom = () => {
     const from = startOfDay(new Date(fromStr)), to = endOfDay(new Date(toStr));
     if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return;
-    onGenerate('custom', from, to);
+    setSelected({ type: 'custom', from, to });
+  };
+
+  const generate = () => {
+    if (!selected) return;
+    onGenerate(selected.type, selected.from, selected.to);
     onClose();
   };
 
@@ -96,15 +102,23 @@ function NewReportDrawer({ onClose, onGenerate }: {
 
         {/* Presets */}
         <div className="mb-3 grid grid-cols-3 gap-2">
-          {presets.map(p => (
-            <button
-              key={p.type}
-              onClick={() => { const r = p.fn(); onGenerate(p.type, r.from, r.to); onClose(); }}
-              className="rounded-xl border border-border bg-muted/30 py-3 text-sm font-medium transition-colors hover:bg-muted active:bg-muted/70"
-            >
-              {p.label}
-            </button>
-          ))}
+          {presets.map(p => {
+            const isSelected = selected?.type === p.type;
+            return (
+              <button
+                key={p.type}
+                onClick={() => { const r = p.fn(); setSelected({ type: p.type, from: r.from, to: r.to }); setShowCustom(false); }}
+                className={cn(
+                  'rounded-xl border py-3 text-sm font-medium transition-colors',
+                  isSelected
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-muted/30 hover:bg-muted active:bg-muted/70'
+                )}
+              >
+                {p.label}
+              </button>
+            );
+          })}
         </div>
 
         {/* Custom range toggle */}
@@ -125,9 +139,12 @@ function NewReportDrawer({ onClose, onGenerate }: {
               <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
                 className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
-            <Button className="w-full" onClick={applyCustom}>Згенерувати за діапазоном</Button>
+            <Button variant="outline" className="w-full" onClick={selectCustom}>Обрати діапазон</Button>
           </div>
         )}
+
+        {/* Single generate button */}
+        <Button className="w-full" disabled={!selected} onClick={generate}>Згенерувати</Button>
       </div>
     </div>
   );

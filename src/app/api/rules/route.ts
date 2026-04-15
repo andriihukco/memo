@@ -31,6 +31,33 @@ export async function GET(req: Request) {
   return Response.json({ rules });
 }
 
+// POST — add a new rule
+export async function POST(req: Request) {
+  const token = jwt(req);
+  if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
+  const { instruction } = await req.json().catch(() => ({}));
+  if (!instruction?.trim()) return Response.json({ error: "Missing instruction" }, { status: 400 });
+
+  const db = userDb(token);
+  const { data: profile } = await db.from("profiles").select("id, settings").single();
+  if (!profile) return Response.json({ error: "Not found" }, { status: 404 });
+
+  const existing = (profile.settings?.custom_rules as CustomRule[]) ?? [];
+  const newRule: CustomRule = {
+    id: crypto.randomUUID(),
+    instruction: instruction.trim(),
+    created_at: new Date().toISOString(),
+  };
+  const updated = [...existing, newRule];
+
+  const svc = serviceDb();
+  await svc.from("profiles").update({
+    settings: { ...(profile.settings ?? {}), custom_rules: updated },
+  }).eq("id", profile.id);
+
+  return Response.json({ rule: newRule });
+}
+
 // DELETE — remove a rule by id
 export async function DELETE(req: Request) {
   const token = jwt(req);
