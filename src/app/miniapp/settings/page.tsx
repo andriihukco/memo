@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check, ChevronRight, Lock, Shield, Trash2, BookOpen, Bell } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
 import { useAuth } from '@/lib/supabase/auth-context';
