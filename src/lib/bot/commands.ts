@@ -1,4 +1,5 @@
 import { Context } from "grammy";
+import { InlineKeyboard, Keyboard } from "grammy";
 import type { Profile } from "@/lib/profile";
 import { loadUserRules, deleteUserRule } from "@/lib/bot/teach";
 import { generateRetrospective, saveReport, formatReportForTelegram, getReportSchedule } from "@/lib/bot/retrospective";
@@ -7,6 +8,13 @@ import { sanitizeMarkdown } from "@/lib/utils";
 interface BotContext extends Context {
   profile?: Profile;
 }
+
+// Persistent reply keyboard — always visible at the bottom
+export const MAIN_KEYBOARD = new Keyboard()
+  .text("📊 Дашборд").text("📖 Допомога").text("📋 Правила").row()
+  .text("📅 Звіт тижня").text("📅 Звіт дня").text("🔄 Скинути")
+  .resized()
+  .persistent();
 
 const WELCOME = `👋 Привіт! Я *Memo* — твій особистий AI-щоденник.
 
@@ -74,11 +82,18 @@ const HELP = `📖 *Довідка Memo*
 *Голосові повідомлення:* просто надішли — я транскрибую і збережу 🎙️`;
 
 export async function handleStart(ctx: BotContext): Promise<void> {
-  await ctx.reply(WELCOME, { parse_mode: "Markdown" });
+  await ctx.reply(WELCOME, { parse_mode: "Markdown", reply_markup: MAIN_KEYBOARD });
 }
 
 export async function handleHelp(ctx: BotContext): Promise<void> {
-  await ctx.reply(HELP, { parse_mode: "Markdown" });
+  await ctx.reply(HELP, { parse_mode: "Markdown", reply_markup: MAIN_KEYBOARD });
+}
+
+export async function handleReset(ctx: BotContext): Promise<void> {
+  await ctx.reply(
+    "🔄 Готовий! Просто пиши або надсилай голосові — я слухаю.",
+    { reply_markup: MAIN_KEYBOARD }
+  );
 }
 
 export async function handleRules(ctx: BotContext): Promise<void> {
