@@ -229,6 +229,7 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
   const [showNewDrawer, setShowNewDrawer] = useState(false);
   const progressLabel = useProgressLabel(generating);
 
@@ -249,6 +250,7 @@ export default function ReportsPage() {
   const generateReport = async (periodType: string, from?: Date, to?: Date) => {
     if (!accessToken || generating) return;
     setGenerating(true);
+    setGenError(null);
     try {
       const body: Record<string, unknown> = { period_type: periodType };
       if (from) body.from = from.toISOString();
@@ -258,7 +260,14 @@ export default function ReportsPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify(body),
       });
-      if (res.ok) await loadReports();
+      const data = await res.json();
+      if (!res.ok) {
+        setGenError(data.error ?? `Помилка ${res.status}`);
+      } else {
+        await loadReports();
+      }
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Невідома помилка');
     } finally {
       setGenerating(false);
     }
@@ -296,6 +305,11 @@ export default function ReportsPage() {
         <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-3">
           <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
           <p className="text-sm text-muted-foreground transition-all">{progressLabel}</p>
+        </div>
+      )}
+      {genError && (
+        <div className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {genError}
         </div>
       )}
 

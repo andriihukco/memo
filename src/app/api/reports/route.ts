@@ -1,6 +1,8 @@
 export const runtime = "nodejs"; // needs more memory for AI generation
+export const maxDuration = 60; // allow up to 60s for Gemini generation
 
 import { createClient } from "@supabase/supabase-js";
+import { env } from "@/lib/env";
 import { generateRetrospective, saveReport, loadReports, deleteReport } from "@/lib/bot/retrospective";
 
 function jwt(req: Request) {
@@ -8,6 +10,7 @@ function jwt(req: Request) {
   return a?.startsWith("Bearer ") ? a.slice(7) : null;
 }
 
+// Use user JWT to get the profile id (respects RLS)
 function userDb(token: string) {
   return createClient(process.env.SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     global: { headers: { Authorization: `Bearer ${token}` } },
@@ -18,27 +21,33 @@ function userDb(token: string) {
 // GET — list reports
 export async function GET(req: Request) {
   const token = jwt(req);
-  if (!token) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const db = userDb(token);
-  const { data: profile } = await db.from("profiles").select("id").single();
-  if (!profile) return new Response(JSON.stringify({ reports: [] }), { status: 200, headers: { "Content-Type": "application/json" } });
+  const { data: profile, error: profileErr } = await db.from("profiles").select("id").single();
+  if (profileErr || !profile) {
+    console.error("[reports GET] profile lookup failed:", profileErr?.message);
+    return Response.json({ reports: [] });
+  }
 
   const reports = await loadReports(profile.id);
-  return new Response(JSON.stringify({ reports }), { status: 200, headers: { "Content-Type": "application/json" } });
+  return Response.json({ reports });
 }
 
 // POST — generate a new report
 export async function POST(req: Request) {
   const token = jwt(req);
-  if (!token) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const { period_type = "weekly", from, to } = body;
 
   const db = userDb(token);
-  const { data: profile } = await db.from("profiles").select("id").single();
-  if (!profile) return new Response(JSON.stringify({ error: "Profile not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+  const { data: profile, error: profileErr } = await db.from("profiles").select("id").single();
+  if (profileErr || !profile) {
+    console.error("[reports POST] profile lookup failed:", profileErr?.message);
+    return Response.json({ error: "Profile not found" }, { status: 404 });
+  }
 
   const now = new Date();
   let fromDate: Date, toDate: Date;
@@ -57,28 +66,36 @@ export async function POST(req: Request) {
     toDate = now;
   }
 
-  const report = await generateRetrospective(profile.id, period_type, fromDate, toDate);
-  if (!report) {
-    return new Response(JSON.stringify({ error: "Not enough data for this period" }), { status: 422, headers: { "Content-Type": "application/json" } });
-  }
+  console.log(`[reports POST] generating ${period_type} for user ${profile.id}, from=${fromDate.toISOString()} to=${toDate.toISOString()}`);
 
-  const id = await saveReport(profile.id, report);
-  return new Response(JSON.stringify({ report: { ...report, id } }), { status: 201, headers: { "Content-Type": "application/json" } });
+  try {
+    const report = await generateRetrospective(profile.id, period_type, fromDate, toDate);
+    if (!report) {
+      return Response.json({ error: "Недостатньо записів за цей період" }, { status: 422 });
+    }
+
+    const id = await saveReport(profile.id, report);
+    return Response.json({ report: { ...report, id } }, { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[reports POST] generation error:", message);
+    return Response.json({ error: `Помилка генерації: ${message}` }, { status: 500 });
+  }
 }
 
 // DELETE — remove a report
 export async function DELETE(req: Request) {
   const token = jwt(req);
-  if (!token) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+  if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await req.json().catch(() => ({}));
   const { id } = body;
-  if (!id) return new Response(JSON.stringify({ error: "Missing id" }), { status: 400, headers: { "Content-Type": "application/json" } });
+  if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
 
   const db = userDb(token);
   const { data: profile } = await db.from("profiles").select("id").single();
-  if (!profile) return new Response(JSON.stringify({ error: "Profile not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+  if (!profile) return Response.json({ error: "Profile not found" }, { status: 404 });
 
   await deleteReport(profile.id, id);
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+  return Response.json({ ok: true });
 }

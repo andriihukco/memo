@@ -55,7 +55,7 @@ export default function SettingsPage() {
   const [newRuleText, setNewRuleText] = useState('');
 
   // Schedule
-  const [schedule, setSchedule] = useState<ReportSchedule>({ daily: false, weekly: true, weekly_day: 1, monthly: true, monthly_day: 1, time: '09:00' });
+  const [schedule, setSchedule] = useState<ReportSchedule | null>(null);
 
   useEffect(() => {
     setHasPasscode(!!getPasscodeHash());
@@ -104,7 +104,7 @@ export default function SettingsPage() {
   };
 
   const updateSchedule = async (patch: Partial<ReportSchedule>) => {
-    if (!accessToken) return;
+    if (!accessToken || !schedule) return;
     const next = { ...schedule, ...patch };
     setSchedule(next);
     await fetch('/api/schedule', {
@@ -142,6 +142,9 @@ export default function SettingsPage() {
       {/* ── Auto-reports ──────────────────────────────────────────────────── */}
       <section>
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Автозвіти</p>
+        {!schedule ? (
+          <Card><CardContent className="p-4"><div className="h-4 w-32 animate-pulse rounded bg-muted" /></CardContent></Card>
+        ) : (
         <Card>
           <CardContent className="p-0">
             <div className="flex items-center gap-3 px-4 py-3">
@@ -195,6 +198,7 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+        )}
         <p className="mt-1.5 px-1 text-xs text-muted-foreground">Або скажи боту: &ldquo;Вмикай тижневий звіт о 10:00&rdquo;</p>
       </section>
 
