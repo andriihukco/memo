@@ -219,7 +219,12 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   const threadCtx = resolvedThreadId
     ? await loadThreadContext(supabase, resolvedThreadId, profile.id)
     : undefined;
-  const finalReplyText = await generateConverseReply(text, threadCtx, profile.id, prefetchedTone);
+  // Pass the classified/cleaned content so the bot knows what was saved
+  // and can ask smart follow-up questions about it
+  const replyContext = threadCtx
+    ? `Контекст розмови:\n${threadCtx}\n\nНове повідомлення: ${text}`
+    : text;
+  const finalReplyText = await generateConverseReply(replyContext, undefined, profile.id, prefetchedTone);
   const sent = await ctx.reply(sanitizeMarkdown(finalReplyText));
   botMsgId = sent.message_id;
 
