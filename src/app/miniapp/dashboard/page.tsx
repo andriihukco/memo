@@ -10,11 +10,10 @@ import {
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { DashboardMetric } from '@/lib/classifier';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
-
-type DashView = 'actual' | 'goals';
 
 interface Entry {
   id: string;
@@ -451,7 +450,7 @@ export default function DashboardPage() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [filter, setFilter] = useState<DateFilter>({ range: 'today', ...rangeFor('today') });
   const [drillDown, setDrillDown] = useState<{ title: string; entries: Entry[] } | null>(null);
-  const [view, setView] = useState<DashView>('actual');
+  const [view, setView] = useState('actual');
   const [showCalendar, setShowCalendar] = useState(false);
 
   const fetchEntries = useCallback(async (from: Date, to: Date) => {
@@ -491,7 +490,6 @@ export default function DashboardPage() {
   const metrics = aggregateMetrics(entries);
   const metricByKey = new Map(metrics.map(m => [m.key, m]));
   const goals = aggregateGoals(entries);
-  const goalByKey = new Map(goals.map(g => [g.key, g]));
 
   const expEntries  = entries.filter(e => e.category === 'expenses');
   const feelEntries = entries.filter(e => e.category === 'feelings');
@@ -554,21 +552,17 @@ export default function DashboardPage() {
       </div>
 
       {/* View tabs */}
-      <div className="flex gap-1 rounded-full bg-[var(--tgui--secondary_bg_color)] p-1">
-        <button onClick={() => setView('actual')} className={cn('flex-1 rounded-full py-1.5 text-xs font-medium transition-colors', view === 'actual' ? 'bg-[var(--tgui--bg_color)] text-[var(--tgui--text_color)] shadow-sm' : 'text-[var(--tgui--hint_color)]')}>
-          Лог
-        </button>
-        <button onClick={() => setView('goals')} className={cn('flex-1 rounded-full py-1.5 text-xs font-medium transition-colors', view === 'goals' ? 'bg-[var(--tgui--bg_color)] text-[var(--tgui--text_color)] shadow-sm' : 'text-[var(--tgui--hint_color)]')}>
-          Цілі
-        </button>
-      </div>
+      <Tabs value={view} onValueChange={setView}>
+        <TabsList className="w-full">
+          <TabsTrigger value="actual">Лог</TabsTrigger>
+          <TabsTrigger value="goals">Цілі</TabsTrigger>
+        </TabsList>
 
-      {/* Goals view */}
-      {view === 'goals' && status === 'ready' && <GoalsTab entries={entries} />}
+        <TabsContent value="goals">
+          {status === 'ready' && <GoalsTab entries={entries} />}
+        </TabsContent>
 
-      {/* Actual log view */}
-      {view === 'actual' && (
-        <>
+        <TabsContent value="actual">
           {status === 'loading' && <div className="flex items-center justify-center py-16"><div className="h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-foreground" /></div>}
           {status === 'error' && (
             <div className="py-12 text-center">
@@ -582,139 +576,117 @@ export default function DashboardPage() {
             </div>
           )}
 
-      {status === 'ready' && entries.length > 0 && (
-        <div className="flex flex-col gap-6">
+          {status === 'ready' && entries.length > 0 && (
+            <div className="flex flex-col gap-6">
 
-          {/* ── Dynamic metrics grid ──────────────────────────────────────── */}
-          {(metrics.length > 0 || goals.length > 0) && (
-            <Section title="Метрики" count={metrics.length + goals.filter(g => !metricByKey.has(g.key)).length}>
-              <div className="grid grid-cols-2 gap-3">
-                {showEnergyBalance && (
-                  <EnergyBalanceCard intake={intakeMetric!.value} burned={burnedMetric!.value} />
-                )}
-                {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} goal={goalByKey.get('kcal_intake')} />}
-                {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} goal={goalByKey.get('kcal_burned')} />}
-                {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} goal={goalByKey.get(m.key)} />)}
-                {/* Goals with no actual data yet */}
-                {goals.filter(g => !metricByKey.has(g.key)).map(g => {
-                  const { bg, text } = metricColor(g.key);
-                  return (
-                    <Card key={g.key} className="flex flex-col gap-1 p-4 opacity-70">
-                      <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
-                        <MetricIcon name={g.icon} size={16} className={text} />
-                      </div>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-bold tracking-tight">0</span>
-                        <span className="text-sm text-[var(--tgui--hint_color)]">/ {g.target} {g.unit}</span>
-                      </div>
-                      <p className="text-xs font-medium">{g.label}</p>
-                      <div className="mt-1">
-                        <div className="mb-0.5 flex justify-between text-[10px] text-[var(--tgui--hint_color)]">
-                          <span>Ціль {g.period ? `(${g.period})` : ''}</span><span>0%</span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-[var(--tgui--secondary_bg_color)]" />
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            </Section>
-          )}
-
-          {/* ── Finance ──────────────────────────────────────────────────── */}
-          {expEntries.length > 0 && (
-            <Section title="Фінанси" count={expEntries.length}>
-              <Card className="cursor-pointer p-4 transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/30" onClick={() => openDrillDown(expEntries, 'Фінанси')}>
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
-                      <Wallet size={16} className="text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-[var(--tgui--hint_color)]">Всього витрат</p>
-                      <p className="text-xl font-bold">{totalSpend.toLocaleString()} <span className="text-sm font-normal text-[var(--tgui--hint_color)]">{mainCurrency?.[0]}</span></p>
-                    </div>
+              {/* ── Dynamic metrics grid ──────────────────────────────────────── */}
+              {metrics.length > 0 && (
+                <Section title="Метрики" count={metrics.length}>
+                  <div className="grid grid-cols-2 gap-3">
+                    {showEnergyBalance && (
+                      <EnergyBalanceCard intake={intakeMetric!.value} burned={burnedMetric!.value} />
+                    )}
+                    {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} />}
+                    {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} />}
+                    {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} />)}
                   </div>
-                  <span className="text-xs text-[var(--tgui--hint_color)]">{expEntries.length} транзакцій</span>
-                </div>
-                {spendCats.length > 0 && (
-                  <div className="flex flex-col gap-2.5">
-                    {spendCats.map(([cat, { total, currency }]) => (
-                      <SpendBar key={cat} label={cat} pct={totalSpend > 0 ? Math.round((total/totalSpend)*100) : 0} amount={total} currency={currency} />
+                </Section>
+              )}
+
+              {/* ── Finance ──────────────────────────────────────────────────── */}
+              {expEntries.length > 0 && (
+                <Section title="Фінанси" count={expEntries.length}>
+                  <Card className="cursor-pointer p-4 transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/30" onClick={() => openDrillDown(expEntries, 'Фінанси')}>
+                    <div className="mb-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
+                          <Wallet size={16} className="text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-[var(--tgui--hint_color)]">Всього витрат</p>
+                          <p className="text-xl font-bold">{totalSpend.toLocaleString()} <span className="text-sm font-normal text-[var(--tgui--hint_color)]">{mainCurrency?.[0]}</span></p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-[var(--tgui--hint_color)]">{expEntries.length} транзакцій</span>
+                    </div>
+                    {spendCats.length > 0 && (
+                      <div className="flex flex-col gap-2.5">
+                        {spendCats.map(([cat, { total, currency }]) => (
+                          <SpendBar key={cat} label={cat} pct={totalSpend > 0 ? Math.round((total/totalSpend)*100) : 0} amount={total} currency={currency} />
+                        ))}
+                      </div>
+                    )}
+                  </Card>
+                </Section>
+              )}
+
+              {/* ── Mood ─────────────────────────────────────────────────────── */}
+              {feelEntries.length > 0 && (
+                <Section title="Настрій" count={feelEntries.length}>
+                  <Card className="cursor-pointer p-4 transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/30" onClick={() => openDrillDown(feelEntries, 'Настрій')}>
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', moodColor)}>
+                        <MoodIcon size={20} />
+                      </div>
+                      <div>
+                        <p className="font-semibold">{moodLabel}</p>
+                        <p className="text-xs text-[var(--tgui--hint_color)]">{feelEntries.length} записів про почуття</p>
+                      </div>
+                    </div>
+                    {recentMood.length > 1 && (
+                      <div className="flex items-end gap-1" style={{ height: 36 }}>
+                        {recentMood.map((s, i) => {
+                          const h = Math.max(4, Math.round((Math.abs(s)/maxMoodAbs)*32));
+                          return <div key={i} className={cn('flex-1 rounded-sm', s > 0 ? 'bg-green-400' : s < 0 ? 'bg-red-400' : 'bg-[var(--tgui--secondary_bg_color)]')} style={{ height: h }} />;
+                        })}
+                      </div>
+                    )}
+                    {feelEntries[0] && <p className="mt-3 border-l-2 border-pink-200 pl-2 text-xs text-[var(--tgui--hint_color)] line-clamp-2">{feelEntries[0].content}</p>}
+                  </Card>
+                </Section>
+              )}
+
+              {/* ── Ideas ────────────────────────────────────────────────────── */}
+              {ideaEntries.length > 0 && (
+                <Section title="Ідеї" count={ideaEntries.length} defaultOpen={false}>
+                  <div className="flex flex-col gap-2">
+                    {ideaEntries.slice(0, 5).map((e) => (
+                      <Card key={e.id} className="flex items-start gap-3 p-3">
+                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-100">
+                          <Lightbulb size={13} className="text-amber-600" />
+                        </div>
+                        <p className="text-sm leading-relaxed line-clamp-2">{e.content}</p>
+                      </Card>
+                    ))}
+                    {ideaEntries.length > 5 && (
+                      <button className="flex items-center gap-1 self-start text-xs text-[var(--tgui--hint_color)] hover:text-[var(--tgui--text_color)]">
+                        <ChevronRight size={13} /> Ще {ideaEntries.length - 5} ідей
+                      </button>
+                    )}
+                  </div>
+                </Section>
+              )}
+
+              {/* ── Thoughts ─────────────────────────────────────────────────── */}
+              {thgtEntries.length > 0 && (
+                <Section title="Думки" count={thgtEntries.length} defaultOpen={false}>
+                  <div className="flex flex-col gap-2">
+                    {thgtEntries.slice(0, 3).map((e) => (
+                      <Card key={e.id} className="flex items-start gap-3 p-3">
+                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
+                          <Brain size={13} className="text-indigo-600" />
+                        </div>
+                        <p className="text-sm leading-relaxed line-clamp-3">{e.content}</p>
+                      </Card>
                     ))}
                   </div>
-                )}
-              </Card>
-            </Section>
-          )}
+                </Section>
+              )}
 
-          {/* ── Mood ─────────────────────────────────────────────────────── */}
-          {feelEntries.length > 0 && (
-            <Section title="Настрій" count={feelEntries.length}>
-              <Card className="cursor-pointer p-4 transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/30" onClick={() => openDrillDown(feelEntries, 'Настрій')}>
-                <div className="mb-3 flex items-center gap-3">
-                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', moodColor)}>
-                    <MoodIcon size={20} />
-                  </div>
-                  <div>
-                    <p className="font-semibold">{moodLabel}</p>
-                    <p className="text-xs text-[var(--tgui--hint_color)]">{feelEntries.length} записів про почуття</p>
-                  </div>
-                </div>
-                {recentMood.length > 1 && (
-                  <div className="flex items-end gap-1" style={{ height: 36 }}>
-                    {recentMood.map((s, i) => {
-                      const h = Math.max(4, Math.round((Math.abs(s)/maxMoodAbs)*32));
-                      return <div key={i} className={cn('flex-1 rounded-sm', s > 0 ? 'bg-green-400' : s < 0 ? 'bg-red-400' : 'bg-[var(--tgui--secondary_bg_color)]')} style={{ height: h }} />;
-                    })}
-                  </div>
-                )}
-                {feelEntries[0] && <p className="mt-3 border-l-2 border-pink-200 pl-2 text-xs text-[var(--tgui--hint_color)] line-clamp-2">{feelEntries[0].content}</p>}
-              </Card>
-            </Section>
+            </div>
           )}
-
-          {/* ── Ideas ────────────────────────────────────────────────────── */}
-          {ideaEntries.length > 0 && (
-            <Section title="Ідеї" count={ideaEntries.length} defaultOpen={false}>
-              <div className="flex flex-col gap-2">
-                {ideaEntries.slice(0, 5).map((e) => (
-                  <Card key={e.id} className="flex items-start gap-3 p-3">
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-100">
-                      <Lightbulb size={13} className="text-amber-600" />
-                    </div>
-                    <p className="text-sm leading-relaxed line-clamp-2">{e.content}</p>
-                  </Card>
-                ))}
-                {ideaEntries.length > 5 && (
-                  <button className="flex items-center gap-1 self-start text-xs text-[var(--tgui--hint_color)] hover:text-[var(--tgui--text_color)]">
-                    <ChevronRight size={13} /> Ще {ideaEntries.length - 5} ідей
-                  </button>
-                )}
-              </div>
-            </Section>
-          )}
-
-          {/* ── Thoughts ─────────────────────────────────────────────────── */}
-          {thgtEntries.length > 0 && (
-            <Section title="Думки" count={thgtEntries.length} defaultOpen={false}>
-              <div className="flex flex-col gap-2">
-                {thgtEntries.slice(0, 3).map((e) => (
-                  <Card key={e.id} className="flex items-start gap-3 p-3">
-                    <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-indigo-100">
-                      <Brain size={13} className="text-indigo-600" />
-                    </div>
-                    <p className="text-sm leading-relaxed line-clamp-3">{e.content}</p>
-                  </Card>
-                ))}
-              </div>
-            </Section>
-          )}
-
-        </div>
-      )}
-        </>
-      )}
+        </TabsContent>
+      </Tabs>
       {/* Drill-down drawer */}
       {drillDown && (
         <DrillDownDrawer

@@ -5,7 +5,7 @@ import * as d3 from 'd3';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil } from 'lucide-react';
+import { X } from 'lucide-react';
 import { EditDrawer, getCategoryLabel, categoryBadge } from '@/components/ui/edit-drawer';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@ type Category = string;
 
 interface GraphNode {
   id: string;
-  label: string; // full content
+  label: string;
   category: Category;
   created_at: string;
   edge_count: number;
@@ -32,7 +32,6 @@ interface GraphPayload {
   edges: GraphEdge[];
 }
 
-// D3 simulation node (extends GraphNode with x/y)
 interface SimNode extends d3.SimulationNodeDatum {
   id: string;
   label: string;
@@ -66,15 +65,12 @@ function categoryHex(cat: string): string {
 }
 
 function nodeRadius(edgeCount: number): number {
-  return Math.min(8 + edgeCount * 3, 30);
+  return Math.min(7 + edgeCount * 2, 22);
 }
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });
 }
 
@@ -88,24 +84,32 @@ interface NodeDetailPanelProps {
 }
 
 function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPanelProps) {
-  const [editOpen, setEditOpen] = useState(false);
+  const [editEntry, setEditEntry] = useState<GraphNode | null>(null);
+
   if (!node) return null;
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} aria-hidden="true" />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-[var(--tgui--bg_color)] px-5 pt-3 shadow-xl"
-        style={{ maxHeight: '70vh', overflowY: 'auto', paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-background px-5 pt-3 shadow-xl"
+        style={{
+          maxHeight: '70vh', overflowY: 'auto',
+          paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)',
+        }}
       >
         {/* Handle */}
         <div className="mb-3 flex justify-center">
-          <div className="h-1 w-10 rounded-full bg-gray-200" />
+          <div className="h-1 w-10 rounded-full bg-muted" />
         </div>
 
         {/* Close */}
-        <button onClick={onClose} className="absolute right-4 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200" aria-label="Закрити">
-          <span className="text-sm leading-none">✕</span>
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground"
+          aria-label="Закрити"
+        >
+          <X size={14} />
         </button>
 
         {/* Category + date */}
@@ -113,36 +117,36 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPan
           <Badge className={`capitalize ${categoryBadge(node.category)}`} variant="outline">
             {getCategoryLabel(node.category)}
           </Badge>
-          <time className="text-xs text-[var(--tgui--hint_color)]">{formatDate(node.created_at)}</time>
+          <time className="text-xs text-muted-foreground">{formatDate(node.created_at)}</time>
         </div>
 
-        {/* Full content */}
-        <p className="mb-4 text-sm leading-relaxed text-gray-800">{node.label}</p>
-
-        {/* Edit button */}
-        <button
-          onClick={() => setEditOpen(true)}
-          className="mb-4 flex items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        {/* Full content — tap to edit */}
+        <p
+          className="mb-4 cursor-pointer text-sm leading-relaxed text-foreground active:opacity-70"
+          onClick={() => setEditEntry(node)}
         >
-          <Pencil size={12} />
-          Редагувати запис
-        </button>
+          {node.label}
+        </p>
 
-        {/* Linked entries */}
+        {/* Linked entries — tap to edit */}
         {linkedNodes.length > 0 && (
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Пов&apos;язані записи ({linkedNodes.length}):
             </p>
             <div className="flex flex-col gap-2">
               {linkedNodes.map((n) => (
-                <div key={n.id} className="rounded-xl bg-gray-50 px-3 py-2">
+                <div
+                  key={n.id}
+                  className="cursor-pointer rounded-xl bg-muted/50 px-3 py-2 active:opacity-70"
+                  onClick={() => setEditEntry(n)}
+                >
                   <div className="mb-1 flex items-center gap-1.5">
                     <Badge className={`capitalize text-[10px] ${categoryBadge(n.category)}`} variant="outline">
                       {getCategoryLabel(n.category)}
                     </Badge>
                   </div>
-                  <p className="text-xs text-gray-700 leading-relaxed">{n.label}</p>
+                  <p className="text-xs text-foreground leading-relaxed">{n.label}</p>
                 </div>
               ))}
             </div>
@@ -150,18 +154,21 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPan
         )}
       </div>
 
-      {editOpen && (
+      {editEntry && (
         <EditDrawer
-          entry={{ id: node.id, content: node.label, category: node.category }}
-          onSave={onUpdate}
-          onClose={() => setEditOpen(false)}
+          entry={{ id: editEntry.id, content: editEntry.label, category: editEntry.category }}
+          onSave={async (id, content, category) => {
+            await onUpdate(id, content, category);
+            setEditEntry(null);
+          }}
+          onClose={() => setEditEntry(null)}
         />
       )}
     </>
   );
 }
 
-// ── GraphView ─────────────────────────────────────────────────────────────────
+// ── GraphPage ─────────────────────────────────────────────────────────────────
 
 export default function GraphPage() {
   const { accessToken } = useAuth();
@@ -171,19 +178,14 @@ export default function GraphPage() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const [graphData, setGraphData] = useState<GraphPayload | null>(null);
-
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [linkedNodes, setLinkedNodes] = useState<GraphNode[]>([]);
-
-  // ── Fetch ──────────────────────────────────────────────────────────────────
 
   const fetchGraph = useCallback(async () => {
     if (!accessToken) return;
     setStatus('loading');
     try {
-      const res = await fetch('/api/graph', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await fetch('/api/graph', { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
@@ -197,9 +199,7 @@ export default function GraphPage() {
     }
   }, [accessToken]);
 
-  useEffect(() => {
-    fetchGraph();
-  }, [fetchGraph]);
+  useEffect(() => { fetchGraph(); }, [fetchGraph]);
 
   const handleUpdate = async (id: string, content: string, category: string) => {
     if (!accessToken) return;
@@ -208,7 +208,6 @@ export default function GraphPage() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({ id, content, category }),
     });
-    // Refresh graph to reflect changes
     fetchGraph();
   };
 
@@ -221,7 +220,6 @@ export default function GraphPage() {
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
-    // Clone data for D3 mutation
     const nodes: SimNode[] = rawNodes.map((n) => ({ ...n }));
     const nodeById = new Map(nodes.map((n) => [n.id, n]));
 
@@ -234,49 +232,33 @@ export default function GraphPage() {
         type: e.type,
       }));
 
-    // Clear previous render
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
+    svg.attr('width', width).attr('height', height).attr('viewBox', `0 0 ${width} ${height}`);
 
-    svg
-      .attr('width', width)
-      .attr('height', height)
-      .attr('viewBox', `0 0 ${width} ${height}`);
-
-    // Zoom container
     const g = svg.append('g');
 
     svg.call(
       d3.zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.3, 4])
-        .on('zoom', (event) => {
-          g.attr('transform', event.transform);
-        }),
+        .scaleExtent([0.2, 4])
+        .on('zoom', (event) => g.attr('transform', event.transform)),
     );
 
-    // Draw edges (before nodes so nodes render on top)
-    const linkSel = g
-      .append('g')
-      .attr('class', 'links')
-      .selectAll('line')
-      .data(links)
-      .join('line')
-      .attr('stroke', (d) => d.type === 'branch' ? '#6366f1' : '#9ca3af')
-      .attr('stroke-width', (d) => d.type === 'branch' ? 2 : 1.5)
-      .attr('stroke-opacity', 0.6)
-      .attr('stroke-dasharray', (d) => d.type === 'similarity' ? '4 3' : null);
+    // Edges
+    const linkSel = g.append('g').attr('class', 'links')
+      .selectAll('line').data(links).join('line')
+      .attr('stroke', (d) => d.type === 'branch' ? '#6366f1' : '#cbd5e1')
+      .attr('stroke-width', (d) => d.type === 'branch' ? 1.5 : 1)
+      .attr('stroke-opacity', (d) => d.type === 'branch' ? 0.7 : 0.4)
+      .attr('stroke-dasharray', (d) => d.type === 'similarity' ? '3 3' : null);
 
-    // Draw nodes
-    const nodeSel = g
-      .append('g')
-      .attr('class', 'nodes')
-      .selectAll('circle')
-      .data(nodes)
-      .join('circle')
+    // Nodes
+    const nodeSel = g.append('g').attr('class', 'nodes')
+      .selectAll('circle').data(nodes).join('circle')
       .attr('r', (d) => nodeRadius(d.edge_count))
       .attr('fill', (d) => categoryHex(d.category))
       .attr('stroke', '#fff')
-      .attr('stroke-width', 2)
+      .attr('stroke-width', 1.5)
       .style('cursor', 'pointer')
       .on('click', (_event, d) => {
         const connected = links
@@ -292,146 +274,80 @@ export default function GraphPage() {
         setSelectedNode(d);
       });
 
-    // Cluster labels — one label per connected component, at centroid
-    // Build connected components via union-find
-    const parent = new Map<string, string>(nodes.map((n) => [n.id, n.id]));
-    function find(id: string): string {
-      if (parent.get(id) !== id) parent.set(id, find(parent.get(id)!));
-      return parent.get(id)!;
-    }
-    for (const l of links) {
-      const a = find((l.source as SimNode).id), b = find((l.target as SimNode).id);
-      if (a !== b) parent.set(a, b);
-    }
-    // Group nodes by component root
-    const components = new Map<string, SimNode[]>();
-    for (const n of nodes) {
-      const root = find(n.id);
-      if (!components.has(root)) components.set(root, []);
-      components.get(root)!.push(n);
-    }
-    // Only label components with >1 node; pick the most common category as label
-    const clusterLabels: Array<{ nodes: SimNode[]; label: string }> = [];
-    for (const group of components.values()) {
-      if (group.length < 2) continue;
-      const freq = new Map<string, number>();
-      for (const n of group) freq.set(n.category, (freq.get(n.category) ?? 0) + 1);
-      const label = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
-      clusterLabels.push({ nodes: group, label });
-    }
-
-    const clusterLabelSel = g
-      .append('g')
-      .attr('class', 'cluster-labels')
-      .selectAll('text')
-      .data(clusterLabels)
-      .join('text')
-      .text((d) => d.label)
-      .attr('text-anchor', 'middle')
-      .attr('font-size', 10)
-      .attr('font-family', 'system-ui, sans-serif')
-      .attr('font-weight', '600')
-      .attr('fill', '#6b7280')
-      .attr('pointer-events', 'none')
-      .style('text-transform', 'capitalize');
-
-    // Drag behaviour
-    const dragBehavior = d3
-      .drag<SVGCircleElement, SimNode>()
+    // Drag
+    const dragBehavior = d3.drag<SVGCircleElement, SimNode>()
       .on('start', (event, d) => {
         if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x;
-        d.fy = d.y;
+        d.fx = d.x; d.fy = d.y;
       })
-      .on('drag', (event, d) => {
-        d.fx = event.x;
-        d.fy = event.y;
-      })
+      .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
       .on('end', (event, d) => {
         if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
+        d.fx = null; d.fy = null;
       });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nodeSel.call(dragBehavior as any);
 
-    // Force simulation
-    const simulation = d3
-      .forceSimulation<SimNode>(nodes)
-      .force(
-        'link',
-        d3
-          .forceLink<SimNode, SimLink>(links)
-          .distance(80)
-          .strength(0.5),
+    // Force simulation — tuned for linear/tree-like layout
+    const simulation = d3.forceSimulation<SimNode>(nodes)
+      .force('link',
+        d3.forceLink<SimNode, SimLink>(links)
+          .id((d) => d.id)
+          .distance((d) => d.type === 'branch' ? 100 : 140)
+          .strength((d) => d.type === 'branch' ? 1.0 : 0.2),
       )
-      .force('charge', d3.forceManyBody().strength(-120))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force(
-        'collision',
-        d3.forceCollide<SimNode>().radius((d) => nodeRadius(d.edge_count) + 4),
-      )
+      // Weak repulsion — nodes spread out but don't fly apart
+      .force('charge', d3.forceManyBody().strength(-200).distanceMax(300))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.05))
+      // Prevent overlap
+      .force('collision', d3.forceCollide<SimNode>().radius((d) => nodeRadius(d.edge_count) + 8))
+      // Gentle x/y pull toward center to avoid pentagram-like spread
+      .force('x', d3.forceX(width / 2).strength(0.04))
+      .force('y', d3.forceY(height / 2).strength(0.04))
+      .alphaDecay(0.03)
       .on('tick', () => {
         linkSel
           .attr('x1', (d) => (d.source as SimNode).x ?? 0)
           .attr('y1', (d) => (d.source as SimNode).y ?? 0)
           .attr('x2', (d) => (d.target as SimNode).x ?? 0)
           .attr('y2', (d) => (d.target as SimNode).y ?? 0);
-
         nodeSel.attr('cx', (d) => d.x ?? 0).attr('cy', (d) => d.y ?? 0);
-
-        clusterLabelSel
-          .attr('x', (d) => d.nodes.reduce((s, n) => s + (n.x ?? 0), 0) / d.nodes.length)
-          .attr('y', (d) => {
-            const minY = Math.min(...d.nodes.map((n) => n.y ?? 0));
-            return minY - 10;
-          });
       });
 
-    return () => {
-      simulation.stop();
-    };
+    return () => { simulation.stop(); };
   }, [status, graphData]);
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex h-full flex-col">
-      {/* Header */}
       <div className="px-4 pt-5 pb-3">
-        <h1 className="text-lg font-semibold text-gray-900">Граф</h1>
+        <h1 className="text-lg font-semibold">Граф</h1>
       </div>
 
-      {/* Canvas area */}
       <div ref={containerRef} className="relative flex-1 overflow-hidden">
         {status === 'loading' && (
           <div className="flex h-full flex-col items-center justify-center">
-            <div className="mb-3 h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-gray-800" />
-            <p className="text-sm text-gray-400">Завантаження графу...</p>
+            <div className="mb-3 h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+            <p className="text-sm text-muted-foreground">Завантаження графу...</p>
           </div>
         )}
-
         {status === 'error' && (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <p className="mb-1 text-sm font-medium text-gray-800">Не вдалося завантажити граф</p>
-            <p className="mb-4 text-xs text-gray-400">{errorMsg}</p>
+            <p className="mb-1 text-sm font-medium">Не вдалося завантажити граф</p>
+            <p className="mb-4 text-xs text-muted-foreground">{errorMsg}</p>
             <Button size="sm" onClick={fetchGraph}>Спробувати знову</Button>
           </div>
         )}
-
         {status === 'ready' && graphData?.nodes.length === 0 && (
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-gray-400">Немає записів для відображення. Надішли повідомлення боту, щоб почати.</p>
+          <div className="flex h-full items-center justify-center px-6 text-center">
+            <p className="text-sm text-muted-foreground">Немає записів для відображення.</p>
           </div>
         )}
-
         {status === 'ready' && (graphData?.nodes.length ?? 0) > 0 && (
           <svg ref={svgRef} className="h-full w-full" />
         )}
       </div>
 
-      {/* Node detail panel */}
       <NodeDetailPanel
         node={selectedNode}
         linkedNodes={linkedNodes}
