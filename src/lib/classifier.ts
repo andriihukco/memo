@@ -118,13 +118,20 @@ Schema:
 }
 
 Intent rules:
-- save_entry  → diary entry / fact / observation / goal statement (confirm only)
-- question    → asking about past diary data (data-driven answer) — do NOT save
-- converse    → sharing feelings / venting / reflecting (save + empathetic reply)
-- smalltalk   → greetings, thanks, "ok", "👍", bye — do NOT save
-- action      → user wants to perform an operation: delete records, create/merge dashboard widgets, change report schedule, etc. — do NOT save as entry
+- save_entry  → personal diary entry: a fact, observation, activity, food log, mood note, or goal the user is recording about THEMSELVES. Must be something the user experienced, did, felt, or wants to track.
+- question    → asking about past diary data or asking the bot to look something up — do NOT save
+- converse    → sharing feelings, venting, reflecting on life — save + empathetic reply
+- smalltalk   → greetings, thanks, "ok", "👍", bye, one-word reactions — do NOT save
+- action      → a COMMAND or INSTRUCTION directed AT the bot: delete records, configure settings, change schedule, create widgets — do NOT save as entry
 
-CRITICAL: If the user is giving a COMMAND or INSTRUCTION to the bot (e.g. "вимкни звіти", "налаштуй розклад", "покажи налаштування", "увімкни щоденний звіт", "зміни час на 9:00", "видали записи"), this is ALWAYS action or teach — NEVER save_entry with category "thoughts". Commands to the bot are NOT diary entries.
+CRITICAL — "thoughts" category is ONLY for genuine personal reflections, opinions, or mental notes the user wants to record (e.g. "Думаю що треба змінити роботу", "Зрозумів що важливо проводити більше часу з родиною", "Називай мене Андрій"). 
+
+NEVER use category "thoughts" for:
+- Commands to the bot ("налаштуй", "вимкни", "покажи", "видали", "зміни") → these are intent=action
+- Questions ("скільки", "що я їв", "покажи") → these are intent=question  
+- Greetings/thanks → these are intent=smalltalk
+
+The test: would this message make sense as a diary entry if you read it back in 6 months? If no (it's a command/question/greeting), don't save it.
 
 IMPORTANT: If the user asks a question AND asks to record/save the answer (e.g. "скільки кофеїну в Monster і запиши мені"), use intent="save_entry" and extract the metrics from your knowledge. The content should be the factual statement (e.g. "Випив Monster Energy 500мл — 160мг кофеїну"). Always extract dashboard_metrics for such entries.
 
@@ -326,17 +333,29 @@ Output: {"intent":"action","category":"thoughts","category_label":"Думки","
 Input: "Налаштуй звіт щодня, вимкни щотижневі і щомісячні і постав на 7 годину"
 Output: {"intent":"action","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Налаштуй звіт щодня, вимкни щотижневі і щомісячні і постав на 7 годину","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"update_schedule","action_params":{"daily":true,"weekly":false,"monthly":false,"time":"07:00"}}
 
+Input: "Називай мене Андрій"
+Output: {"intent":"save_entry","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Називай мене Андрій","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"none","action_params":{}}
+
+Input: "Налаштуй звіт щодня, вимкни щотижневі і щомісячні і постав на 7 годину"
+Output: {"intent":"action","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Налаштуй звіт щодня, вимкни щотижневі і щомісячні і постав на 7 годину","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"update_schedule","action_params":{"daily":true,"weekly":false,"monthly":false,"time":"07:00"}}
+
+Input: "Давай перевіримо, покажи налаштування автозвітів"
+Output: {"intent":"question","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Давай перевіримо, покажи налаштування автозвітів","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"none","action_params":{}}
+
+Input: "Дякую, зміни годину на 7 ранку"
+Output: {"intent":"action","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Дякую, зміни годину на 7 ранку","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"update_schedule","action_params":{"time":"07:00"}}
+
 Respond with ONLY the JSON object.`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const MODEL_ID = "gemini-2.5-flash";
 
-function getModel(extraRules?: string) {
+function getModel() {
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
   return genAI.getGenerativeModel({
     model: MODEL_ID,
-    systemInstruction: SYSTEM_PROMPT + (extraRules ?? ""),
+    systemInstruction: SYSTEM_PROMPT,
     generationConfig: {},
   });
 }
@@ -368,13 +387,13 @@ async function attemptClassify(generateFn: () => Promise<string>): Promise<Class
   throw new ClassificationError("Classification failed after 2 attempts", lastError);
 }
 
-export async function classify(text: string, userRules?: string): Promise<ClassificationResult> {
-  return attemptClassify(async () => (await getModel(userRules).generateContent(text)).response.text());
+export async function classify(text: string): Promise<ClassificationResult> {
+  return attemptClassify(async () => (await getModel().generateContent(text)).response.text());
 }
 
-export async function classifyAudio(audioBytes: Buffer, mimeType: string, userRules?: string): Promise<ClassificationResult> {
+export async function classifyAudio(audioBytes: Buffer, mimeType: string): Promise<ClassificationResult> {
   return attemptClassify(async () =>
-    (await getModel(userRules).generateContent([
+    (await getModel().generateContent([
       { inlineData: { data: audioBytes.toString("base64"), mimeType } },
       "Transcribe and classify this audio diary entry.",
     ])).response.text()
