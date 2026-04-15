@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { BarChart2, ChevronDown, RefreshCw, Trash2 } from 'lucide-react';
+import { FileText, ChevronDown, Plus, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { ReportInsight } from '@/lib/bot/retrospective';
 
@@ -31,11 +30,114 @@ const PERIOD_LABELS: Record<string, string> = {
   daily: 'Щоденний', weekly: 'Тижневий', monthly: 'Місячний', custom: 'Звіт',
 };
 
+// Rotating progress labels shown while generating
+const PROGRESS_LABELS = [
+  'Збираю записи...',
+  'Аналізую патерни...',
+  'Оцінюю прогрес...',
+  'Шукаю інсайти...',
+  'Формую висновки...',
+  'Майже готово...',
+];
+
+function useProgressLabel(active: boolean) {
+  const [idx, setIdx] = useState(0);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (active) {
+      setIdx(0);
+      timer.current = setInterval(() => setIdx(i => (i + 1) % PROGRESS_LABELS.length), 1800);
+    } else {
+      if (timer.current) clearInterval(timer.current);
+    }
+    return () => { if (timer.current) clearInterval(timer.current); };
+  }, [active]);
+  return PROGRESS_LABELS[idx];
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function startOfDay(d: Date) { const r = new Date(d); r.setHours(0,0,0,0); return r; }
+function endOfDay(d: Date)   { const r = new Date(d); r.setHours(23,59,59,999); return r; }
+function isoDate(d: Date)    { return d.toISOString().slice(0,10); }
+
+// ── New Report Drawer ─────────────────────────────────────────────────────────
+
+function NewReportDrawer({ onClose, onGenerate }: {
+  onClose: () => void;
+  onGenerate: (periodType: string, from?: Date, to?: Date) => void;
+}) {
+  const [fromStr, setFromStr] = useState(isoDate(startOfDay(new Date())));
+  const [toStr, setToStr] = useState(isoDate(new Date()));
+  const [showCustom, setShowCustom] = useState(false);
+
+  const presets = [
+    { label: 'Сьогодні', type: 'daily', fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
+    { label: '7 днів', type: 'weekly', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
+    { label: 'Місяць', type: 'monthly', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  ];
+
+  const applyCustom = () => {
+    const from = startOfDay(new Date(fromStr)), to = endOfDay(new Date(toStr));
+    if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return;
+    onGenerate('custom', from, to);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div
+        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
+        style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}
+      >
+        <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
+        <h3 className="mb-4 text-sm font-semibold">Новий звіт</h3>
+
+        {/* Presets */}
+        <div className="mb-3 grid grid-cols-3 gap-2">
+          {presets.map(p => (
+            <button
+              key={p.type}
+              onClick={() => { const r = p.fn(); onGenerate(p.type, r.from, r.to); onClose(); }}
+              className="rounded-xl border border-border bg-muted/30 py-3 text-sm font-medium transition-colors hover:bg-muted active:bg-muted/70"
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Custom range toggle */}
+        <button
+          onClick={() => setShowCustom(v => !v)}
+          className="mb-3 flex w-full items-center justify-between rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30"
+        >
+          <span>Свій діапазон</span>
+          <ChevronDown size={15} className={cn('transition-transform', showCustom && 'rotate-180')} />
+        </button>
+
+        {showCustom && (
+          <div className="mb-3">
+            <div className="mb-3 flex items-center gap-2">
+              <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
+                className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+              <span className="text-muted-foreground">–</span>
+              <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
+                className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+            </div>
+            <Button className="w-full" onClick={applyCustom}>Згенерувати за діапазоном</Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Delete confirm sheet ──────────────────────────────────────────────────────
 
 function DeleteSheet({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end">
+    <div className="fixed inset-0 z-[60] flex items-end">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
       <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
         <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
@@ -63,7 +165,7 @@ function ReportCard({ report, onDelete }: { report: ReportSummary; onDelete: () 
       <Card className="overflow-hidden">
         <div className="flex items-start gap-3 p-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <BarChart2 size={18} className="text-primary" />
+            <FileText size={18} className="text-primary" />
           </div>
           <button onClick={() => setExpanded(v => !v)} className="flex-1 min-w-0 text-left">
             <div className="flex items-center justify-between gap-2">
@@ -110,7 +212,8 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [genPeriod, setGenPeriod] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+  const [showNewDrawer, setShowNewDrawer] = useState(false);
+  const progressLabel = useProgressLabel(generating);
 
   const loadReports = useCallback(async () => {
     if (!accessToken) return;
@@ -126,14 +229,17 @@ export default function ReportsPage() {
 
   useEffect(() => { loadReports(); }, [loadReports]);
 
-  const generateReport = async () => {
+  const generateReport = async (periodType: string, from?: Date, to?: Date) => {
     if (!accessToken || generating) return;
     setGenerating(true);
     try {
+      const body: Record<string, unknown> = { period_type: periodType };
+      if (from) body.from = from.toISOString();
+      if (to) body.to = to.toISOString();
       const res = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ period_type: genPeriod }),
+        body: JSON.stringify(body),
       });
       if (res.ok) await loadReports();
     } finally {
@@ -152,27 +258,29 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 px-4 pt-5 pb-6">
-      <h1 className="text-lg font-semibold">Звіти</h1>
+    <div className="flex flex-col gap-3 px-4 pt-5 pb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-semibold">Звіти</h1>
+        <button
+          onClick={() => !generating && setShowNewDrawer(true)}
+          disabled={generating}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm disabled:opacity-50 transition-opacity"
+          aria-label="Новий звіт"
+        >
+          {generating
+            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+            : <Plus size={18} />}
+        </button>
+      </div>
 
-      {/* Generate */}
-      <Card className="p-4">
-        <p className="mb-3 text-sm font-medium">Згенерувати звіт</p>
-        <Tabs value={genPeriod} onValueChange={(v) => setGenPeriod(v as typeof genPeriod)} className="mb-3">
-          <TabsList className="w-full">
-            <TabsTrigger value="daily">День</TabsTrigger>
-            <TabsTrigger value="weekly">Тиждень</TabsTrigger>
-            <TabsTrigger value="monthly">Місяць</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <Button className="w-full gap-2" onClick={generateReport} disabled={generating}>
-          {generating ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" /> : <RefreshCw size={15} />}
-          {generating ? 'Аналізую...' : 'Згенерувати'}
-        </Button>
-        <p className="mt-2 text-center text-[10px] text-muted-foreground">
-          Або напиши боту: /report weekly
-        </p>
-      </Card>
+      {/* Generating indicator */}
+      {generating && (
+        <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-3">
+          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
+          <p className="text-sm text-muted-foreground transition-all">{progressLabel}</p>
+        </div>
+      )}
 
       {/* List */}
       {loading && (
@@ -180,16 +288,26 @@ export default function ReportsPage() {
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
         </div>
       )}
-      {!loading && reports.length === 0 && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          Звітів ще немає. Згенеруй перший або напиши боту /report
-        </p>
+      {!loading && reports.length === 0 && !generating && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <FileText size={32} className="mb-3 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground">Звітів ще немає</p>
+          <p className="mt-1 text-xs text-muted-foreground">Натисни + щоб згенерувати перший</p>
+        </div>
       )}
       <div className="flex flex-col gap-2">
         {reports.map(r => (
           <ReportCard key={r.id} report={r} onDelete={() => deleteReport(r.id)} />
         ))}
       </div>
+
+      {/* New report drawer */}
+      {showNewDrawer && (
+        <NewReportDrawer
+          onClose={() => setShowNewDrawer(false)}
+          onGenerate={(type, from, to) => generateReport(type, from, to)}
+        />
+      )}
     </div>
   );
 }

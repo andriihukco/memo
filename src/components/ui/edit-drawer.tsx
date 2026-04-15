@@ -152,7 +152,7 @@ export function EditDrawer({ entry, onSave, onClose, accessToken }: EditDrawerPr
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <div
         className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-        style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 0.5rem)' }}
+        style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)' }}
       >
         {/* Handle */}
         <div className="mb-3 flex justify-center">

@@ -244,7 +244,10 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
+      <div
+        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
+        style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}
+      >
         <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
         <h3 className="mb-4 text-sm font-semibold">Оберіть період</h3>
         <div className="mb-4 grid grid-cols-3 gap-2">

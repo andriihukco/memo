@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ChevronRight, Lock, Shield, Trash2, BookOpen, Bell } from 'lucide-react';
+import { Check, ChevronRight, Lock, LockOpen, RectangleEllipsis, ClockFading, Trash2, BookOpen, Bell } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
@@ -190,7 +190,7 @@ export default function SettingsPage() {
             <button onClick={hasPasscode ? handleChangePasscode : handleEnablePasscode}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <Lock size={16} className="text-primary" />
+                {hasPasscode ? <RectangleEllipsis size={16} className="text-primary" /> : <Lock size={16} className="text-primary" />}
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">{hasPasscode ? 'Змінити код' : 'Увімкнути код'}</p>
@@ -206,7 +206,7 @@ export default function SettingsPage() {
                 <button onClick={() => setShowTimerPicker(v => !v)}
                   className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                    <Shield size={16} className="text-primary" />
+                    <ClockFading size={16} className="text-primary" />
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium">Блокування</p>
@@ -234,7 +234,7 @@ export default function SettingsPage() {
               <button onClick={handleDisablePasscode}
                 className="flex w-full items-center gap-3 px-4 py-3.5 text-destructive transition-colors hover:bg-destructive/5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
-                  <Lock size={16} className="text-destructive" />
+                  <LockOpen size={16} className="text-destructive" />
                 </div>
                 <p className="text-sm font-medium">Вимкнути код</p>
               </button>
