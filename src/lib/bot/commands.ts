@@ -157,13 +157,13 @@ export async function handleReport(ctx: BotContext): Promise<void> {
 
   // Telegram has 4096 char limit — split if needed
   if (formatted.length <= 4000) {
-    await ctx.api.editMessageText(ctx.chat!.id, thinkingMsg.message_id, formatted, { parse_mode: "Markdown" });
+    await ctx.api.editMessageText(ctx.chat!.id, thinkingMsg.message_id, formatted);
   } else {
     await ctx.api.deleteMessage(ctx.chat!.id, thinkingMsg.message_id).catch(() => {});
     // Split into chunks
     const chunks = formatted.match(/[\s\S]{1,3900}/g) ?? [formatted];
     for (const chunk of chunks) {
-      await ctx.reply(chunk, { parse_mode: "Markdown" });
+      await ctx.reply(chunk);
     }
   }
 }

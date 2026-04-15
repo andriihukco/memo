@@ -6,22 +6,16 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Sanitize AI-generated text for Telegram's legacy Markdown parser.
- * Closes any unclosed * or _ pairs so Telegram doesn't reject the message.
+ * Strip Telegram Markdown formatting from AI-generated text so it renders
+ * as plain text — avoids all "can't parse entities" 400 errors.
  */
 export function sanitizeMarkdown(text: string): string {
-  // Count unescaped * and _ occurrences; if odd, append closing char
-  const countUnescaped = (str: string, char: string) => {
-    let count = 0;
-    for (let i = 0; i < str.length; i++) {
-      if (str[i] === "\\" ) { i++; continue; } // skip escaped
-      if (str[i] === char) count++;
-    }
-    return count;
-  };
-
-  let result = text;
-  if (countUnescaped(result, "*") % 2 !== 0) result += "*";
-  if (countUnescaped(result, "_") % 2 !== 0) result += "_";
-  return result;
+  return text
+    .replace(/\*\*?(.*?)\*\*?/gs, "$1")        // *bold* / **bold**
+    .replace(/__(.*?)__/gs, "$1")               // __bold__
+    .replace(/_(.*?)_/gs, "$1")                 // _italic_
+    .replace(/`{3}[\s\S]*?`{3}/g, (m) =>        // ```code block``` → keep content
+      m.replace(/`{3}(?:\w+)?\n?/g, "").replace(/`{3}/g, ""))
+    .replace(/`([^`]+)`/g, "$1")               // `inline code`
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");  // [text](url) → text
 }

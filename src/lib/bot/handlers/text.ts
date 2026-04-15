@@ -114,11 +114,11 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
     try {
       const answer = await answerQuestion({ userId: profile.id, question: text, currentUtcDate: new Date() });
       // Edit the thinking message with the real answer
-      await ctx.api.editMessageText(ctx.chat!.id, thinkingMsg.message_id, sanitizeMarkdown(answer), { parse_mode: "Markdown" });
+      await ctx.api.editMessageText(ctx.chat!.id, thinkingMsg.message_id, sanitizeMarkdown(answer));
     } catch {
       // If edit fails (e.g. answer too long), send as new message
       const answer = await answerQuestion({ userId: profile.id, question: text, currentUtcDate: new Date() });
-      await ctx.reply(sanitizeMarkdown(answer), { parse_mode: "Markdown" });
+      await ctx.reply(sanitizeMarkdown(answer));
     }
     return;
   }
@@ -233,7 +233,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
       userId: profile.id,
       category: result.category,
       created_at: new Date().toISOString(),
-      sendMessage: (t) => ctx.reply(sanitizeMarkdown(t), { parse_mode: "Markdown" }).then(() => {}),
+      sendMessage: (t) => ctx.reply(sanitizeMarkdown(t)).then(() => {}),
     }).catch((err) => console.error("[text handler] embedEntry failed:", err));
 
     processUser(profile.id).catch((err) => console.error("[text handler] processUser failed:", err));

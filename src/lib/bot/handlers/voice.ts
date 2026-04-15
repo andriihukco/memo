@@ -81,7 +81,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
       question: result.content,
       currentUtcDate: new Date(),
     });
-    await ctx.reply(sanitizeMarkdown(answer), { parse_mode: "Markdown" });
+    await ctx.reply(sanitizeMarkdown(answer));
     return;
   }
 
@@ -128,7 +128,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
       userId: profile.id,
       category: result.category,
       created_at: new Date().toISOString(),
-      sendMessage: (text) => ctx.reply(sanitizeMarkdown(text), { parse_mode: "Markdown" }).then(() => {}),
+      sendMessage: (text) => ctx.reply(sanitizeMarkdown(text)).then(() => {}),
     }).catch((err) =>
       console.error("[voice handler] embedEntry failed:", err)
     );
