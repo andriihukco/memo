@@ -4,9 +4,9 @@ import { env } from "./env";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
 
-export type Intent = "save_entry" | "question" | "converse" | "smalltalk" | "action" | "teach";
+export type Intent = "save_entry" | "question" | "converse" | "smalltalk" | "action";
 
-const IntentSchema = z.enum(["save_entry", "question", "converse", "smalltalk", "action", "teach"]);
+const IntentSchema = z.enum(["save_entry", "question", "converse", "smalltalk", "action"]);
 
 const ExpenseMetadataSchema = z.object({
   amount: z.number(),
@@ -123,7 +123,6 @@ Intent rules:
 - converse    → sharing feelings / venting / reflecting (save + empathetic reply)
 - smalltalk   → greetings, thanks, "ok", "👍", bye — do NOT save
 - action      → user wants to perform an operation: delete records, create/merge dashboard widgets, change report schedule, etc. — do NOT save as entry
-- teach       → user is giving the AI a custom instruction, rule, or correction to remember for the future — do NOT save as entry
 
 CRITICAL: If the user is giving a COMMAND or INSTRUCTION to the bot (e.g. "вимкни звіти", "налаштуй розклад", "покажи налаштування", "увімкни щоденний звіт", "зміни час на 9:00", "видали записи"), this is ALWAYS action or teach — NEVER save_entry with category "thoughts". Commands to the bot are NOT diary entries.
 
@@ -326,15 +325,6 @@ Output: {"intent":"action","category":"thoughts","category_label":"Думки","
 
 Input: "Налаштуй звіт щодня, вимкни щотижневі і щомісячні і постав на 7 годину"
 Output: {"intent":"action","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Налаштуй звіт щодня, вимкни щотижневі і щомісячні і постав на 7 годину","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"update_schedule","action_params":{"daily":true,"weekly":false,"monthly":false,"time":"07:00"}}
-
-Input: "Запам'ятай: мій стакан = 300мл"
-Output: {"intent":"teach","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Запам'ятай: мій стакан = 300мл","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"none","action_params":{}}
-
-Input: "Коли я кажу 'зробив зарядку' — це 20 хвилин і 150 ккал"
-Output: {"intent":"teach","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Коли я кажу 'зробив зарядку' — це 20 хвилин і 150 ккал","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"none","action_params":{}}
-
-Input: "Виправ: я не їм м'ясо, я веган"
-Output: {"intent":"teach","category":"thoughts","category_label":"Думки","is_new_category":false,"content":"Виправ: я не їм м'ясо, я веган","metadata":{},"dashboard_metrics":[],"goal_metrics":[],"action_type":"none","action_params":{}}
 
 Respond with ONLY the JSON object.`;
 

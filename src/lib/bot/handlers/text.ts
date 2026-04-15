@@ -8,7 +8,6 @@ import type { Profile } from "@/lib/profile";
 import { answerQuestion } from "@/lib/bot/qa";
 import { generateConverseReply, loadUserTone } from "@/lib/bot/converse";
 import { handleAction } from "@/lib/bot/handlers/action";
-import { loadUserRules, saveUserRule, extractRuleFromMessage, formatRulesForPrompt } from "@/lib/bot/teach";
 import { sanitizeMarkdown } from "@/lib/utils";
 
 interface BotContext extends Context {
@@ -86,18 +85,13 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   const { checkPendingDelete } = await import("@/lib/bot/handlers/action");
   if (await checkPendingDelete(ctx)) return;
 
-  // Load user's custom rules for injection into classifier
-  // Prefetch user tone in parallel — it'll be ready by the time we need to reply
-  const [userRules, prefetchedTone] = await Promise.all([
-    loadUserRules(profile.id),
-    loadUserTone(profile.id),
-  ]);
-  const rulesPrompt = formatRulesForPrompt(userRules);
+  // Prefetch user tone — it'll be ready by the time we need to reply
+  const prefetchedTone = await loadUserTone(profile.id);
 
   // 1. Classify
   let result: ClassificationResult;
   try {
-    result = await classify(text, rulesPrompt || undefined);
+    result = await classify(text);
   } catch (err) {
     if (err instanceof ClassificationError) {
       console.error("[text handler] ClassificationError:", err.message, err.cause);
@@ -142,22 +136,6 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   // 3b. Action — no persist, execute operation
   if (result.intent === "action") {
     await handleAction(ctx, result);
-    return;
-  }
-
-  // 3c. Teach — save custom rule
-  if (result.intent === "teach") {
-    await ctx.replyWithChatAction("typing");
-    const rule = await extractRuleFromMessage(text);
-    if (!rule) {
-      await ctx.reply("Не зрозумів яке правило запам'ятати. Спробуй сформулювати чіткіше, наприклад: _\"Запам'ятай: мій стакан = 300мл\"_", { parse_mode: "Markdown" });
-      return;
-    }
-    const saved = await saveUserRule(profile.id, rule);
-    await ctx.reply(
-      `✅ Запам'ятав правило *#${saved.id}*:\n\n_${rule.instruction}_\n\nВоно буде застосовуватись до всіх твоїх майбутніх записів.`,
-      { parse_mode: "Markdown" }
-    );
     return;
   }
 

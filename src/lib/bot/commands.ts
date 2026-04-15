@@ -1,6 +1,5 @@
 import { Context } from "grammy";
 import type { Profile } from "@/lib/profile";
-import { loadUserRules, deleteUserRule } from "@/lib/bot/teach";
 import { generateRetrospective, saveReport, formatReportForTelegram, getReportSchedule } from "@/lib/bot/retrospective";
 import { sanitizeMarkdown } from "@/lib/utils";
 
@@ -81,46 +80,6 @@ export async function handleHelp(ctx: BotContext): Promise<void> {
 
 export async function handleReset(ctx: BotContext): Promise<void> {
   await ctx.reply("🔄 Готовий! Просто пиши або надсилай голосові — я слухаю.");
-}
-
-export async function handleRules(ctx: BotContext): Promise<void> {
-  const profile = ctx.profile;
-  if (!profile) return;
-
-  const rules = await loadUserRules(profile.id);
-
-  if (rules.length === 0) {
-    await ctx.reply(
-      "У тебе немає збережених правил.\n\nЩоб навчити мене, напиши наприклад:\n_\"Запам'ятай: мій стакан = 300мл\"_\n_\"Коли я кажу 'зробив зарядку' — це 20 хв і 150 ккал\"_",
-      { parse_mode: "Markdown" }
-    );
-    return;
-  }
-
-  const list = rules.map((r, i) =>
-    `*${i + 1}.* [#${r.id}] ${r.instruction}`
-  ).join("\n\n");
-
-  await ctx.reply(
-    `📋 *Твої правила (${rules.length}):*\n\n${list}\n\nЩоб видалити правило: /delrule <id>`,
-    { parse_mode: "Markdown" }
-  );
-}
-
-export async function handleDelRule(ctx: BotContext): Promise<void> {
-  const profile = ctx.profile;
-  if (!profile) return;
-
-  const text = ctx.message?.text ?? "";
-  const ruleId = text.split(" ")[1]?.trim();
-
-  if (!ruleId) {
-    await ctx.reply("Вкажи ID правила: /delrule <id>\nПодивись ID через /rules");
-    return;
-  }
-
-  await deleteUserRule(profile.id, ruleId);
-  await ctx.reply(`✅ Правило #${ruleId} видалено.`);
 }
 
 export async function handleReport(ctx: BotContext): Promise<void> {

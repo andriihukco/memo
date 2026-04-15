@@ -7,7 +7,6 @@ import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import { answerQuestion } from "@/lib/bot/qa";
 import { generateConverseReply } from "@/lib/bot/converse";
-import { loadUserRules, formatRulesForPrompt } from "@/lib/bot/teach";
 import { sanitizeMarkdown } from "@/lib/utils";
 
 interface BotContext extends Context {
@@ -35,10 +34,6 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
   // Show typing indicator immediately
   await ctx.replyWithChatAction("typing");
 
-  // Load user's custom rules
-  const userRules = await loadUserRules(profile.id);
-  const rulesPrompt = formatRulesForPrompt(userRules);
-
   // 1. Download audio into an in-memory buffer (no storage write)
   let audioBuffer: Buffer;
   try {
@@ -60,7 +55,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
   // 2. Transcribe and classify (buffer used here, then discarded)
   let result: ClassificationResult;
   try {
-    result = await classifyAudio(audioBuffer, "audio/ogg", rulesPrompt || undefined);
+    result = await classifyAudio(audioBuffer, "audio/ogg");
   } catch (err) {
     if (err instanceof ClassificationError) {
       console.error("[voice handler] ClassificationError:", err.message, err.cause);

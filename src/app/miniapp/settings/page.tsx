@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Check, ChevronRight, Lock, LockOpen, RectangleEllipsis, ClockFading, Trash2, BookOpen, Bell, Plus } from 'lucide-react';
+import { Check, ChevronRight, Lock, LockOpen, RectangleEllipsis, ClockFading, Trash2, Bell } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
@@ -14,7 +14,6 @@ import { cn } from '@/lib/utils';
 
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
-interface CustomRule { id: string; instruction: string; created_at: string; }
 interface ReportSchedule { daily: boolean; weekly: boolean; weekly_day: number; monthly: boolean; monthly_day: number; time: string; }
 
 const WEEK_DAYS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
@@ -49,11 +48,6 @@ export default function SettingsPage() {
   const [pendingPin, setPendingPin] = useState('');
   const [showTimerPicker, setShowTimerPicker] = useState(false);
 
-  // Rules
-  const [rules, setRules] = useState<CustomRule[]>([]);
-  const [showAddRule, setShowAddRule] = useState(false);
-  const [newRuleText, setNewRuleText] = useState('');
-
   // Schedule
   const [schedule, setSchedule] = useState<ReportSchedule | null>(null);
 
@@ -62,13 +56,6 @@ export default function SettingsPage() {
     setLockTimerState(getLockTimer());
   }, []);
 
-  const loadRules = useCallback(async () => {
-    if (!accessToken) return;
-    const res = await fetch('/api/rules', { headers: { Authorization: `Bearer ${accessToken}` } });
-    const d = await res.json();
-    setRules(d.rules ?? []);
-  }, [accessToken]);
-
   const loadSchedule = useCallback(async () => {
     if (!accessToken) return;
     const res = await fetch('/api/schedule', { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -76,32 +63,7 @@ export default function SettingsPage() {
     if (d.schedule) setSchedule(d.schedule);
   }, [accessToken]);
 
-  useEffect(() => { loadRules(); loadSchedule(); }, [loadRules, loadSchedule]);
-
-  const deleteRule = async (id: string) => {
-    if (!accessToken) return;
-    await fetch('/api/rules', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ id }),
-    });
-    setRules(prev => prev.filter(r => r.id !== id));
-  };
-
-  const addRule = async () => {
-    if (!accessToken || !newRuleText.trim()) return;
-    const res = await fetch('/api/rules', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ instruction: newRuleText.trim() }),
-    });
-    if (res.ok) {
-      const { rule } = await res.json();
-      setRules(prev => [...prev, rule]);
-      setNewRuleText('');
-      setShowAddRule(false);
-    }
-  };
+  useEffect(() => { loadSchedule(); }, [loadSchedule]);
 
   const updateSchedule = async (patch: Partial<ReportSchedule>) => {
     if (!accessToken || !schedule) return;
@@ -200,71 +162,6 @@ export default function SettingsPage() {
         </Card>
         )}
         <p className="mt-1.5 px-1 text-xs text-muted-foreground">Або скажи боту: &ldquo;Вмикай тижневий звіт о 10:00&rdquo;</p>
-      </section>
-
-      {/* ── Rules ─────────────────────────────────────────────────────────── */}
-      <section>
-        <div className="mb-2 flex items-center justify-between px-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Правила бота</p>
-          <button
-            onClick={() => setShowAddRule(v => !v)}
-            className="flex items-center gap-1 text-xs text-primary"
-          >
-            <Plus size={12} />
-            Додати правило
-          </button>
-        </div>
-
-        {showAddRule && (
-          <div className="mb-2 flex gap-2">
-            <input
-              type="text"
-              placeholder="Наприклад: мій стакан = 300мл"
-              value={newRuleText}
-              onChange={e => setNewRuleText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') addRule(); }}
-              autoFocus
-              className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            <button
-              onClick={addRule}
-              disabled={!newRuleText.trim()}
-              className="rounded-xl bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-            >
-              Зберегти
-            </button>
-          </div>
-        )}
-
-        {rules.length === 0 ? (
-          <Card>
-            <CardContent className="flex items-center gap-3 p-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted">
-                <BookOpen size={16} className="text-muted-foreground" />
-              </div>
-              <p className="text-sm text-muted-foreground">Правил ще немає. Напиши боту: &ldquo;Запам&apos;ятай: мій стакан = 300мл&rdquo;</p>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="p-0">
-              {rules.map((rule, i) => (
-                <div key={rule.id}>
-                  {i > 0 && <Separator />}
-                  <div className="flex items-start gap-3 px-4 py-3">
-                    <p className="flex-1 text-sm leading-relaxed">{rule.instruction}</p>
-                    <button
-                      onClick={() => deleteRule(rule.id)}
-                      className="mt-0.5 shrink-0 text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
       </section>
 
       {/* ── Privacy ───────────────────────────────────────────────────────── */}
