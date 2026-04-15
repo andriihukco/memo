@@ -6,16 +6,19 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Strip Telegram Markdown formatting from AI-generated text so it renders
- * as plain text — avoids all "can't parse entities" 400 errors.
+ * Strip ALL Telegram Markdown special characters from AI-generated text
+ * so it renders as plain text — avoids all "can't parse entities" 400 errors.
+ * Handles both matched pairs AND lone/unmatched characters.
  */
 export function sanitizeMarkdown(text: string): string {
   return text
-    .replace(/\*\*?([\s\S]*?)\*\*?/g, "$1")        // *bold* / **bold**
-    .replace(/__([\s\S]*?)__/g, "$1")               // __bold__
-    .replace(/_([\s\S]*?)_/g, "$1")                 // _italic_
-    .replace(/`{3}[\s\S]*?`{3}/g, (m) =>            // ```code block``` → keep content
+    // Strip code blocks first (preserve content)
+    .replace(/`{3}[\s\S]*?`{3}/g, (m) =>
       m.replace(/`{3}(?:\w+)?\n?/g, "").replace(/`{3}/g, ""))
-    .replace(/`([^`]+)`/g, "$1")                    // `inline code`
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");       // [text](url) → text
+    // Strip inline code (preserve content)
+    .replace(/`([^`]+)`/g, "$1")
+    // Strip markdown links (preserve label)
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // Remove ALL *, _, ` characters (matched or unmatched — these cause parse errors)
+    .replace(/[*_`]/g, "");
 }
