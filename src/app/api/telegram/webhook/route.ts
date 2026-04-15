@@ -5,7 +5,6 @@ import { env } from "@/lib/env";
 import { resolveOrCreateProfile, ProfileError, Profile } from "@/lib/profile";
 import { handleTextMessage } from "@/lib/bot/handlers/text";
 import { handleVoiceMessage } from "@/lib/bot/handlers/voice";
-import { handleDeleteCallback } from "@/lib/bot/handlers/action";
 import { handleStart, handleHelp, handleRules, handleDelRule, handleReport, handleSchedule, handleReset, MAIN_KEYBOARD } from "@/lib/bot/commands";
 
 interface BotContext extends Context {
@@ -63,7 +62,6 @@ function getHandler(): (req: Request) => Promise<Response> {
 
   bot.on("message:text", handleTextMessage);
   bot.on("message:voice", handleVoiceMessage);
-  bot.on("callback_query:data", handleDeleteCallback);
 
   // Generous timeout — edge functions allow up to 25s on Vercel Pro
   // onTimeout "return" means Telegram gets 200 OK even if we hit the limit

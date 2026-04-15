@@ -1,7 +1,7 @@
 export const runtime = "nodejs"; // needs more memory for AI generation
 
 import { createClient } from "@supabase/supabase-js";
-import { generateRetrospective, saveReport, loadReports } from "@/lib/bot/retrospective";
+import { generateRetrospective, saveReport, loadReports, deleteReport } from "@/lib/bot/retrospective";
 
 function jwt(req: Request) {
   const a = req.headers.get("Authorization");
@@ -64,4 +64,21 @@ export async function POST(req: Request) {
 
   const id = await saveReport(profile.id, report);
   return new Response(JSON.stringify({ report: { ...report, id } }), { status: 201, headers: { "Content-Type": "application/json" } });
+}
+
+// DELETE — remove a report
+export async function DELETE(req: Request) {
+  const token = jwt(req);
+  if (!token) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+
+  const body = await req.json().catch(() => ({}));
+  const { id } = body;
+  if (!id) return new Response(JSON.stringify({ error: "Missing id" }), { status: 400, headers: { "Content-Type": "application/json" } });
+
+  const db = userDb(token);
+  const { data: profile } = await db.from("profiles").select("id").single();
+  if (!profile) return new Response(JSON.stringify({ error: "Profile not found" }), { status: 404, headers: { "Content-Type": "application/json" } });
+
+  await deleteReport(profile.id, id);
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
 }

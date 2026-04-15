@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import type { ClassificationResult } from "@/lib/classifier";
+import { getReportSchedule, setReportSchedule } from "@/lib/bot/retrospective";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -33,6 +34,82 @@ function periodToRange(period: string | null): { from: Date; to: Date } | null {
   return null;
 }
 
+// ── Pending delete state ──────────────────────────────────────────────────────
+// Stored in profile.settings so it survives across messages
+
+async function setPendingDelete(userId: string, key: string, ids: string[]): Promise<void> {
+  const supabase = getServiceClient();
+  const { data } = await supabase.from("profiles").select("settings").eq("id", userId).single();
+  await supabase.from("profiles").update({
+    settings: { ...(data?.settings ?? {}), [key]: ids },
+  }).eq("id", userId);
+}
+
+async function getPendingDelete(userId: string, key: string): Promise<string[] | null> {
+  const supabase = getServiceClient();
+  const { data } = await supabase.from("profiles").select("settings").eq("id", userId).single();
+  return (data?.settings as Record<string, unknown>)?.[key] as string[] | null ?? null;
+}
+
+async function clearPendingDelete(userId: string, key: string): Promise<void> {
+  const supabase = getServiceClient();
+  const { data } = await supabase.from("profiles").select("settings").eq("id", userId).single();
+  if (data?.settings) {
+    const settings = { ...(data.settings as Record<string, unknown>) };
+    delete settings[key];
+    await supabase.from("profiles").update({ settings }).eq("id", userId);
+  }
+}
+
+// ── Check if user has a pending delete confirmation ───────────────────────────
+
+export async function checkPendingDelete(ctx: BotContext): Promise<boolean> {
+  const profile = ctx.profile;
+  if (!profile) return false;
+
+  const text = ctx.message?.text?.trim().toLowerCase();
+  if (!text) return false;
+
+  const supabase = getServiceClient();
+  const { data } = await supabase.from("profiles").select("settings").eq("id", profile.id).single();
+  const settings = (data?.settings ?? {}) as Record<string, unknown>;
+
+  // Find any pending delete key
+  const pendingKey = Object.keys(settings).find(k => k.startsWith("del_"));
+  if (!pendingKey) return false;
+
+  const ids = settings[pendingKey] as string[];
+
+  if (text === "так" || text === "yes" || text === "підтверджую" || text === "видали" || text === "delete") {
+    // Execute delete
+    const supabase2 = getServiceClient();
+    let totalDeleted = 0;
+    for (let i = 0; i < ids.length; i += 100) {
+      const batch = ids.slice(i, i + 100);
+      const { error } = await supabase2.from("entries").delete().in("id", batch);
+      if (!error) totalDeleted += batch.length;
+    }
+    await clearPendingDelete(profile.id, pendingKey);
+    await ctx.reply(`✅ Видалено ${totalDeleted} записів.`);
+    return true;
+  }
+
+  if (text === "ні" || text === "no" || text === "скасувати" || text === "скасуй" || text === "cancel") {
+    await clearPendingDelete(profile.id, pendingKey);
+    await ctx.reply("❌ Видалення скасовано.");
+    return true;
+  }
+
+  // User has a pending delete but typed something else — remind them
+  await ctx.reply(
+    `⏳ Очікую підтвердження видалення ${ids.length} записів.\n\nНапиши *так* щоб видалити або *ні* щоб скасувати.`,
+    { parse_mode: "Markdown" }
+  );
+  return true;
+}
+
+// ── Main action handler ───────────────────────────────────────────────────────
+
 export async function handleAction(ctx: BotContext, result: ClassificationResult): Promise<void> {
   const profile = ctx.profile;
   if (!profile) return;
@@ -46,7 +123,6 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       const period = params.period as string | null;
       const description = params.description as string ?? "записи";
 
-      // Build query
       let query = supabase.from("entries").select("id").eq("user_id", profile.id);
       if (category) query = query.eq("category", category);
       const range = periodToRange(period);
@@ -62,24 +138,37 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
         return;
       }
 
-      // Store ids in profiles.settings.pending_delete so callback can retrieve them
-      const { data: profileData } = await supabase.from("profiles").select("settings").eq("id", profile.id).single();
       const pendingKey = `del_${Date.now()}`;
-      await supabase.from("profiles").update({
-        settings: { ...(profileData?.settings ?? {}), [pendingKey]: ids },
-      }).eq("id", profile.id);
+      await setPendingDelete(profile.id, pendingKey, ids);
 
       await ctx.reply(
-        `🗑 Знайшов *${ids.length}* записів (${description}).\n\nВидалити їх? Це незворотньо.`,
-        {
-          parse_mode: "Markdown",
-          reply_markup: {
-            inline_keyboard: [[
-              { text: "✅ Так, видалити", callback_data: `del:key:${pendingKey}` },
-              { text: "❌ Скасувати", callback_data: `del:cancel:${pendingKey}` },
-            ]],
-          },
-        }
+        `🗑 Знайшов *${ids.length}* записів (${description}).\n\nНапиши *так* щоб видалити або *ні* щоб скасувати. Це незворотньо.`,
+        { parse_mode: "Markdown" }
+      );
+      break;
+    }
+
+    case "update_schedule": {
+      const schedule = params as {
+        daily?: boolean;
+        weekly?: boolean;
+        monthly?: boolean;
+        time?: string;
+      };
+      const current = await getReportSchedule(profile.id);
+      const updated = {
+        daily:   schedule.daily   !== undefined ? schedule.daily   : current.daily,
+        weekly:  schedule.weekly  !== undefined ? schedule.weekly  : current.weekly,
+        monthly: schedule.monthly !== undefined ? schedule.monthly : current.monthly,
+        time:    schedule.time    ?? current.time,
+      };
+      await setReportSchedule(profile.id, updated);
+      await ctx.reply(
+        `✅ Налаштування звітів оновлено:\n\n` +
+        `Щоденний: ${updated.daily ? "✅" : "❌"}\n` +
+        `Тижневий: ${updated.weekly ? "✅" : "❌"}\n` +
+        `Місячний: ${updated.monthly ? "✅" : "❌"}\n` +
+        `Час: ${updated.time}`
       );
       break;
     }
@@ -109,67 +198,5 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
 
     default:
       await ctx.reply("Не зрозумів, яку дію виконати. Спробуй сформулювати інакше.");
-  }
-}
-
-// ── Callback handler for delete confirmation ──────────────────────────────────
-
-export async function handleDeleteCallback(ctx: BotContext): Promise<void> {
-  const data = ctx.callbackQuery?.data;
-  if (!data?.startsWith("del:")) return;
-
-  await ctx.answerCallbackQuery();
-
-  if (data.startsWith("del:cancel:")) {
-    const pendingKey = data.slice("del:cancel:".length);
-    // Clean up pending key
-    const supabase = getServiceClient();
-    const profile = ctx.profile;
-    if (profile) {
-      const { data: profileData } = await supabase.from("profiles").select("settings").eq("id", profile.id).single();
-      if (profileData?.settings) {
-        const settings = { ...(profileData.settings as Record<string, unknown>) };
-        delete settings[pendingKey];
-        await supabase.from("profiles").update({ settings }).eq("id", profile.id);
-      }
-    }
-    await ctx.editMessageText("❌ Видалення скасовано.");
-    return;
-  }
-
-  if (data.startsWith("del:key:")) {
-    const pendingKey = data.slice("del:key:".length);
-    const supabase = getServiceClient();
-    const profile = ctx.profile;
-    if (!profile) return;
-
-    // Retrieve ids from profile settings
-    const { data: profileData } = await supabase.from("profiles").select("settings").eq("id", profile.id).single();
-    const ids = (profileData?.settings as Record<string, unknown>)?.[pendingKey] as string[] | undefined;
-
-    if (!ids || ids.length === 0) {
-      await ctx.editMessageText("⚠️ Не вдалося знайти записи для видалення.");
-      return;
-    }
-
-    // Delete in batches of 100 to avoid query limits
-    let totalDeleted = 0;
-    for (let i = 0; i < ids.length; i += 100) {
-      const batch = ids.slice(i, i + 100);
-      const { error } = await supabase.from("entries").delete().in("id", batch);
-      if (error) {
-        console.error("[action] batch delete error:", error.message);
-      } else {
-        totalDeleted += batch.length;
-      }
-    }
-
-    // Clean up pending key
-    const settings = { ...(profileData?.settings as Record<string, unknown>) };
-    delete settings[pendingKey];
-    await supabase.from("profiles").update({ settings }).eq("id", profile.id);
-
-    await ctx.editMessageText(`✅ Видалено *${totalDeleted}* записів.`, { parse_mode: "Markdown" });
-    return;
   }
 }

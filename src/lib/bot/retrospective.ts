@@ -180,6 +180,13 @@ export async function loadReports(userId: string, limit = 10) {
   return data ?? [];
 }
 
+// ── Delete report ─────────────────────────────────────────────────────────────
+
+export async function deleteReport(userId: string, reportId: string): Promise<void> {
+  const supabase = getServiceClient();
+  await supabase.from("reports").delete().eq("id", reportId).eq("user_id", userId);
+}
+
 // ── Report schedule helpers ───────────────────────────────────────────────────
 
 export interface ReportSchedule {

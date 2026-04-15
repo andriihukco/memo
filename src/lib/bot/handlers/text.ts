@@ -82,6 +82,10 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
 
   await ctx.replyWithChatAction("typing");
 
+  // Check if user has a pending delete confirmation first
+  const { checkPendingDelete } = await import("@/lib/bot/handlers/action");
+  if (await checkPendingDelete(ctx)) return;
+
   // Load user's custom rules for injection into classifier
   // Prefetch user tone in parallel — it'll be ready by the time we need to reply
   const [userRules, prefetchedTone] = await Promise.all([
