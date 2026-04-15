@@ -72,8 +72,8 @@ const HELP = `📖 *Довідка Memo*
 /rules — збережені правила
 /delrule <id> — видалити правило
 /report [daily|weekly|monthly] — ретроспектива
-/schedule — налаштувати автозвіти*
-Скажи мені правило і я запам'ятаю його назавжди:
+/schedule — налаштувати автозвіти
+*Скажи мені правило і я запам'ятаю його назавжди:
 • _"Запам'ятай: мій стакан = 300мл"_
 • _"Коли я кажу 'зробив зарядку' — це 20 хв і 150 ккал"_
 • _"Я веган, не рахуй м'ясо"_
@@ -149,13 +149,13 @@ export async function handleReport(ctx: BotContext): Promise<void> {
   const now = new Date();
   let from: Date, to: Date;
   if (periodType === "daily") {
-    from = new Date(now); from.setHours(0,0,0,0);
-    to = new Date(now); to.setHours(23,59,59,999);
+    from = new Date(now); from.setUTCHours(0,0,0,0);
+    to = new Date(now); to.setUTCHours(23,59,59,999);
   } else if (periodType === "monthly") {
-    from = new Date(now); from.setDate(1); from.setHours(0,0,0,0);
+    from = new Date(now); from.setUTCDate(1); from.setUTCHours(0,0,0,0);
     to = now;
   } else {
-    from = new Date(now); from.setDate(now.getDate() - 7); from.setHours(0,0,0,0);
+    from = new Date(now); from.setUTCDate(now.getUTCDate() - 7); from.setUTCHours(0,0,0,0);
     to = now;
   }
 

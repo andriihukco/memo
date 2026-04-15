@@ -62,22 +62,25 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
         return;
       }
 
-      // Ask for confirmation
-      const confirmMsg = await ctx.reply(
+      // Store ids in profiles.settings.pending_delete so callback can retrieve them
+      const { data: profileData } = await supabase.from("profiles").select("settings").eq("id", profile.id).single();
+      const pendingKey = `del_${Date.now()}`;
+      await supabase.from("profiles").update({
+        settings: { ...(profileData?.settings ?? {}), [pendingKey]: ids },
+      }).eq("id", profile.id);
+
+      await ctx.reply(
         `🗑 Знайшов *${ids.length}* записів (${description}).\n\nВидалити їх? Це незворотньо.`,
         {
           parse_mode: "Markdown",
           reply_markup: {
             inline_keyboard: [[
-              { text: "✅ Так, видалити", callback_data: `del:${ids.slice(0, 50).join(",")}` },
-              { text: "❌ Скасувати", callback_data: "del:cancel" },
+              { text: "✅ Так, видалити", callback_data: `del:key:${pendingKey}` },
+              { text: "❌ Скасувати", callback_data: `del:cancel:${pendingKey}` },
             ]],
           },
         }
       );
-      // Store full id list in metadata for callback (truncated to 50 for callback_data limit)
-      // For large sets, we'll delete by query params instead
-      console.log(`[action] delete confirmation sent, msg_id=${confirmMsg.message_id}, count=${ids.length}`);
       break;
     }
 
@@ -117,21 +120,56 @@ export async function handleDeleteCallback(ctx: BotContext): Promise<void> {
 
   await ctx.answerCallbackQuery();
 
-  if (data === "del:cancel") {
+  if (data.startsWith("del:cancel:")) {
+    const pendingKey = data.slice("del:cancel:".length);
+    // Clean up pending key
+    const supabase = getServiceClient();
+    const profile = ctx.profile;
+    if (profile) {
+      const { data: profileData } = await supabase.from("profiles").select("settings").eq("id", profile.id).single();
+      if (profileData?.settings) {
+        const settings = { ...(profileData.settings as Record<string, unknown>) };
+        delete settings[pendingKey];
+        await supabase.from("profiles").update({ settings }).eq("id", profile.id);
+      }
+    }
     await ctx.editMessageText("❌ Видалення скасовано.");
     return;
   }
 
-  const ids = data.slice(4).split(",").filter(Boolean);
-  if (ids.length === 0) return;
+  if (data.startsWith("del:key:")) {
+    const pendingKey = data.slice("del:key:".length);
+    const supabase = getServiceClient();
+    const profile = ctx.profile;
+    if (!profile) return;
 
-  const supabase = getServiceClient();
-  const { error } = await supabase.from("entries").delete().in("id", ids);
+    // Retrieve ids from profile settings
+    const { data: profileData } = await supabase.from("profiles").select("settings").eq("id", profile.id).single();
+    const ids = (profileData?.settings as Record<string, unknown>)?.[pendingKey] as string[] | undefined;
 
-  if (error) {
-    await ctx.editMessageText("⚠️ Не вдалося видалити записи. Спробуй ще раз.");
+    if (!ids || ids.length === 0) {
+      await ctx.editMessageText("⚠️ Не вдалося знайти записи для видалення.");
+      return;
+    }
+
+    // Delete in batches of 100 to avoid query limits
+    let totalDeleted = 0;
+    for (let i = 0; i < ids.length; i += 100) {
+      const batch = ids.slice(i, i + 100);
+      const { error } = await supabase.from("entries").delete().in("id", batch);
+      if (error) {
+        console.error("[action] batch delete error:", error.message);
+      } else {
+        totalDeleted += batch.length;
+      }
+    }
+
+    // Clean up pending key
+    const settings = { ...(profileData?.settings as Record<string, unknown>) };
+    delete settings[pendingKey];
+    await supabase.from("profiles").update({ settings }).eq("id", profile.id);
+
+    await ctx.editMessageText(`✅ Видалено *${totalDeleted}* записів.`, { parse_mode: "Markdown" });
     return;
   }
-
-  await ctx.editMessageText(`✅ Видалено *${ids.length}* записів.`, { parse_mode: "Markdown" });
 }

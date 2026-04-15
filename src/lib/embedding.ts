@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { env } from "./env";
 import { findSimilarEntries, generateInsight, type Entry } from "./insight";
 import { generateConversationalReply } from "./bot/conversational";
+import { sanitizeMarkdown } from "./utils";
 
 // ── Error ─────────────────────────────────────────────────────────────────────
 
@@ -134,7 +135,7 @@ async function runInsightPipeline(
   const insightText = await generateInsight(newEntry, similarEntries);
 
   if (insightText && ctx.sendMessage) {
-    await ctx.sendMessage(`💡 *Інсайт*\n\n${insightText}`);
+    await ctx.sendMessage(sanitizeMarkdown(`💡 Інсайт\n\n${insightText}`));
   }
 
   // Conversational reply — async, non-blocking, does not delay insight message

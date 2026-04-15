@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/supabase/auth-context';
 import {
   Flame, Wallet, Dumbbell, Lightbulb, Brain, TrendingUp, TrendingDown, Minus,
   ChevronDown, ChevronRight, Droplets, Moon, BookOpen, Scale, Smile, Zap,
-  Wind, MapPin, Utensils, Tag, Heart, Activity, X, Calendar, RefreshCw,
+  Wind, MapPin, Utensils, Tag, Heart, Activity, X, Calendar,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,33 +14,7 @@ import { cn } from '@/lib/utils';
 import type { DashboardMetric } from '@/lib/classifier';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
 
-type DashView = 'actual' | 'goals' | 'reports';
-
-type DateRange = 'today' | 'week' | '2weeks' | 'month' | 'quarter' | '6months' | 'year' | 'alltime' | 'custom';
-interface DateFilter { range: DateRange; from: Date; to: Date; }
-
-function startOfDay(d: Date) { const r = new Date(d); r.setHours(0,0,0,0); return r; }
-function endOfDay(d: Date)   { const r = new Date(d); r.setHours(23,59,59,999); return r; }
-function rangeFor(r: DateRange): { from: Date; to: Date } {
-  const now = new Date();
-  const ago = (days: number) => { const f = new Date(now); f.setDate(now.getDate()-days); return startOfDay(f); };
-  if (r === 'today')    return { from: startOfDay(now), to: endOfDay(now) };
-  if (r === 'week')     return { from: ago(6), to: endOfDay(now) };
-  if (r === '2weeks')   return { from: ago(13), to: endOfDay(now) };
-  if (r === 'month')    return { from: ago(29), to: endOfDay(now) };
-  if (r === 'quarter')  return { from: ago(89), to: endOfDay(now) };
-  if (r === '6months')  return { from: ago(179), to: endOfDay(now) };
-  if (r === 'year')     return { from: ago(364), to: endOfDay(now) };
-  if (r === 'alltime')  return { from: new Date('2020-01-01'), to: endOfDay(now) };
-  return { from: startOfDay(now), to: endOfDay(now) };
-}
-function fmtDate(d: Date) { return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }); }
-function isoDate(d: Date) { return d.toISOString().slice(0,10); }
-
-const RANGE_LABELS: Record<DateRange, string> = {
-  today: 'Сьогодні', week: '7 днів', '2weeks': '2 тижні', month: '30 днів',
-  quarter: 'Квартал', '6months': '6 місяців', year: 'Рік', alltime: 'Весь час', custom: 'Свій',
-};
+type DashView = 'actual' | 'goals';
 
 interface Entry {
   id: string;
@@ -49,6 +23,23 @@ interface Entry {
   metadata: Record<string, unknown>;
   created_at: string;
 }
+
+type DateRange = 'today' | 'week' | 'month' | 'custom';
+interface DateFilter { range: DateRange; from: Date; to: Date; }
+
+function startOfDay(d: Date) { const r = new Date(d); r.setHours(0,0,0,0); return r; }
+function endOfDay(d: Date)   { const r = new Date(d); r.setHours(23,59,59,999); return r; }
+function rangeFor(r: DateRange): { from: Date; to: Date } {
+  const now = new Date();
+  if (r === 'today') return { from: startOfDay(now), to: endOfDay(now) };
+  if (r === 'week')  { const f = new Date(now); f.setDate(now.getDate()-6); return { from: startOfDay(f), to: endOfDay(now) }; }
+  if (r === 'month') { const f = new Date(now); f.setDate(now.getDate()-29); return { from: startOfDay(f), to: endOfDay(now) }; }
+  return { from: startOfDay(now), to: endOfDay(now) };
+}
+function fmtDate(d: Date) { return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }); }
+function isoDate(d: Date) { return d.toISOString().slice(0,10); }
+
+const RANGE_LABELS: Record<DateRange, string> = { today: 'Сьогодні', week: '7 днів', month: '30 днів', custom: 'Свій' };
 
 // ── Metric aggregation ────────────────────────────────────────────────────────
 
@@ -251,24 +242,21 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
     onClose();
   };
 
-  const PRESETS: DateRange[] = ['today','week','2weeks','month','quarter','6months','year','alltime'];
-
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl" style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 0.5rem)' }}>
+      <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
         <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-        <h3 className="mb-3 text-sm font-semibold">Оберіть період</h3>
+        <h3 className="mb-4 text-sm font-semibold">Оберіть період</h3>
         <div className="mb-4 grid grid-cols-2 gap-2">
-          {PRESETS.map(r => (
+          {(['today','week','month'] as DateRange[]).map(r => (
             <button key={r} onClick={() => apply(r)}
-              className={cn('rounded-xl border py-2.5 text-sm font-medium transition-colors',
+              className={cn('rounded-xl border py-3 text-sm font-medium transition-colors',
                 filter.range === r ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/30 text-foreground')}>
               {RANGE_LABELS[r]}
             </button>
           ))}
         </div>
-        <p className="mb-2 text-xs text-muted-foreground">Або вкажи свій діапазон:</p>
         <div className="mb-3 flex items-center gap-2">
           <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
             className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
@@ -278,126 +266,6 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
         </div>
         <Button className="w-full rounded-full" onClick={applyCustom}>Застосувати</Button>
       </div>
-    </div>
-  );
-}
-
-// ── Reports tab ───────────────────────────────────────────────────────────────
-
-interface ReportInsight { type: string; text: string; emoji: string; }
-interface ReportSummary {
-  id: string; period_type: string; period_from: string; period_to: string;
-  summary: string; insights: ReportInsight[]; created_at: string;
-}
-
-const RETRO_SECTIONS: Array<{ types: string[]; title: string; subtitle: string; color: string; border: string }> = [
-  { types: ['celebration','strength'], title: '✅ Продовжувати', subtitle: 'Що йде добре — зберегти і посилити', color: 'bg-green-50', border: 'border-green-200' },
-  { types: ['concern','pattern'],      title: '⚠️ Зупинити / Змінити', subtitle: 'Що заважає або потребує корекції', color: 'bg-amber-50', border: 'border-amber-200' },
-  { types: ['action'],                 title: '🚀 Почати / Дії', subtitle: 'Конкретні кроки на наступний період', color: 'bg-violet-50', border: 'border-violet-200' },
-];
-
-function ReportCard({ report }: { report: ReportSummary }) {
-  const [expanded, setExpanded] = useState(false);
-  const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
-  const to = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
-  const PERIOD_LABELS: Record<string, string> = { daily: 'День', weekly: 'Тиждень', monthly: 'Місяць', custom: 'Звіт' };
-
-  return (
-    <Card className="overflow-hidden">
-      <button onClick={() => setExpanded(v => !v)} className="flex w-full items-start gap-3 p-4 text-left">
-        <div className="flex-1 min-w-0">
-          <div className="mb-1 flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{PERIOD_LABELS[report.period_type] ?? 'Звіт'} · {from} — {to}</span>
-            <ChevronDown size={15} className={cn('shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-180')} />
-          </div>
-          <p className="text-sm leading-relaxed">{report.summary}</p>
-        </div>
-      </button>
-
-      {expanded && (
-        <div className="border-t px-4 pb-4 pt-3 flex flex-col gap-3">
-          {RETRO_SECTIONS.map(sec => {
-            const items = report.insights.filter(i => sec.types.includes(i.type));
-            if (items.length === 0) return null;
-            return (
-              <div key={sec.title} className={cn('rounded-xl border p-3', sec.color, sec.border)}>
-                <p className="mb-0.5 text-xs font-semibold">{sec.title}</p>
-                <p className="mb-2 text-[10px] text-muted-foreground">{sec.subtitle}</p>
-                <div className="flex flex-col gap-1.5">
-                  {items.map((ins, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs">
-                      <span className="shrink-0 leading-none mt-0.5">{ins.emoji}</span>
-                      <p className="leading-relaxed">{ins.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function ReportsTab({ accessToken, filter, onShowCalendar }: { accessToken: string | null; filter: DateFilter; onShowCalendar: () => void }) {
-  const [reports, setReports] = useState<ReportSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [genPeriod, setGenPeriod] = useState<'daily'|'weekly'|'monthly'>('weekly');
-
-  const load = useCallback(async () => {
-    if (!accessToken) return;
-    setLoading(true);
-    const res = await fetch('/api/reports', { headers: { Authorization: `Bearer ${accessToken}` } });
-    const d = await res.json();
-    setReports(d.reports ?? []);
-    setLoading(false);
-  }, [accessToken]);
-
-  useEffect(() => { load(); }, [load]);
-
-  const generate = async () => {
-    if (!accessToken || generating) return;
-    setGenerating(true);
-    try {
-      const res = await fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ period_type: genPeriod, from: filter.from.toISOString(), to: filter.to.toISOString() }),
-      });
-      if (res.ok) await load();
-    } finally { setGenerating(false); }
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      <Card className="p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-medium">Ретроспектива</p>
-          <button onClick={onShowCalendar} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-            <Calendar size={12} />
-            {fmtDate(filter.from)} – {fmtDate(filter.to)}
-          </button>
-        </div>
-        <div className="mb-3 flex gap-1.5">
-          {(['daily','weekly','monthly'] as const).map(p => (
-            <button key={p} onClick={() => setGenPeriod(p)}
-              className={cn('flex-1 rounded-full py-2 text-xs font-medium transition-colors',
-                genPeriod === p ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
-              {p === 'daily' ? 'День' : p === 'weekly' ? 'Тиждень' : 'Місяць'}
-            </button>
-          ))}
-        </div>
-        <Button className="w-full rounded-full gap-2" onClick={generate} disabled={generating}>
-          {generating ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" /> : <RefreshCw size={14} />}
-          {generating ? 'Аналізую...' : 'Згенерувати звіт'}
-        </Button>
-      </Card>
-
-      {loading && <div className="flex justify-center py-8"><div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-foreground" /></div>}
-      {!loading && reports.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Звітів ще немає</p>}
-      {reports.map(r => <ReportCard key={r.id} report={r} />)}
     </div>
   );
 }
@@ -693,13 +561,7 @@ export default function DashboardPage() {
         <button onClick={() => setView('goals')} className={cn('flex-1 rounded-full py-1.5 text-xs font-medium transition-colors', view === 'goals' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>
           Цілі
         </button>
-        <button onClick={() => setView('reports')} className={cn('flex-1 rounded-full py-1.5 text-xs font-medium transition-colors', view === 'reports' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground')}>
-          Звіти
-        </button>
       </div>
-
-      {/* Reports view */}
-      {view === 'reports' && <ReportsTab accessToken={accessToken} filter={filter} onShowCalendar={() => setShowCalendar(true)} />}
 
       {/* Goals view */}
       {view === 'goals' && status === 'ready' && <GoalsTab entries={entries} />}

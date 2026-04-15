@@ -6,7 +6,7 @@ const MODEL = "gemini-2.5-flash";
 
 // ── Tone-of-voice learning ────────────────────────────────────────────────────
 
-async function loadUserTone(userId: string): Promise<string> {
+export async function loadUserTone(userId: string): Promise<string> {
   try {
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
@@ -47,9 +47,13 @@ ${toneExamples}
 export async function generateConverseReply(
   userMessage: string,
   threadContext?: string,
-  userId?: string
+  userId?: string,
+  prefetchedTone?: string
 ): Promise<string> {
-  const toneExamples = userId ? await loadUserTone(userId) : "";
+  // Use prefetched tone if provided, otherwise fetch it
+  const toneExamples = prefetchedTone !== undefined
+    ? prefetchedTone
+    : (userId ? await loadUserTone(userId) : "");
 
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({

@@ -88,8 +88,8 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
   // 3b. Smalltalk — do NOT persist
   if (result.intent === "smalltalk") {
     await ctx.replyWithChatAction("typing");
-    const reply = await generateConverseReply(result.content);
-    await ctx.reply(reply);
+    const reply = await generateConverseReply(result.content, undefined, profile.id);
+    await ctx.reply(sanitizeMarkdown(reply));
     return;
   }
 
@@ -120,7 +120,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
   // 5. Confirm to user — always natural, never robotic
   await ctx.replyWithChatAction("typing");
   const botReplyText = await generateConverseReply(result.content, undefined, profile.id);
-  await ctx.reply(botReplyText);
+  await ctx.reply(sanitizeMarkdown(botReplyText));
 
   // 6. Async embedding (non-blocking) → triggers RAG insight pipeline after embedding is stored
   if (entry) {

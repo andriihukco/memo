@@ -50,7 +50,7 @@ async function ensureAuthUser(telegramId: string, username: string): Promise<str
 
   if (created?.user) return created.user.id;
 
-  // User already exists — look up by email directly
+  // User already exists — look up by email
   if (error) {
     const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
     const existing = listData?.users?.find((u) => u.email === email);

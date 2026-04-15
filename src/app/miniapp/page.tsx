@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { Trash2, MessageCircle, Calendar } from 'lucide-react';
+import { Trash2, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -32,75 +32,6 @@ function summarizeMetrics(metadata: Record<string, unknown>): string {
   const metrics = metadata.dashboard_metrics as Array<{ label: string; value: number; unit: string }> | undefined;
   if (!Array.isArray(metrics) || metrics.length === 0) return '';
   return '📊 ' + metrics.slice(0, 4).map(m => `${m.label}: ${m.value}${m.unit}`).join(' · ');
-}
-
-// ── Feed date filter ──────────────────────────────────────────────────────────
-
-type FeedDateRange = 'all' | 'today' | 'week' | '2weeks' | 'month' | 'quarter' | '6months' | 'year' | 'custom';
-
-const FEED_RANGE_LABELS: Record<FeedDateRange, string> = {
-  all: 'Всі', today: 'Сьогодні', week: '7 днів', '2weeks': '2 тижні', month: '30 днів',
-  quarter: 'Квартал', '6months': '6 міс', year: 'Рік', custom: 'Свій',
-};
-
-function feedRangeFor(r: FeedDateRange): { from: Date | null; to: Date | null } {
-  if (r === 'all') return { from: null, to: null };
-  const now = new Date();
-  const ago = (days: number) => { const f = new Date(now); f.setDate(now.getDate()-days); f.setHours(0,0,0,0); return f; };
-  const end = new Date(now); end.setHours(23,59,59,999);
-  if (r === 'today')   return { from: ago(0), to: end };
-  if (r === 'week')    return { from: ago(6), to: end };
-  if (r === '2weeks')  return { from: ago(13), to: end };
-  if (r === 'month')   return { from: ago(29), to: end };
-  if (r === 'quarter') return { from: ago(89), to: end };
-  if (r === '6months') return { from: ago(179), to: end };
-  if (r === 'year')    return { from: ago(364), to: end };
-  return { from: null, to: null };
-}
-
-function FeedCalendarSheet({ range, onApply, onClose }: {
-  range: FeedDateRange;
-  onApply: (r: FeedDateRange, from?: Date, to?: Date) => void;
-  onClose: () => void;
-}) {
-  const [fromStr, setFromStr] = useState('');
-  const [toStr, setToStr] = useState('');
-  const PRESETS: FeedDateRange[] = ['all','today','week','2weeks','month','quarter','6months','year'];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-        style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 0.5rem)' }}>
-        <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-        <h3 className="mb-3 text-sm font-semibold">Фільтр за датою</h3>
-        <div className="mb-4 grid grid-cols-2 gap-2">
-          {PRESETS.map(r => (
-            <button key={r} onClick={() => { onApply(r); onClose(); }}
-              className={cn('rounded-xl border py-2.5 text-sm font-medium transition-colors',
-                range === r ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/30 text-foreground')}>
-              {FEED_RANGE_LABELS[r]}
-            </button>
-          ))}
-        </div>
-        <p className="mb-2 text-xs text-muted-foreground">Або вкажи свій діапазон:</p>
-        <div className="mb-3 flex items-center gap-2">
-          <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
-            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
-          <span className="text-muted-foreground">–</span>
-          <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
-            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
-        </div>
-        <Button className="w-full rounded-full" onClick={() => {
-          if (fromStr && toStr) {
-            const f = new Date(fromStr); f.setHours(0,0,0,0);
-            const t = new Date(toStr); t.setHours(23,59,59,999);
-            if (!isNaN(f.getTime()) && !isNaN(t.getTime()) && f <= t) { onApply('custom', f, t); onClose(); }
-          }
-        }}>Застосувати</Button>
-      </div>
-    </div>
-  );
 }
 
 // ── DeleteConfirmDialog ───────────────────────────────────────────────────────
@@ -450,10 +381,6 @@ export default function FeedPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [feedRange, setFeedRange] = useState<FeedDateRange>('all');
-  const [feedCustomFrom, setFeedCustomFrom] = useState<Date | null>(null);
-  const [feedCustomTo, setFeedCustomTo] = useState<Date | null>(null);
-  const [showFeedCalendar, setShowFeedCalendar] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -469,17 +396,9 @@ export default function FeedPage() {
   }, [accessToken]);
 
   useEffect(() => {
-    let filtered = allEntries;
-    // Date filter
-    const { from, to } = feedRange === 'custom'
-      ? { from: feedCustomFrom, to: feedCustomTo }
-      : feedRangeFor(feedRange);
-    if (from) filtered = filtered.filter(e => new Date(e.created_at) >= from);
-    if (to)   filtered = filtered.filter(e => new Date(e.created_at) <= to);
-    // Category filter
-    if (selectedCategories.size > 0) filtered = filtered.filter(e => selectedCategories.has(e.category));
-    setEntries(filtered);
-  }, [allEntries, selectedCategories, feedRange, feedCustomFrom, feedCustomTo]);
+    if (selectedCategories.size === 0) setEntries(allEntries);
+    else setEntries(allEntries.filter((e) => selectedCategories.has(e.category)));
+  }, [allEntries, selectedCategories]);
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
@@ -527,21 +446,9 @@ export default function FeedPage() {
             <Button size="sm" variant="outline" onClick={exitSelectMode}>Скасувати</Button>
           </>
         ) : (
-          <div className="flex w-full items-center justify-between">
-            <div className="flex items-center gap-0">
-              <h1 className="text-lg font-semibold">Стрічка</h1>
-              <LockButton />
-            </div>
-            <button
-              onClick={() => setShowFeedCalendar(true)}
-              className={cn('flex items-center gap-1 rounded-full px-2.5 py-1.5 text-xs font-medium transition-colors',
-                feedRange !== 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}
-            >
-              <Calendar size={12} />
-              {feedRange === 'all' ? 'Всі' : feedRange === 'custom' && feedCustomFrom && feedCustomTo
-                ? `${feedCustomFrom.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })} – ${feedCustomTo.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })}`
-                : FEED_RANGE_LABELS[feedRange]}
-            </button>
+          <div className="flex items-center gap-0">
+            <h1 className="text-lg font-semibold">Стрічка</h1>
+            <LockButton />
           </div>
         )}
       </div>
@@ -621,17 +528,6 @@ export default function FeedPage() {
 
       {pendingDeleteIds && (
         <DeleteConfirmDialog count={pendingDeleteIds.length} onConfirm={isDeleting ? () => {} : confirmDelete} onCancel={() => setPendingDeleteIds(null)} />
-      )}
-
-      {showFeedCalendar && (
-        <FeedCalendarSheet
-          range={feedRange}
-          onApply={(r, from, to) => {
-            setFeedRange(r);
-            if (r === 'custom' && from && to) { setFeedCustomFrom(from); setFeedCustomTo(to); }
-          }}
-          onClose={() => setShowFeedCalendar(false)}
-        />
       )}
     </div>
   );

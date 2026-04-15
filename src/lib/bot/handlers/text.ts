@@ -6,7 +6,7 @@ import { processUser } from "@/lib/processing/loop";
 import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import { answerQuestion } from "@/lib/bot/qa";
-import { generateConverseReply } from "@/lib/bot/converse";
+import { generateConverseReply, loadUserTone } from "@/lib/bot/converse";
 import { handleAction } from "@/lib/bot/handlers/action";
 import { loadUserRules, saveUserRule, extractRuleFromMessage, formatRulesForPrompt } from "@/lib/bot/teach";
 import { sanitizeMarkdown } from "@/lib/utils";
@@ -83,7 +83,11 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   await ctx.replyWithChatAction("typing");
 
   // Load user's custom rules for injection into classifier
-  const userRules = await loadUserRules(profile.id);
+  // Prefetch user tone in parallel — it'll be ready by the time we need to reply
+  const [userRules, prefetchedTone] = await Promise.all([
+    loadUserRules(profile.id),
+    loadUserTone(profile.id),
+  ]);
   const rulesPrompt = formatRulesForPrompt(userRules);
 
   // 1. Classify
@@ -126,8 +130,8 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   // 3. Smalltalk — no persist
   if (result.intent === "smalltalk") {
     await ctx.replyWithChatAction("typing");
-    const reply = await generateConverseReply(text, undefined, profile.id);
-    await ctx.reply(reply);
+    const reply = await generateConverseReply(text, undefined, profile.id, prefetchedTone);
+    await ctx.reply(sanitizeMarkdown(reply));
     return;
   }
 
@@ -153,7 +157,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
     return;
   }
 
-  // 4. Resolve thread from Telegram reply context
+  // 4. Resolve thread + prefetch thread context in parallel
   const supabase = getServiceClient();
   const replyToMsgId = ctx.message?.reply_to_message?.message_id;
   const { threadId: resolvedThreadId, parentEntryId } = await resolveThread(supabase, profile.id, replyToMsgId);
@@ -206,11 +210,13 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   // ALL entries get a natural reply — no robotic "✅ Збережено як..."
   let botMsgId: number | null = null;
   await ctx.replyWithChatAction("typing");
+  // loadThreadContext and generateConverseReply (which internally fetches tone) run sequentially
+  // but tone fetch already happened — just load thread ctx then generate
   const threadCtx = resolvedThreadId
     ? await loadThreadContext(supabase, resolvedThreadId, profile.id)
     : undefined;
-  const botReplyText = await generateConverseReply(text, threadCtx, profile.id);
-  const sent = await ctx.reply(botReplyText);
+  const finalReplyText = await generateConverseReply(text, threadCtx, profile.id, prefetchedTone);
+  const sent = await ctx.reply(sanitizeMarkdown(finalReplyText));
   botMsgId = sent.message_id;
 
   // 7. Update entry with bot reply + thread metadata
@@ -219,7 +225,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
     const newThreadId = resolvedThreadId ?? entry.id;
 
     await supabase.from("entries").update({
-      bot_reply: botReplyText,
+      bot_reply: finalReplyText,
       thread_id: newThreadId,
       metadata: { ...currentMeta, ...(botMsgId ? { bot_msg_id: botMsgId } : {}) },
     }).eq("id", entry.id);
