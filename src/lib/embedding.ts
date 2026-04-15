@@ -1,0 +1,150 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { createClient } from "@supabase/supabase-js";
+import { env } from "./env";
+import { findSimilarEntries, generateInsight, type Entry } from "./insight";
+import { generateConversationalReply } from "./bot/conversational";
+
+// ── Error ─────────────────────────────────────────────────────────────────────
+
+export class EmbeddingError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = "EmbeddingError";
+  }
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const EMBEDDING_MODEL = "gemini-embedding-001";
+const EMBEDDING_DIMENSIONS = 768;
+const MAX_ATTEMPTS = 3;
+const BACKOFF_DELAYS_MS = [1000, 2000, 4000];
+
+// ── Supabase service client ───────────────────────────────────────────────────
+
+function getServiceClient() {
+  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+}
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Generate a 768-dimensional embedding vector for the given text using
+ * the gemini-embedding-001 model.
+ *
+ * Throws EmbeddingError on failure.
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
+
+  const result = await model.embedContent({
+    content: { parts: [{ text }], role: "user" },
+    // @ts-expect-error outputDimensionality is supported by the API but not yet typed in the SDK
+    outputDimensionality: EMBEDDING_DIMENSIONS,
+  });
+
+  const values = result.embedding.values;
+  if (!values || values.length !== EMBEDDING_DIMENSIONS) {
+    throw new EmbeddingError(
+      `Expected ${EMBEDDING_DIMENSIONS}-dim vector, got ${values?.length ?? 0}`
+    );
+  }
+
+  return values;
+}
+
+/**
+ * Orchestrate embedding generation with retry + DB update for a single entry.
+ *
+ * On success: updates entries.embedding and sets embedding_status = 'done',
+ * then asynchronously triggers the RAG insight pipeline if entryContext is provided.
+ * On exhaustion: sets embedding_status = 'failed' and logs with entry_id.
+ */
+export async function embedEntry(
+  entryId: string,
+  content: string,
+  entryContext?: { userId: string; category: string; created_at: string; chatId?: number | string; sendMessage?: (text: string) => Promise<void> }
+): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, BACKOFF_DELAYS_MS[attempt - 1]));
+    }
+
+    try {
+      const embedding = await generateEmbedding(content);
+
+      const supabase = getServiceClient();
+      const { error } = await supabase
+        .from("entries")
+        .update({ embedding: `[${embedding.join(",")}]`, embedding_status: "done" })
+        .eq("id", entryId);
+
+      if (error) {
+        throw new EmbeddingError(`DB update failed: ${error.message}`, error);
+      }
+
+      // Async RAG insight pipeline (non-blocking) — runs after embedding is stored
+      if (entryContext) {
+        runInsightPipeline(entryId, content, embedding, entryContext).catch((err) =>
+          console.error("[embedding] insight pipeline failed:", err)
+        );
+      }
+
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  // All attempts exhausted — mark as failed
+  console.error(`[embedding] Failed to embed entry ${entryId} after ${MAX_ATTEMPTS} attempts:`, lastError);
+
+  const supabase = getServiceClient();
+  const { error: updateError } = await supabase
+    .from("entries")
+    .update({ embedding_status: "failed" })
+    .eq("id", entryId);
+
+  if (updateError) {
+    console.error(`[embedding] Could not mark entry ${entryId} as failed:`, updateError.message);
+  }
+}
+
+// ── RAG insight pipeline ──────────────────────────────────────────────────────
+
+async function runInsightPipeline(
+  entryId: string,
+  content: string,
+  embedding: number[],
+  ctx: { userId: string; category: string; created_at: string; sendMessage?: (text: string) => Promise<void> }
+): Promise<void> {
+  const newEntry: Entry = {
+    id: entryId,
+    content,
+    category: ctx.category,
+    created_at: ctx.created_at,
+  };
+
+  const similarEntries = await findSimilarEntries(ctx.userId, embedding, entryId);
+  const insightText = await generateInsight(newEntry, similarEntries);
+
+  if (insightText && ctx.sendMessage) {
+    await ctx.sendMessage(`💡 *Інсайт*\n\n${insightText}`);
+  }
+
+  // Conversational reply — async, non-blocking, does not delay insight message
+  generateConversationalReply(newEntry, similarEntries)
+    .then(async (reply) => {
+      if (reply && ctx.sendMessage) {
+        await ctx.sendMessage(reply);
+      }
+    })
+    .catch((err) =>
+      console.error("[embedding] conversational reply failed:", { entry_id: entryId, err })
+    );
+}

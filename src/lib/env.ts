@@ -1,0 +1,42 @@
+import { z } from "zod";
+
+const envSchema = z.object({
+  TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
+  SUPABASE_URL: z.string().min(1, "SUPABASE_URL is required"),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
+});
+
+type Env = z.infer<typeof envSchema>;
+
+let _env: Env | null = null;
+
+function validateEnv(): Env {
+  if (_env) return _env;
+
+  const result = envSchema.safeParse({
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN,
+    SUPABASE_URL: process.env.SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  });
+
+  if (!result.success) {
+    const missing = result.error.issues
+      .map((issue) => issue.path.join("."))
+      .join(", ");
+    const message = `Missing required environment variable(s): ${missing}`;
+    console.error(message);
+    throw new Error(message);
+  }
+
+  _env = result.data;
+  return _env;
+}
+
+// Lazy proxy — validation runs on first property access (at request time, not build time)
+export const env = new Proxy({} as Env, {
+  get(_target, prop: string) {
+    return validateEnv()[prop as keyof Env];
+  },
+});
