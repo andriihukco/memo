@@ -95,7 +95,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPan
     <>
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} aria-hidden="true" />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-white px-5 pt-3 shadow-xl"
+        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-[var(--tgui--bg_color)] px-5 pt-3 shadow-xl"
         style={{ maxHeight: '70vh', overflowY: 'auto', paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}
       >
         {/* Handle */}
@@ -113,7 +113,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPan
           <Badge className={`capitalize ${categoryBadge(node.category)}`} variant="outline">
             {getCategoryLabel(node.category)}
           </Badge>
-          <time className="text-xs text-muted-foreground">{formatDate(node.created_at)}</time>
+          <time className="text-xs text-[var(--tgui--hint_color)]">{formatDate(node.created_at)}</time>
         </div>
 
         {/* Full content */}

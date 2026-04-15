@@ -47,24 +47,24 @@ function ReportCard({ report }: { report: ReportSummary }) {
   return (
     <Card className="overflow-hidden">
       <button onClick={() => setExpanded(v => !v)} className="flex w-full items-start gap-3 p-4 text-left">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-          <BarChart2 size={18} className="text-primary" />
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--tgui--link_color)]/10">
+          <BarChart2 size={18} className="text-[var(--tgui--link_color)]" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium">{PERIOD_LABELS[report.period_type] ?? 'Звіт'}</p>
-            <span className="text-[10px] text-muted-foreground">{from} — {to}</span>
+            <span className="text-[10px] text-[var(--tgui--hint_color)]">{from} — {to}</span>
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{report.summary}</p>
+          <p className="mt-0.5 text-xs text-[var(--tgui--hint_color)] line-clamp-2">{report.summary}</p>
         </div>
-        <ChevronDown size={16} className={cn('mt-1 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-180')} />
+        <ChevronDown size={16} className={cn('mt-1 shrink-0 text-[var(--tgui--hint_color)] transition-transform', expanded && 'rotate-180')} />
       </button>
 
       {expanded && report.insights.length > 0 && (
         <div className="border-t px-4 pb-4 pt-3">
           <div className="flex flex-col gap-2">
             {report.insights.map((ins, i) => (
-              <div key={i} className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-xs', INSIGHT_COLORS[ins.type] ?? 'bg-muted')}>
+              <div key={i} className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-xs', INSIGHT_COLORS[ins.type] ?? 'bg-[var(--tgui--secondary_bg_color)]')}>
                 <span className="shrink-0 text-base leading-none">{ins.emoji}</span>
                 <p className="leading-relaxed">{ins.text}</p>
               </div>
@@ -161,7 +161,7 @@ export default function SettingsPage() {
 
       {/* ── Reports section ─────────────────────────────────────────────── */}
       <section>
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Ретроспективи</p>
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-[var(--tgui--hint_color)]">Ретроспективи</p>
 
         {/* Generate */}
         <Card className="mb-3 p-4">
@@ -170,16 +170,16 @@ export default function SettingsPage() {
             {(['daily','weekly','monthly'] as const).map(p => (
               <button key={p} onClick={() => setGenPeriod(p)}
                 className={cn('flex-1 rounded-full py-2 text-xs font-medium transition-colors',
-                  genPeriod === p ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                  genPeriod === p ? 'bg-[var(--tgui--button_color)] text-[var(--tgui--link_color)]-foreground' : 'bg-[var(--tgui--secondary_bg_color)] text-[var(--tgui--hint_color)]')}>
                 {p === 'daily' ? 'День' : p === 'weekly' ? 'Тиждень' : 'Місяць'}
               </button>
             ))}
           </div>
           <Button className="w-full rounded-full gap-2" onClick={generateReport} disabled={generating}>
-            {generating ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" /> : <RefreshCw size={15} />}
+            {generating ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--tgui--button_color)]-foreground/30 border-t-primary-foreground" /> : <RefreshCw size={15} />}
             {generating ? 'Аналізую...' : 'Згенерувати'}
           </Button>
-          <p className="mt-2 text-center text-[10px] text-muted-foreground">
+          <p className="mt-2 text-center text-[10px] text-[var(--tgui--hint_color)]">
             Або напиши боту: /report weekly
           </p>
         </Card>
@@ -187,7 +187,7 @@ export default function SettingsPage() {
         {/* Reports list */}
         {reportsLoading && <div className="flex justify-center py-6"><div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-foreground" /></div>}
         {!reportsLoading && reports.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted-foreground">Звітів ще немає. Згенеруй перший!</p>
+          <p className="py-4 text-center text-sm text-[var(--tgui--hint_color)]">Звітів ще немає. Згенеруй перший!</p>
         )}
         <div className="flex flex-col gap-2">
           {reports.map(r => <ReportCard key={r.id} report={r} />)}
@@ -196,43 +196,43 @@ export default function SettingsPage() {
 
       {/* ── Privacy section ─────────────────────────────────────────────── */}
       <section>
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Конфіденційність</p>
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-[var(--tgui--hint_color)]">Конфіденційність</p>
         <Card>
           <CardContent className="p-0">
             <button onClick={hasPasscode ? handleChangePasscode : handleEnablePasscode}
-              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <Lock size={16} className="text-primary" />
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/50">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tgui--link_color)]/10">
+                <Lock size={16} className="text-[var(--tgui--link_color)]" />
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">{hasPasscode ? 'Змінити код' : 'Увімкнути код'}</p>
-                <p className="text-xs text-muted-foreground">{hasPasscode ? 'Змінити 4-значний код доступу' : 'Захистити додаток кодом'}</p>
+                <p className="text-xs text-[var(--tgui--hint_color)]">{hasPasscode ? 'Змінити 4-значний код доступу' : 'Захистити додаток кодом'}</p>
               </div>
-              <ChevronRight size={16} className="text-muted-foreground" />
+              <ChevronRight size={16} className="text-[var(--tgui--hint_color)]" />
             </button>
 
-            {hasPasscode && <div className="mx-4 h-px bg-border" />}
+            {hasPasscode && <div className="mx-4 h-px bg-[var(--tgui--hint_color)]/20" />}
 
             {hasPasscode && (
               <div>
                 <button onClick={() => setShowTimerPicker(v => !v)}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                    <Shield size={16} className="text-primary" />
+                  className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/50">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tgui--link_color)]/10">
+                    <Shield size={16} className="text-[var(--tgui--link_color)]" />
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium">Блокування</p>
-                    <p className="text-xs text-muted-foreground">{LOCK_TIMER_LABELS[lockTimer]}</p>
+                    <p className="text-xs text-[var(--tgui--hint_color)]">{LOCK_TIMER_LABELS[lockTimer]}</p>
                   </div>
-                  <ChevronRight size={16} className={cn('text-muted-foreground transition-transform', showTimerPicker && 'rotate-90')} />
+                  <ChevronRight size={16} className={cn('text-[var(--tgui--hint_color)] transition-transform', showTimerPicker && 'rotate-90')} />
                 </button>
                 {showTimerPicker && (
                   <div className="border-t pb-1">
                     {TIMERS.map(t => (
                       <button key={t} onClick={() => handleTimerChange(t)}
-                        className="flex w-full items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-muted/50">
-                        <span className={cn(t === lockTimer && 'font-medium text-primary')}>{LOCK_TIMER_LABELS[t]}</span>
-                        {t === lockTimer && <Check size={16} className="text-primary" />}
+                        className="flex w-full items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-[var(--tgui--secondary_bg_color)]/50">
+                        <span className={cn(t === lockTimer && 'font-medium text-[var(--tgui--link_color)]')}>{LOCK_TIMER_LABELS[t]}</span>
+                        {t === lockTimer && <Check size={16} className="text-[var(--tgui--link_color)]" />}
                       </button>
                     ))}
                   </div>
@@ -242,11 +242,11 @@ export default function SettingsPage() {
 
             {hasPasscode && (
               <>
-                <div className="mx-4 h-px bg-border" />
+                <div className="mx-4 h-px bg-[var(--tgui--hint_color)]/20" />
                 <button onClick={handleDisablePasscode}
-                  className="flex w-full items-center gap-3 px-4 py-3.5 text-destructive transition-colors hover:bg-destructive/5">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
-                    <Lock size={16} className="text-destructive" />
+                  className="flex w-full items-center gap-3 px-4 py-3.5 text-[var(--tgui--destructive_text_color)] transition-colors hover:bg-[var(--tgui--destructive_text_color)]/5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--tgui--destructive_text_color)]/10">
+                    <Lock size={16} className="text-[var(--tgui--destructive_text_color)]" />
                   </div>
                   <p className="text-sm font-medium">Вимкнути код</p>
                 </button>
