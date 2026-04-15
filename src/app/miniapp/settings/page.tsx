@@ -15,7 +15,9 @@ import { cn } from '@/lib/utils';
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
 interface CustomRule { id: string; instruction: string; created_at: string; }
-interface ReportSchedule { daily: boolean; weekly: boolean; monthly: boolean; time: string; }
+interface ReportSchedule { daily: boolean; weekly: boolean; weekly_day: number; monthly: boolean; monthly_day: number; time: string; }
+
+const WEEK_DAYS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
 // ── Toggle row ────────────────────────────────────────────────────────────────
 
@@ -53,7 +55,7 @@ export default function SettingsPage() {
   const [newRuleText, setNewRuleText] = useState('');
 
   // Schedule
-  const [schedule, setSchedule] = useState<ReportSchedule>({ daily: false, weekly: true, monthly: true, time: '09:00' });
+  const [schedule, setSchedule] = useState<ReportSchedule>({ daily: false, weekly: true, weekly_day: 1, monthly: true, monthly_day: 1, time: '09:00' });
 
   useEffect(() => {
     setHasPasscode(!!getPasscodeHash());
@@ -158,8 +160,39 @@ export default function SettingsPage() {
             <ToggleRow label="Щоденний звіт" checked={schedule.daily} onChange={v => updateSchedule({ daily: v })} />
             <Separator />
             <ToggleRow label="Тижневий звіт" checked={schedule.weekly} onChange={v => updateSchedule({ weekly: v })} />
+            {schedule.weekly && (
+              <>
+                <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+                  {WEEK_DAYS.map((d, i) => (
+                    <button
+                      key={i}
+                      onClick={() => updateSchedule({ weekly_day: i })}
+                      className={cn(
+                        'h-8 w-8 rounded-full text-xs font-medium transition-colors',
+                        schedule.weekly_day === i ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
+                      )}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <Separator />
             <ToggleRow label="Місячний звіт" checked={schedule.monthly} onChange={v => updateSchedule({ monthly: v })} />
+            {schedule.monthly && (
+              <div className="flex items-center gap-3 px-4 pb-3">
+                <span className="text-xs text-muted-foreground">День місяця:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={schedule.monthly_day ?? 1}
+                  onChange={e => updateSchedule({ monthly_day: Math.min(28, Math.max(1, Number(e.target.value))) })}
+                  className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
         <p className="mt-1.5 px-1 text-xs text-muted-foreground">Або скажи боту: &ldquo;Вмикай тижневий звіт о 10:00&rdquo;</p>

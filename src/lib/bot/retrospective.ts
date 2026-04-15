@@ -192,9 +192,20 @@ export async function deleteReport(userId: string, reportId: string): Promise<vo
 export interface ReportSchedule {
   daily: boolean;
   weekly: boolean;
+  weekly_day: number;   // 0=Sun, 1=Mon … 6=Sat
   monthly: boolean;
-  time: string; // "HH:MM"
+  monthly_day: number;  // 1–31
+  time: string;         // "HH:MM" in user's local time (we treat as UTC for simplicity)
 }
+
+const DEFAULT_SCHEDULE: ReportSchedule = {
+  daily: false,
+  weekly: true,
+  weekly_day: 1,   // Monday
+  monthly: true,
+  monthly_day: 1,
+  time: "09:00",
+};
 
 export async function getReportSchedule(userId: string): Promise<ReportSchedule> {
   const supabase = getServiceClient();
@@ -203,9 +214,7 @@ export async function getReportSchedule(userId: string): Promise<ReportSchedule>
     .select("settings")
     .eq("id", userId)
     .single();
-  return (data?.settings?.report_schedule as ReportSchedule) ?? {
-    daily: false, weekly: true, monthly: true, time: "09:00",
-  };
+  return (data?.settings?.report_schedule as ReportSchedule) ?? DEFAULT_SCHEDULE;
 }
 
 export async function setReportSchedule(userId: string, schedule: ReportSchedule): Promise<void> {

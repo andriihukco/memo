@@ -20,7 +20,7 @@ function serviceDb() {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 }
 
-const DEFAULT_SCHEDULE: ReportSchedule = { daily: false, weekly: true, monthly: true, time: "09:00" };
+const DEFAULT_SCHEDULE: ReportSchedule = { daily: false, weekly: true, weekly_day: 1, monthly: true, monthly_day: 1, time: "09:00" };
 
 // GET
 export async function GET(req: Request) {
@@ -44,10 +44,12 @@ export async function PATCH(req: Request) {
 
   const current = (profile.settings?.report_schedule as ReportSchedule) ?? DEFAULT_SCHEDULE;
   const updated: ReportSchedule = {
-    daily:   body.daily   !== undefined ? body.daily   : current.daily,
-    weekly:  body.weekly  !== undefined ? body.weekly  : current.weekly,
-    monthly: body.monthly !== undefined ? body.monthly : current.monthly,
-    time:    body.time    ?? current.time,
+    daily:       body.daily       !== undefined ? body.daily       : current.daily,
+    weekly:      body.weekly      !== undefined ? body.weekly      : current.weekly,
+    weekly_day:  body.weekly_day  !== undefined ? body.weekly_day  : (current.weekly_day ?? 1),
+    monthly:     body.monthly     !== undefined ? body.monthly     : current.monthly,
+    monthly_day: body.monthly_day !== undefined ? body.monthly_day : (current.monthly_day ?? 1),
+    time:        body.time        ?? current.time,
   };
 
   const svc = serviceDb();
