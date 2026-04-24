@@ -214,9 +214,6 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
   const hidden = entries.length - PREVIEW;
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-
-  // Smooth height animation when expanding/collapsing
-  const [height, setHeight] = useState<number | 'auto'>('auto');
   const prevShowAll = useRef(showAll);
 
   useEffect(() => {
