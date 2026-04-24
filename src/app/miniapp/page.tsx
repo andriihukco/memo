@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { Trash2, MessageCircle, Bot } from 'lucide-react';
+import { Trash2, MessageCircle, Bot, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -213,92 +213,136 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
   const visible = showAll ? entries : entries.slice(0, PREVIEW);
   const hidden = entries.length - PREVIEW;
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Smooth height animation when expanding/collapsing
+  const [height, setHeight] = useState<number | 'auto'>('auto');
+  const prevShowAll = useRef(showAll);
+
+  useEffect(() => {
+    if (prevShowAll.current !== showAll && contentRef.current) {
+      const el = contentRef.current;
+      // Animate from current height to new height
+      const from = el.scrollHeight;
+      el.style.height = `${from}px`;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          el.style.height = 'auto';
+          const to = el.scrollHeight;
+          el.style.height = `${from}px`;
+          requestAnimationFrame(() => {
+            el.style.transition = 'height 0.25s ease';
+            el.style.height = `${to}px`;
+            const cleanup = () => {
+              el.style.height = 'auto';
+              el.style.transition = '';
+            };
+            el.addEventListener('transitionend', cleanup, { once: true });
+          });
+        });
+      });
+    }
+    prevShowAll.current = showAll;
+  }, [showAll]);
 
   return (
     <>
       <Card className="overflow-hidden">
         {/* Thread header */}
-        <div className="flex items-center gap-2 border-b border-border/50 bg-surface-elevated/50 px-4 py-2.5">
+        <button
+          className="flex w-full items-center gap-2 border-b border-border/50 bg-surface-elevated/50 px-4 py-2.5 transition-colors active:bg-muted/20"
+          onClick={() => entries.length > PREVIEW && setShowAll(v => !v)}
+        >
           <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
             <MessageCircle size={11} className="text-primary" />
           </div>
-          <span className="text-xs font-medium text-muted-foreground">Розмова · {entries.length} повідомлень</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            Розмова · {entries.length} повідомлень
+          </span>
           <Badge className={cn('ml-auto border text-[10px]', getCategoryColor(entries[0]?.category ?? ''))} variant="outline">
             {getCategoryLabel(entries[0]?.category ?? '', entries[0]?.category_label)}
           </Badge>
-        </div>
+          {entries.length > PREVIEW && (
+            <ChevronDown
+              size={14}
+              className={cn('ml-1 shrink-0 text-muted-foreground transition-transform duration-200', showAll && 'rotate-180')}
+            />
+          )}
+        </button>
 
         {/* Messages */}
-        <div className="divide-y">
-          {visible.map((entry, i) => {
-            const isUser = !entry.reply_to_entry_id || i === 0;
-            const isSelected = selectedIds.has(entry.id);
-            return (
-              <div
-                key={entry.id}
-                className={cn(
-                  'flex gap-3 px-4 py-3 cursor-pointer transition-colors active:bg-muted/30',
-                  isSelected && 'bg-destructive/5',
-                  !isUser && 'bg-muted/20',
-                  isUser && !isSelectMode && 'hover:bg-muted/10',
-                )}
-                onClick={() => {
-                  if (isSelectMode) { onToggleSelect(entry.id); return; }
-                  if (isUser) setEditEntry(entry);
-                }}
-                onContextMenu={(e) => { e.preventDefault(); onLongPress(entry.id); }}
-              >
-                {/* Avatar */}
-                <div className={cn(
-                  'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                  isUser ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
-                )}>
-                  {isUser ? 'Я' : <Bot size={14} />}
-                </div>
+        <div ref={contentRef} style={{ overflow: 'hidden' }}>
+          <div className="divide-y">
+            {visible.map((entry, i) => {
+              const isUser = !entry.reply_to_entry_id || i === 0;
+              const isSelected = selectedIds.has(entry.id);
+              return (
+                <div
+                  key={entry.id}
+                  className={cn(
+                    'flex gap-3 px-4 py-3 cursor-pointer transition-colors active:bg-muted/30',
+                    isSelected && 'bg-destructive/5',
+                    !isUser && 'bg-muted/20',
+                    isUser && !isSelectMode && 'hover:bg-muted/10',
+                  )}
+                  onClick={() => {
+                    if (isSelectMode) { onToggleSelect(entry.id); return; }
+                    if (isUser) setEditEntry(entry);
+                  }}
+                  onContextMenu={(e) => { e.preventDefault(); onLongPress(entry.id); }}
+                >
+                  {/* Avatar */}
+                  <div className={cn(
+                    'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                    isUser ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
+                  )}>
+                    {isUser ? 'Я' : <Bot size={14} />}
+                  </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="mb-0.5 flex items-center gap-2">
-                    <span className="text-xs font-medium">{isUser ? 'Ти' : 'Memo'}</span>
-                    <time className="text-[10px] text-muted-foreground">{formatTime(entry.created_at)}</time>
-                    {isSelectMode && (
-                      <div className={cn('ml-auto flex h-4 w-4 items-center justify-center rounded-full border-2', isSelected ? 'border-destructive bg-destructive' : 'border-muted-foreground/30')}>
-                        {isSelected && <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 6 5 9 10 3" /></svg>}
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="mb-0.5 flex items-center gap-2">
+                      <span className="text-xs font-medium">{isUser ? 'Ти' : 'Memo'}</span>
+                      <time className="text-[10px] text-muted-foreground">{formatTime(entry.created_at)}</time>
+                      {isSelectMode && (
+                        <div className={cn('ml-auto flex h-4 w-4 items-center justify-center rounded-full border-2', isSelected ? 'border-destructive bg-destructive' : 'border-muted-foreground/30')}>
+                          {isSelected && <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 6 5 9 10 3" /></svg>}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-sm leading-relaxed text-foreground">{entry.content}</p>
+                    {isUser && entry.bot_reply && (
+                      <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2">
+                        <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                          <Bot size={10} className="text-primary" />
+                        </div>
+                        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
                       </div>
                     )}
                   </div>
-                  <p className="text-sm leading-relaxed text-foreground">{entry.content}</p>
-                  {isUser && entry.bot_reply && (
-                    <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2">
-                      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                        <Bot size={10} className="text-primary" />
-                      </div>
-                      <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
-                    </div>
-                  )}
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        {/* Show more */}
-        {hidden > 0 && !showAll && (
-          <button
-            onClick={() => setShowAll(true)}
-            className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/5 transition-all duration-200 active:bg-primary/10"
-          >
-            Показати ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'} ↓
-          </button>
-        )}
-        {showAll && entries.length > PREVIEW && (
-          <button
-            onClick={() => setShowAll(false)}
-            className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-all duration-200"
-          >
-            Згорнути ↑
-          </button>
-        )}
+          {/* Show more / collapse */}
+          {hidden > 0 && !showAll && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/5 transition-all duration-200 active:bg-primary/10"
+            >
+              ↓ Ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'}
+            </button>
+          )}
+          {showAll && entries.length > PREVIEW && (
+            <button
+              onClick={() => setShowAll(false)}
+              className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-all duration-200"
+            >
+              ↑ Згорнути
+            </button>
+          )}
+        </div>
       </Card>
 
       {editEntry && (

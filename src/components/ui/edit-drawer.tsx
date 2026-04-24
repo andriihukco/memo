@@ -1,9 +1,136 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Trash2, X } from 'lucide-react';
+import {
+  Trash2, X, Tag, Brain, Lightbulb, Heart, Wallet, Flame, Dumbbell,
+  Target, Moon, Sparkles, BookOpen, Briefcase, Users, MapPin, Music,
+  Smile, Zap, Activity, Droplets, Scale, Wind, Coffee, Utensils,
+  Camera, Pen, Star, Sun, Cloud, Leaf, Home, Car, Plane, ShoppingBag,
+  Pill, Baby, Dog, Gamepad2, Code, Palette, Mic, Headphones, Globe,
+  TrendingUp, Clock, Award, Layers, Eye, Feather, Anchor, Compass,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+// ── Icon library ──────────────────────────────────────────────────────────────
+
+export const ICON_LIBRARY: { name: string; Icon: React.ElementType }[] = [
+  { name: 'tag', Icon: Tag },
+  { name: 'brain', Icon: Brain },
+  { name: 'lightbulb', Icon: Lightbulb },
+  { name: 'heart', Icon: Heart },
+  { name: 'wallet', Icon: Wallet },
+  { name: 'flame', Icon: Flame },
+  { name: 'dumbbell', Icon: Dumbbell },
+  { name: 'target', Icon: Target },
+  { name: 'moon', Icon: Moon },
+  { name: 'sparkles', Icon: Sparkles },
+  { name: 'book-open', Icon: BookOpen },
+  { name: 'briefcase', Icon: Briefcase },
+  { name: 'users', Icon: Users },
+  { name: 'map-pin', Icon: MapPin },
+  { name: 'music', Icon: Music },
+  { name: 'smile', Icon: Smile },
+  { name: 'zap', Icon: Zap },
+  { name: 'activity', Icon: Activity },
+  { name: 'droplets', Icon: Droplets },
+  { name: 'scale', Icon: Scale },
+  { name: 'wind', Icon: Wind },
+  { name: 'coffee', Icon: Coffee },
+  { name: 'utensils', Icon: Utensils },
+  { name: 'camera', Icon: Camera },
+  { name: 'pen', Icon: Pen },
+  { name: 'star', Icon: Star },
+  { name: 'sun', Icon: Sun },
+  { name: 'cloud', Icon: Cloud },
+  { name: 'leaf', Icon: Leaf },
+  { name: 'home', Icon: Home },
+  { name: 'car', Icon: Car },
+  { name: 'plane', Icon: Plane },
+  { name: 'shopping-bag', Icon: ShoppingBag },
+  { name: 'pill', Icon: Pill },
+  { name: 'baby', Icon: Baby },
+  { name: 'dog', Icon: Dog },
+  { name: 'gamepad-2', Icon: Gamepad2 },
+  { name: 'code', Icon: Code },
+  { name: 'palette', Icon: Palette },
+  { name: 'mic', Icon: Mic },
+  { name: 'headphones', Icon: Headphones },
+  { name: 'globe', Icon: Globe },
+  { name: 'trending-up', Icon: TrendingUp },
+  { name: 'clock', Icon: Clock },
+  { name: 'award', Icon: Award },
+  { name: 'layers', Icon: Layers },
+  { name: 'eye', Icon: Eye },
+  { name: 'feather', Icon: Feather },
+  { name: 'anchor', Icon: Anchor },
+  { name: 'compass', Icon: Compass },
+];
+
+export function getIconComponent(name?: string): React.ElementType {
+  return ICON_LIBRARY.find(i => i.name === name)?.Icon ?? Tag;
+}
+
+// ── 36-color palette ──────────────────────────────────────────────────────────
+// Each entry: { id, bg (Tailwind), text (Tailwind), border (Tailwind), hex (for swatch) }
+
+export const COLOR_PALETTE = [
+  { id: 'slate',   bg: 'bg-slate-500/15',   text: 'text-slate-400',   border: 'border-slate-500/30',   hex: '#94a3b8' },
+  { id: 'gray',    bg: 'bg-gray-500/15',    text: 'text-gray-400',    border: 'border-gray-500/30',    hex: '#9ca3af' },
+  { id: 'zinc',    bg: 'bg-zinc-500/15',    text: 'text-zinc-400',    border: 'border-zinc-500/30',    hex: '#a1a1aa' },
+  { id: 'stone',   bg: 'bg-stone-500/15',   text: 'text-stone-400',   border: 'border-stone-500/30',   hex: '#a8a29e' },
+  { id: 'red',     bg: 'bg-red-500/15',     text: 'text-red-400',     border: 'border-red-500/30',     hex: '#f87171' },
+  { id: 'orange',  bg: 'bg-orange-500/15',  text: 'text-orange-400',  border: 'border-orange-500/30',  hex: '#fb923c' },
+  { id: 'amber',   bg: 'bg-amber-500/15',   text: 'text-amber-400',   border: 'border-amber-500/30',   hex: '#fbbf24' },
+  { id: 'yellow',  bg: 'bg-yellow-500/15',  text: 'text-yellow-400',  border: 'border-yellow-500/30',  hex: '#facc15' },
+  { id: 'lime',    bg: 'bg-lime-500/15',    text: 'text-lime-400',    border: 'border-lime-500/30',    hex: '#a3e635' },
+  { id: 'green',   bg: 'bg-green-500/15',   text: 'text-green-400',   border: 'border-green-500/30',   hex: '#4ade80' },
+  { id: 'emerald', bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', hex: '#34d399' },
+  { id: 'teal',    bg: 'bg-teal-500/15',    text: 'text-teal-400',    border: 'border-teal-500/30',    hex: '#2dd4bf' },
+  { id: 'cyan',    bg: 'bg-cyan-500/15',    text: 'text-cyan-400',    border: 'border-cyan-500/30',    hex: '#22d3ee' },
+  { id: 'sky',     bg: 'bg-sky-500/15',     text: 'text-sky-400',     border: 'border-sky-500/30',     hex: '#38bdf8' },
+  { id: 'blue',    bg: 'bg-blue-500/15',    text: 'text-blue-400',    border: 'border-blue-500/30',    hex: '#60a5fa' },
+  { id: 'indigo',  bg: 'bg-indigo-500/15',  text: 'text-indigo-400',  border: 'border-indigo-500/30',  hex: '#818cf8' },
+  { id: 'violet',  bg: 'bg-violet-500/15',  text: 'text-violet-400',  border: 'border-violet-500/30',  hex: '#a78bfa' },
+  { id: 'purple',  bg: 'bg-purple-500/15',  text: 'text-purple-400',  border: 'border-purple-500/30',  hex: '#c084fc' },
+  { id: 'fuchsia', bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-400', border: 'border-fuchsia-500/30', hex: '#e879f9' },
+  { id: 'pink',    bg: 'bg-pink-500/15',    text: 'text-pink-400',    border: 'border-pink-500/30',    hex: '#f472b6' },
+  { id: 'rose',    bg: 'bg-rose-500/15',    text: 'text-rose-400',    border: 'border-rose-500/30',    hex: '#fb7185' },
+  // Deeper/richer variants
+  { id: 'red-d',     bg: 'bg-red-600/20',     text: 'text-red-300',     border: 'border-red-600/30',     hex: '#ef4444' },
+  { id: 'orange-d',  bg: 'bg-orange-600/20',  text: 'text-orange-300',  border: 'border-orange-600/30',  hex: '#ea580c' },
+  { id: 'amber-d',   bg: 'bg-amber-600/20',   text: 'text-amber-300',   border: 'border-amber-600/30',   hex: '#d97706' },
+  { id: 'green-d',   bg: 'bg-green-600/20',   text: 'text-green-300',   border: 'border-green-600/30',   hex: '#16a34a' },
+  { id: 'teal-d',    bg: 'bg-teal-600/20',    text: 'text-teal-300',    border: 'border-teal-600/30',    hex: '#0d9488' },
+  { id: 'blue-d',    bg: 'bg-blue-600/20',    text: 'text-blue-300',    border: 'border-blue-600/30',    hex: '#2563eb' },
+  { id: 'indigo-d',  bg: 'bg-indigo-600/20',  text: 'text-indigo-300',  border: 'border-indigo-600/30',  hex: '#4f46e5' },
+  { id: 'violet-d',  bg: 'bg-violet-600/20',  text: 'text-violet-300',  border: 'border-violet-600/30',  hex: '#7c3aed' },
+  { id: 'purple-d',  bg: 'bg-purple-600/20',  text: 'text-purple-300',  border: 'border-purple-600/30',  hex: '#9333ea' },
+  { id: 'pink-d',    bg: 'bg-pink-600/20',    text: 'text-pink-300',    border: 'border-pink-600/30',    hex: '#db2777' },
+  { id: 'rose-d',    bg: 'bg-rose-600/20',    text: 'text-rose-300',    border: 'border-rose-600/30',    hex: '#e11d48' },
+  { id: 'sky-d',     bg: 'bg-sky-600/20',     text: 'text-sky-300',     border: 'border-sky-600/30',     hex: '#0284c7' },
+  { id: 'cyan-d',    bg: 'bg-cyan-600/20',    text: 'text-cyan-300',    border: 'border-cyan-600/30',    hex: '#0891b2' },
+  { id: 'lime-d',    bg: 'bg-lime-600/20',    text: 'text-lime-300',    border: 'border-lime-600/30',    hex: '#65a30d' },
+  { id: 'emerald-d', bg: 'bg-emerald-600/20', text: 'text-emerald-300', border: 'border-emerald-600/30', hex: '#059669' },
+] as const;
+
+export type ColorId = typeof COLOR_PALETTE[number]['id'];
+
+export function colorFromId(id: string) {
+  return COLOR_PALETTE.find(c => c.id === id) ?? COLOR_PALETTE[15]; // default indigo
+}
+
+/** Build a full Tailwind color string from a color id */
+export function colorStringFromId(id: string): string {
+  const c = colorFromId(id);
+  return `${c.bg} ${c.text} ${c.border}`;
+}
+
+/** Detect color id from an existing Tailwind color string */
+export function colorIdFromString(colorStr: string): string {
+  const match = COLOR_PALETTE.find(c => colorStr.includes(c.bg) || colorStr.includes(c.text));
+  return match?.id ?? 'indigo';
+}
 
 // ── Category helpers ──────────────────────────────────────────────────────────
 // These are used by other components (feed, dashboard, graph) for badge colors/labels.
@@ -100,6 +227,136 @@ interface DbCategory {
   name: string;
   label_ua: string;
   color: string;
+  icon?: string;
+}
+
+// ── NewCategorySheet — icon + color picker for custom categories ──────────────
+
+interface NewCategorySheetProps {
+  initialName: string;
+  onConfirm: (name: string, label: string, colorId: string, iconName: string) => void;
+  onCancel: () => void;
+}
+
+function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheetProps) {
+  const [label, setLabel] = useState(initialName.replace(/^\w/, c => c.toUpperCase()));
+  const [selectedColor, setSelectedColor] = useState<string>('indigo');
+  const [selectedIcon, setSelectedIcon] = useState<string>('tag');
+  const [iconPage, setIconPage] = useState(0);
+  const ICONS_PER_PAGE = 20;
+  const totalPages = Math.ceil(ICON_LIBRARY.length / ICONS_PER_PAGE);
+  const visibleIcons = ICON_LIBRARY.slice(iconPage * ICONS_PER_PAGE, (iconPage + 1) * ICONS_PER_PAGE);
+  const color = colorFromId(selectedColor);
+  const IconComp = getIconComponent(selectedIcon);
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-end">
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div
+        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
+        style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)', maxHeight: '85vh', overflowY: 'auto' }}
+      >
+        {/* Handle */}
+        <div className="mb-4 flex justify-center">
+          <div className="h-1 w-10 rounded-full bg-muted" />
+        </div>
+
+        {/* Preview */}
+        <div className="mb-5 flex items-center gap-3">
+          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border', color.bg, color.border)}>
+            <IconComp size={20} className={color.text} />
+          </div>
+          <input
+            type="text"
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            placeholder="Назва категорії"
+            className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-ring"
+            autoFocus
+          />
+        </div>
+
+        {/* Color picker */}
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Колір</p>
+        <div className="mb-5 grid grid-cols-9 gap-2">
+          {COLOR_PALETTE.map(c => (
+            <button
+              key={c.id}
+              onClick={() => setSelectedColor(c.id)}
+              className={cn(
+                'h-7 w-7 rounded-full transition-all',
+                selectedColor === c.id && 'ring-2 ring-offset-2 ring-white/60 scale-110'
+              )}
+              style={{ backgroundColor: c.hex }}
+              aria-label={c.id}
+            />
+          ))}
+        </div>
+
+        {/* Icon picker */}
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Іконка</p>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIconPage(p => Math.max(0, p - 1))}
+                disabled={iconPage === 0}
+                className="text-xs text-muted-foreground disabled:opacity-30"
+              >
+                ←
+              </button>
+              <span className="text-[10px] text-muted-foreground">{iconPage + 1}/{totalPages}</span>
+              <button
+                onClick={() => setIconPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={iconPage === totalPages - 1}
+                className="text-xs text-muted-foreground disabled:opacity-30"
+              >
+                →
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="mb-5 grid grid-cols-5 gap-2">
+          {visibleIcons.map(({ name, Icon }) => (
+            <button
+              key={name}
+              onClick={() => setSelectedIcon(name)}
+              className={cn(
+                'flex h-12 w-full items-center justify-center rounded-xl border transition-all',
+                selectedIcon === name
+                  ? cn(color.bg, color.border, 'ring-1 ring-offset-1', color.text)
+                  : 'border-border/40 bg-muted/30 text-muted-foreground hover:bg-muted/60'
+              )}
+            >
+              <Icon size={18} />
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 rounded-full border border-border py-3 text-sm font-medium text-muted-foreground"
+          >
+            Скасувати
+          </button>
+          <button
+            onClick={() => {
+              const name = initialName.toLowerCase().replace(/\s+/g, '_');
+              onConfirm(name, label.trim() || name, selectedColor, selectedIcon);
+            }}
+            disabled={!label.trim()}
+            className={cn(
+              'flex-1 rounded-full py-3 text-sm font-semibold transition-all disabled:opacity-40',
+              color.bg, color.text, 'border', color.border
+            )}
+          >
+            Додати
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── EditDrawer ────────────────────────────────────────────────────────────────
@@ -122,6 +379,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
   const initialCats = entry.category.split(',').map(s => s.trim()).filter(Boolean);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set(initialCats));
   const [customInput, setCustomInput] = useState('');
+  const [showNewCatSheet, setShowNewCatSheet] = useState(false);
   const [editContent, setEditContent] = useState(entry.content);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -216,26 +474,29 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
   const addCustom = async () => {
     const raw = customInput.trim();
     if (!raw) return;
-    const name = raw.toLowerCase().replace(/\s+/g, '_');
-    const label = raw.replace(/^\w/, c => c.toUpperCase());
+    // Open the icon/color picker sheet instead of immediately adding
+    setShowNewCatSheet(true);
+  };
+
+  const handleNewCatConfirm = async (name: string, label: string, colorId: string, iconName: string) => {
+    setShowNewCatSheet(false);
+    setCustomInput('');
+    const colorStr = colorStringFromId(colorId);
 
     // Optimistically add to UI
     setSelectedCats(prev => new Set([...prev, name]));
-    setCustomInput('');
 
-    // Persist to DB immediately so it's available for future edits
+    // Persist to DB
     if (accessToken) {
       try {
         await fetch('/api/categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ name, label, color: hashPalette(name) }),
+          body: JSON.stringify({ name, label, color: colorStr, icon: iconName }),
         });
-        // Add to local dbCats so it shows in the chip list right away
-        const color = hashPalette(name);
-        const newCat: DbCategory = { name, label_ua: label, color };
+        const newCat: DbCategory = { name, label_ua: label, color: colorStr, icon: iconName };
         _runtimeLabels[name] = label;
-        _runtimeColors[name] = color;
+        _runtimeColors[name] = colorStr;
         setDbCats(prev => prev.some(c => c.name === name) ? prev : [...prev, newCat]);
       } catch { /* ignore */ }
     }
@@ -270,118 +531,134 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
   const extraSelected = [...selectedCats].filter(c => !dbNames.has(c));
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div
-        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-        style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)' }}
-      >
-        {/* Handle */}
-        <div className="mb-3 flex justify-center">
-          <div className="h-1 w-10 rounded-full bg-muted" />
-        </div>
-
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70"
-          aria-label="Закрити"
+    <>
+      <div className="fixed inset-0 z-[60] flex items-end">
+        <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+        <div
+          className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
+          style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)' }}
         >
-          <X size={14} />
-        </button>
-
-        {/* Delete */}
-        {onDelete && !confirmDelete && (
-          <button
-            onClick={() => setConfirmDelete(true)}
-            className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
-            aria-label="Видалити"
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
-
-        {confirmDelete && (
-          <div className="mb-3 flex items-center gap-2 rounded-2xl bg-red-50 px-3 py-2.5">
-            <Trash2 size={14} className="shrink-0 text-red-500" />
-            <span className="flex-1 text-xs text-red-700">Видалити запис?</span>
-            <button onClick={() => setConfirmDelete(false)} className="rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted">Ні</button>
-            <button onClick={handleDelete} disabled={deleting} className="rounded-full bg-red-500 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60">
-              {deleting ? '...' : 'Так'}
-            </button>
+          {/* Handle */}
+          <div className="mb-3 flex justify-center">
+            <div className="h-1 w-10 rounded-full bg-muted" />
           </div>
-        )}
 
-        {/* Category chips — sourced entirely from DB */}
-        <div className="mb-3 flex flex-wrap gap-1.5 pr-10">
-          {loadingCats && (
-            <div className="h-6 w-24 animate-pulse rounded-full bg-muted" />
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70"
+            aria-label="Закрити"
+          >
+            <X size={14} />
+          </button>
+
+          {/* Delete */}
+          {onDelete && !confirmDelete && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
+              aria-label="Видалити"
+            >
+              <Trash2 size={14} />
+            </button>
           )}
-          {!loadingCats && dbCats.map((cat) => {
-            const color = getCategoryColor(cat.name);
-            const isSelected = selectedCats.has(cat.name);
-            return (
+
+          {confirmDelete && (
+            <div className="mb-3 flex items-center gap-2 rounded-2xl bg-red-50 px-3 py-2.5">
+              <Trash2 size={14} className="shrink-0 text-red-500" />
+              <span className="flex-1 text-xs text-red-700">Видалити запис?</span>
+              <button onClick={() => setConfirmDelete(false)} className="rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted">Ні</button>
+              <button onClick={handleDelete} disabled={deleting} className="rounded-full bg-red-500 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60">
+                {deleting ? '...' : 'Так'}
+              </button>
+            </div>
+          )}
+
+          {/* Category chips — sourced entirely from DB */}
+          <div className="mb-3 flex flex-wrap gap-1.5 pr-10">
+            {loadingCats && (
+              <div className="h-6 w-24 animate-pulse rounded-full bg-muted" />
+            )}
+            {!loadingCats && dbCats.map((cat) => {
+              const color = getCategoryColor(cat.name);
+              const isSelected = selectedCats.has(cat.name);
+              const IconComp = getIconComponent(cat.icon);
+              return (
+                <button
+                  key={cat.name}
+                  onClick={() => toggleCat(cat.name)}
+                  className={cn(
+                    'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                    color,
+                    isSelected ? 'ring-2 ring-offset-1 ring-primary/50 scale-105' : 'opacity-55 hover:opacity-80'
+                  )}
+                >
+                  <IconComp size={10} />
+                  {cat.label_ua || getCategoryLabel(cat.name)}
+                </button>
+              );
+            })}
+            {/* Extra selected cats not yet in DB (edge case) */}
+            {extraSelected.map((cat) => (
               <button
-                key={cat.name}
-                onClick={() => toggleCat(cat.name)}
+                key={cat}
+                onClick={() => toggleCat(cat)}
                 className={cn(
                   'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                  color,
-                  isSelected ? 'ring-2 ring-offset-1 ring-primary/50 scale-105' : 'opacity-55 hover:opacity-80'
+                  getCategoryColor(cat),
+                  'ring-2 ring-offset-1 ring-primary/50 scale-105'
                 )}
               >
-                {cat.label_ua || getCategoryLabel(cat.name)}
+                {getCategoryLabel(cat)}
               </button>
-            );
-          })}
-          {/* Extra selected cats not yet in DB (edge case) */}
-          {extraSelected.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => toggleCat(cat)}
-              className={cn(
-                'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                getCategoryColor(cat),
-                'ring-2 ring-offset-1 ring-primary/50 scale-105'
-              )}
-            >
-              {getCategoryLabel(cat)}
-            </button>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Add custom category */}
-        <div className="mb-3 flex gap-2">
-          <input
-            type="text"
-            placeholder="Додати свою категорію..."
-            value={customInput}
-            onChange={e => setCustomInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
-            className="flex-1 rounded-full border border-input bg-background px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+          {/* Add custom category */}
+          <div className="mb-3 flex gap-2">
+            <input
+              type="text"
+              placeholder="Нова категорія..."
+              value={customInput}
+              onChange={e => setCustomInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
+              className="flex-1 rounded-full border border-input bg-background px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            {customInput.trim() && (
+              <button
+                onClick={addCustom}
+                className="rounded-full bg-primary px-3 py-2 text-xs font-medium text-primary-foreground"
+              >
+                Далі →
+              </button>
+            )}
+          </div>
+
+          {/* Content */}
+          <textarea
+            ref={textareaRef}
+            value={editContent}
+            onChange={e => setEditContent(e.target.value)}
+            rows={4}
+            className="mb-4 w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
           />
-          {customInput.trim() && (
-            <button onClick={addCustom} className="rounded-full bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
-              +
-            </button>
-          )}
+
+          <Button className="w-full rounded-full" disabled={saving || !editContent.trim()} onClick={save}>
+            {saving
+              ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+              : 'Зберегти'}
+          </Button>
         </div>
-
-        {/* Content */}
-        <textarea
-          ref={textareaRef}
-          value={editContent}
-          onChange={e => setEditContent(e.target.value)}
-          rows={4}
-          className="mb-4 w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
-        />
-
-        <Button className="w-full rounded-full" disabled={saving || !editContent.trim()} onClick={save}>
-          {saving
-            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-            : 'Зберегти'}
-        </Button>
       </div>
-    </div>
+
+      {/* New category icon/color picker */}
+      {showNewCatSheet && (
+        <NewCategorySheet
+          initialName={customInput.trim()}
+          onConfirm={handleNewCatConfirm}
+          onCancel={() => setShowNewCatSheet(false)}
+        />
+      )}
+    </>
   );
 }

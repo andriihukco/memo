@@ -5,7 +5,8 @@ import { useAuth } from '@/lib/supabase/auth-context';
 import {
   Flame, Wallet, Dumbbell, Lightbulb, Brain, TrendingUp, TrendingDown, Minus,
   ChevronDown, ChevronRight, Droplets, Moon, BookOpen, Scale, Smile, Zap,
-  Wind, MapPin, Utensils, Tag, Heart, Activity, X, Calendar, Trash2,
+  Wind, MapPin, Utensils, Tag, Heart, Activity, X, Calendar, Trash2, Plus,
+  Coffee, Leaf, Pill, Award, Star, Target, Clock,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { DashboardMetric } from '@/lib/classifier';
-import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
+import { EditDrawer, getCategoryLabel, getCategoryColor, colorFromId, getIconComponent } from '@/components/ui/edit-drawer';
 
 interface Entry {
   id: string;
@@ -150,11 +151,204 @@ const ICON_MAP: Record<string, React.ElementType> = {
   scale: Scale, smile: Smile, zap: Zap, wind: Wind, 'map-pin': MapPin,
   utensils: Utensils, heart: Heart, activity: Activity,
   'trending-up': TrendingUp, 'trending-down': TrendingDown,
+  coffee: Coffee, leaf: Leaf, pill: Pill, award: Award,
+  star: Star, target: Target, clock: Clock, tag: Tag,
 };
 
 function MetricIcon({ name, size = 16, className }: { name?: string; size?: number; className?: string }) {
-  const Icon = (name && ICON_MAP[name]) ? ICON_MAP[name] : Tag;
+  // Try ICON_MAP first, then fall back to the full ICON_LIBRARY from edit-drawer
+  const Icon = (name && ICON_MAP[name]) ? ICON_MAP[name] : (name ? getIconComponent(name) : Tag);
   return <Icon size={size} className={className} />;
+}
+
+// ── Custom widget type ────────────────────────────────────────────────────────
+
+interface CustomWidget {
+  id: string;
+  title: string;
+  description?: string;
+  metric_key: string;
+  unit: string;
+  icon?: string;
+  color?: string;
+  aggregate: 'sum' | 'avg' | 'last';
+  category?: string;
+  created_at: string;
+}
+
+// ── CreateWidgetSheet — AI-guided custom widget creation ──────────────────────
+
+function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
+  onClose: () => void;
+  onCreated: (widget: CustomWidget) => void;
+  accessToken?: string | null;
+}) {
+  type Step = 'prompt' | 'questions' | 'creating' | 'done';
+  const [step, setStep] = useState<Step>('prompt');
+  const [prompt, setPrompt] = useState('');
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 100);
+  }, []);
+
+  const handlePromptSubmit = async () => {
+    if (!prompt.trim() || !accessToken) return;
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/widgets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      setQuestions(data.questions ?? []);
+      setAnswers(Object.fromEntries((data.questions ?? []).map((q: string) => [q, ''])));
+      setStep('questions');
+    } catch {
+      setError('Не вдалося. Спробуй ще раз.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!accessToken) return;
+    setStep('creating');
+    setError('');
+    try {
+      const res = await fetch('/api/widgets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ prompt: prompt.trim(), answers }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      const data = await res.json();
+      onCreated(data.widget);
+      setStep('done');
+      setTimeout(onClose, 1200);
+    } catch {
+      setError('Не вдалося створити віджет.');
+      setStep('questions');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div
+        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
+        style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)', maxHeight: '85vh', overflowY: 'auto' }}
+      >
+        {/* Handle */}
+        <div className="mb-4 flex justify-center">
+          <div className="h-1 w-10 rounded-full bg-muted" />
+        </div>
+
+        {/* Header */}
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold">Новий віджет</h3>
+            <p className="text-xs text-muted-foreground">AI допоможе налаштувати трекінг</p>
+          </div>
+          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <X size={14} />
+          </button>
+        </div>
+
+        {/* Step: prompt */}
+        {step === 'prompt' && (
+          <div className="flex flex-col gap-4">
+            <div className="rounded-2xl bg-primary/5 border border-primary/10 px-4 py-3">
+              <p className="text-sm text-muted-foreground">
+                Що хочеш відстежувати? Наприклад: &ldquo;кількість кави на день&rdquo;, &ldquo;час медитації&rdquo;, &ldquo;кроки&rdquo;
+              </p>
+            </div>
+            <input
+              ref={inputRef}
+              type="text"
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handlePromptSubmit(); }}
+              placeholder="Я хочу відстежувати..."
+              className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            {error && <p className="text-xs text-destructive">{error}</p>}
+            <Button
+              className="w-full rounded-full"
+              disabled={!prompt.trim() || loading}
+              onClick={handlePromptSubmit}
+            >
+              {loading
+                ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                : 'Далі →'}
+            </Button>
+          </div>
+        )}
+
+        {/* Step: questions */}
+        {step === 'questions' && (
+          <div className="flex flex-col gap-4">
+            <div className="rounded-2xl bg-muted/40 px-4 py-3">
+              <p className="text-xs text-muted-foreground">Трекінг: <span className="font-medium text-foreground">{prompt}</span></p>
+            </div>
+            {questions.map((q, i) => (
+              <div key={i}>
+                <p className="mb-1.5 text-sm font-medium">{q}</p>
+                <input
+                  type="text"
+                  value={answers[q] ?? ''}
+                  onChange={e => setAnswers(prev => ({ ...prev, [q]: e.target.value }))}
+                  placeholder="Ваша відповідь..."
+                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            ))}
+            {error && <p className="text-xs text-destructive">{error}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStep('prompt')}
+                className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground"
+              >
+                ← Назад
+              </button>
+              <Button
+                className="flex-1 rounded-full"
+                disabled={questions.some(q => !answers[q]?.trim())}
+                onClick={handleCreate}
+              >
+                Створити
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step: creating */}
+        {step === 'creating' && (
+          <div className="flex flex-col items-center justify-center py-10 gap-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
+            <p className="text-sm text-muted-foreground">AI створює твій віджет...</p>
+          </div>
+        )}
+
+        {/* Step: done */}
+        {step === 'done' && (
+          <div className="flex flex-col items-center justify-center py-10 gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/15">
+              <span className="text-2xl">✓</span>
+            </div>
+            <p className="text-sm font-medium text-green-400">Віджет створено!</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── Color for metric key ──────────────────────────────────────────────────────
@@ -656,6 +850,8 @@ export default function DashboardPage() {
   const [metricEdit, setMetricEdit] = useState<{ metric: AggregatedMetric; sourceEntries: Entry[] } | null>(null);
   const [view, setView] = useState('actual');
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showCreateWidget, setShowCreateWidget] = useState(false);
+  const [customWidgets, setCustomWidgets] = useState<CustomWidget[]>([]);
 
   const fetchEntries = useCallback(async (from: Date, to: Date) => {
     if (!accessToken) return;
@@ -680,8 +876,18 @@ export default function DashboardPage() {
     } catch { /* non-critical */ }
   }, [accessToken]);
 
+  const fetchCustomWidgets = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch('/api/widgets', { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return;
+      const { widgets } = await res.json();
+      setCustomWidgets(widgets ?? []);
+    } catch { /* non-critical */ }
+  }, [accessToken]);
+
   useEffect(() => { fetchEntries(filter.from, filter.to); }, [fetchEntries, filter]);
-  useEffect(() => { fetchAllEntries(); }, [fetchAllEntries]);
+  useEffect(() => { fetchAllEntries(); fetchCustomWidgets(); }, [fetchAllEntries, fetchCustomWidgets]);
 
   const handleUpdate = async (id: string, content: string, category: string) => {
     if (!accessToken) return;
@@ -785,13 +991,22 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold">Дашборд</h1>
-        <button
-          onClick={() => setShowCalendar(true)}
-          className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground"
-        >
-          <Calendar size={13} />
-          {filter.range === 'custom' ? `${fmtDate(filter.from)} – ${fmtDate(filter.to)}` : RANGE_LABELS[filter.range]}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreateWidget(true)}
+            className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary"
+          >
+            <Plus size={12} />
+            Віджет
+          </button>
+          <button
+            onClick={() => setShowCalendar(true)}
+            className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground"
+          >
+            <Calendar size={13} />
+            {filter.range === 'custom' ? `${fmtDate(filter.from)} – ${fmtDate(filter.to)}` : RANGE_LABELS[filter.range]}
+          </button>
+        </div>
       </div>
 
       {/* View tabs */}
@@ -832,6 +1047,52 @@ export default function DashboardPage() {
                     {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => setMetricEdit({ metric: m, sourceEntries: s })} />}
                     {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => setMetricEdit({ metric: m, sourceEntries: s })} />}
                     {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} onLongPress={(metric, src) => setMetricEdit({ metric, sourceEntries: src })} />)}
+                  </div>
+                </Section>
+              )}
+
+              {/* ── Custom widgets ────────────────────────────────────────────── */}
+              {customWidgets.length > 0 && (
+                <Section title="Мої віджети" count={customWidgets.length}>
+                  <div className="grid grid-cols-2 gap-3">
+                    {customWidgets.map(w => {
+                      const colorObj = colorFromId(w.color ?? 'indigo');
+                      const matchedMetric = metricByKey.get(w.metric_key);
+                      const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
+                      if (matchedMetric) {
+                        return (
+                          <MetricCard
+                            key={w.id}
+                            metric={matchedMetric}
+                            sourceEntries={srcEntries}
+                            onEntryClick={openDrillDown}
+                            onLongPress={(m, s) => setMetricEdit({ metric: m, sourceEntries: s })}
+                          />
+                        );
+                      }
+                      // Widget defined but no data yet — show empty placeholder
+                      return (
+                        <Card key={w.id} className="flex flex-col gap-1 p-4 opacity-60">
+                          <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
+                            <MetricIcon name={w.icon} size={16} className={colorObj.text} />
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
+                            <span className="text-sm text-muted-foreground">{w.unit}</span>
+                          </div>
+                          <p className="text-xs font-medium">{w.title}</p>
+                          <p className="text-[10px] text-muted-foreground">Немає даних</p>
+                        </Card>
+                      );
+                    })}
+                    {/* Add widget button */}
+                    <button
+                      onClick={() => setShowCreateWidget(true)}
+                      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20"
+                    >
+                      <Plus size={20} />
+                      <span className="text-xs font-medium">Додати</span>
+                    </button>
                   </div>
                 </Section>
               )}
@@ -940,6 +1201,15 @@ export default function DashboardPage() {
       {/* Calendar sheet */}
       {showCalendar && (
         <CalendarSheet filter={filter} onChange={setFilter} onClose={() => setShowCalendar(false)} />
+      )}
+
+      {/* Create widget sheet */}
+      {showCreateWidget && (
+        <CreateWidgetSheet
+          onClose={() => setShowCreateWidget(false)}
+          onCreated={(widget) => setCustomWidgets(prev => [...prev.filter(w => w.id !== widget.id), widget])}
+          accessToken={accessToken}
+        />
       )}
     </div>
   );
