@@ -7,7 +7,7 @@ const MODEL = "gemini-2.5-flash";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface ReportInsight {
-  type: "strength" | "pattern" | "concern" | "action" | "celebration";
+  type: "went_well" | "didnt_go_well" | "start_stop_continue" | "experiment" | "lesson";
   text: string;
   emoji: string;
 }
@@ -19,6 +19,11 @@ export interface Report {
   period_to: string;
   content: string;
   summary: string;
+  went_well?: string;
+  didnt_go_well?: string;
+  start_stop_continue?: string;
+  experiment?: string;
+  lesson?: string;
   insights: ReportInsight[];
 }
 
@@ -47,16 +52,15 @@ async function loadEntriesForPeriod(userId: string, from: Date, to: Date) {
 // ── Generate retrospective ────────────────────────────────────────────────────
 
 const RETRO_SYSTEM_PROMPT = `Ти — психолог і коуч з аналізу поведінки та особистісного розвитку.
-Твоє завдання — проаналізувати записи щоденника користувача за певний період і скласти глибокий, корисний звіт.
+Твоє завдання — проаналізувати записи щоденника користувача за певний період і скласти глибоку ретроспективу у форматі agile-ретро.
 
-Аналізуй:
-1. ПАТЕРНИ ПОВЕДІНКИ — що повторюється? Які звички формуються або руйнуються?
-2. ЕМОЦІЙНИЙ СТАН — як змінювався настрій? Що впливало на нього?
-3. ФІЗИЧНЕ ЗДОРОВ'Я — активність, харчування, сон, стреси
-4. ПРОГРЕС ДО ЦІЛЕЙ — що досягнуто? Що застрягло?
-5. СИЛЬНІ СТОРОНИ — що людина робить добре, що варто продовжувати
-6. ЗОНИ РОСТУ — що можна покращити, без осуду
-7. КОНКРЕТНІ ДІЇ — 2-3 практичні кроки на наступний період
+Структура звіту — ОБОВ'ЯЗКОВО п'ять розділів:
+
+1. ✅ ЩО ПРОЙШЛО ДОБРЕ? — успіхи, перемоги, прогрес, звички що тримаються. Що варто повторювати?
+2. ❌ ЩО НЕ СПРАЦЮВАЛО? — де були затики, зриви, стрес, втрата енергії. Без осуду — просто факти.
+3. 🔄 СТАРТ / СТОП / ПРОДОВЖИТИ — конкретні дії: що почати робити, що зупинити, що продовжувати.
+4. 🧪 ОДИН ЕКСПЕРИМЕНТ — одна невелика зміна або гіпотеза для наступного спринту. Конкретна і вимірювана.
+5. 💡 ГОЛОВНИЙ УРОК — найважливіший інсайт або висновок цього періоду. Одне речення.
 
 Тон: теплий, підтримуючий, як розумний друг-психолог. Не повчай. Не осуджуй.
 Відповідай мовою записів користувача.
@@ -64,19 +68,24 @@ const RETRO_SYSTEM_PROMPT = `Ти — психолог і коуч з аналі
 
 Формат відповіді — JSON:
 {
-  "content": "<повний звіт у Telegram Markdown>",
+  "content": "<повний звіт у Telegram Markdown з усіма 5 розділами>",
   "summary": "<1-2 речення TLDR>",
+  "went_well": "<текст розділу 1>",
+  "didnt_go_well": "<текст розділу 2>",
+  "start_stop_continue": "<текст розділу 3>",
+  "experiment": "<текст розділу 4>",
+  "lesson": "<текст розділу 5>",
   "insights": [
-    {"type": "celebration|strength|pattern|concern|action", "text": "<інсайт>", "emoji": "<емодзі>"}
+    {"type": "went_well|didnt_go_well|start_stop_continue|experiment|lesson", "text": "<інсайт>", "emoji": "<емодзі>"}
   ]
 }
 
-Типи інсайтів:
-- celebration — досягнення, перемоги, прогрес
-- strength — сильні сторони, що варто продовжувати
-- pattern — помічені патерни (нейтрально)
-- concern — зони уваги (без осуду, з турботою)
-- action — конкретна дія на наступний тиждень`;
+Типи інсайтів (відповідають розділам):
+- went_well — успіхи та перемоги
+- didnt_go_well — затики та проблеми
+- start_stop_continue — дії (старт/стоп/продовжити)
+- experiment — гіпотеза для наступного спринту
+- lesson — головний урок`;
 
 export async function generateRetrospective(
   userId: string,
@@ -134,6 +143,11 @@ ${entriesText}
       period_to: to.toISOString(),
       content: parsed.content ?? "",
       summary: parsed.summary ?? "",
+      went_well: parsed.went_well ?? "",
+      didnt_go_well: parsed.didnt_go_well ?? "",
+      start_stop_continue: parsed.start_stop_continue ?? "",
+      experiment: parsed.experiment ?? "",
+      lesson: parsed.lesson ?? "",
       insights: parsed.insights ?? [],
     };
   } catch (err) {
@@ -156,6 +170,11 @@ export async function saveReport(userId: string, report: Report): Promise<string
       content: report.content,
       summary: report.summary,
       insights: report.insights,
+      went_well: report.went_well ?? null,
+      didnt_go_well: report.didnt_go_well ?? null,
+      start_stop_continue: report.start_stop_continue ?? null,
+      experiment: report.experiment ?? null,
+      lesson: report.lesson ?? null,
     })
     .select("id")
     .single();
@@ -173,7 +192,7 @@ export async function loadReports(userId: string, limit = 10) {
   const supabase = getServiceClient();
   const { data } = await supabase
     .from("reports")
-    .select("id, period_type, period_from, period_to, summary, insights, created_at")
+    .select("id, period_type, period_from, period_to, summary, went_well, didnt_go_well, start_stop_continue, experiment, lesson, insights, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -185,44 +204,6 @@ export async function loadReports(userId: string, limit = 10) {
 export async function deleteReport(userId: string, reportId: string): Promise<void> {
   const supabase = getServiceClient();
   await supabase.from("reports").delete().eq("id", reportId).eq("user_id", userId);
-}
-
-// ── Report schedule helpers ───────────────────────────────────────────────────
-
-export interface ReportSchedule {
-  daily: boolean;
-  weekly: boolean;
-  weekly_day: number;   // 0=Sun, 1=Mon … 6=Sat
-  monthly: boolean;
-  monthly_day: number;  // 1–31
-  time: string;         // "HH:MM" in user's local time (we treat as UTC for simplicity)
-}
-
-const DEFAULT_SCHEDULE: ReportSchedule = {
-  daily: false,
-  weekly: true,
-  weekly_day: 1,   // Monday
-  monthly: true,
-  monthly_day: 1,
-  time: "09:00",
-};
-
-export async function getReportSchedule(userId: string): Promise<ReportSchedule> {
-  const supabase = getServiceClient();
-  const { data } = await supabase
-    .from("profiles")
-    .select("settings")
-    .eq("id", userId)
-    .single();
-  return (data?.settings?.report_schedule as ReportSchedule) ?? DEFAULT_SCHEDULE;
-}
-
-export async function setReportSchedule(userId: string, schedule: ReportSchedule): Promise<void> {
-  const supabase = getServiceClient();
-  const { data } = await supabase.from("profiles").select("settings").eq("id", userId).single();
-  await supabase.from("profiles").update({
-    settings: { ...(data?.settings ?? {}), report_schedule: schedule },
-  }).eq("id", userId);
 }
 
 // ── Format report for Telegram ────────────────────────────────────────────────

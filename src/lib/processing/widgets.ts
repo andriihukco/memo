@@ -42,6 +42,7 @@ interface InsightRow {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SUMMARY_MODEL = "gemini-2.5-flash";
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000; // UTC+3
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -55,21 +56,26 @@ function nowISO(): string {
   return new Date().toISOString();
 }
 
+// All boundary helpers return UTC dates that correspond to UTC+3 day boundaries
 function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const local = new Date(date.getTime() + TZ_OFFSET_MS);
+  local.setUTCHours(0, 0, 0, 0);
+  return new Date(local.getTime() - TZ_OFFSET_MS);
 }
 
 function startOfWeek(date: Date): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() - d.getDay());
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const local = new Date(date.getTime() + TZ_OFFSET_MS);
+  const day = local.getUTCDay();
+  local.setUTCDate(local.getUTCDate() + (day === 0 ? -6 : 1 - day));
+  local.setUTCHours(0, 0, 0, 0);
+  return new Date(local.getTime() - TZ_OFFSET_MS);
 }
 
 function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
+  const local = new Date(date.getTime() + TZ_OFFSET_MS);
+  local.setUTCDate(1);
+  local.setUTCHours(0, 0, 0, 0);
+  return new Date(local.getTime() - TZ_OFFSET_MS);
 }
 
 async function generateText(prompt: string): Promise<string> {
@@ -312,8 +318,6 @@ Write only the summary.`;
 
   return widgets;
 }
-
-// ── Stale widget retirement ───────────────────────────────────────────────────
 
 function retireStaleWidgets(
   widgets: Widget[],

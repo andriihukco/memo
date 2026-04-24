@@ -4,51 +4,247 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    /* Elegant Dark Theme - Deep Navy & Slate */
+    --background: 222 47% 6%;
+    /* #0B0F19 - Deep navy background */
+    --foreground: 210 40% 98%;
+    /* #F8FAFC - Soft white text */
+    --card: 217 33% 12%;
+    /* #151B2B - Elevated surface */
+    --card-foreground: 210 40% 98%;
+    --popover: 217 33% 12%;
+    /* #151B2B - Modal/drawer surface */
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%;
+    /* #3B82F6 - Vibrant blue */
+    --primary-foreground: 222 47% 6%;
+    --secondary: 217 33% 17%;
+    /* #1E293B - Secondary surface */
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    /* #1E293B - Muted background */
+    --muted-foreground: 215 20% 55%;
+    /* #94A3B8 - Muted text */
+    --accent: 217 91% 60%;
+    /* #3B82F6 - Accent matches primary */
+    --accent-foreground: 222 47% 6%;
+    --destructive: 0 72% 51%;
+    /* #DC2626 - Error red */
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.75rem;
+    --border: 217 33% 20%;
+    /* #1E293B/30% - Subtle borders */
+    --input: 217 33% 17%;
+    /* #1E293B - Input background */
+    --ring: 217 91% 60%;
+    /* #3B82F6 - Focus ring */
+    --radius: 0.875rem;
+
+    /* Custom dark theme tokens */
+    --surface-elevated: 217 33% 14%;
+    /* #1A2234 - Cards, drawers */
+    --surface-hover: 217 33% 20%;
+    /* #243347 - Hover states */
+    --glass-bg: 217 33% 12% / 0.8;
+    /* Glassmorphism background */
+    --glass-border: 217 33% 25% / 0.3;
+    /* Glassmorphism border */
   }
 }
 
 @layer base {
-  * { @apply border-border; }
-  body {
-    @apply bg-background text-foreground;
-    font-family: Arial, Helvetica, sans-serif;
+  * {
+    @apply border-border;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
   }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    /* iOS SF Pro font stack with system fallbacks */
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* iOS-style text rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* iOS momentum scrolling */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* iOS Safe Touch Areas - minimum 44px touch targets */
+  button,
+  a,
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
   /* Prevent iOS auto-zoom on input focus — requires font-size >= 16px */
-  input, textarea, select {
+  input,
+  textarea,
+  select {
     font-size: 16px !important;
+    /* iOS-style input styling */
+    -webkit-appearance: none;
+    border-radius: 10px;
+  }
+
+  /* Selection styling */
+  ::selection {
+    background: hsl(var(--primary) / 0.3);
+    color: hsl(var(--primary-foreground));
+  }
+
+  /* iOS-style focus outlines */
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary) / 0.5);
+    outline-offset: 2px;
   }
 }
 
 @layer utilities {
-  .text-balance { text-wrap: balance; }
-  .scrollbar-none { scrollbar-width: none; }
-  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* iOS Safe Area utilities */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* iOS Touch optimization */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Enable text selection where needed */
+  .select-text {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* Glassmorphism utility */
+  .glass {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  /* Subtle gradient backgrounds */
+  .bg-gradient-subtle {
+    background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--surface-elevated)) 100%);
+  }
+
+  /* Glow effect for interactive elements */
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.15);
+  }
+
+  /* Card hover lift effect */
+  .card-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  }
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20%       { transform: translateX(-8px); }
-  40%       { transform: translateX(8px); }
-  60%       { transform: translateX(-6px); }
-  80%       { transform: translateX(6px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-8px);
+  }
+
+  40% {
+    transform: translateX(8px);
+  }
+
+  60% {
+    transform: translateX(-6px);
+  }
+
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+/* Enhanced animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-soft {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slideUp {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
 }

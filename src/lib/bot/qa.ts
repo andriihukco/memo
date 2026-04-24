@@ -5,13 +5,8 @@ import { env } from "../env";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type Category =
-  | "thoughts"
-  | "ideas"
-  | "feelings"
-  | "expenses"
-  | "calories"
-  | "workout";
+// Open-ended — matches the open-category system from migration 000004
+export type Category = string;
 
 export interface QAContext {
   userId: string;
@@ -24,19 +19,28 @@ interface TemporalFilter {
   to: Date;
 }
 
+// similarity is present for semantic hits, undefined for structured-fallback hits
 interface RetrievedEntry {
   id: string;
   content: string;
   category: string;
   metadata: Record<string, unknown>;
   created_at: string;
+  similarity?: number;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const QA_MODEL = "gemini-2.5-flash";
-const SIMILARITY_THRESHOLD = 0.75;
-const TOP_K = 10;
+// Lowered from 0.75 — food/macro entries don't semantically match "macro" questions
+// at high cosine similarity; 0.45 gives much better recall without noise.
+const SIMILARITY_THRESHOLD = 0.45;
+const TOP_K = 15; // fetch more candidates so re-ranking has better material
+const RERANK_TOP_K = 5; // how many entries to keep after re-ranking
+
+// UTC offset for the user's timezone (UTC+3 = Kyiv/Moscow time)
+// All "today / yesterday / this week" boundaries are computed in this timezone.
+const USER_UTC_OFFSET_HOURS = 3;
 
 // ── Supabase service client ───────────────────────────────────────────────────
 
@@ -46,11 +50,12 @@ function getServiceClient() {
   });
 }
 
-// ── 3.1 Temporal filter resolver ──────────────────────────────────────────────
+// ── Temporal filter resolver ──────────────────────────────────────────────────
 
 /**
- * Parse natural-language temporal references (Ukrainian + English) into a UTC date range.
- * Returns null for unrecognised references.
+ * All "day" boundaries are computed in the user's local timezone (UTC+3).
+ * `now` is a UTC Date; we shift it by USER_UTC_OFFSET_HOURS before computing
+ * start-of-day / start-of-week, then shift the result back to UTC for DB queries.
  */
 export function resolveTemporalFilter(
   question: string,
@@ -58,148 +63,173 @@ export function resolveTemporalFilter(
 ): TemporalFilter | null {
   const q = question.toLowerCase();
 
-  // Helper: start of a UTC day
-  const startOfDay = (d: Date): Date => {
+  const localNow = new Date(now.getTime() + USER_UTC_OFFSET_HOURS * 60 * 60 * 1000);
+
+  const toUtc = (d: Date): Date => new Date(d.getTime() - USER_UTC_OFFSET_HOURS * 60 * 60 * 1000);
+
+  const startOfLocalDay = (d: Date): Date => {
+    const r = new Date(d); r.setUTCHours(0, 0, 0, 0); return r;
+  };
+  const endOfLocalDay = (d: Date): Date => {
+    const r = new Date(d); r.setUTCHours(23, 59, 59, 999); return r;
+  };
+  const startOfLocalWeek = (d: Date): Date => {
     const r = new Date(d);
-    r.setUTCHours(0, 0, 0, 0);
-    return r;
+    const day = r.getUTCDay();
+    r.setUTCDate(r.getUTCDate() + (day === 0 ? -6 : 1 - day));
+    r.setUTCHours(0, 0, 0, 0); return r;
+  };
+  const endOfLocalWeek = (d: Date): Date => {
+    const r = new Date(startOfLocalWeek(d));
+    r.setUTCDate(r.getUTCDate() + 6); r.setUTCHours(23, 59, 59, 999); return r;
+  };
+  const startOfLocalMonth = (d: Date): Date => {
+    const r = new Date(d); r.setUTCDate(1); r.setUTCHours(0, 0, 0, 0); return r;
   };
 
-  // Helper: end of a UTC day (23:59:59.999)
-  const endOfDay = (d: Date): Date => {
-    const r = new Date(d);
-    r.setUTCHours(23, 59, 59, 999);
-    return r;
-  };
-
-  // Helper: start of the UTC week (Monday)
-  const startOfWeek = (d: Date): Date => {
-    const r = new Date(d);
-    const day = r.getUTCDay(); // 0=Sun, 1=Mon, …
-    const diff = (day === 0 ? -6 : 1 - day); // shift to Monday
-    r.setUTCDate(r.getUTCDate() + diff);
-    r.setUTCHours(0, 0, 0, 0);
-    return r;
-  };
-
-  // Helper: end of the UTC week (Sunday 23:59:59.999)
-  const endOfWeek = (d: Date): Date => {
-    const start = startOfWeek(d);
-    const r = new Date(start);
-    r.setUTCDate(r.getUTCDate() + 6);
-    r.setUTCHours(23, 59, 59, 999);
-    return r;
-  };
-
-  // Helper: start of the UTC month
-  const startOfMonth = (d: Date): Date => {
-    const r = new Date(d);
-    r.setUTCDate(1);
-    r.setUTCHours(0, 0, 0, 0);
-    return r;
-  };
-
-  // "yesterday" / "вчора"
+  // Relative: yesterday / today / this week / last week / this month
   if (q.includes("yesterday") || q.includes("вчора")) {
-    const yesterday = new Date(now);
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-    return { from: startOfDay(yesterday), to: endOfDay(yesterday) };
+    const y = new Date(localNow); y.setUTCDate(y.getUTCDate() - 1);
+    return { from: toUtc(startOfLocalDay(y)), to: toUtc(endOfLocalDay(y)) };
   }
-
-  // "today" / "сьогодні"
-  if (q.includes("today") || q.includes("сьогодні")) {
-    return { from: startOfDay(now), to: endOfDay(now) };
+  if (q.includes("today") || q.includes("сьогодні") || q.includes("сьогодн")) {
+    return { from: toUtc(startOfLocalDay(localNow)), to: toUtc(endOfLocalDay(localNow)) };
   }
-
-  // "last week" / "минулого тижня" — must be checked before "this week"
   if (q.includes("last week") || q.includes("минулого тижня")) {
-    const lastWeekDay = new Date(now);
-    lastWeekDay.setUTCDate(lastWeekDay.getUTCDate() - 7);
-    return { from: startOfWeek(lastWeekDay), to: endOfWeek(lastWeekDay) };
+    const lw = new Date(localNow); lw.setUTCDate(lw.getUTCDate() - 7);
+    return { from: toUtc(startOfLocalWeek(lw)), to: toUtc(endOfLocalWeek(lw)) };
   }
-
-  // "this week" / "цього тижня"
-  if (q.includes("this week") || q.includes("цього тижня")) {
-    return { from: startOfWeek(now), to: new Date(now) };
+  if (q.includes("this week") || q.includes("цього тижня") || q.includes("цей тиждень") || q.includes("на цьому тижні") || q.includes("за цей тиждень")) {
+    return { from: toUtc(startOfLocalWeek(localNow)), to: now };
   }
-
-  // "last Monday" / "минулого понеділка"
-  // Find the most recent Monday that is strictly before today (or today if today is Monday → go back 7 days)
   if (q.includes("last monday") || q.includes("минулого понеділка")) {
-    const day = now.getUTCDay(); // 0=Sun, 1=Mon, 2=Tue, …, 6=Sat
-    // Days since last Monday: Mon=7, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+    const day = localNow.getUTCDay();
     const daysBack = day === 0 ? 6 : day === 1 ? 7 : day - 1;
-    const lastMonday = new Date(now);
-    lastMonday.setUTCDate(lastMonday.getUTCDate() - daysBack);
-    return { from: startOfDay(lastMonday), to: endOfDay(lastMonday) };
+    const lm = new Date(localNow); lm.setUTCDate(lm.getUTCDate() - daysBack);
+    return { from: toUtc(startOfLocalDay(lm)), to: toUtc(endOfLocalDay(lm)) };
+  }
+  if (q.includes("this month") || q.includes("цього місяця") || q.includes("цей місяць")) {
+    return { from: toUtc(startOfLocalMonth(localNow)), to: now };
   }
 
-  // "this month" / "цього місяця"
-  if (q.includes("this month") || q.includes("цього місяця")) {
-    return { from: startOfMonth(now), to: new Date(now) };
+  // Absolute date: "15 квітня", "16 april", "april 15", "15.04", "15/04" etc.
+  // Ukrainian month names
+  const UA_MONTHS: Record<string, number> = {
+    "січня":0,"лютого":1,"березня":2,"квітня":3,"травня":4,"червня":5,
+    "липня":6,"серпня":7,"вересня":8,"жовтня":9,"листопада":10,"грудня":11,
+    "january":0,"february":1,"march":2,"april":3,"may":4,"june":5,
+    "july":6,"august":7,"september":8,"october":9,"november":10,"december":11,
+  };
+
+  // "15 квітня" or "квітня 15"
+  for (const [monthName, monthIdx] of Object.entries(UA_MONTHS)) {
+    if (q.includes(monthName)) {
+      const dayMatch = q.match(/(\d{1,2})\s+(?:квітня|лютого|березня|травня|червня|липня|серпня|вересня|жовтня|листопада|грудня|january|february|march|april|may|june|july|august|september|october|november|december)/i)
+        ?? q.match(/(?:квітня|лютого|березня|травня|червня|липня|серпня|вересня|жовтня|листопада|грудня|january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2})/i);
+      if (dayMatch) {
+        const day = parseInt(dayMatch[1], 10);
+        const year = localNow.getUTCFullYear();
+        const localDate = new Date(Date.UTC(year, monthIdx, day));
+        // If the date is in the future, use previous year
+        if (localDate > localNow) localDate.setUTCFullYear(year - 1);
+        return { from: toUtc(startOfLocalDay(localDate)), to: toUtc(endOfLocalDay(localDate)) };
+      }
+    }
   }
 
-  return null;
-}
-
-// ── 3.3 Category keyword mapper ───────────────────────────────────────────────
-
-/**
- * Map Ukrainian and English keywords in the question to a Category.
- * Returns null if no category keyword is found.
- */
-export function resolveCategoryFilter(question: string): Category | null {
-  const q = question.toLowerCase();
-
-  const KEYWORD_MAP: Array<{ keywords: string[]; category: Category }> = [
-    {
-      keywords: ["їжа", "їв", "їла", "калорії", "food", "ate", "calories", "kcal", "їсти", "харчування"],
-      category: "calories",
-    },
-    {
-      keywords: ["витрати", "витратив", "купив", "spent", "spending", "expense", "гроші", "витрачав"],
-      category: "expenses",
-    },
-    {
-      keywords: ["тренування", "workout", "gym", "вправи", "спорт", "фітнес"],
-      category: "workout",
-    },
-    {
-      keywords: ["думки", "думав", "thoughts", "мислення"],
-      category: "thoughts",
-    },
-    {
-      keywords: ["ідеї", "idea", "ideas", "ідея"],
-      category: "ideas",
-    },
-    {
-      keywords: ["почуття", "відчував", "feelings", "mood", "настрій", "емоції"],
-      category: "feelings",
-    },
-  ];
-
-  for (const { keywords, category } of KEYWORD_MAP) {
-    if (keywords.some((kw) => q.includes(kw))) {
-      return category;
+  // "15.04" or "15/04" or "04/15"
+  const numDateMatch = q.match(/(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?/);
+  if (numDateMatch) {
+    let day = parseInt(numDateMatch[1], 10);
+    let month = parseInt(numDateMatch[2], 10) - 1;
+    // Handle MM/DD vs DD/MM — if first number > 12, it's DD/MM
+    if (day > 12 && month <= 11) { /* DD/MM — already correct */ }
+    else if (month > 11) { [day, month] = [month + 1, day - 1]; }
+    const year = numDateMatch[3]
+      ? (numDateMatch[3].length === 2 ? 2000 + parseInt(numDateMatch[3]) : parseInt(numDateMatch[3]))
+      : localNow.getUTCFullYear();
+    if (day >= 1 && day <= 31 && month >= 0 && month <= 11) {
+      const localDate = new Date(Date.UTC(year, month, day));
+      return { from: toUtc(startOfLocalDay(localDate)), to: toUtc(endOfLocalDay(localDate)) };
     }
   }
 
   return null;
 }
 
-// ── 3.4 Entry retrieval with intersection + fallback ──────────────────────────
+// ── Category keyword mapper ───────────────────────────────────────────────────
+
+// Open-ended: returns a string category name or null.
+// Covers both built-in and common new categories.
+export function resolveCategoryFilter(question: string): Category | null {
+  const q = question.toLowerCase();
+
+  const KEYWORD_MAP: Array<{ keywords: string[]; category: string }> = [
+    { keywords: ["їжа", "їв", "їла", "калорії", "food", "ate", "calories", "kcal", "їсти", "харчування", "з'їв", "з'їла", "поїв", "поїла", "що я їв", "що їв", "що їла", "скільки з'їв", "скільки калорій", "макроси", "macros", "protein", "білки"], category: "calories" },
+    { keywords: ["витрати", "витратив", "купив", "spent", "spending", "expense", "гроші", "витрачав"], category: "expenses" },
+    { keywords: ["тренування", "workout", "gym", "вправи", "спорт", "фітнес", "пробіг", "пробігав"], category: "workout" },
+    { keywords: ["думки", "думав", "thoughts", "мислення"], category: "thoughts" },
+    { keywords: ["ідеї", "idea", "ideas", "ідея"], category: "ideas" },
+    { keywords: ["почуття", "відчував", "feelings", "mood", "настрій", "емоції"], category: "feelings" },
+    { keywords: ["сон", "спав", "sleep", "прокинувся", "засинав"], category: "sleep" },
+    { keywords: ["здоров", "health", "медитац", "вода", "water", "кофеїн", "caffeine", "кава", "coffee", "чай", "tea"], category: "health" },
+    { keywords: ["сни", "приснилось", "dream", "приснився"], category: "dreams" },
+    { keywords: ["книг", "читав", "book", "reading", "сторінок"], category: "books" },
+    { keywords: ["ціль", "goal", "хочу досягти", "планую", "target"], category: "goals" },
+  ];
+
+  for (const { keywords, category } of KEYWORD_MAP) {
+    if (keywords.some((kw) => q.includes(kw))) return category;
+  }
+  return null;
+}
+
+// ── Re-ranking ────────────────────────────────────────────────────────────────
 
 /**
- * Retrieve diary entries for a user using semantic search intersected with
- * structured (temporal + category) filters.
- *
- * Strategy:
- * 1. Fetch top-10 semantically similar entries (pgvector RPC).
- * 2. Apply temporal and category filters to get the intersection.
- * 3. If intersection is empty, fall back to structured-filter-only DB query.
- *
- * All queries include user_id filter.
+ * Cross-encoder re-ranking using Gemini as the scoring model.
+ * Scores each candidate entry's relevance to the question (0–10),
+ * then returns the top-K highest-scoring entries.
+ * Falls back to original order on any error.
  */
+async function rerankEntries(
+  question: string,
+  entries: RetrievedEntry[],
+  topK = RERANK_TOP_K
+): Promise<RetrievedEntry[]> {
+  if (entries.length <= topK) return entries;
+
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: QA_MODEL });
+
+  const candidateList = entries
+    .map((e, i) => `[${i}] (${e.category}, ${e.created_at.slice(0, 10)}): ${e.content}`)
+    .join("\n");
+
+  const prompt =
+    `Question: "${question}"\n\n` +
+    `Rate each diary entry's relevance to the question from 0 to 10.\n` +
+    `Return ONLY a JSON array: [{"index": <number>, "score": <number>}, ...]\n\n` +
+    `Entries:\n${candidateList}`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const raw = result.response.text().replace(/```json\n?|\n?```/g, "").trim();
+    const scores = JSON.parse(raw) as { index: number; score: number }[];
+
+    return scores
+      .sort((a, b) => b.score - a.score)
+      .slice(0, topK)
+      .map((s) => entries[s.index])
+      .filter(Boolean);
+  } catch (err) {
+    console.warn("[qa] rerank failed, using original order:", err);
+    return entries.slice(0, topK);
+  }
+}
+
+// ── Entry retrieval ───────────────────────────────────────────────────────────
+
 export async function retrieveEntries(
   userId: string,
   embedding: number[],
@@ -207,34 +237,45 @@ export async function retrieveEntries(
   categoryFilter: Category | null
 ): Promise<RetrievedEntry[]> {
   const supabase = getServiceClient();
-  const embeddingLiteral = `[${embedding.join(",")}]`;
 
-  // Step 1: semantic search (top-10, no exclude_id needed for QA)
-  const { data: semanticData, error: semanticError } = await supabase.rpc(
-    "find_similar_entries",
-    {
-      p_user_id: userId,
-      p_embedding: embeddingLiteral,
-      p_exclude_id: "00000000-0000-0000-0000-000000000000", // dummy — we want all entries
-      p_top_k: TOP_K,
-    }
-  );
-
-  if (semanticError) {
-    console.error("[qa] find_similar_entries RPC error:", semanticError.message);
+  // For broad "about me" questions (no temporal, no category filter):
+  // skip semantic search entirely — just return the most recent entries.
+  // Semantic search is unreliable for vague questions like "що ти знаєш про мене".
+  if (!temporalFilter && !categoryFilter) {
+    const { data } = await supabase
+      .from("entries")
+      .select("id, content, category, metadata, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    return (data ?? []) as RetrievedEntry[];
   }
 
-  const semanticEntries: Array<{
-    id: string;
-    content: string;
-    category: string;
-    created_at: string;
-    similarity: number;
-  }> = semanticData ?? [];
+  const embeddingLiteral = `[${embedding.join(",")}]`;
 
-  // Step 2: apply structured filters to semantic results (intersection)
+  let semanticData: Array<{ id: string; content: string; category: string; created_at: string; similarity: number }> | null = null;
+  let semanticError: { message: string } | null = null;
+
+  // Temporal-filtered search
+  const result = await supabase.rpc("find_similar_entries", {
+    p_user_id: userId,
+    p_embedding: embeddingLiteral,
+    p_exclude_id: "00000000-0000-0000-0000-000000000000",
+    p_top_k: TOP_K,
+  });
+  semanticData = result.data;
+  semanticError = result.error;
+
+  if (semanticError) {
+    console.error("[qa] semantic search RPC error:", semanticError.message);
+  }
+
+  const semanticEntries = (semanticData ?? []) as Array<{
+    id: string; content: string; category: string; created_at: string; similarity: number;
+  }>;
+
+  // Filter by threshold + structured filters
   const aboveThreshold = semanticEntries.filter((e) => e.similarity > SIMILARITY_THRESHOLD);
-
   let intersection = aboveThreshold;
 
   if (temporalFilter) {
@@ -243,37 +284,30 @@ export async function retrieveEntries(
       return ts >= temporalFilter.from.getTime() && ts <= temporalFilter.to.getTime();
     });
   }
-
   if (categoryFilter) {
     intersection = intersection.filter((e) => e.category === categoryFilter);
   }
 
-  // If intersection has results, fetch full metadata for those entry ids
+  // Semantic intersection hit — fetch full metadata + tag with similarity
   if (intersection.length > 0) {
-    return fetchFullEntries(supabase, userId, intersection.map((e) => e.id));
+    const full = await fetchFullEntries(supabase, userId, intersection.map((e) => e.id));
+    const simMap = new Map(intersection.map((e) => [e.id, e.similarity]));
+    return full.map((e) => ({ ...e, similarity: simMap.get(e.id) }));
   }
 
-  // Step 3: fallback — structured-filter-only query
+  // Fallback — structured-filter-only query (always applies date/category filters)
   return fetchStructuredEntries(supabase, userId, temporalFilter, categoryFilter);
 }
 
-async function fetchFullEntries(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  userId: string,
-  ids: string[]
-): Promise<RetrievedEntry[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchFullEntries(supabase: any, userId: string, ids: string[]): Promise<RetrievedEntry[]> {
   const { data, error } = await supabase
     .from("entries")
     .select("id, content, category, metadata, created_at")
     .eq("user_id", userId)
     .in("id", ids);
 
-  if (error) {
-    console.error("[qa] fetchFullEntries error:", error.message);
-    return [];
-  }
-
+  if (error) { console.error("[qa] fetchFullEntries error:", error.message); return []; }
   return (data ?? []) as RetrievedEntry[];
 }
 
@@ -296,46 +330,54 @@ async function fetchStructuredEntries(
       .gte("created_at", temporalFilter.from.toISOString())
       .lte("created_at", temporalFilter.to.toISOString());
   }
-
-  if (categoryFilter) {
-    query = query.eq("category", categoryFilter);
-  }
+  if (categoryFilter) query = query.eq("category", categoryFilter);
 
   const { data, error } = await query;
-
-  if (error) {
-    console.error("[qa] fetchStructuredEntries error:", error.message);
-    return [];
-  }
-
+  if (error) { console.error("[qa] fetchStructuredEntries error:", error.message); return []; }
+  // No similarity score — these came from structured fallback
   return (data ?? []) as RetrievedEntry[];
 }
 
-// ── 3.6 Answer synthesis ──────────────────────────────────────────────────────
+// ── Answer synthesis ──────────────────────────────────────────────────────────
 
-const QA_SYSTEM_PROMPT = `Ти — Memo, розумний особистий асистент. Ти маєш доступ до записів щоденника користувача І до своїх загальних знань.
+const QA_SYSTEM_PROMPT = `Ти — Memo, особистий AI-асистент з доступом до щоденника користувача.
+Відповідай ЗАВЖДИ мовою користувача (якщо питання українською — відповідай українською, англійською — англійською).
 
-Якщо питання стосується записів щоденника — відповідай на основі наданих записів.
-Якщо питання загальне (рецепти, факти, поради, розрахунки тощо) — відповідай зі своїх знань КОРОТКО (TLDR формат, 2-4 речення максимум).
-Якщо записів немає але питання загальне — дай коротку корисну відповідь.
+━━━ ГОЛОВНЕ ПРАВИЛО ━━━
+Відповідай на основі наданих записів. Якщо записів немає або вони не стосуються питання — скажи про це чітко.
+НЕ вигадуй. НЕ додавай інформацію якої немає в записах.
+Якщо питання про конкретну тему (робота, стосунки, подорожі) і записів на цю тему немає — так і скажи: "Записів про [тему] не знайдено."
 
-ВАЖЛИВО — аналіз харчування:
-Якщо в записах є продукти з вагою, але немає калорій — РОЗРАХУЙ їх сам.
-Якщо є dashboard_metrics з protein_g, carbs_g, fat_g — використовуй їх напряму.
-Якщо є goal_metrics — покажи прогрес до цілі.
+━━━ ПИТАННЯ "ПРО МЕНЕ" / ІНСАЙТИ / АКТИВНІСТЬ ━━━
+Коли питання типу "що ти знаєш про мене", "розкажи про мої звички", "які мої патерни", "insight about me", "what do you know about me", "recent activity", "what have I been doing", "що я робив", "моя активність":
+1. Проаналізуй ВСІ надані записи — це реальні дані щоденника
+2. Знайди патерни: що часто повторюється, що змінюється, тренди
+3. Зроби конкретні висновки про звички, настрій, активність, харчування, витрати
+4. Відповідай конкретно, з датами і цифрами де є
+5. Структуруй відповідь по темах: харчування, активність, настрій, витрати тощо
+6. ЗАВЖДИ давай відповідь — навіть якщо записи різнорідні, знайди що об'єднує
 
-СТРІКИ — якщо є метрика з aggregate="last" — це поточний стрік.
+━━━ ПИТАННЯ ПРО КОНКРЕТНУ ДАТУ ━━━
+Якщо питання "що було 15 квітня" або "факти за [дату]":
+1. Перелічи ВСІ записи за цю дату
+2. Підсумуй метрики (калорії, активність, настрій тощо)
+3. Якщо записів за цю дату немає — скажи чітко
 
-Правила форматування (Telegram Markdown):
-- *жирний* для ключових цифр, дат, назв
-- _курсив_ для цитат
-- Абзаци, не суцільний текст
-- Емодзі: 📅 дати, 💸 витрати, 🔥 калорії, 💪 тренування, 💭 думки, 😌 почуття, 🥩 білки, 🍞 вугл, 🧈 жири, 🎯 цілі
-- Для загальних питань: TLDR — коротко і по суті, без зайвих слів`;
+━━━ ХАРЧУВАННЯ / МАКРОСИ ━━━
+1. Знайди ВСІ записи з категорією "calories" або з dashboard_metrics що містять kcal_intake
+2. ПІДСУМУЙ значення (aggregate="sum" → додавай)
+3. Якщо є metadata.food_item але немає dashboard_metrics — РОЗРАХУЙ калорії сам
+4. Покажи підсумок: ккал, білки, жири, вуглеводи + що саме їв
+5. Для питань "скільки я з'їв цього тижня" / "what did I eat" — підсумуй всі записи calories за вказаний період
 
-/**
- * Synthesise a Ukrainian answer from retrieved diary entries using gemini-2.5-flash.
- */
+━━━ МЕТРИКИ ━━━
+dashboard_metrics в metadata.dashboard_metrics: {key, value, unit, aggregate}
+aggregate="sum" → підсумовуй, aggregate="avg" → середнє, aggregate="last" → останнє
+
+━━━ ФОРМАТУВАННЯ (Telegram Markdown) ━━━
+*жирний* для цифр і назв, _курсив_ для приміток
+Емодзі: 📅 дати, 💸 витрати, 🔥 калорії, 💪 тренування, 💭 думки, 😌 почуття, 🥩 білки, 🍞 вугл, 🧈 жири, 🎯 цілі, 😴 сон, 💧 вода, 📊 статистика`;
+
 export async function synthesiseAnswer(
   question: string,
   entries: RetrievedEntry[]
@@ -346,48 +388,95 @@ export async function synthesiseAnswer(
     systemInstruction: QA_SYSTEM_PROMPT,
   });
 
-  const entriesText = entries.length > 0
-    ? entries
-        .map((e) => {
-          const metaStr =
-            e.metadata && Object.keys(e.metadata).length > 0
-              ? `\n  Метадані: ${JSON.stringify(e.metadata)}`
-              : "";
-          return `[${e.created_at}] (${e.category})\n  ${e.content}${metaStr}`;
-        })
-        .join("\n\n")
-    : "(Записів щоденника не знайдено — відповідай зі своїх загальних знань)";
+  let entriesText: string;
+  let hasLowConfidence = false;
 
-  const prompt = `Записи користувача:\n\n${entriesText}\n\nПитання: ${question}`;
+  // Detect broad "about me" questions — entries were fetched by recency, not semantic search
+  const isBroadQuestion = entries.length > 0 && entries.every((e) => e.similarity === undefined);
+
+  if (entries.length === 0) {
+    entriesText = "(Записів щоденника не знайдено — відповідай зі своїх загальних знань)";
+  } else {
+    entriesText = entries
+      .map((e) => {
+        const metaStr =
+          e.metadata && Object.keys(e.metadata).length > 0
+            ? `\n  Метадані: ${JSON.stringify(e.metadata)}`
+            : "";
+        // For broad questions, skip confidence noise — just show the entry
+        if (isBroadQuestion) {
+          return `[${e.created_at}] (${e.category})\n  ${e.content}${metaStr}`;
+        }
+        let confNote: string;
+        if (e.similarity === undefined) {
+          confNote = "[структурний пошук]";
+          hasLowConfidence = true;
+        } else if (e.similarity < 0.6) {
+          confNote = `[схожість: ${(e.similarity * 100).toFixed(0)}%]`;
+          hasLowConfidence = true;
+        } else {
+          confNote = `[схожість: ${(e.similarity * 100).toFixed(0)}%]`;
+        }
+        return `[${e.created_at}] ${confNote} (${e.category})\n  ${e.content}${metaStr}`;
+      })
+      .join("\n\n");
+  }
+
+  const confidenceInstruction = (!isBroadQuestion && hasLowConfidence)
+    ? "\nУВАГА: Деякі записи знайдено лише за структурними фільтрами. Якщо відповідь непевна — додай примітку _(дані можуть бути неповними)_."
+    : "";
+
+  const prompt = `Записи користувача:\n\n${entriesText}\n\nПитання: ${question}\n\nВАЖЛИВО: Відповідай ТІЛЬКИ на питання. Якщо записи не стосуються питання — скажи що таких записів немає.${confidenceInstruction}`;
 
   const result = await model.generateContent(prompt);
   return result.response.text().trim();
 }
 
-// ── 3.6 QA orchestrator ───────────────────────────────────────────────────────
+// ── QA orchestrator ───────────────────────────────────────────────────────────
 
-/**
- * Answer a natural-language question about the user's diary history.
- * Returns a Ukrainian answer string, or a Ukrainian "no data" / error message.
- */
 export async function answerQuestion(ctx: QAContext): Promise<string> {
+  const { userId, question, currentUtcDate } = ctx;
+
   try {
-    const { userId, question, currentUtcDate } = ctx;
-
-    // Step 1: embed the question
-    const embedding = await generateEmbedding(question);
-
-    // Step 2: resolve structured filters
     const temporalFilter = resolveTemporalFilter(question, currentUtcDate);
     const categoryFilter = resolveCategoryFilter(question);
+    const supabase = getServiceClient();
 
-    // Step 3: retrieve entries
-    const entries = await retrieveEntries(userId, embedding, temporalFilter, categoryFilter);
+    let entries: RetrievedEntry[] = [];
 
-    // Step 4: synthesise — even with no entries, Gemini can answer from general knowledge
+    // For broad "about me" questions or when embedding might be slow,
+    // try semantic search first but fall back to direct DB query on any error.
+    try {
+      const embedding = await generateEmbedding(question);
+      const candidates = await retrieveEntries(userId, embedding, temporalFilter, categoryFilter);
+      entries = await rerankEntries(question, candidates);
+    } catch (embErr) {
+      console.warn("[qa] embedding/search failed, falling back to direct DB query:", embErr instanceof Error ? embErr.message : embErr);
+      // Direct fallback: fetch recent entries without semantic search
+      entries = await fetchStructuredEntries(supabase, userId, temporalFilter, categoryFilter);
+      // If still empty and no filters, grab the last 15 entries
+      if (entries.length === 0 && !temporalFilter && !categoryFilter) {
+        const { data } = await supabase
+          .from("entries")
+          .select("id, content, category, metadata, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(15);
+        entries = (data ?? []) as RetrievedEntry[];
+      }
+    }
+
     return await synthesiseAnswer(question, entries);
   } catch (err) {
-    console.error("[qa] answerQuestion failed:", err);
-    return "Вибач, не вдалося отримати відповідь. Спробуй ще раз. 🙏";
+    console.error("[qa] answerQuestion failed:", err instanceof Error ? err.message : err);
+    // Absolute last resort — answer from general knowledge
+    try {
+      const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+      const model = genAI.getGenerativeModel({ model: QA_MODEL, systemInstruction: QA_SYSTEM_PROMPT });
+      const result = await model.generateContent(`Питання: ${ctx.question}\n(Записів щоденника не знайдено)`);
+      return result.response.text().trim();
+    } catch {
+      return "Не вдалося знайти відповідь. Спробуй ще раз.";
+    }
   }
 }

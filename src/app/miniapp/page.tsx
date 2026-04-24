@@ -57,11 +57,14 @@ function EntryContent({ content, className }: { content: string; className?: str
   const isLong = content.length > LIMIT;
   return (
     <div className={className}>
-      <p className="text-sm leading-relaxed text-foreground">
+      <p className="text-[15px] leading-relaxed text-foreground/90">
         {isLong && !expanded ? content.slice(0, LIMIT) + '…' : content}
       </p>
       {isLong && (
-        <button onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }} className="mt-1 text-xs text-primary/70 hover:text-primary">
+        <button
+          onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+          className="mt-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+        >
           {expanded ? 'Згорнути' : 'Показати більше'}
         </button>
       )}
@@ -149,8 +152,10 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
             </div>
             <EntryContent content={entry.content} className={cn(isSelectMode && 'pl-7')} />
             {entry.bot_reply && (
-              <div className="mt-2 flex items-start gap-2 rounded-lg bg-muted/50 px-3 py-2">
-                <Bot size={12} className="mt-0.5 shrink-0 text-muted-foreground" />
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2.5">
+                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Bot size={10} className="text-primary" />
+                </div>
                 <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
               </div>
             )}
@@ -195,10 +200,11 @@ function groupByThread(entries: Entry[]): (Entry | ThreadGroup)[] {
 
 // ── ThreadCard — Reddit-style ─────────────────────────────────────────────────
 
-function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSelect, onUpdate, accessToken }: {
+function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSelect, onUpdate, onDelete, accessToken }: {
   group: ThreadGroup; isSelectMode: boolean; selectedIds: Set<string>;
   onLongPress: (id: string) => void; onToggleSelect: (id: string) => void;
   onUpdate: (id: string, content: string, category: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
   accessToken?: string | null;
 }) {
   const [showAll, setShowAll] = useState(false);
@@ -212,8 +218,10 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
     <>
       <Card className="overflow-hidden">
         {/* Thread header */}
-        <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2">
-          <MessageCircle size={12} className="text-muted-foreground" />
+        <div className="flex items-center gap-2 border-b border-border/50 bg-surface-elevated/50 px-4 py-2.5">
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
+            <MessageCircle size={11} className="text-primary" />
+          </div>
           <span className="text-xs font-medium text-muted-foreground">Розмова · {entries.length} повідомлень</span>
           <Badge className={cn('ml-auto border text-[10px]', getCategoryColor(entries[0]?.category ?? ''))} variant="outline">
             {getCategoryLabel(entries[0]?.category ?? '', entries[0]?.category_label)}
@@ -232,10 +240,11 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
                   'flex gap-3 px-4 py-3 cursor-pointer transition-colors active:bg-muted/30',
                   isSelected && 'bg-destructive/5',
                   !isUser && 'bg-muted/20',
+                  isUser && !isSelectMode && 'hover:bg-muted/10',
                 )}
                 onClick={() => {
                   if (isSelectMode) { onToggleSelect(entry.id); return; }
-                  setEditEntry(entry);
+                  if (isUser) setEditEntry(entry);
                 }}
                 onContextMenu={(e) => { e.preventDefault(); onLongPress(entry.id); }}
               >
@@ -260,8 +269,10 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
                   </div>
                   <p className="text-sm leading-relaxed text-foreground">{entry.content}</p>
                   {isUser && entry.bot_reply && (
-                    <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-muted/60 px-2.5 py-1.5">
-                      <Bot size={11} className="mt-0.5 shrink-0 text-muted-foreground" />
+                    <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2">
+                      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                        <Bot size={10} className="text-primary" />
+                      </div>
                       <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
                     </div>
                   )}
@@ -273,19 +284,31 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
 
         {/* Show more */}
         {hidden > 0 && !showAll && (
-          <button onClick={() => setShowAll(true)} className="w-full border-t py-2 text-xs text-primary/70 hover:text-primary hover:bg-muted/20 transition-colors">
+          <button
+            onClick={() => setShowAll(true)}
+            className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/5 transition-all duration-200 active:bg-primary/10"
+          >
             Показати ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'} ↓
           </button>
         )}
         {showAll && entries.length > PREVIEW && (
-          <button onClick={() => setShowAll(false)} className="w-full border-t py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-colors">
+          <button
+            onClick={() => setShowAll(false)}
+            className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-all duration-200"
+          >
             Згорнути ↑
           </button>
         )}
       </Card>
 
       {editEntry && (
-        <EditDrawer entry={editEntry} onSave={onUpdate} onClose={() => setEditEntry(null)} accessToken={accessToken} />
+        <EditDrawer
+          entry={editEntry}
+          onSave={onUpdate}
+          onDelete={onDelete}
+          onClose={() => setEditEntry(null)}
+          accessToken={accessToken}
+        />
       )}
     </>
   );
@@ -374,6 +397,17 @@ export default function FeedPage() {
     setAllEntries((prev) => prev.map((e) => e.id === id ? { ...e, ...updated } : e));
   };
 
+  const handleDeleteSingle = async (id: string) => {
+    if (!accessToken) return;
+    const res = await fetch('/api/entries', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ ids: [id] }),
+    });
+    if (!res.ok) throw new Error('Delete failed');
+    setAllEntries((prev) => prev.filter((e) => e.id !== id));
+  };
+
   const allIds = entries.map((e) => e.id);
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
   const toggleSelectAll = () => { if (allSelected) exitSelectMode(); else { setIsSelectMode(true); setSelectedIds(new Set(allIds)); } };
@@ -433,6 +467,7 @@ export default function FeedPage() {
                   onLongPress={handleLongPress}
                   onToggleSelect={handleToggleSelect}
                   onUpdate={handleUpdate}
+                  onDelete={handleDeleteSingle}
                   accessToken={accessToken}
                 />
               );
@@ -468,7 +503,7 @@ export default function FeedPage() {
       )}
 
       {pendingDeleteIds && (
-        <DeleteConfirmDialog count={pendingDeleteIds.length} onConfirm={isDeleting ? () => {} : confirmDelete} onCancel={() => setPendingDeleteIds(null)} />
+        <DeleteConfirmDialog count={pendingDeleteIds.length} onConfirm={isDeleting ? () => { } : confirmDelete} onCancel={() => setPendingDeleteIds(null)} />
       )}
     </div>
   );

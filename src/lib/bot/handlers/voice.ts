@@ -1,13 +1,17 @@
 import { Context } from "grammy";
 import { createClient } from "@supabase/supabase-js";
-import { classifyAudio, ClassificationError, ClassificationResult } from "@/lib/classifier";
+import {
+  classifyAudio, ClassificationError, ClassificationResult,
+  EntryPayload, BUILTIN_CATEGORIES, colorForNewCategory,
+} from "@/lib/classifier";
 import { embedEntry } from "@/lib/embedding";
-import { processUser } from "@/lib/processing/loop";
 import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import { answerQuestion } from "@/lib/bot/qa";
-import { generateConverseReply } from "@/lib/bot/converse";
+import { generateConverseReply, loadUserContext } from "@/lib/bot/converse";
+import { handleAction } from "@/lib/bot/handlers/action";
 import { sanitizeMarkdown } from "@/lib/utils";
+import { extractFacts, saveMemory } from "@/lib/bot/memory";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -19,7 +23,100 @@ function getServiceClient() {
   });
 }
 
-// ── Handler ───────────────────────────────────────────────────────────────────
+async function withTypingIndicator<T>(ctx: BotContext, fn: () => Promise<T>): Promise<T> {
+  // Use a self-cancelling interval to prevent loop leak on throw (bug 1.7)
+  const interval = setInterval(() => {
+    ctx.replyWithChatAction("typing").catch(() => {});
+  }, 4000);
+  ctx.replyWithChatAction("typing").catch(() => {});
+  try {
+    return await fn();
+  } finally {
+    clearInterval(interval);
+  }
+}
+
+async function upsertCategory(
+  supabase: ReturnType<typeof getServiceClient>,
+  userId: string,
+  entry: EntryPayload
+): Promise<void> {
+  if (entry.is_new_category) {
+    await supabase.from("categories").upsert({
+      user_id: userId, name: entry.category, label_ua: entry.category_label,
+      color: colorForNewCategory(entry.category), icon: "tag",
+    }, { onConflict: "user_id,name", ignoreDuplicates: true });
+  } else if (!(entry.category in BUILTIN_CATEGORIES)) {
+    await supabase.from("categories").upsert({
+      user_id: userId, name: entry.category, label_ua: entry.category_label,
+      color: BUILTIN_CATEGORIES[entry.category]?.color ?? colorForNewCategory(entry.category),
+      icon: BUILTIN_CATEGORIES[entry.category]?.icon ?? "tag",
+    }, { onConflict: "user_id,name", ignoreDuplicates: true });
+  }
+}
+
+// ── Thread resolution (same as text handler) ──────────────────────────────────
+
+async function resolveThread(
+  supabase: ReturnType<typeof getServiceClient>,
+  userId: string,
+  replyToMessageId: number | undefined
+): Promise<{ threadId: string | null; parentEntryId: string | null }> {
+  if (!replyToMessageId) return { threadId: null, parentEntryId: null };
+  // Query with both number and string forms to handle both storage formats (bug 1.6)
+  const { data } = await supabase
+    .from("entries")
+    .select("id, thread_id, reply_to_entry_id")
+    .eq("user_id", userId)
+    .or(`metadata->bot_msg_id.eq.${replyToMessageId},metadata->>bot_msg_id.eq.${replyToMessageId}`)
+    .maybeSingle();
+  if (!data) return { threadId: null, parentEntryId: null };
+  // Walk up the chain to find the true thread root (bug 1.30)
+  let threadId = data.thread_id;
+  if (!threadId) {
+    if (data.reply_to_entry_id) {
+      const { data: parent } = await supabase
+        .from("entries")
+        .select("id, thread_id")
+        .eq("id", data.reply_to_entry_id)
+        .maybeSingle();
+      threadId = parent?.thread_id ?? data.id;
+    } else {
+      threadId = data.id;
+    }
+    await supabase.from("entries").update({ thread_id: threadId }).eq("id", data.id);
+  }
+  return { threadId, parentEntryId: data.id };
+}
+
+async function loadThreadContext(
+  supabase: ReturnType<typeof getServiceClient>,
+  threadId: string,
+  userId: string,
+  excludeEntryId?: string,
+  maxAgeHours = 48
+): Promise<string | undefined> {
+  const cutoff = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000).toISOString();
+  let query = supabase
+    .from("entries")
+    .select("id, content, bot_reply, created_at")
+    .eq("user_id", userId)
+    .eq("thread_id", threadId)
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: true })
+    .limit(8);
+  // Exclude the current entry so it doesn't appear twice in context (bug 1.31)
+  if (excludeEntryId) {
+    query = query.neq("id", excludeEntryId);
+  }
+  const { data } = await query;
+  if (!data || data.length === 0) return undefined;
+  return (data as { content: string; bot_reply: string | null }[])
+    .map((e) => `User: ${e.content}${e.bot_reply ? `\nMemo: ${e.bot_reply}` : ""}`)
+    .join("\n\n");
+}
+
+// ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
   const voice = ctx.message?.voice;
@@ -31,106 +128,187 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
     return;
   }
 
-  // Show typing indicator immediately
   await ctx.replyWithChatAction("typing");
 
-  // 1. Download audio into an in-memory buffer (no storage write)
+  // Download audio
   let audioBuffer: Buffer;
   try {
     const file = await ctx.getFile();
     const fileUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${file.file_path}`;
     const response = await fetch(fileUrl);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    const arrayBuffer = await response.arrayBuffer();
-    audioBuffer = Buffer.from(arrayBuffer);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    audioBuffer = Buffer.from(await response.arrayBuffer());
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[voice handler] Audio download failed:", message);
-    await ctx.reply("⚠️ Could not download your voice note. Please try again.");
+    console.error("[voice handler] Audio download failed:", err);
+    await ctx.reply("⚠️ Не вдалося завантажити голосове. Спробуй ще раз.");
     return;
   }
 
-  // 2. Transcribe and classify (buffer used here, then discarded)
+  // Resolve thread + load user context in parallel with audio download already done
+  const supabase = getServiceClient();
+  const replyToMsgId = ctx.message?.reply_to_message?.message_id;
+
+  const [userCtx, { threadId: resolvedThreadId, parentEntryId }] = await Promise.all([
+    loadUserContext(profile.id),
+    resolveThread(supabase, profile.id, replyToMsgId),
+  ]);
+
+  // Load thread context if we're in a thread
+  const threadCtx = resolvedThreadId
+    ? await loadThreadContext(supabase, resolvedThreadId, profile.id)
+    : undefined;
+
+  // Transcribe + classify audio
   let result: ClassificationResult;
   try {
-    result = await classifyAudio(audioBuffer, "audio/ogg");
+    result = await classifyAudio(audioBuffer, "audio/ogg", threadCtx);
   } catch (err) {
+    audioBuffer = Buffer.alloc(0);
     if (err instanceof ClassificationError) {
-      console.error("[voice handler] ClassificationError:", err.message, err.cause);
-      await ctx.reply("⚠️ Не вдалося класифікувати запис. Спробуй ще раз.");
+      console.error("[voice handler] ClassificationError:", err.message);
+      await ctx.reply("⚠️ Не вдалося розпізнати голосове. Спробуй ще раз.");
       return;
     }
     throw err;
   } finally {
-    // Discard the buffer immediately after transcription attempt
     audioBuffer = Buffer.alloc(0);
   }
 
-  // 3. Route questions — do NOT persist
+  // ── Questions ──────────────────────────────────────────────────────────────
   if (result.intent === "question") {
-    await ctx.replyWithChatAction("typing");
-    const answer = await answerQuestion({
-      userId: profile.id,
-      question: result.content,
-      currentUtcDate: new Date(),
-    });
+    const answer = await withTypingIndicator(ctx, () =>
+      answerQuestion({ userId: profile.id, question: result.content, currentUtcDate: new Date() })
+    );
     await ctx.reply(sanitizeMarkdown(answer));
     return;
   }
 
-  // 3b. Smalltalk — do NOT persist
+  // ── Smalltalk ──────────────────────────────────────────────────────────────
   if (result.intent === "smalltalk") {
-    await ctx.replyWithChatAction("typing");
-    const reply = await generateConverseReply(result.content, undefined, profile.id);
+    const replyContext = threadCtx
+      ? `Контекст розмови:\n${threadCtx}\n\nНове повідомлення: ${result.content}`
+      : result.content;
+    const reply = await withTypingIndicator(ctx, () =>
+      generateConverseReply(replyContext, undefined, undefined, undefined, userCtx)
+    );
     await ctx.reply(sanitizeMarkdown(reply));
     return;
   }
 
-  // 4. Persist entry (save_entry or converse)
-  const supabase = getServiceClient();
-  const { data: entry, error } = await supabase
-    .from("entries")
-    .insert({
-      user_id: profile.id,
-      content: result.content,
-      category: result.category,
-      metadata: {
-        ...result.metadata,
-        ...(result.dashboard_metrics.length > 0 ? { dashboard_metrics: result.dashboard_metrics } : {}),
-        ...(result.goal_metrics.length > 0 ? { goal_metrics: result.goal_metrics } : {}),
-      },
-      raw_media_url: null,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    console.error("[voice handler] DB insert error:", error.message);
-    await ctx.reply("⚠️ Не вдалося зберегти запис. Спробуй ще раз.");
+  // ── Actions ────────────────────────────────────────────────────────────────
+  if (result.intent === "action") {
+    await handleAction(ctx, result);
     return;
   }
 
-  // 5. Confirm to user — always natural, never robotic
-  await ctx.replyWithChatAction("typing");
-  const botReplyText = await generateConverseReply(result.content, undefined, profile.id);
-  await ctx.reply(sanitizeMarkdown(botReplyText));
+  // ── Save entries ───────────────────────────────────────────────────────────
+  const entriesToSave: EntryPayload[] = result.entries.length > 0
+    ? result.entries
+    : [{
+        category: result.category,
+        category_label: result.category_label,
+        is_new_category: result.is_new_category,
+        content: result.content,
+        metadata: result.metadata,
+        dashboard_metrics: result.dashboard_metrics,
+        goal_metrics: result.goal_metrics,
+      }];
 
-  // 6. Async embedding (non-blocking) → triggers RAG insight pipeline after embedding is stored
-  if (entry) {
-    embedEntry(entry.id, result.content, {
-      userId: profile.id,
-      category: result.category,
-      created_at: new Date().toISOString(),
-      sendMessage: (text) => ctx.reply(sanitizeMarkdown(text)).then(() => {}),
-    }).catch((err) =>
-      console.error("[voice handler] embedEntry failed:", err)
-    );
+  const savedIds: string[] = [];
 
-    // Async processing loop trigger (non-blocking)
-    processUser(profile.id).catch((err) =>
-      console.error("[voice handler] processUser failed:", err)
+  for (const entryPayload of entriesToSave) {
+    await upsertCategory(supabase, profile.id, entryPayload);
+
+    const { data: entry, error } = await supabase
+      .from("entries")
+      .insert({
+        user_id: profile.id,
+        content: entryPayload.content,
+        category: entryPayload.category,
+        metadata: {
+          ...entryPayload.metadata,
+          ...(entryPayload.dashboard_metrics.length > 0 ? { dashboard_metrics: entryPayload.dashboard_metrics } : {}),
+          ...(entryPayload.goal_metrics.length > 0 ? { goal_metrics: entryPayload.goal_metrics } : {}),
+        },
+        raw_media_url: null,
+        thread_id: resolvedThreadId,
+        reply_to_entry_id: parentEntryId,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("[voice handler] DB insert error:", error.message);
+      // Best-effort rollback of already-inserted entries (bug 1.8)
+      if (savedIds.length > 0) {
+        const { error: rollbackError } = await supabase.from("entries").delete().in("id", savedIds);
+        if (rollbackError) {
+          console.error("[voice handler] rollback failed:", rollbackError);
+        }
+      }
+      await ctx.reply("⚠️ Не вдалося зберегти запис. Спробуй ще раз.");
+      return;
+    }
+    if (entry) savedIds.push(entry.id);
+  }
+
+  // ── Reply with thread context ──────────────────────────────────────────────
+  const replyContext = threadCtx
+    ? `Контекст розмови:\n${threadCtx}\n\nНове повідомлення: ${result.content}`
+    : result.content;
+
+  let botReplyText: string;
+  try {
+    botReplyText = await withTypingIndicator(ctx, () =>
+      generateConverseReply(replyContext, undefined, undefined, undefined, userCtx)
     );
+  } catch (err) {
+    // Fallback reply so user knows entry was saved (bug 1.22)
+    console.error("[voice handler] generateConverseReply failed:", err);
+    botReplyText = "Записав! ✓";
+  }
+  const sent = await ctx.reply(sanitizeMarkdown(botReplyText));
+  // Only store bot_msg_id when message_id is a valid number (bug 1.5)
+  const botMsgId = (sent?.message_id && typeof sent.message_id === "number") ? sent.message_id : null;
+  if (!botMsgId) {
+    console.warn("[voice handler] sent.message_id missing — thread linking skipped for this reply");
+  }
+
+  // ── Persist bot reply + thread metadata ───────────────────────────────────
+  const primaryId = savedIds[0];
+  if (primaryId) {
+    const newThreadId = resolvedThreadId ?? primaryId;
+    const primaryMeta = entriesToSave[0].metadata as Record<string, unknown>;
+
+    await supabase.from("entries").update({
+      bot_reply: botReplyText,
+      thread_id: newThreadId,
+      metadata: {
+        ...primaryMeta,
+        ...(entriesToSave[0].dashboard_metrics.length > 0 ? { dashboard_metrics: entriesToSave[0].dashboard_metrics } : {}),
+        ...(entriesToSave[0].goal_metrics.length > 0 ? { goal_metrics: entriesToSave[0].goal_metrics } : {}),
+        ...(botMsgId ? { bot_msg_id: botMsgId } : {}),
+      },
+    }).eq("id", primaryId);
+
+    if (savedIds.length > 1) {
+      await supabase.from("entries").update({ thread_id: newThreadId }).in("id", savedIds.slice(1));
+    }
+    if (!resolvedThreadId && parentEntryId) {
+      await supabase.from("entries").update({ thread_id: newThreadId }).eq("id", parentEntryId);
+    }
+
+    for (const [i, savedId] of savedIds.entries()) {
+      const payload = entriesToSave[i];
+      embedEntry(savedId, payload.content, {
+        userId: profile.id,
+        category: payload.category,
+        created_at: new Date().toISOString(),
+      }).catch((err) => console.error("[voice handler] embedEntry failed:", err));
+    }
+
+    extractFacts(result.content).then(async (facts) => {
+      if (Object.keys(facts).length > 0) await saveMemory(profile.id, facts);
+    }).catch(() => {});
   }
 }

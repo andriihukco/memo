@@ -17,6 +17,7 @@ interface GraphNode {
   id: string;
   label: string;
   category: Category;
+  categories: Category[];   // all categories this entry belongs to
   created_at: string;
   edge_count: number;
 }
@@ -25,7 +26,7 @@ interface GraphEdge {
   source: string;
   target: string;
   weight: number;
-  type: 'branch' | 'similarity';
+  type: 'branch' | 'similarity' | 'cross_category';
 }
 
 interface GraphPayload {
@@ -37,28 +38,39 @@ interface SimNode extends d3.SimulationNodeDatum {
   id: string;
   label: string;
   category: Category;
+  categories: Category[];
   created_at: string;
   edge_count: number;
 }
 
 interface SimLink extends d3.SimulationLinkDatum<SimNode> {
   weight: number;
-  type: 'branch' | 'similarity';
+  type: 'branch' | 'similarity' | 'cross_category';
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const CATEGORY_HEX: Record<string, string> = {
-  thoughts: '#6366f1',
-  ideas: '#f59e0b',
-  feelings: '#ec4899',
-  expenses: '#10b981',
-  calories: '#f97316',
-  workout: '#3b82f6',
-  dreams: '#8b5cf6',
-  relationships: '#f43f5e',
-  health: '#14b8a6',
-  sleep: '#a78bfa',
+  // Dark mode optimized: brighter, more saturated colors for visibility on dark bg
+  thoughts: '#818cf8',      // indigo-400 (brighter)
+  ideas: '#fbbf24',         // amber-400 (brighter)
+  feelings: '#f472b6',      // pink-400 (brighter)
+  expenses: '#34d399',      // emerald-400 (brighter)
+  calories: '#fb923c',      // orange-400 (brighter)
+  workout: '#60a5fa',       // blue-400 (brighter)
+  dreams: '#a78bfa',        // violet-400 (brighter)
+  relationships: '#fb7185', // rose-400 (brighter)
+  health: '#2dd4bf',        // teal-400 (brighter)
+  sleep: '#c084fc',         // fuchsia-400 (brighter)
+  // Additional categories
+  travel: '#22d3ee',        // cyan-400
+  books: '#facc15',         // yellow-400
+  gratitude: '#a3e635',     // lime-400
+  goals: '#38bdf8',         // sky-400
+  work: '#94a3b8',          // slate-400
+  music: '#c084fc',         // purple-400
+  social: '#f472b6',        // pink-400
+  career: '#60a5fa',        // blue-400
 };
 
 function categoryHex(cat: string): string {
@@ -82,9 +94,11 @@ interface NodeDetailPanelProps {
   linkedNodes: GraphNode[];
   onClose: () => void;
   onUpdate: (id: string, content: string, category: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  accessToken?: string | null;
 }
 
-function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPanelProps) {
+function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, accessToken }: NodeDetailPanelProps) {
   const [editEntry, setEditEntry] = useState<GraphNode | null>(null);
 
   if (!node) return null;
@@ -129,27 +143,36 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPan
           {node.label}
         </p>
 
-        {/* Linked entries — tap to edit */}
+        {/* Linked entries */}
         {linkedNodes.length > 0 && (
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Пов&apos;язані записи ({linkedNodes.length}):
             </p>
             <div className="flex flex-col gap-2">
-              {linkedNodes.map((n) => (
-                <div
-                  key={n.id}
-                  className="cursor-pointer rounded-xl bg-muted/50 px-3 py-2 active:opacity-70"
-                  onClick={() => setEditEntry(n)}
-                >
-                  <div className="mb-1 flex items-center gap-1.5">
-                    <Badge className={cn('capitalize text-[10px] border', getCategoryColor(n.category))} variant="outline">
-                      {getCategoryLabel(n.category)}
-                    </Badge>
+              {linkedNodes.map((n) => {
+                // Only show the category badge when it differs from the selected node
+                const isDifferentCategory = n.category !== node.category;
+                return (
+                  <div
+                    key={n.id}
+                    className="cursor-pointer rounded-xl bg-muted/50 px-3 py-2.5 active:opacity-70"
+                    onClick={() => setEditEntry(n)}
+                  >
+                    {isDifferentCategory && (
+                      <div className="mb-1.5">
+                        <Badge
+                          className={cn('capitalize text-[10px] border', getCategoryColor(n.category))}
+                          variant="outline"
+                        >
+                          {getCategoryLabel(n.category)}
+                        </Badge>
+                      </div>
+                    )}
+                    <p className="text-xs text-foreground leading-relaxed">{n.label}</p>
                   </div>
-                  <p className="text-xs text-foreground leading-relaxed">{n.label}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -162,7 +185,13 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate }: NodeDetailPan
             await onUpdate(id, content, category);
             setEditEntry(null);
           }}
+          onDelete={async (id) => {
+            await onDelete(id);
+            setEditEntry(null);
+            onClose();
+          }}
           onClose={() => setEditEntry(null)}
+          accessToken={accessToken}
         />
       )}
     </>
@@ -212,6 +241,17 @@ export default function GraphPage() {
     fetchGraph();
   };
 
+  const handleDelete = async (id: string) => {
+    if (!accessToken) return;
+    await fetch('/api/entries', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ ids: [id] }),
+    });
+    setSelectedNode(null);
+    fetchGraph();
+  };
+
   // ── D3 simulation ──────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -245,21 +285,33 @@ export default function GraphPage() {
         .on('zoom', (event) => g.attr('transform', event.transform)),
     );
 
-    // Edges
+    // Edges — three visual styles - optimized for dark mode
     const linkSel = g.append('g').attr('class', 'links')
       .selectAll('line').data(links).join('line')
-      .attr('stroke', (d) => d.type === 'branch' ? '#6366f1' : '#cbd5e1')
-      .attr('stroke-width', (d) => d.type === 'branch' ? 1.5 : 1)
-      .attr('stroke-opacity', (d) => d.type === 'branch' ? 0.7 : 0.4)
-      .attr('stroke-dasharray', (d) => d.type === 'similarity' ? '3 3' : null);
+      .attr('stroke', (d) => {
+        if (d.type === 'branch') return '#818cf8';        // brighter indigo for dark bg
+        if (d.type === 'cross_category') return '#fbbf24'; // brighter amber for dark bg
+        return '#64748b';                                  // slate-500 for similarity
+      })
+      .attr('stroke-width', (d) => {
+        if (d.type === 'branch') return 2;
+        if (d.type === 'cross_category') return 2;
+        return 1.5;
+      })
+      .attr('stroke-opacity', (d) => {
+        if (d.type === 'branch') return 0.8;
+        if (d.type === 'cross_category') return 0.7;
+        return 0.5;
+      })
+      .attr('stroke-dasharray', (d) => d.type === 'similarity' ? '4 3' : null);
 
-    // Nodes
+    // Nodes - dark mode optimized with contrasting stroke
     const nodeSel = g.append('g').attr('class', 'nodes')
       .selectAll('circle').data(nodes).join('circle')
       .attr('r', (d) => nodeRadius(d.edge_count))
       .attr('fill', (d) => categoryHex(d.category))
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 1.5)
+      .attr('stroke', '#0f172a')  // dark slate for contrast on dark bg
+      .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .on('click', (_event, d) => {
         const connected = links
@@ -310,17 +362,17 @@ export default function GraphPage() {
       .selectAll('text').data(clusterLabels).join('text')
       .text((d) => d.label)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 11)
+      .attr('font-size', 12)
       .attr('font-family', 'system-ui, sans-serif')
       .attr('font-weight', '600')
-      .attr('fill', '#6b7280')
+      .attr('fill', '#94a3b8')  // lighter slate for dark mode visibility
       .attr('pointer-events', 'none');
 
     // Drag
-    const dragBehavior = d3.drag<SVGCircleElement, SimNode>()      .on('start', (event, d) => {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x; d.fy = d.y;
-      })
+    const dragBehavior = d3.drag<SVGCircleElement, SimNode>().on('start', (event, d) => {
+      if (!event.active) simulation.alphaTarget(0.3).restart();
+      d.fx = d.x; d.fy = d.y;
+    })
       .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
       .on('end', (event, d) => {
         if (!event.active) simulation.alphaTarget(0);
@@ -330,13 +382,21 @@ export default function GraphPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nodeSel.call(dragBehavior as any);
 
-    // Force simulation — tuned for linear/tree-like layout
+    // Force simulation
     const simulation = d3.forceSimulation<SimNode>(nodes)
       .force('link',
         d3.forceLink<SimNode, SimLink>(links)
           .id((d) => d.id)
-          .distance((d) => d.type === 'branch' ? 100 : 140)
-          .strength((d) => d.type === 'branch' ? 1.0 : 0.2),
+          .distance((d) => {
+            if (d.type === 'branch') return 90;
+            if (d.type === 'cross_category') return 70; // shorter = pulls clusters together
+            return 150;
+          })
+          .strength((d) => {
+            if (d.type === 'branch') return 1.0;
+            if (d.type === 'cross_category') return 0.6; // meaningful pull, not rigid
+            return 0.15;
+          }),
       )
       // Weak repulsion — nodes spread out but don't fly apart
       .force('charge', d3.forceManyBody().strength(-200).distanceMax(300))
@@ -397,6 +457,8 @@ export default function GraphPage() {
         linkedNodes={linkedNodes}
         onClose={() => setSelectedNode(null)}
         onUpdate={handleUpdate}
+        onDelete={handleDelete}
+        accessToken={accessToken}
       />
     </div>
   );

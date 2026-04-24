@@ -49,15 +49,16 @@ export async function PATCH(req: Request): Promise<Response> {
   const jwt = getUserJwt(req);
   if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
 
-  let id: string, content: string | undefined, category: string | undefined;
+  let id: string, content: string | undefined, category: string | undefined, metricOverride: { key: string; value: number } | undefined;
   try {
     const body = await req.json();
     id = body.id;
     content = body.content;
     category = body.category;
-    if (!id || (!content && !category)) throw new Error();
+    metricOverride = body.metric_override; // { key, value } — directly patch one metric
+    if (!id || (!content && !category && !metricOverride)) throw new Error();
   } catch {
-    return new Response(JSON.stringify({ error: "id and at least one of content/category required" }), { status: 400, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "id and at least one of content/category/metric_override required" }), { status: 400, headers: { "Content-Type": "application/json" } });
   }
 
   const supabase = makeSupabase(jwt);
@@ -72,6 +73,19 @@ export async function PATCH(req: Request): Promise<Response> {
   const updates: Record<string, unknown> = {};
   if (content !== undefined) updates.content = content.trim();
   if (category !== undefined) updates.category = category.trim();
+
+  // Direct metric value override — patch just that metric key, no AI re-run
+  if (metricOverride !== undefined) {
+    const existingMeta = (existing?.metadata as Record<string, unknown>) ?? {};
+    const existingMetrics = (existingMeta.dashboard_metrics as Record<string, unknown>[] | undefined) ?? [];
+    const updatedMetrics = existingMetrics.map(m =>
+      m.key === metricOverride!.key ? { ...m, value: metricOverride!.value } : m
+    );
+    // If key didn't exist yet, nothing to patch — only update if found
+    if (updatedMetrics.some(m => m.key === metricOverride!.key)) {
+      updates.metadata = { ...existingMeta, dashboard_metrics: updatedMetrics };
+    }
+  }
 
   // Re-compute metrics when content changes
   if (content !== undefined && content.trim() !== existing?.content) {

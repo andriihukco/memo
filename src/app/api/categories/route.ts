@@ -32,12 +32,17 @@ export async function POST(req: Request): Promise<Response> {
   const jwt = getUserJwt(req);
   if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
 
-  const { name, label } = await req.json().catch(() => ({}));
+  const { name, label, color } = await req.json().catch(() => ({}));
   if (!name) return new Response(JSON.stringify({ error: "name required" }), { status: 400, headers: { "Content-Type": "application/json" } });
 
   const supabase = makeSupabase(jwt);
   await supabase.from("categories").upsert(
-    { name, label_ua: label ?? name, color: "bg-gray-100 text-gray-700", icon: "tag" },
+    {
+      name,
+      label_ua: label ?? name,
+      color: color ?? "bg-gray-100 text-gray-700",
+      icon: "tag",
+    },
     { onConflict: "user_id,name", ignoreDuplicates: true }
   );
 

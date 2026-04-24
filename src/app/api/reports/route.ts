@@ -2,7 +2,6 @@ export const runtime = "nodejs"; // needs more memory for AI generation
 export const maxDuration = 60; // allow up to 60s for Gemini generation
 
 import { createClient } from "@supabase/supabase-js";
-import { env } from "@/lib/env";
 import { generateRetrospective, saveReport, loadReports, deleteReport } from "@/lib/bot/retrospective";
 
 function jwt(req: Request) {

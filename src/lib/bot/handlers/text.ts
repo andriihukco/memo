@@ -1,14 +1,17 @@
 import { Context } from "grammy";
 import { createClient } from "@supabase/supabase-js";
-import { classify, ClassificationError, ClassificationResult, BUILTIN_CATEGORIES, colorForNewCategory } from "@/lib/classifier";
+import {
+  classify, ClassificationError, ClassificationResult,
+  EntryPayload, BUILTIN_CATEGORIES, colorForNewCategory,
+} from "@/lib/classifier";
 import { embedEntry } from "@/lib/embedding";
-import { processUser } from "@/lib/processing/loop";
 import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import { answerQuestion } from "@/lib/bot/qa";
-import { generateConverseReply, loadUserTone } from "@/lib/bot/converse";
+import { generateConverseReply, loadUserContext } from "@/lib/bot/converse";
 import { handleAction } from "@/lib/bot/handlers/action";
 import { sanitizeMarkdown } from "@/lib/utils";
+import { extractFacts, saveMemory } from "@/lib/bot/memory";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -20,10 +23,48 @@ function getServiceClient() {
   });
 }
 
+// ── Typing indicator ──────────────────────────────────────────────────────────
+
+async function withTypingIndicator<T>(ctx: BotContext, fn: () => Promise<T>): Promise<T> {
+  // Use a self-cancelling interval to prevent loop leak on throw (bug 1.7)
+  const interval = setInterval(() => {
+    ctx.replyWithChatAction("typing").catch(() => {});
+  }, 4000);
+  ctx.replyWithChatAction("typing").catch(() => {});
+  try {
+    return await fn();
+  } finally {
+    clearInterval(interval);
+  }
+}
+
+// ── Category upsert ───────────────────────────────────────────────────────────
+
+async function upsertCategory(
+  supabase: ReturnType<typeof getServiceClient>,
+  userId: string,
+  entry: EntryPayload
+): Promise<void> {
+  if (entry.is_new_category) {
+    await supabase.from("categories").upsert({
+      user_id: userId,
+      name: entry.category,
+      label_ua: entry.category_label,
+      color: colorForNewCategory(entry.category),
+      icon: "tag",
+    }, { onConflict: "user_id,name", ignoreDuplicates: true });
+  } else if (!(entry.category in BUILTIN_CATEGORIES)) {
+    await supabase.from("categories").upsert({
+      user_id: userId,
+      name: entry.category,
+      label_ua: entry.category_label,
+      color: BUILTIN_CATEGORIES[entry.category]?.color ?? colorForNewCategory(entry.category),
+      icon: BUILTIN_CATEGORIES[entry.category]?.icon ?? "tag",
+    }, { onConflict: "user_id,name", ignoreDuplicates: true });
+  }
+}
+
 // ── Thread resolution ─────────────────────────────────────────────────────────
-// We store the bot's reply message_id in entry metadata as { bot_msg_id: number }.
-// When the user replies to that bot message, Telegram gives us reply_to_message.message_id
-// which matches bot_msg_id, letting us find the parent entry and its thread.
 
 async function resolveThread(
   supabase: ReturnType<typeof getServiceClient>,
@@ -32,42 +73,71 @@ async function resolveThread(
 ): Promise<{ threadId: string | null; parentEntryId: string | null }> {
   if (!replyToMessageId) return { threadId: null, parentEntryId: null };
 
+  // Query with both number and string forms to handle both storage formats (bug 1.6)
   const { data } = await supabase
     .from("entries")
-    .select("id, thread_id")
+    .select("id, thread_id, reply_to_entry_id")
     .eq("user_id", userId)
-    .contains("metadata", { bot_msg_id: replyToMessageId })
+    .or(`metadata->bot_msg_id.eq.${replyToMessageId},metadata->>bot_msg_id.eq.${replyToMessageId}`)
     .maybeSingle();
 
   if (!data) return { threadId: null, parentEntryId: null };
 
-  const threadId = data.thread_id ?? data.id;
-  if (!data.thread_id) {
+  // Walk up the chain to find the true thread root (bug 1.30)
+  let threadId = data.thread_id;
+  if (!threadId) {
+    // If this entry has a reply_to_entry_id, walk up to find root
+    if (data.reply_to_entry_id) {
+      const { data: parent } = await supabase
+        .from("entries")
+        .select("id, thread_id")
+        .eq("id", data.reply_to_entry_id)
+        .maybeSingle();
+      threadId = parent?.thread_id ?? data.id;
+    } else {
+      threadId = data.id;
+    }
     await supabase.from("entries").update({ thread_id: threadId }).eq("id", data.id);
   }
   return { threadId, parentEntryId: data.id };
 }
 
+// ── Thread context loader ─────────────────────────────────────────────────────
+// Loads recent thread messages (max 48h old) as a conversation string.
+
 async function loadThreadContext(
   supabase: ReturnType<typeof getServiceClient>,
   threadId: string,
-  userId: string
+  userId: string,
+  excludeEntryId?: string,
+  maxAgeHours = 48
 ): Promise<string | undefined> {
-  const { data } = await supabase
+  const cutoff = new Date(Date.now() - maxAgeHours * 60 * 60 * 1000).toISOString();
+
+  let query = supabase
     .from("entries")
-    .select("content, bot_reply")
+    .select("id, content, bot_reply, created_at")
     .eq("user_id", userId)
     .eq("thread_id", threadId)
+    .gte("created_at", cutoff)
     .order("created_at", { ascending: true })
-    .limit(6);
+    .limit(8);
+
+  // Exclude the current entry so it doesn't appear twice in context (bug 1.31)
+  if (excludeEntryId) {
+    query = query.neq("id", excludeEntryId);
+  }
+
+  const { data } = await query;
 
   if (!data || data.length === 0) return undefined;
+
   return (data as { content: string; bot_reply: string | null }[])
     .map((e) => `User: ${e.content}${e.bot_reply ? `\nMemo: ${e.bot_reply}` : ""}`)
     .join("\n\n");
 }
 
-// ── Handler ───────────────────────────────────────────────────────────────────
+// ── Main handler ──────────────────────────────────────────────────────────────
 
 export async function handleTextMessage(ctx: BotContext): Promise<void> {
   const text = ctx.message?.text;
@@ -81,154 +151,195 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
 
   await ctx.replyWithChatAction("typing");
 
-  // Check if user has a pending delete confirmation first
+  // Check pending delete confirmation first (fast path, no AI)
   const { checkPendingDelete } = await import("@/lib/bot/handlers/action");
   if (await checkPendingDelete(ctx)) return;
 
-  // Prefetch user tone — it'll be ready by the time we need to reply
-  const prefetchedTone = await loadUserTone(profile.id);
+  // Load user context (memory + tone) and classify in parallel
+  // Pass thread context to classifier so short replies like "2 ложки" are understood in context
+  const replyToMsgId = ctx.message?.reply_to_message?.message_id;
+  const supabase = getServiceClient();
 
-  // 1. Classify
-  let result: ClassificationResult;
-  try {
-    result = await classify(text);
-  } catch (err) {
-    if (err instanceof ClassificationError) {
-      console.error("[text handler] ClassificationError:", err.message, err.cause);
-      await ctx.reply("⚠️ Не вдалося класифікувати запис. Спробуй ще раз.");
-      return;
-    }
-    throw err;
+  const [userCtx, threadResolution, classifyResult] = await Promise.all([
+    loadUserContext(profile.id),
+    resolveThread(supabase, profile.id, replyToMsgId),
+    // Classify without thread context first — we'll re-use it below
+    classify(text).catch((err) => {
+      if (err instanceof ClassificationError) return err;
+      throw err;
+    }),
+  ]);
+
+  if (classifyResult instanceof ClassificationError) {
+    console.error("[text handler] ClassificationError:", classifyResult.message, classifyResult.cause);
+    await ctx.reply("⚠️ Не вдалося класифікувати запис. Спробуй ще раз.");
+    return;
   }
 
-  // 2. Questions — no persist
+  const result = classifyResult as ClassificationResult;
+
+  // ── Questions ──────────────────────────────────────────────────────────────
   if (result.intent === "question") {
-    // Send a human "thinking" message immediately so the user sees activity
     const thinkingPhrases = [
       "Хм, секунду... 🤔 Копаюсь у твоїх записах",
       "Зачекай, шукаю в пам'яті... 🧠",
       "Дай-но покопатись... 📖",
       "Секунду, переглядаю твій щоденник... 🔍",
     ];
-    const thinking = thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
-    const thinkingMsg = await ctx.reply(thinking);
+    const thinkingMsg = await ctx.reply(
+      thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)]
+    );
 
+    const answer = await withTypingIndicator(ctx, () =>
+      answerQuestion({ userId: profile.id, question: text, currentUtcDate: new Date() })
+    );
     try {
-      const answer = await answerQuestion({ userId: profile.id, question: text, currentUtcDate: new Date() });
-      // Edit the thinking message with the real answer
       await ctx.api.editMessageText(ctx.chat!.id, thinkingMsg.message_id, sanitizeMarkdown(answer));
     } catch {
-      // If edit fails (e.g. answer too long), send as new message
-      const answer = await answerQuestion({ userId: profile.id, question: text, currentUtcDate: new Date() });
       await ctx.reply(sanitizeMarkdown(answer));
     }
     return;
   }
 
-  // 3. Smalltalk — no persist
+  // ── Smalltalk ──────────────────────────────────────────────────────────────
   if (result.intent === "smalltalk") {
-    await ctx.replyWithChatAction("typing");
-    const reply = await generateConverseReply(text, undefined, profile.id, prefetchedTone);
+    const reply = await withTypingIndicator(ctx, () =>
+      generateConverseReply(text, undefined, undefined, undefined, userCtx)
+    );
     await ctx.reply(sanitizeMarkdown(reply));
     return;
   }
 
-  // 3b. Action — no persist, execute operation
+  // ── Actions ────────────────────────────────────────────────────────────────
   if (result.intent === "action") {
     await handleAction(ctx, result);
     return;
   }
 
-  // 4. Resolve thread + prefetch thread context in parallel
-  const supabase = getServiceClient();
-  const replyToMsgId = ctx.message?.reply_to_message?.message_id;
-  const { threadId: resolvedThreadId, parentEntryId } = await resolveThread(supabase, profile.id, replyToMsgId);
+  // ── Save entries (save_entry | converse) ───────────────────────────────────
+  const { threadId: resolvedThreadId, parentEntryId } = threadResolution;
 
-  // 5. Persist entry — upsert category if new
-  if (result.is_new_category) {
-    await supabase.from("categories").upsert({
-      user_id: profile.id,
-      name: result.category,
-      label_ua: result.category_label,
-      color: colorForNewCategory(result.category),
-      icon: "tag",
-    }, { onConflict: "user_id,name", ignoreDuplicates: true });
-  } else if (!(result.category in BUILTIN_CATEGORIES)) {
-    // Ensure even built-in-ish categories are seeded
-    await supabase.from("categories").upsert({
-      user_id: profile.id,
-      name: result.category,
-      label_ua: result.category_label,
-      color: BUILTIN_CATEGORIES[result.category]?.color ?? colorForNewCategory(result.category),
-      icon: BUILTIN_CATEGORIES[result.category]?.icon ?? "tag",
-    }, { onConflict: "user_id,name", ignoreDuplicates: true });
+  const entriesToSave: EntryPayload[] = result.entries.length > 0
+    ? result.entries
+    : [{
+        category: result.category,
+        category_label: result.category_label,
+        is_new_category: result.is_new_category,
+        content: result.content,
+        metadata: result.metadata,
+        dashboard_metrics: result.dashboard_metrics,
+        goal_metrics: result.goal_metrics,
+      }];
+
+  const savedIds: string[] = [];
+
+  for (const entryPayload of entriesToSave) {
+    await upsertCategory(supabase, profile.id, entryPayload);
+
+    const { data: entry, error } = await supabase
+      .from("entries")
+      .insert({
+        user_id: profile.id,
+        content: entryPayload.content,
+        category: entryPayload.category,
+        metadata: {
+          ...entryPayload.metadata,
+          ...(entryPayload.dashboard_metrics.length > 0 ? { dashboard_metrics: entryPayload.dashboard_metrics } : {}),
+          ...(entryPayload.goal_metrics.length > 0 ? { goal_metrics: entryPayload.goal_metrics } : {}),
+        },
+        raw_media_url: null,
+        thread_id: resolvedThreadId,
+        reply_to_entry_id: parentEntryId,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("[text handler] DB insert error:", error.message);
+      // Best-effort rollback of already-inserted entries (bug 1.8)
+      if (savedIds.length > 0) {
+        const { error: rollbackError } = await supabase.from("entries").delete().in("id", savedIds);
+        if (rollbackError) {
+          console.error("[text handler] rollback failed:", rollbackError);
+        }
+      }
+      await ctx.reply("⚠️ Не вдалося зберегти запис. Спробуй ще раз.");
+      return;
+    }
+
+    if (entry) savedIds.push(entry.id);
   }
 
-  const { data: entry, error } = await supabase
-    .from("entries")
-    .insert({
-      user_id: profile.id,
-      content: result.content,
-      category: result.category,
-      metadata: {
-        ...result.metadata,
-        ...(result.dashboard_metrics.length > 0 ? { dashboard_metrics: result.dashboard_metrics } : {}),
-        ...(result.goal_metrics.length > 0 ? { goal_metrics: result.goal_metrics } : {}),
-      },
-      raw_media_url: null,
-      thread_id: resolvedThreadId,
-      reply_to_entry_id: parentEntryId,
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    console.error("[text handler] DB insert error:", error.message);
-    await ctx.reply("⚠️ Не вдалося зберегти запис. Спробуй ще раз.");
-    return;
-  }
-
-  // 6. Generate + send reply, capture bot message_id
-  // ALL entries get a natural reply — no robotic "✅ Збережено як..."
-  let botMsgId: number | null = null;
-  await ctx.replyWithChatAction("typing");
-  // loadThreadContext and generateConverseReply (which internally fetches tone) run sequentially
-  // but tone fetch already happened — just load thread ctx then generate
+  // ── Generate reply ─────────────────────────────────────────────────────────
   const threadCtx = resolvedThreadId
-    ? await loadThreadContext(supabase, resolvedThreadId, profile.id)
+    ? await loadThreadContext(supabase, resolvedThreadId, profile.id, savedIds[0])
     : undefined;
-  // Pass the classified/cleaned content so the bot knows what was saved
-  // and can ask smart follow-up questions about it
+
   const replyContext = threadCtx
     ? `Контекст розмови:\n${threadCtx}\n\nНове повідомлення: ${text}`
     : text;
-  const finalReplyText = await generateConverseReply(replyContext, undefined, profile.id, prefetchedTone);
-  const sent = await ctx.reply(sanitizeMarkdown(finalReplyText));
-  botMsgId = sent.message_id;
 
-  // 7. Update entry with bot reply + thread metadata
-  if (entry) {
-    const currentMeta = (result.metadata as Record<string, unknown>) ?? {};
-    const newThreadId = resolvedThreadId ?? entry.id;
+  let finalReplyText: string;
+  try {
+    finalReplyText = await withTypingIndicator(ctx, () =>
+      generateConverseReply(replyContext, undefined, undefined, undefined, userCtx)
+    );
+  } catch (err) {
+    // Fallback reply so user knows entry was saved (bug 1.22)
+    console.error("[text handler] generateConverseReply failed:", err);
+    finalReplyText = "Записав! ✓";
+  }
+
+  const sent = await ctx.reply(sanitizeMarkdown(finalReplyText));
+  // Only store bot_msg_id when message_id is a valid number (bug 1.5)
+  const botMsgId: number | null = (sent?.message_id && typeof sent.message_id === "number") ? sent.message_id : null;
+  if (!botMsgId) {
+    console.warn("[text handler] sent.message_id missing — thread linking skipped for this reply");
+  }
+
+  // ── Persist bot reply + thread metadata ───────────────────────────────────
+  const primaryId = savedIds[0];
+  if (primaryId) {
+    const newThreadId = resolvedThreadId ?? primaryId;
 
     await supabase.from("entries").update({
       bot_reply: finalReplyText,
       thread_id: newThreadId,
-      metadata: { ...currentMeta, ...(botMsgId ? { bot_msg_id: botMsgId } : {}) },
-    }).eq("id", entry.id);
+      metadata: {
+        ...entriesToSave[0].metadata,
+        ...(entriesToSave[0].dashboard_metrics.length > 0 ? { dashboard_metrics: entriesToSave[0].dashboard_metrics } : {}),
+        ...(entriesToSave[0].goal_metrics.length > 0 ? { goal_metrics: entriesToSave[0].goal_metrics } : {}),
+        ...(botMsgId ? { bot_msg_id: botMsgId } : {}),
+      },
+    }).eq("id", primaryId);
 
-    // Backfill thread_id on parent if this is the first reply in a new thread
+    if (savedIds.length > 1) {
+      await supabase.from("entries").update({ thread_id: newThreadId }).in("id", savedIds.slice(1));
+    }
+
     if (!resolvedThreadId && parentEntryId) {
       await supabase.from("entries").update({ thread_id: newThreadId }).eq("id", parentEntryId);
     }
 
-    embedEntry(entry.id, result.content, {
-      userId: profile.id,
-      category: result.category,
-      created_at: new Date().toISOString(),
-      sendMessage: (t) => ctx.reply(sanitizeMarkdown(t)).then(() => {}),
-    }).catch((err) => console.error("[text handler] embedEntry failed:", err));
+    // ── Async post-processing (non-blocking) ──────────────────────────────
+    // 1. Embed all saved entries
+    for (const [i, savedId] of savedIds.entries()) {
+      const payload = entriesToSave[i];
+      embedEntry(savedId, payload.content, {
+        userId: profile.id,
+        category: payload.category,
+        created_at: new Date().toISOString(),
+        // No sendMessage — insight/conversational messages removed from UX
+        // They were noisy and confusing. Insights are visible in the miniapp.
+      }).catch((err) => console.error("[text handler] embedEntry failed:", err));
+    }
 
-    processUser(profile.id).catch((err) => console.error("[text handler] processUser failed:", err));
+    // 2. Extract and save any new memory facts (fire-and-forget)
+    extractFacts(text).then(async (facts) => {
+      if (Object.keys(facts).length > 0) {
+        await saveMemory(profile.id, facts);
+        console.log(`[memory] saved facts for ${profile.id}:`, facts);
+      }
+    }).catch((err) => console.error("[memory] extractFacts failed:", err));
   }
 }

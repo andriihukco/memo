@@ -4,12 +4,13 @@ import { createClient } from "@supabase/supabase-js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Category = "thoughts" | "ideas" | "feelings" | "expenses" | "calories" | "workout";
+type Category = string;
 
 interface GraphNode {
   id: string;
   label: string;
-  category: Category;
+  category: Category;       // primary category (for color)
+  categories: Category[];   // all categories this entry belongs to
   created_at: string;
   edge_count: number;
 }
@@ -18,7 +19,7 @@ interface GraphEdge {
   source: string;
   target: string;
   weight: number;
-  type: "branch" | "similarity";
+  type: "branch" | "similarity" | "cross_category";
 }
 
 interface GraphPayload {
@@ -29,7 +30,7 @@ interface GraphPayload {
 interface EntryRow {
   id: string;
   content: string;
-  category: Category;
+  category: string;
   created_at: string;
   branch_id: string | null;
   embedding: number[] | null;
@@ -124,10 +125,11 @@ export async function GET(req: Request): Promise<Response> {
 
   const edgeSet = new Map<string, GraphEdge>();
 
-  const addEdge = (source: string, target: string, weight: number, type: "branch" | "similarity") => {
-    // Canonical key: smaller id first to avoid duplicates
+  const addEdge = (source: string, target: string, weight: number, type: "branch" | "similarity" | "cross_category") => {
     const key = source < target ? `${source}:${target}` : `${target}:${source}`;
-    if (!edgeSet.has(key)) {
+    // cross_category and branch edges take priority over similarity
+    const existing = edgeSet.get(key);
+    if (!existing || (type === "branch") || (type === "cross_category" && existing.type === "similarity")) {
       edgeSet.set(key, { source, target, weight, type });
     }
   };
@@ -172,16 +174,18 @@ export async function GET(req: Request): Promise<Response> {
     }
   }
 
-  // Cross-category synapse connections:
-  // Entries with multiple categories (comma-separated) act as bridges between category clusters.
-  // Also connect entries that share ANY category tag.
+  // Cross-category bridge edges:
+  // When a single entry contains multiple categories (multi-intent classifier result),
+  // it acts as a semantic bridge. We create a "cross_category" edge between the most
+  // recent entry of each category pair that this entry spans.
+  // This pulls those category clusters closer in the force layout.
   const entryCategories = new Map<string, string[]>();
   for (const entry of entries) {
     const cats = entry.category.split(",").map((c: string) => c.trim()).filter(Boolean);
     entryCategories.set(entry.id, cats);
   }
 
-  // Group entries by each individual category tag
+  // Build: category → most recent entry ids (up to 3)
   const byCategoryTag = new Map<string, string[]>();
   for (const [id, cats] of entryCategories) {
     for (const cat of cats) {
@@ -190,13 +194,31 @@ export async function GET(req: Request): Promise<Response> {
     }
   }
 
-  // Connect entries sharing a category tag (most recent 5 per tag, cross-category allowed)
-  for (const ids of byCategoryTag.values()) {
+  // For each entry that spans multiple categories, connect the representative
+  // entries of those categories with a cross_category bridge edge.
+  // This is the "smart" part: goals entries near workout entries, etc.
+  for (const [entryId, cats] of entryCategories) {
+    if (cats.length < 2) continue;
+    // For each pair of categories this entry bridges
+    for (let i = 0; i < cats.length; i++) {
+      for (let j = i + 1; j < cats.length; j++) {
+        const catA = cats[i], catB = cats[j];
+        const idsA = byCategoryTag.get(catA) ?? [];
+        const idsB = byCategoryTag.get(catB) ?? [];
+        // Connect this entry to the nearest entry of the other category
+        const nearestB = idsB.find(id => id !== entryId);
+        const nearestA = idsA.find(id => id !== entryId);
+        if (nearestB) addEdge(entryId, nearestB, 0.8, "cross_category");
+        if (nearestA) addEdge(entryId, nearestA, 0.8, "cross_category");
+      }
+    }
+  }
+
+  // Also: connect same-category entries by recency (chain, not full mesh)
+  for (const [, ids] of byCategoryTag) {
     const recent = ids.slice(0, 5);
     for (let i = 0; i < recent.length - 1; i++) {
-      for (let j = i + 1; j < recent.length; j++) {
-        addEdge(recent[i], recent[j], 0.4, "similarity");
-      }
+      addEdge(recent[i], recent[i + 1], 0.4, "similarity");
     }
   }
 
@@ -227,13 +249,17 @@ export async function GET(req: Request): Promise<Response> {
     edgeCountMap.set(edge.target, (edgeCountMap.get(edge.target) ?? 0) + 1);
   }
 
-  const nodes: GraphNode[] = entries.map((entry) => ({
-    id: entry.id,
-    label: entry.content, // full content — frontend truncates for display
-    category: entry.category.split(",")[0].trim() as Category, // primary category for color
-    created_at: entry.created_at,
-    edge_count: edgeCountMap.get(entry.id) ?? 0,
-  }));
+  const nodes: GraphNode[] = entries.map((entry) => {
+    const cats = entry.category.split(",").map((c: string) => c.trim()).filter(Boolean);
+    return {
+      id: entry.id,
+      label: entry.content,
+      category: cats[0] as Category,       // primary category for color
+      categories: cats as Category[],       // all categories for detail panel
+      created_at: entry.created_at,
+      edge_count: edgeCountMap.get(entry.id) ?? 0,
+    };
+  });
 
   const payload: GraphPayload = { nodes, edges };
 

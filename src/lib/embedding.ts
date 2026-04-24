@@ -2,8 +2,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "./env";
 import { findSimilarEntries, generateInsight, type Entry } from "./insight";
-import { generateConversationalReply } from "./bot/conversational";
-import { sanitizeMarkdown } from "./utils";
 
 // ── Error ─────────────────────────────────────────────────────────────────────
 
@@ -90,6 +88,8 @@ export async function embedEntry(
       }
 
       // Async RAG insight pipeline (non-blocking) — runs after embedding is stored
+      // Note: sendMessage is intentionally not passed here — insights are visible
+      // in the miniapp reports/feed, not as noisy Telegram messages.
       if (entryContext) {
         runInsightPipeline(entryId, content, embedding, entryContext).catch((err) =>
           console.error("[embedding] insight pipeline failed:", err)
@@ -132,20 +132,7 @@ async function runInsightPipeline(
   };
 
   const similarEntries = await findSimilarEntries(ctx.userId, embedding, entryId);
-  const insightText = await generateInsight(newEntry, similarEntries);
-
-  if (insightText && ctx.sendMessage) {
-    await ctx.sendMessage(sanitizeMarkdown(`💡 Інсайт\n\n${insightText}`));
-  }
-
-  // Conversational reply — async, non-blocking, does not delay insight message
-  generateConversationalReply(newEntry, similarEntries)
-    .then(async (reply) => {
-      if (reply && ctx.sendMessage) {
-        await ctx.sendMessage(reply);
-      }
-    })
-    .catch((err) =>
-      console.error("[embedding] conversational reply failed:", { entry_id: entryId, err })
-    );
+  // Generate and persist insight — but do NOT send to Telegram (too noisy).
+  // Insights are surfaced in the miniapp feed and retrospective reports.
+  await generateInsight(newEntry, similarEntries);
 }

@@ -1,11 +1,11 @@
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 import { Bot, Context, webhookCallback } from "grammy";
 import { env } from "@/lib/env";
 import { resolveOrCreateProfile, ProfileError, Profile } from "@/lib/profile";
 import { handleTextMessage } from "@/lib/bot/handlers/text";
 import { handleVoiceMessage } from "@/lib/bot/handlers/voice";
-import { handleStart, handleHelp, handleReport } from "@/lib/bot/commands";
+import { handleStart, handleHelp, handleReport, handleStats, handleRecommendations } from "@/lib/bot/commands";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -36,7 +36,9 @@ function getHandler(): (req: Request) => Promise<Response> {
 
   bot.command("start", handleStart);
   bot.command("help", handleHelp);
+  bot.command("stats", handleStats);
   bot.command("report", handleReport);
+  bot.command("recommendations", handleRecommendations);
 
   bot.on("message:text", handleTextMessage);
   bot.on("message:voice", handleVoiceMessage);

@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { Check, ChevronRight, Lock, LockOpen, RectangleEllipsis, ClockFading, Trash2, Bell } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Check, ChevronRight, Lock, LockOpen, RectangleEllipsis, ClockFading } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
-import { useAuth } from '@/lib/supabase/auth-context';
 import {
   getPasscodeHash, setPasscodeHash, removePasscode,
   getLockTimer, setLockTimer, type LockTimer, LOCK_TIMER_LABELS,
@@ -14,67 +13,17 @@ import { cn } from '@/lib/utils';
 
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
-interface ReportSchedule { daily: boolean; weekly: boolean; weekly_day: number; monthly: boolean; monthly_day: number; time: string; }
-
-const WEEK_DAYS = ['Нд', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
-
-// ── Toggle row ────────────────────────────────────────────────────────────────
-
-function ToggleRow({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-sm">{label}</span>
-      <button
-        onClick={() => onChange(!checked)}
-        className={cn(
-          'relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors',
-          checked ? 'bg-primary' : 'bg-input',
-        )}
-      >
-        <span className={cn(
-          'pointer-events-none inline-block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform',
-          checked ? 'translate-x-5' : 'translate-x-0',
-        )} />
-      </button>
-    </div>
-  );
-}
-
 export default function SettingsPage() {
-  const { accessToken } = useAuth();
   const [hasPasscode, setHasPasscode] = useState(false);
   const [lockTimer, setLockTimerState] = useState<LockTimer>(0);
   const [step, setStep] = useState<SetupStep>('idle');
   const [pendingPin, setPendingPin] = useState('');
   const [showTimerPicker, setShowTimerPicker] = useState(false);
 
-  // Schedule
-  const [schedule, setSchedule] = useState<ReportSchedule | null>(null);
-
   useEffect(() => {
     setHasPasscode(!!getPasscodeHash());
     setLockTimerState(getLockTimer());
   }, []);
-
-  const loadSchedule = useCallback(async () => {
-    if (!accessToken) return;
-    const res = await fetch('/api/schedule', { headers: { Authorization: `Bearer ${accessToken}` } });
-    const d = await res.json();
-    if (d.schedule) setSchedule(d.schedule);
-  }, [accessToken]);
-
-  useEffect(() => { loadSchedule(); }, [loadSchedule]);
-
-  const updateSchedule = async (patch: Partial<ReportSchedule>) => {
-    if (!accessToken || !schedule) return;
-    const next = { ...schedule, ...patch };
-    setSchedule(next);
-    await fetch('/api/schedule', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify(patch),
-    });
-  };
 
   const handleEnablePasscode = () => setStep('set_new');
   const handleChangePasscode = () => { if (hasPasscode) setStep('enter_current'); else setStep('set_new'); };
@@ -101,67 +50,24 @@ export default function SettingsPage() {
     <div className="flex flex-col gap-6 px-4 pt-5 pb-6">
       <h1 className="text-lg font-semibold">Профіль</h1>
 
-      {/* ── Auto-reports ──────────────────────────────────────────────────── */}
+      {/* ── Subscription ────────────────────────────────────────────────────── */}
       <section>
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Автозвіти</p>
-        {!schedule ? (
-          <Card><CardContent className="p-4"><div className="h-4 w-32 animate-pulse rounded bg-muted" /></CardContent></Card>
-        ) : (
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підписка</p>
         <Card>
           <CardContent className="p-0">
-            <div className="flex items-center gap-3 px-4 py-3">
+            <a href="/miniapp/subscriptions"
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <Bell size={16} className="text-primary" />
+                <LockOpen size={16} className="text-primary" />
               </div>
-              <p className="flex-1 text-sm font-medium">Час відправки</p>
-              <input
-                type="time"
-                value={schedule.time}
-                onChange={e => updateSchedule({ time: e.target.value })}
-                className="rounded-md border border-input bg-background px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-            <Separator />
-            <ToggleRow label="Щоденний звіт" checked={schedule.daily} onChange={v => updateSchedule({ daily: v })} />
-            <Separator />
-            <ToggleRow label="Тижневий звіт" checked={schedule.weekly} onChange={v => updateSchedule({ weekly: v })} />
-            {schedule.weekly && (
-              <>
-                <div className="flex flex-wrap gap-1.5 px-4 pb-3">
-                  {WEEK_DAYS.map((d, i) => (
-                    <button
-                      key={i}
-                      onClick={() => updateSchedule({ weekly_day: i })}
-                      className={cn(
-                        'h-8 w-8 rounded-full text-xs font-medium transition-colors',
-                        schedule.weekly_day === i ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
-                      )}
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-            <Separator />
-            <ToggleRow label="Місячний звіт" checked={schedule.monthly} onChange={v => updateSchedule({ monthly: v })} />
-            {schedule.monthly && (
-              <div className="flex items-center gap-3 px-4 pb-3">
-                <span className="text-xs text-muted-foreground">День місяця:</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={28}
-                  value={schedule.monthly_day ?? 1}
-                  onChange={e => updateSchedule({ monthly_day: Math.min(28, Math.max(1, Number(e.target.value))) })}
-                  className="w-16 rounded-md border border-input bg-background px-2 py-1 text-sm text-center focus:outline-none focus:ring-1 focus:ring-ring"
-                />
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Підписка Stars</p>
+                <p className="text-xs text-muted-foreground">Підтримайте проект та отримайте додаткові функції</p>
               </div>
-            )}
+              <ChevronRight size={16} className="text-muted-foreground" />
+            </a>
           </CardContent>
         </Card>
-        )}
-        <p className="mt-1.5 px-1 text-xs text-muted-foreground">Або скажи боту: &ldquo;Вмикай тижневий звіт о 10:00&rdquo;</p>
       </section>
 
       {/* ── Privacy ───────────────────────────────────────────────────────── */}

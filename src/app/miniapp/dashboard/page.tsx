@@ -1,11 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
 import {
   Flame, Wallet, Dumbbell, Lightbulb, Brain, TrendingUp, TrendingDown, Minus,
   ChevronDown, ChevronRight, Droplets, Moon, BookOpen, Scale, Smile, Zap,
-  Wind, MapPin, Utensils, Tag, Heart, Activity, X, Calendar,
+  Wind, MapPin, Utensils, Tag, Heart, Activity, X, Calendar, Trash2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,17 +26,28 @@ interface Entry {
 type DateRange = 'today' | 'week' | 'month' | 'custom';
 interface DateFilter { range: DateRange; from: Date; to: Date; }
 
-function startOfDay(d: Date) { const r = new Date(d); r.setHours(0,0,0,0); return r; }
-function endOfDay(d: Date)   { const r = new Date(d); r.setHours(23,59,59,999); return r; }
+// UTC+3 aware helpers — all boundaries computed in user's local timezone
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function startOfDay(d: Date) {
+  const local = new Date(d.getTime() + TZ_OFFSET_MS);
+  local.setUTCHours(0, 0, 0, 0);
+  return new Date(local.getTime() - TZ_OFFSET_MS);
+}
+function endOfDay(d: Date) {
+  const local = new Date(d.getTime() + TZ_OFFSET_MS);
+  local.setUTCHours(23, 59, 59, 999);
+  return new Date(local.getTime() - TZ_OFFSET_MS);
+}
 function rangeFor(r: DateRange): { from: Date; to: Date } {
   const now = new Date();
   if (r === 'today') return { from: startOfDay(now), to: endOfDay(now) };
-  if (r === 'week')  { const f = new Date(now); f.setDate(now.getDate()-6); return { from: startOfDay(f), to: endOfDay(now) }; }
-  if (r === 'month') { const f = new Date(now); f.setDate(now.getDate()-29); return { from: startOfDay(f), to: endOfDay(now) }; }
+  if (r === 'week') { const f = new Date(now); f.setDate(now.getDate() - 6); return { from: startOfDay(f), to: endOfDay(now) }; }
+  if (r === 'month') { const f = new Date(now); f.setDate(now.getDate() - 29); return { from: startOfDay(f), to: endOfDay(now) }; }
   return { from: startOfDay(now), to: endOfDay(now) };
 }
 function fmtDate(d: Date) { return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }); }
-function isoDate(d: Date) { return d.toISOString().slice(0,10); }
+function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
 
 const RANGE_LABELS: Record<DateRange, string> = { today: 'Сьогодні', week: '7 днів', month: '30 днів', custom: 'Свій' };
 
@@ -57,11 +68,42 @@ function aggregateMetrics(entries: Entry[]): AggregatedMetric[] {
 
   for (const entry of entries) {
     const metrics = entry.metadata.dashboard_metrics as DashboardMetric[] | undefined;
-    if (!Array.isArray(metrics)) continue;
-    for (const m of metrics) {
-      if (!map.has(m.key)) map.set(m.key, { metric: m, values: [] });
-      map.get(m.key)!.values.push(m.value);
-      map.get(m.key)!.metric = m;
+
+    if (Array.isArray(metrics) && metrics.length > 0) {
+      for (const m of metrics) {
+        if (!map.has(m.key)) map.set(m.key, { metric: m, values: [] });
+        map.get(m.key)!.values.push(m.value);
+        map.get(m.key)!.metric = m;
+      }
+    } else if (entry.category === 'sleep') {
+      // Fallback: parse sleep hours from content when dashboard_metrics is missing
+      // Handles: "8 годин", "8 hours", "8h", time ranges like "00:30→08:30"
+      const content = entry.content.toLowerCase();
+      let hours: number | null = null;
+
+      // Direct mention: "8 годин", "7.5 hours", "8h"
+      const directMatch = content.match(/(\d+(?:[.,]\d+)?)\s*(?:год(?:ин)?|hours?|h\b)/);
+      if (directMatch) {
+        hours = parseFloat(directMatch[1].replace(',', '.'));
+      }
+
+      // Time range: "00:30" to "08:30" — calculate difference
+      if (!hours) {
+        const times = content.match(/(\d{1,2}):(\d{2})/g);
+        if (times && times.length >= 2) {
+          const [h1, m1] = times[0].split(':').map(Number);
+          const [h2, m2] = times[times.length - 1].split(':').map(Number);
+          let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+          if (diff < 0) diff += 24 * 60; // crossed midnight
+          hours = Math.round((diff / 60) * 10) / 10;
+        }
+      }
+
+      if (hours && hours > 0 && hours <= 24) {
+        const key = 'sleep_hours';
+        if (!map.has(key)) map.set(key, { metric: { key, label: 'Сон', value: hours, unit: 'год', icon: 'moon', aggregate: 'avg' }, values: [] });
+        map.get(key)!.values.push(hours);
+      }
     }
   }
 
@@ -118,47 +160,184 @@ function MetricIcon({ name, size = 16, className }: { name?: string; size?: numb
 // ── Color for metric key ──────────────────────────────────────────────────────
 
 const METRIC_COLORS: Record<string, { bg: string; text: string }> = {
-  kcal_intake:      { bg: 'bg-orange-100', text: 'text-orange-600' },
-  kcal_burned:      { bg: 'bg-red-100',    text: 'text-red-600' },
-  activity_kcal:    { bg: 'bg-red-100',    text: 'text-red-600' },
-  distance_km:      { bg: 'bg-blue-100',   text: 'text-blue-600' },
-  distance_m:       { bg: 'bg-blue-100',   text: 'text-blue-600' },
-  water_ml:         { bg: 'bg-cyan-100',   text: 'text-cyan-600' },
-  sleep_hours:      { bg: 'bg-indigo-100', text: 'text-indigo-600' },
-  sleep_quality:    { bg: 'bg-indigo-100', text: 'text-indigo-600' },
-  pages_read:       { bg: 'bg-amber-100',  text: 'text-amber-600' },
-  reading_min:      { bg: 'bg-amber-100',  text: 'text-amber-600' },
-  weight_kg:        { bg: 'bg-teal-100',   text: 'text-teal-600' },
-  mood_score:       { bg: 'bg-pink-100',   text: 'text-pink-600' },
-  stress_level:     { bg: 'bg-rose-100',   text: 'text-rose-600' },
-  energy_level:     { bg: 'bg-yellow-100', text: 'text-yellow-600' },
-  meditation_min:   { bg: 'bg-violet-100', text: 'text-violet-600' },
-  mindfulness_min:  { bg: 'bg-violet-100', text: 'text-violet-600' },
-  steps_count:      { bg: 'bg-green-100',  text: 'text-green-600' },
-  active_min:       { bg: 'bg-lime-100',   text: 'text-lime-600' },
-  protein_g:        { bg: 'bg-red-100',    text: 'text-red-600' },
-  carbs_g:          { bg: 'bg-amber-100',  text: 'text-amber-600' },
-  fat_g:            { bg: 'bg-yellow-100', text: 'text-yellow-600' },
-  alcohol_units:    { bg: 'bg-purple-100', text: 'text-purple-600' },
-  sex_sessions:     { bg: 'bg-pink-100',   text: 'text-pink-600' },
-  sex_partners:     { bg: 'bg-pink-100',   text: 'text-pink-600' },
-  cold_shower_min:  { bg: 'bg-sky-100',    text: 'text-sky-600' },
-  fasting_hours:    { bg: 'bg-teal-100',   text: 'text-teal-600' },
-  squats_count:     { bg: 'bg-blue-100',   text: 'text-blue-600' },
-  pushups_count:    { bg: 'bg-blue-100',   text: 'text-blue-600' },
+  // Dark mode optimized: translucent backgrounds, vibrant text
+  kcal_intake: { bg: 'bg-orange-500/15', text: 'text-orange-400' },
+  kcal_burned: { bg: 'bg-red-500/15', text: 'text-red-400' },
+  activity_kcal: { bg: 'bg-red-500/15', text: 'text-red-400' },
+  distance_km: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
+  distance_m: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
+  water_ml: { bg: 'bg-cyan-500/15', text: 'text-cyan-400' },
+  sleep_hours: { bg: 'bg-indigo-500/15', text: 'text-indigo-400' },
+  sleep_quality: { bg: 'bg-indigo-500/15', text: 'text-indigo-400' },
+  pages_read: { bg: 'bg-amber-500/15', text: 'text-amber-400' },
+  reading_min: { bg: 'bg-amber-500/15', text: 'text-amber-400' },
+  weight_kg: { bg: 'bg-teal-500/15', text: 'text-teal-400' },
+  mood_score: { bg: 'bg-pink-500/15', text: 'text-pink-400' },
+  stress_level: { bg: 'bg-rose-500/15', text: 'text-rose-400' },
+  energy_level: { bg: 'bg-yellow-500/15', text: 'text-yellow-400' },
+  meditation_min: { bg: 'bg-violet-500/15', text: 'text-violet-400' },
+  mindfulness_min: { bg: 'bg-violet-500/15', text: 'text-violet-400' },
+  steps_count: { bg: 'bg-green-500/15', text: 'text-green-400' },
+  active_min: { bg: 'bg-lime-500/15', text: 'text-lime-400' },
+  protein_g: { bg: 'bg-red-500/15', text: 'text-red-400' },
+  carbs_g: { bg: 'bg-amber-500/15', text: 'text-amber-400' },
+  fat_g: { bg: 'bg-yellow-500/15', text: 'text-yellow-400' },
+  alcohol_units: { bg: 'bg-purple-500/15', text: 'text-purple-400' },
+  sex_sessions: { bg: 'bg-pink-500/15', text: 'text-pink-400' },
+  sex_partners: { bg: 'bg-pink-500/15', text: 'text-pink-400' },
+  cold_shower_min: { bg: 'bg-sky-500/15', text: 'text-sky-400' },
+  fasting_hours: { bg: 'bg-teal-500/15', text: 'text-teal-400' },
+  squats_count: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
+  pushups_count: { bg: 'bg-blue-500/15', text: 'text-blue-400' },
 };
 
 function metricColor(key: string) {
   return METRIC_COLORS[key] ?? { bg: 'bg-muted', text: 'text-muted-foreground' };
 }
 
+// ── MetricEditSheet — long-press a metric widget to correct its value ─────────
+
+function MetricEditSheet({ metric, sourceEntries, onSave, onDelete, onClose }: {
+  metric: AggregatedMetric;
+  sourceEntries: Entry[];
+  onSave: (targetEntryId: string, metricKey: string, newValue: number, allSourceEntryIds: string[]) => Promise<void>;
+  onDelete: (entryIds: string[]) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(String(metric.value));
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const { bg, text } = metricColor(metric.key);
+
+  useEffect(() => {
+    setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 80);
+  }, []);
+
+  const save = async () => {
+    const num = parseFloat(value.replace(',', '.'));
+    if (isNaN(num)) return;
+    // Most recent entry gets the new value; all others get zeroed out
+    const targetEntry = sourceEntries[sourceEntries.length - 1];
+    if (!targetEntry) return;
+    setSaving(true);
+    try {
+      await onSave(targetEntry.id, metric.key, num, sourceEntries.map(e => e.id));
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      await onDelete(sourceEntries.map(e => e.id));
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end">
+      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div
+        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
+        style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)' }}
+      >
+        {/* Handle */}
+        <div className="mb-4 flex justify-center">
+          <div className="h-1 w-10 rounded-full bg-muted" />
+        </div>
+
+        {/* Header row: delete — metric info — close */}
+        <div className="mb-4 flex items-center gap-3">
+          {/* Delete / confirm */}
+          {!confirmDelete ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
+              aria-label="Видалити"
+            >
+              <Trash2 size={16} />
+            </button>
+          ) : (
+            <div className="flex flex-1 items-center gap-2 rounded-2xl bg-red-50 px-3 py-2">
+              <Trash2 size={13} className="shrink-0 text-red-500" />
+              <span className="flex-1 text-xs text-red-700">
+                Видалити {sourceEntries.length} {sourceEntries.length === 1 ? 'запис' : 'записів'}?
+              </span>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
+              >
+                Ні
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="rounded-full bg-red-500 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60"
+              >
+                {deleting ? '...' : 'Так'}
+              </button>
+            </div>
+          )}
+
+          {/* Metric info — only shown when not in confirm mode */}
+          {!confirmDelete && (
+            <>
+              <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', bg)}>
+                <MetricIcon name={metric.icon} size={18} className={text} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold truncate">{metric.label}</p>
+                <p className="text-xs text-muted-foreground">Зараз: {metric.value} {metric.unit}</p>
+              </div>
+            </>
+          )}
+
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="mb-4 flex items-center gap-3">
+          <input
+            ref={inputRef}
+            type="number"
+            inputMode="decimal"
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') save(); }}
+            className="flex-1 rounded-2xl border border-input bg-background px-4 py-3 text-2xl font-bold focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <span className="text-lg text-muted-foreground">{metric.unit}</span>
+        </div>
+
+        <Button className="w-full rounded-full" disabled={saving || !value.trim()} onClick={save}>
+          {saving
+            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+            : 'Зберегти'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 // ── DrillDownDrawer — shows source entries for a widget ──────────────────────
 
-function DrillDownDrawer({ title, entries, onClose, onUpdate, accessToken }: {
+function DrillDownDrawer({ title, entries, onClose, onUpdate, onDelete, accessToken }: {
   title: string;
   entries: Entry[];
   onClose: () => void;
   onUpdate: (id: string, content: string, category: string) => Promise<void>;
+  onDelete: (ids: string[]) => Promise<void>;
   accessToken?: string | null;
 }) {
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
@@ -168,8 +347,10 @@ function DrillDownDrawer({ title, entries, onClose, onUpdate, accessToken }: {
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
       <div
         className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-background shadow-2xl"
-        style={{ maxHeight: '75vh', display: 'flex', flexDirection: 'column',
-          paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px))' }}
+        style={{
+          maxHeight: '75vh', display: 'flex', flexDirection: 'column',
+          paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px))'
+        }}
       >
         {/* Handle */}
         <div className="flex-shrink-0 pt-3 pb-2 flex justify-center">
@@ -215,6 +396,7 @@ function DrillDownDrawer({ title, entries, onClose, onUpdate, accessToken }: {
         <EditDrawer
           entry={editEntry}
           onSave={onUpdate}
+          onDelete={async (id) => { await onDelete([id]); setEditEntry(null); }}
           onClose={() => setEditEntry(null)}
           accessToken={accessToken}
         />
@@ -251,7 +433,7 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
         <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
         <h3 className="mb-4 text-sm font-semibold">Оберіть період</h3>
         <div className="mb-4 grid grid-cols-3 gap-2">
-          {(['today','week','month'] as DateRange[]).map(r => (
+          {(['today', 'week', 'month'] as DateRange[]).map(r => (
             <button key={r} onClick={() => apply(r)}
               className={cn('rounded-xl border py-3 text-sm font-medium transition-colors',
                 filter.range === r ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/30 text-foreground')}>
@@ -322,20 +504,37 @@ function GoalsTab({ entries }: { entries: Entry[] }) {
 
 // ── Generic metric card ───────────────────────────────────────────────────────
 
-function MetricCard({ metric, sourceEntries, onEntryClick, goal }: {
+function MetricCard({ metric, sourceEntries, onEntryClick, onLongPress, goal }: {
   metric: AggregatedMetric;
   sourceEntries: Entry[];
   onEntryClick: (entries: Entry[], title: string) => void;
+  onLongPress: (metric: AggregatedMetric, sourceEntries: Entry[]) => void;
   goal?: { target: number; period?: string };
 }) {
   const { bg, text } = metricColor(metric.key);
   const aggLabel = metric.aggregate === 'avg' ? `середнє · ${metric.count}` : metric.aggregate === 'last' ? 'останнє' : `${metric.count} записів`;
   const pct = goal ? Math.min(100, Math.round((metric.value / goal.target) * 100)) : null;
 
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handlePointerDown = () => {
+    longPressTimer.current = setTimeout(() => {
+      onLongPress(metric, sourceEntries);
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
+  };
+
   return (
     <Card
-      className="flex cursor-pointer flex-col gap-1 p-4 transition-colors hover:bg-muted/30 active:bg-muted/50"
+      className="flex cursor-pointer flex-col gap-1 p-4 transition-colors hover:bg-muted/30 active:bg-muted/50 select-none"
       onClick={() => onEntryClick(sourceEntries, metric.label)}
+      onPointerDown={handlePointerDown}
+      onPointerUp={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onPointerCancel={cancelLongPress}
     >
       <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
         <MetricIcon name={metric.icon} size={16} className={text} />
@@ -427,10 +626,10 @@ function Section({ title, count, children, defaultOpen = true }: { title: string
 // ── Mood helpers ──────────────────────────────────────────────────────────────
 
 const MOOD_KW: Record<string, number> = {
-  радіс:2, щасл:2, чудов:2, добр:1, спокій:1, задоволен:1, енергій:1,
-  сумн:-1, втомл:-1, погано:-2, жахл:-2, злий:-2, тривог:-2, стрес:-2, паршив:-2,
+  радіс: 2, щасл: 2, чудов: 2, добр: 1, спокій: 1, задоволен: 1, енергій: 1,
+  сумн: -1, втомл: -1, погано: -2, жахл: -2, злий: -2, тривог: -2, стрес: -2, паршив: -2,
 };
-function scoreMood(t: string) { const l = t.toLowerCase(); let s = 0; for (const [k,v] of Object.entries(MOOD_KW)) if (l.includes(k)) s += v; return s; }
+function scoreMood(t: string) { const l = t.toLowerCase(); let s = 0; for (const [k, v] of Object.entries(MOOD_KW)) if (l.includes(k)) s += v; return s; }
 
 // ── Spending bar ──────────────────────────────────────────────────────────────
 
@@ -450,9 +649,11 @@ function SpendBar({ label, pct, amount, currency }: { label: string; pct: number
 export default function DashboardPage() {
   const { accessToken } = useAuth();
   const [entries, setEntries] = useState<Entry[]>([]);
+  const [allEntries, setAllEntries] = useState<Entry[]>([]); // for goals tab — no date filter
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [filter, setFilter] = useState<DateFilter>({ range: 'today', ...rangeFor('today') });
   const [drillDown, setDrillDown] = useState<{ title: string; entries: Entry[] } | null>(null);
+  const [metricEdit, setMetricEdit] = useState<{ metric: AggregatedMetric; sourceEntries: Entry[] } | null>(null);
   const [view, setView] = useState('actual');
   const [showCalendar, setShowCalendar] = useState(false);
 
@@ -468,7 +669,19 @@ export default function DashboardPage() {
     } catch { setStatus('error'); }
   }, [accessToken]);
 
+  // Fetch all entries once for goals (goals can be from any date)
+  const fetchAllEntries = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch('/api/entries?limit=500', { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return;
+      const { entries: data } = await res.json();
+      setAllEntries(data ?? []);
+    } catch { /* non-critical */ }
+  }, [accessToken]);
+
   useEffect(() => { fetchEntries(filter.from, filter.to); }, [fetchEntries, filter]);
+  useEffect(() => { fetchAllEntries(); }, [fetchAllEntries]);
 
   const handleUpdate = async (id: string, content: string, category: string) => {
     if (!accessToken) return;
@@ -488,12 +701,41 @@ export default function DashboardPage() {
     setDrillDown({ title, entries: sourceEntries });
   };
 
+  const handleMetricOverride = async (targetEntryId: string, metricKey: string, newValue: number, allSourceEntryIds: string[]) => {
+    if (!accessToken) return;
+    // Patch all source entries: set new value on the target, zero out the metric on all others.
+    // This ensures the aggregated total reflects exactly what the user typed.
+    const patches = allSourceEntryIds.map(id =>
+      fetch('/api/entries', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ id, metric_override: { key: metricKey, value: id === targetEntryId ? newValue : 0 } }),
+      }).then(r => r.ok ? r.json() : null)
+    );
+    const results = await Promise.all(patches);
+    setEntries(prev => prev.map(e => {
+      const result = results[allSourceEntryIds.indexOf(e.id)];
+      return result?.entry ? { ...e, ...result.entry } : e;
+    }));
+  };
+
+  const handleDelete = async (ids: string[]) => {
+    if (!accessToken) return;
+    const res = await fetch('/api/entries', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ ids }),
+    });
+    if (!res.ok) return;
+    setEntries(prev => prev.filter(e => !ids.includes(e.id)));
+    setDrillDown(prev => prev ? { ...prev, entries: prev.entries.filter(e => !ids.includes(e.id)) } : null);
+  };
   // ── Derived ─────────────────────────────────────────────────────────────────
 
   const metrics = aggregateMetrics(entries);
   const metricByKey = new Map(metrics.map(m => [m.key, m]));
 
-  const expEntries  = entries.filter(e => e.category === 'expenses');
+  const expEntries = entries.filter(e => e.category === 'expenses');
   const feelEntries = entries.filter(e => e.category === 'feelings');
   const ideaEntries = entries.filter(e => e.category === 'ideas');
 
@@ -507,12 +749,12 @@ export default function DashboardPage() {
     if (!byCat[cat]) byCat[cat] = { total: 0, currency: cur };
     byCat[cat].total += amt;
   }
-  const mainCurrency = Object.entries(byCur).sort((a,b) => b[1]-a[1])[0];
+  const mainCurrency = Object.entries(byCur).sort((a, b) => b[1] - a[1])[0];
   const totalSpend = mainCurrency?.[1] ?? 0;
-  const spendCats = Object.entries(byCat).sort((a,b) => b[1].total - a[1].total).slice(0, 5);
+  const spendCats = Object.entries(byCat).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
 
   const moodScores = feelEntries.map(e => scoreMood(e.content));
-  const moodAvg = moodScores.length ? moodScores.reduce((a,b) => a+b, 0) / moodScores.length : null;
+  const moodAvg = moodScores.length ? moodScores.reduce((a, b) => a + b, 0) / moodScores.length : null;
   const MoodIcon = moodAvg === null ? Minus : moodAvg > 0.5 ? TrendingUp : moodAvg < -0.5 ? TrendingDown : Minus;
   const moodLabel = moodAvg === null ? '—' : moodAvg > 0.5 ? 'Позитивний' : moodAvg < -0.5 ? 'Негативний' : 'Нейтральний';
   const moodColor = moodAvg === null ? 'bg-muted text-muted-foreground' : moodAvg > 0.5 ? 'bg-green-100 text-green-700' : moodAvg < -0.5 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700';
@@ -531,8 +773,8 @@ export default function DashboardPage() {
   }
 
   // Separate energy metrics from the rest for special treatment
-  const intakeMetric  = metricByKey.get('kcal_intake');
-  const burnedMetric  = metricByKey.get('kcal_burned');
+  const intakeMetric = metricByKey.get('kcal_intake');
+  const burnedMetric = metricByKey.get('kcal_burned');
   const showEnergyBalance = !!(intakeMetric && burnedMetric);
   // Metrics to show in the generic grid (exclude ones handled specially)
   const specialKeys = new Set(['kcal_intake', 'kcal_burned']);
@@ -560,7 +802,7 @@ export default function DashboardPage() {
         </TabsList>
 
         <TabsContent value="goals">
-          {status === 'ready' && <GoalsTab entries={entries} />}
+          {status === 'ready' && <GoalsTab entries={allEntries} />}
         </TabsContent>
 
         <TabsContent value="actual">
@@ -587,9 +829,9 @@ export default function DashboardPage() {
                     {showEnergyBalance && (
                       <EnergyBalanceCard intake={intakeMetric!.value} burned={burnedMetric!.value} />
                     )}
-                    {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} />}
-                    {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} />}
-                    {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} />)}
+                    {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => setMetricEdit({ metric: m, sourceEntries: s })} />}
+                    {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => setMetricEdit({ metric: m, sourceEntries: s })} />}
+                    {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} onLongPress={(metric, src) => setMetricEdit({ metric, sourceEntries: src })} />)}
                   </div>
                 </Section>
               )}
@@ -613,7 +855,7 @@ export default function DashboardPage() {
                     {spendCats.length > 0 && (
                       <div className="flex flex-col gap-2.5">
                         {spendCats.map(([cat, { total, currency }]) => (
-                          <SpendBar key={cat} label={cat} pct={totalSpend > 0 ? Math.round((total/totalSpend)*100) : 0} amount={total} currency={currency} />
+                          <SpendBar key={cat} label={cat} pct={totalSpend > 0 ? Math.round((total / totalSpend) * 100) : 0} amount={total} currency={currency} />
                         ))}
                       </div>
                     )}
@@ -637,7 +879,7 @@ export default function DashboardPage() {
                     {recentMood.length > 1 && (
                       <div className="flex items-end gap-1" style={{ height: 36 }}>
                         {recentMood.map((s, i) => {
-                          const h = Math.max(4, Math.round((Math.abs(s)/maxMoodAbs)*32));
+                          const h = Math.max(4, Math.round((Math.abs(s) / maxMoodAbs) * 32));
                           return <div key={i} className={cn('flex-1 rounded-sm', s > 0 ? 'bg-green-400' : s < 0 ? 'bg-red-400' : 'bg-muted')} style={{ height: h }} />;
                         })}
                       </div>
@@ -672,6 +914,17 @@ export default function DashboardPage() {
           )}
         </TabsContent>
       </Tabs>
+      {/* Metric edit sheet (long-press) */}
+      {metricEdit && (
+        <MetricEditSheet
+          metric={metricEdit.metric}
+          sourceEntries={metricEdit.sourceEntries}
+          onSave={handleMetricOverride}
+          onDelete={handleDelete}
+          onClose={() => setMetricEdit(null)}
+        />
+      )}
+
       {/* Drill-down drawer */}
       {drillDown && (
         <DrillDownDrawer
@@ -679,6 +932,7 @@ export default function DashboardPage() {
           entries={drillDown.entries}
           onClose={() => setDrillDown(null)}
           onUpdate={handleUpdate}
+          onDelete={handleDelete}
           accessToken={accessToken}
         />
       )}
