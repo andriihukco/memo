@@ -1,311 +1,226 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/lib/supabase/auth-context";
-import { createClient } from "@supabase/supabase-js";
-import { TIER_INFO, type SubscriptionTier } from "@/lib/stars/paywall";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { useCallback, useEffect, useState } from 'react';
+import { useAuth } from '@/lib/supabase/auth-context';
+import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
-interface Subscription {
+interface ProfileData {
   id: string;
-  tier: SubscriptionTier;
-  status: string;
-  start_date: string;
-  end_date: string | null;
+  subscription_tier: SubscriptionTier;
+  subscription_status: string;
+  subscription_ends_at: string | null;
 }
 
 export default function SubscriptionsPage() {
   const { accessToken } = useAuth();
-  const [userTier, setUserTier] = useState<SubscriptionTier>("free");
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState<SubscriptionTier | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (accessToken) {
-      checkSubscription();
-    }
-  }, [accessToken]);
-
-  async function checkSubscription() {
+  const loadProfile = useCallback(async () => {
+    if (!accessToken) return;
     try {
-      if (!accessToken) {
-        setError("Not authenticated");
-        setLoading(false);
-        return;
-      }
-
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          },
-        }
-      );
-
-      // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError || !user) {
-        setError("Please log in to view subscriptions");
-        setLoading(false);
-        return;
-      }
-
-      setUserId(user.id);
-
-      // Get subscription
-      const { data: sub, error: subError } = await supabase
-        .from("subscriptions")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (subError) {
-        console.error("Subscription error:", subError);
-      }
-
-      setSubscription(sub);
-
-      // Get profile tier
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("subscription_tier")
-        .eq("id", user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Profile error:", profileError);
-      }
-
-      if (profileData) {
-        setUserTier(profileData.subscription_tier as SubscriptionTier);
-      }
+      const res = await fetch('/api/profile', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new Error('Failed to load profile');
+      const data = await res.json();
+      setProfile(data.profile);
     } catch (err) {
-      console.error("Error checking subscription:", err);
-      setError("Failed to load subscription data");
+      console.error('loadProfile error:', err);
     } finally {
       setLoading(false);
     }
-  }
+  }, [accessToken]);
 
-  async function subscribe(tier: SubscriptionTier) {
-    try {
-      if (!userId || !accessToken) {
-        setError("Please log in to subscribe");
-        return;
-      }
+  useEffect(() => { loadProfile(); }, [loadProfile]);
 
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          },
-        }
-      );
-
-      // Get user's profile to find telegram_id
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("telegram_id")
-        .eq("id", userId)
-        .single();
-
-      if (profileError || !profileData?.telegram_id) {
-        setError("Telegram ID not found");
-        return;
-      }
-
-      // Call invoice API
-      const response = await fetch("/api/stars/invoice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          tier,
-          telegramId: profileData.telegram_id,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // In production, this would open Telegram's payment interface
-        alert(`Invoice created for ${tier}. Payment integration coming soon.`);
-      } else {
-        setError(data.error || "Failed to create invoice");
-      }
-    } catch (err) {
-      console.error("Error subscribing:", err);
-      setError("Failed to create subscription");
-    }
-  }
-
-  async function cancelSubscription() {
-    if (!confirm("Are you sure you want to cancel your subscription?")) return;
+  async function handleSubscribe(tier: SubscriptionTier) {
+    if (!accessToken || !profile) return;
+    setPaying(tier);
+    setError(null);
 
     try {
-      if (!userId || !accessToken) {
-        setError("Please log in to cancel subscription");
-        return;
-      }
-
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          },
-        }
-      );
-
-      const { error } = await supabase.rpc("downgrade_subscription", {
-        p_user_id: userId,
+      // 1. Get invoice link from our backend
+      const res = await fetch('/api/stars/invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ userId: profile.id, tier }),
       });
 
-      if (error) {
-        setError(error.message);
+      const data = await res.json();
+      if (!data.ok || !data.invoiceLink) {
+        setError(data.error ?? 'Failed to create invoice');
+        setPaying(null);
         return;
       }
 
-      setSubscription(null);
-      setUserTier("free");
+      // 2. Open Telegram Stars payment UI
+      const tg = window.Telegram?.WebApp;
+      if (!tg?.openInvoice) {
+        setError('Please open this in Telegram');
+        setPaying(null);
+        return;
+      }
+
+      tg.openInvoice(data.invoiceLink, async (status) => {
+        setPaying(null);
+        if (status === 'paid') {
+          setSuccessMsg(`✅ Підписка ${TIER_INFO[tier].name} активована!`);
+          // Reload profile to reflect new tier
+          await loadProfile();
+        } else if (status === 'cancelled') {
+          // User cancelled — no error
+        } else if (status === 'failed') {
+          setError('Оплата не вдалася. Спробуй ще раз.');
+        }
+      });
     } catch (err) {
-      console.error("Error canceling subscription:", err);
-      setError("Failed to cancel subscription");
+      console.error('handleSubscribe error:', err);
+      setError('Щось пішло не так');
+      setPaying(null);
     }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      <div className="flex h-full items-center justify-center">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-foreground" />
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-4">
-        <p className="text-destructive mb-4">{error}</p>
-        <Button onClick={checkSubscription}>Try Again</Button>
-      </div>
-    );
-  }
+  const currentTier = profile?.subscription_tier ?? 'free';
+  const tierRank: Record<SubscriptionTier, number> = { free: 0, stars_basic: 1, stars_pro: 2 };
 
   return (
-    <div className="space-y-6 p-4">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold">Підписка Stars</h1>
-        <p className="text-muted-foreground">Підтримайте розвиток проекту та отримайте додаткові функції</p>
+    <div className="flex flex-col gap-5 px-4 pt-5 pb-8">
+      <div>
+        <h1 className="text-xl font-bold">Підписка</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">Підтримай Memo та отримай більше можливостей</p>
       </div>
 
-      {subscription && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Активна підписка</CardTitle>
-            <p className="text-sm text-muted-foreground">Дякуємо за підтримку!</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span>Тарифний план</span>
-              <Badge variant="outline">{TIER_INFO[subscription.tier]?.name || subscription.tier}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Статус</span>
-              <Badge>{subscription.status}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Початок</span>
-              <span>{new Date(subscription.start_date).toLocaleDateString("uk-UA")}</span>
-            </div>
-            {subscription.end_date && (
-              <div className="flex items-center justify-between">
-                <span>Закінчення</span>
-                <span>{new Date(subscription.end_date).toLocaleDateString("uk-UA")}</span>
-              </div>
-            )}
-            <Separator />
-            <Button variant="destructive" className="w-full" onClick={cancelSubscription}>
-              Скасувати підписку
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Current plan badge */}
+      <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
+        <span className="text-2xl">{TIER_INFO[currentTier].icon}</span>
+        <div>
+          <p className="text-sm font-semibold">Поточний план: {TIER_INFO[currentTier].name}</p>
+          {profile?.subscription_ends_at && (
+            <p className="text-xs text-muted-foreground">
+              До {new Date(profile.subscription_ends_at).toLocaleDateString('uk-UA')}
+            </p>
+          )}
+          {currentTier !== 'free' && !profile?.subscription_ends_at && (
+            <p className="text-xs text-green-500">Постійний доступ</p>
+          )}
+        </div>
+      </div>
+
+      {/* Success / Error messages */}
+      {successMsg && (
+        <div className="rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm text-green-600">
+          {successMsg}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Plans */}
+      <div className="flex flex-col gap-3">
         {(Object.keys(TIER_INFO) as SubscriptionTier[]).map((tier) => {
           const info = TIER_INFO[tier];
-          const isCurrent = userTier === tier;
-          const isPremium = tier !== "free";
+          const isCurrent = currentTier === tier;
+          const isUpgrade = tierRank[tier] > tierRank[currentTier];
+          const isLoading = paying === tier;
 
           return (
-            <Card key={tier} className={isCurrent ? "ring-2 ring-primary" : ""}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  {info.icon} {info.name}
-                </CardTitle>
-                {isCurrent && <Badge>Активно</Badge>}
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-sm text-muted-foreground">{info.description}</p>
-                
-                <div className="space-y-2">
-                  {info.features.map((feature, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm">
-                      <span className="text-green-500">✓</span>
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <Separator />
-
-                {isPremium ? (
-                  <div className="space-y-2">
-                    <div className="text-center text-2xl font-bold">
-                      {info.priceStars} ⭐
-                    </div>
-                    <p className="text-center text-xs text-muted-foreground">~${(info.priceStars / 100).toFixed(2)} USD</p>
-                    {!isCurrent && (
-                      <Button className="w-full" onClick={() => subscribe(tier)}>
-                        Підписатися
-                      </Button>
-                    )}
+            <div
+              key={tier}
+              className={cn(
+                'rounded-2xl border p-4 transition-all',
+                isCurrent
+                  ? 'border-primary/40 bg-primary/5'
+                  : 'border-border/50 bg-card'
+              )}
+            >
+              {/* Header */}
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl">{info.icon}</span>
+                  <div>
+                    <p className="font-semibold leading-tight">{info.name}</p>
+                    <p className="text-xs text-muted-foreground">{info.description}</p>
                   </div>
-                ) : (
-                  <Button variant="outline" className="w-full" disabled>
-                    Поточний тариф
-                  </Button>
+                </div>
+                {isCurrent && <Badge variant="outline" className="text-xs border-primary/40 text-primary">Активний</Badge>}
+                {tier !== 'free' && (
+                  <div className="text-right">
+                    <p className="font-bold text-base">{info.priceStars} ⭐</p>
+                    <p className="text-[10px] text-muted-foreground">/ місяць</p>
+                  </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+
+              <Separator className="mb-3 opacity-50" />
+
+              {/* Features */}
+              <ul className="mb-4 space-y-1.5">
+                {info.features.map((f, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm">
+                    <span className="text-green-500 text-xs">✓</span>
+                    <span className="text-foreground/80">{f}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              {isUpgrade && (
+                <button
+                  onClick={() => handleSubscribe(tier)}
+                  disabled={isLoading || paying !== null}
+                  className={cn(
+                    'w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-95',
+                    tier === 'stars_pro'
+                      ? 'bg-gradient-to-r from-yellow-400 to-amber-400 text-slate-950 shadow-lg shadow-yellow-400/20'
+                      : 'bg-primary text-primary-foreground',
+                    (isLoading || paying !== null) && 'opacity-60 cursor-not-allowed'
+                  )}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Відкриваємо оплату...
+                    </span>
+                  ) : (
+                    `Підписатися за ${info.priceStars} ⭐`
+                  )}
+                </button>
+              )}
+              {isCurrent && tier !== 'free' && (
+                <p className="text-center text-xs text-muted-foreground">Підписка активна</p>
+              )}
+              {tier === 'free' && isCurrent && (
+                <p className="text-center text-xs text-muted-foreground">Безкоштовно назавжди</p>
+              )}
+            </div>
           );
         })}
       </div>
 
-      <div className="text-center text-sm text-muted-foreground">
-        <p>Оплата через Telegram Stars</p>
-        <p className="mt-1">Підписка автоматично оновлюється кожні 30 днів</p>
-      </div>
+      <p className="text-center text-xs text-muted-foreground px-4">
+        Оплата через Telegram Stars · Підписка на 30 днів · Поновлення вручну
+      </p>
     </div>
   );
 }

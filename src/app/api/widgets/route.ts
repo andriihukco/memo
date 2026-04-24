@@ -9,7 +9,7 @@ function getUserJwt(req: Request): string | null {
 }
 
 function makeSupabase(jwt: string) {
-  return createClient(process.env.SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  return createClient(process.env.SUPABASE_URL!, (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth: { persistSession: false },
   });

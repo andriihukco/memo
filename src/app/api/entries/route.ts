@@ -11,7 +11,7 @@ function getUserJwt(req: Request): string | null {
 
 function makeSupabase(jwt: string) {
   const supabaseUrl = process.env.SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const supabaseAnonKey = (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!;
   return createClient(supabaseUrl, supabaseAnonKey, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth: { persistSession: false },
