@@ -1171,26 +1171,6 @@ function EnergyBalanceCard({ intake, burned }: { intake: number; burned: number 
   );
 }
 
-// ── Section wrapper ───────────────────────────────────────────────────────────
-
-function Section({ title, count, children, defaultOpen = true }: { title: string; count?: number; children: React.ReactNode; defaultOpen?: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div>
-      <button onClick={() => setOpen(o => !o)} className="mb-3 flex w-full items-center justify-between py-0.5">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold">{title}</h2>
-          {count !== undefined && (
-            <span className="text-[11px] text-muted-foreground/60">{count}</span>
-          )}
-        </div>
-        <Icon name="expand_more" size={15} className={cn('text-muted-foreground transition-transform duration-200', !open && '-rotate-90')} />
-      </button>
-      {open && children}
-    </div>
-  );
-}
-
 // ── Mood helpers ──────────────────────────────────────────────────────────────
 
 const MOOD_KW: Record<string, number> = {
@@ -1227,7 +1207,6 @@ export default function DashboardPage() {
   const [showCreateWidget, setShowCreateWidget] = useState(false);
   const [customWidgets, setCustomWidgets] = useState<CustomWidget[]>([]);
   const [logEntry, setLogEntry] = useState<{ widget: CustomWidget; drillEntries: Entry[] } | null>(null);
-  const [widgetCatFilter, setWidgetCatFilter] = useState<string | null>(null);
 
   // ── Paywall state ──────────────────────────────────────────────────────────
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -1401,15 +1380,8 @@ export default function DashboardPage() {
   const specialKeys = new Set(['kcal_intake', 'kcal_burned']);
   const genericMetrics = metrics.filter(m => !specialKeys.has(m.key));
 
-  // ── Filtered widgets ──────────────────────────────────────────────────────
-  const filteredWidgets = widgetCatFilter
-    ? customWidgets.filter(w => w.category === widgetCatFilter)
-    : customWidgets;
-
-  // Unique categories from widgets for the filter bar
-  const widgetCategories = Array.from(
-    new Map(customWidgets.map(w => [w.category ?? 'other', w.category ?? 'other'])).entries()
-  ).map(([cat]) => cat);
+  // ── Filtered widgets (no category sub-filter — section chip handles visibility) ──
+  const filteredWidgets = customWidgets;
 
   // ── Section filter chips ───────────────────────────────────────────────────
   // One chip per section that has data; controls which sections are visible
