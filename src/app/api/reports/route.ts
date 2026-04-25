@@ -49,20 +49,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  // Enforce tier limits
+  // Enforce tier limits — free tier gets 5 reports
   const tier = await getEffectiveTier(profile.id);
   const limits = TIER_INFO[tier].limits;
-
-  // Check ai_reports feature gate for free tier
-  if (tier === "free") {
-    return new Response(JSON.stringify({
-      error: "limit_exceeded",
-      feature: "ai_reports",
-      limit: 0,
-      current: 0,
-      required_tier: "stars_basic",
-    }), { status: 402, headers: { "Content-Type": "application/json" } });
-  }
 
   // Count current reports
   const { count } = await db
@@ -73,10 +62,10 @@ export async function POST(req: Request) {
   if (limits.reports !== Infinity && (count ?? 0) >= limits.reports) {
     return new Response(JSON.stringify({
       error: "limit_exceeded",
-      feature: "reports",
+      feature: tier === "free" ? "ai_reports" : "reports",
       limit: limits.reports,
       current: count,
-      required_tier: "stars_pro",
+      required_tier: tier === "free" ? "stars_basic" : "stars_pro",
     }), { status: 402, headers: { "Content-Type": "application/json" } });
   }
 

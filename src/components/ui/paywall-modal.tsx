@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
 import { useSound } from '@/lib/sound/use-sound';
 import { useAuth } from '@/lib/supabase/auth-context';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
@@ -213,36 +212,63 @@ export function PaywallModal({
   return (
     <BottomSheet open={open} onClose={handleDismiss}>
       {/* Content area */}
-      <div className="flex flex-col items-center text-center gap-4 px-4 pt-2 pb-2">
-        {/* Feature icon */}
-        <Icon
-          name={copy.icon}
-          size={48}
-          className="text-amber-400"
-          aria-hidden
-        />
+      <div className="flex flex-col gap-3 px-4 pt-2 pb-2">
+        {/* Feature header */}
+        <div className="flex flex-col items-center text-center gap-2">
+          <span className="text-5xl leading-none select-none">
+            {copy.icon === 'auto_awesome' ? '✨' :
+             copy.icon === 'dashboard_customize' ? '📊' :
+             copy.icon === 'summarize' ? '💡' :
+             copy.icon === 'dashboard' ? '📊' :
+             copy.icon === 'edit_note' ? '📝' :
+             copy.icon === 'lightbulb' ? '💡' :
+             copy.icon === 'mic' ? '🎙️' :
+             copy.icon === 'my_location' ? '🎯' :
+             copy.icon === 'history' ? '📅' :
+             copy.icon === 'bar_chart' ? '📈' :
+             copy.icon === 'download' ? '📤' :
+             copy.icon === 'bolt' ? '⚡' :
+             '🔒'}
+          </span>
+          <h2 className="text-[17px] font-semibold leading-snug">{copy.title}</h2>
+          <p className="text-[14px] text-muted-foreground leading-relaxed">
+            {copy.subtitle(current, limit)}
+          </p>
+        </div>
 
-        {/* Title */}
-        <h2 className="text-[17px] font-semibold leading-snug">{copy.title}</h2>
-
-        {/* Subtitle / usage description */}
-        <p className="text-[15px] text-muted-foreground leading-relaxed">
-          {copy.subtitle(current, limit)}
-        </p>
-
-        {/* Feature comparison row */}
-        <div className="w-full bg-muted/40 rounded-xl px-4 py-3">
-          <p className="text-[13px] text-muted-foreground">{copy.comparisonText}</p>
+        {/* Mini plan cards */}
+        <div className="flex flex-col gap-2 mt-1">
+          {(['stars_basic', 'stars_pro'] as const).map((planTier) => {
+            const info = TIER_INFO[planTier];
+            const isRequired = planTier === requiredTier;
+            return (
+              <div
+                key={planTier}
+                className={`rounded-xl border px-3 py-2.5 ${isRequired ? 'border-primary/40 bg-primary/5' : 'border-border/30 bg-muted/20'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg leading-none">{info.icon}</span>
+                    <div>
+                      <p className="text-[13px] font-semibold">{info.name}</p>
+                      <p className="text-[11px] text-muted-foreground">{copy.comparisonText.split('·')[planTier === 'stars_basic' ? 0 : 1]?.trim()}</p>
+                    </div>
+                  </div>
+                  <p className="text-[13px] font-bold">{info.priceStars} ⭐</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Error */}
         {error && (
-          <p className="text-[13px] text-destructive">{error}</p>
+          <p className="text-[13px] text-destructive text-center">{error}</p>
         )}
       </div>
 
       {/* CTA area */}
-      <div className="px-4 pb-2 flex flex-col gap-3 mt-2">
+      <div className="px-4 pb-2 flex flex-col gap-2 mt-1">
         <Button
           variant="default"
           className="w-full min-h-[44px]"

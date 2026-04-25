@@ -34,18 +34,7 @@ export async function POST(req: Request): Promise<Response> {
   const tier = await getEffectiveTier(userId);
   const limits = TIER_INFO[tier].limits;
 
-  // Check custom_widgets feature gate for free tier
-  if (tier === 'free') {
-    return new Response(JSON.stringify({
-      error: 'limit_exceeded',
-      feature: 'custom_widgets',
-      limit: 0,
-      current: 0,
-      required_tier: 'stars_basic',
-    }), { status: 402, headers: { 'Content-Type': 'application/json' } });
-  }
-
-  // Count current widgets
+  // Check custom_widgets feature gate — free tier gets 3 widgets
   const settings = (profile.settings as Record<string, unknown>) ?? {};
   const customWidgets = (settings.custom_widgets as unknown[]) ?? [];
   const widgetCount = customWidgets.length;
@@ -53,10 +42,10 @@ export async function POST(req: Request): Promise<Response> {
   if (limits.widgets !== Infinity && widgetCount >= limits.widgets) {
     return new Response(JSON.stringify({
       error: 'limit_exceeded',
-      feature: 'widgets',
+      feature: tier === 'free' ? 'custom_widgets' : 'widgets',
       limit: limits.widgets,
       current: widgetCount,
-      required_tier: 'stars_pro', // Basic has 15, Pro is unlimited
+      required_tier: tier === 'free' ? 'stars_basic' : 'stars_pro',
     }), { status: 402, headers: { 'Content-Type': 'application/json' } });
   }
 

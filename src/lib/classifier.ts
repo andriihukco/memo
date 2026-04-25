@@ -230,6 +230,10 @@ STREAKS (aggregate=last): no_smoking_days, no_alcohol_days, workout_streak, etc.
 GOALS: extract when user states intention/target
 - "хочу пробігти 100км" → goal_metrics:[{key:"distance_km",target:100,unit:"км",period:"month"}]
 - "ціль 75кг" → goal_metrics:[{key:"weight_kg",target:75,unit:"кг",period:"total"}]
+- "хочу прочитати 20 книг" → goal_metrics:[{key:"books_read",target:20,unit:"книг",period:"total"}]
+- "маю ціль прочитати 20 книг до кінця року" → goal_metrics:[{key:"books_read",target:20,unit:"книг",period:"total"}]
+- "хочу схуднути на 5кг" → goal_metrics:[{key:"weight_loss_kg",target:5,unit:"кг",period:"total"}]
+- "ціль — 10000 кроків щодня" → goal_metrics:[{key:"steps_count",target:10000,unit:"кроків",period:"day"}]
 
 If no measurable data: return {"dashboard_metrics":[],"goal_metrics":[]}
 Respond ONLY with JSON.`;
@@ -284,11 +288,14 @@ async function classifyText(input: string | Array<unknown>): Promise<Classificat
   }
 
   // Pass 2: extract metrics for each entry (only for save_entry/converse)
-  // Skip if no entries or if all entries are clearly non-numeric categories
-  const NON_METRIC_CATEGORIES = new Set(["thoughts", "ideas", "dreams", "relationships", "travel", "gratitude", "music", "social", "books"]);
+  // Always run for entries that might have goals, even in non-metric categories
+  const GOAL_KEYWORDS = /ціль|хочу|мета|goal|target|want to|plan to|прочита|пробіг|схудн|набра|зробит/i;
+  const NON_METRIC_CATEGORIES = new Set(["thoughts", "ideas", "dreams", "relationships", "travel", "gratitude", "music", "social"]);
   const needsMetrics = ["save_entry", "converse"].includes(classifyParsed.intent)
     && classifyParsed.entries.length > 0
-    && classifyParsed.entries.some((e: EntryPayload) => !NON_METRIC_CATEGORIES.has(e.category));
+    && classifyParsed.entries.some((e: EntryPayload) =>
+      !NON_METRIC_CATEGORIES.has(e.category) || GOAL_KEYWORDS.test(e.content)
+    );
 
   if (needsMetrics) {
     const metricsModel = genAI.getGenerativeModel({
@@ -299,8 +306,8 @@ async function classifyText(input: string | Array<unknown>): Promise<Classificat
 
     // Extract metrics for all entries in parallel
     await Promise.all(classifyParsed.entries.map(async (entry: EntryPayload) => {
-      // Skip non-metric categories entirely
-      if (NON_METRIC_CATEGORIES.has(entry.category)) {
+      // Skip non-metric categories UNLESS the content looks like a goal
+      if (NON_METRIC_CATEGORIES.has(entry.category) && !GOAL_KEYWORDS.test(entry.content)) {
         entry.dashboard_metrics = [];
         entry.goal_metrics = [];
         return;

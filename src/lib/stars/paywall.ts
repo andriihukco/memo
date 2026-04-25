@@ -279,7 +279,7 @@ export interface TierInfo {
 export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
   free: {
     tier: "free",
-    name: "Безкоштовний",
+    name: "Memo Free",
     priceStars: 0,
     description: "Основні функції для початку",
     icon: "⭐",
@@ -308,7 +308,7 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
   },
   stars_basic: {
     tier: "stars_basic",
-    name: "Stars Basic",
+    name: "Memo Basic",
     priceStars: 250,
     description: "Розширені аналітичні можливості",
     icon: "🌟",
@@ -337,7 +337,7 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
   },
   stars_pro: {
     tier: "stars_pro",
-    name: "Stars Pro",
+    name: "Memo Pro",
     priceStars: 500,
     description: "Повний доступ до всіх функцій",
     icon: "💎",

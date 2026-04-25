@@ -91,6 +91,13 @@ function PlanCard({
       {isBasic && (
         <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
       )}
+      {isBasic && !isCurrent && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span className="rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold text-primary-foreground whitespace-nowrap">
+            🔥 Найпопулярніший
+          </span>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between px-4 pt-4 pb-3">
