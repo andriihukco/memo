@@ -110,27 +110,19 @@ export default function SettingsPage() {
   // ── Categories state ──────────────────────────────────────────────────────
   const { accessToken } = useAuth();
 
-  interface Category { name: string; label_ua: string; color: string; }
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<{ name: string; label_ua: string; color: string }[]>([]);
   const [catError, setCatError] = useState<string | null>(null);
   const [catLoading, setCatLoading] = useState(false);
 
-  // Category rename state
-  const [renameTarget, setRenameTarget] = useState<Category | null>(null);
-  const [renameValue, setRenameValue] = useState('');
-  const [renameLoading, setRenameLoading] = useState(false);
-  const [renameError, setRenameError] = useState<string | null>(null);
-
-  // Category remove state
-  const [removeTarget, setRemoveTarget] = useState<Category | null>(null);
-  const [removeLoading, setRemoveLoading] = useState(false);
-  const [removeError, setRemoveError] = useState<string | null>(null);
-
-  // Category merge state
-  const [mergeSource, setMergeSource] = useState<Category | null>(null);
-  const [mergeTarget, setMergeTarget] = useState<Category | null>(null);
-  const [mergeLoading, setMergeLoading] = useState(false);
-  const [mergeError, setMergeError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!accessToken) return;
+    setCatLoading(true);
+    fetch('/api/categories', { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => r.json())
+      .then(d => setCategories(d.categories ?? []))
+      .catch(() => setCatError('Не вдалося завантажити категорії'))
+      .finally(() => setCatLoading(false));
+  }, [accessToken]);
 
   // Delete account state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -139,9 +131,6 @@ export default function SettingsPage() {
   const router = useRouter();
 
   // Register inline sheets with body attribute so tab bar hides
-  useSheetBodyAttr(!!renameTarget);
-  useSheetBodyAttr(!!removeTarget);
-  useSheetBodyAttr(!!mergeSource);
   useSheetBodyAttr(showDeleteConfirm);
 
   useEffect(() => {
@@ -169,70 +158,6 @@ export default function SettingsPage() {
     setHasPasscode(true);
     setStep('idle');
     setPendingPin('');
-  };
-
-  // ── Category handlers ─────────────────────────────────────────────────────
-  const handleRename = async () => {
-    if (!renameTarget || !accessToken) return;
-    setRenameLoading(true);
-    setRenameError(null);
-    try {
-      const res = await fetch('/api/categories', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ name: renameTarget.name, label_ua: renameValue }),
-      });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
-      setCategories(prev => prev.map(c => c.name === renameTarget.name ? { ...c, label_ua: renameValue } : c));
-      setRenameTarget(null);
-    } catch (err) {
-      setRenameError(err instanceof Error ? err.message : 'Не вдалося перейменувати категорію. Спробуйте ще раз.');
-      play('CAUTION');
-    } finally {
-      setRenameLoading(false);
-    }
-  };
-
-  const handleRemove = async () => {
-    if (!removeTarget || !accessToken) return;
-    setRemoveLoading(true);
-    setRemoveError(null);
-    try {
-      const res = await fetch(`/api/categories/${encodeURIComponent(removeTarget.name)}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
-      setCategories(prev => prev.filter(c => c.name !== removeTarget.name));
-      setRemoveTarget(null);
-    } catch (err) {
-      setRemoveError(err instanceof Error ? err.message : 'Не вдалося видалити категорію. Спробуйте ще раз.');
-      play('CAUTION');
-    } finally {
-      setRemoveLoading(false);
-    }
-  };
-
-  const handleMerge = async () => {
-    if (!mergeSource || !mergeTarget || !accessToken) return;
-    setMergeLoading(true);
-    setMergeError(null);
-    try {
-      const res = await fetch('/api/categories/merge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ source: mergeSource.name, target: mergeTarget.name }),
-      });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
-      setCategories(prev => prev.filter(c => c.name !== mergeSource.name));
-      setMergeSource(null);
-      setMergeTarget(null);
-    } catch (err) {
-      setMergeError(err instanceof Error ? err.message : 'Не вдалося об\'єднати категорії. Спробуйте ще раз.');
-      play('CAUTION');
-    } finally {
-      setMergeLoading(false);
-    }
   };
 
   // ── Delete account handler ────────────────────────────────────────────────
@@ -363,99 +288,22 @@ export default function SettingsPage() {
         {catError && <p className="mb-2 text-xs text-destructive">{catError}</p>}
         <Card>
           <CardContent className="p-0">
-            {catLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
+            <a
+              href="/miniapp/categories"
+              onClick={() => play('OPEN')}
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="label" size={16} className="text-primary" />
               </div>
-            ) : (
-              <>
-                {/* Custom categories (non-default, non-system) */}
-                {(() => {
-                  const DEFAULT_NAMES = new Set([
-                    'thoughts','ideas','feelings','expenses','calories','workout','dreams',
-                    'relationships','health','travel','books','gratitude','goals','sleep',
-                    'music','work','social','career','sex_life','sport','food','finance',
-                    'meditation','hobby','family','friends','nature','art','learning','uncategorized',
-                  ]);
-                  const customCats = categories.filter(c => !DEFAULT_NAMES.has(c.name));
-                  const defaultCats = categories.filter(c => DEFAULT_NAMES.has(c.name) && c.name !== 'uncategorized');
-
-                  return (
-                    <>
-                      {/* Custom categories */}
-                      {customCats.length > 0 && (
-                        <>
-                          <div className="px-4 pt-3 pb-1">
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Власні</p>
-                          </div>
-                          {customCats.map((cat, i) => (
-                            <div key={cat.name}>
-                              {i > 0 && <Separator />}
-                              <div className="flex items-center gap-3 px-4 py-3">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{cat.label_ua}</p>
-                                  <p className="text-[11px] text-muted-foreground">{cat.name}</p>
-                                </div>
-                                <div className="flex items-center gap-0.5">
-                                  <button
-                                    onClick={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); }}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
-                                    aria-label={`Перейменувати ${cat.label_ua}`}
-                                  >
-                                    <Icon name="edit" size={15} />
-                                  </button>
-                                  <button
-                                    onClick={() => { play('OPEN'); setMergeSource(cat); }}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
-                                    aria-label={`Об'єднати ${cat.label_ua}`}
-                                  >
-                                    <Icon name="merge" size={15} />
-                                  </button>
-                                  <button
-                                    onClick={() => { play('OPEN'); setRemoveTarget(cat); }}
-                                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                                    aria-label={`Видалити ${cat.label_ua}`}
-                                  >
-                                    <Icon name="delete" size={15} />
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                          {defaultCats.length > 0 && <Separator />}
-                        </>
-                      )}
-
-                      {/* Default categories — read-only list */}
-                      {defaultCats.length > 0 && (
-                        <>
-                          <div className="px-4 pt-3 pb-1">
-                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Стандартні</p>
-                          </div>
-                          <div className="px-4 pb-3 flex flex-wrap gap-2">
-                            {defaultCats.map(cat => (
-                              <span
-                                key={cat.name}
-                                className="rounded-full bg-muted/50 border border-border/40 px-3 py-1 text-[12px] text-foreground/70"
-                              >
-                                {cat.label_ua}
-                              </span>
-                            ))}
-                          </div>
-                        </>
-                      )}
-
-                      {/* Empty state */}
-                      {categories.length === 0 && (
-                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                          Категорії з&apos;являться після перших записів
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-              </>
-            )}
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Категорії</p>
+                <p className="text-xs text-muted-foreground">
+                  {catLoading ? 'Завантаження...' : `${categories.length > 0 ? categories.length : 17} категорій`}
+                </p>
+              </div>
+              <Icon name="chevron_right" size={16} className="text-muted-foreground" />
+            </a>
           </CardContent>
         </Card>
       </section>
@@ -559,81 +407,6 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Rename bottom sheet */}
-      {renameTarget && (
-        <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { play('CLOSE'); setRenameTarget(null); setRenameError(null); }} />
-          <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
-            <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-            <h3 className="mb-3 text-sm font-semibold">Перейменувати категорію</h3>
-            <input
-              type="text"
-              value={renameValue}
-              onChange={e => setRenameValue(e.target.value)}
-              className="mb-3 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              placeholder="Нова назва"
-              autoFocus
-            />
-            {renameError && <p className="mb-2 text-xs text-destructive">{renameError}</p>}
-            <div className="flex gap-3">
-              <button onClick={() => { play('CLOSE'); setRenameTarget(null); setRenameError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
-              <button onClick={() => { play('BUTTON'); handleRename(); }} disabled={renameLoading || !renameValue.trim()} className="flex-1 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50">
-                {renameLoading ? '...' : 'Зберегти'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Remove bottom sheet */}
-      {removeTarget && (
-        <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { play('CLOSE'); setRemoveTarget(null); setRemoveError(null); }} />
-          <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
-            <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-            <h3 className="mb-1 text-sm font-semibold">Видалити категорію?</h3>
-            <p className="mb-4 text-xs text-muted-foreground">Всі записи з категорії «{removeTarget.label_ua}» будуть переміщені до «Без категорії».</p>
-            {removeError && <p className="mb-2 text-xs text-destructive">{removeError}</p>}
-            <div className="flex gap-3">
-              <button onClick={() => { play('CLOSE'); setRemoveTarget(null); setRemoveError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
-              <button onClick={() => { play('BUTTON'); handleRemove(); }} disabled={removeLoading} className="flex-1 rounded-full bg-destructive py-3 text-sm font-medium text-destructive-foreground disabled:opacity-50">
-                {removeLoading ? '...' : 'Видалити'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Merge bottom sheet */}
-      {mergeSource && (
-        <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { play('CLOSE'); setMergeSource(null); setMergeTarget(null); setMergeError(null); }} />
-          <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
-            <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-            <h3 className="mb-1 text-sm font-semibold">Об&apos;єднати «{mergeSource.label_ua}» з...</h3>
-            <p className="mb-3 text-xs text-muted-foreground">Оберіть цільову категорію</p>
-            <div className="mb-3 flex flex-col gap-1 max-h-48 overflow-y-auto">
-              {categories.filter(c => c.name !== mergeSource.name && c.name !== 'uncategorized').map(c => (
-                <button
-                  key={c.name}
-                  onClick={() => setMergeTarget(c)}
-                  className={cn('flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors', mergeTarget?.name === c.name ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50')}
-                >
-                  {c.label_ua}
-                  {mergeTarget?.name === c.name && <Icon name="check" size={16} className="text-primary" />}
-                </button>
-              ))}
-            </div>
-            {mergeError && <p className="mb-2 text-xs text-destructive">{mergeError}</p>}
-            <div className="flex gap-3">
-              <button onClick={() => { play('CLOSE'); setMergeSource(null); setMergeTarget(null); setMergeError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
-              <button onClick={() => { play('BUTTON'); handleMerge(); }} disabled={mergeLoading || !mergeTarget} className="flex-1 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50">
-                {mergeLoading ? '...' : 'Об\'єднати'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
