@@ -542,20 +542,19 @@ export default function FeedPage() {
           {groupByDate(groupByThread(entries)).map((group) => (
             <div key={group.dateKey} className="relative">
               {/* Date header with timeline dot */}
-              <div className="flex items-center gap-3 mb-3">
-                <div className="relative flex-shrink-0">
-                  <div className="h-2.5 w-2.5 rounded-full bg-primary/60 ring-2 ring-primary/20" />
-                </div>
-                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              <div className="flex items-center gap-3 mb-3 pl-1">
+                <div className="h-3 w-3 rounded-full bg-primary flex-shrink-0" style={{ boxShadow: '0 0 0 3px rgba(71,151,255,0.2)' }} />
+                <span className="text-xs font-semibold text-foreground/70 uppercase tracking-widest">
                   {group.dateLabel}
                 </span>
               </div>
 
               {/* Timeline spine + entries */}
-              <div className="relative pl-5">
-                {/* Vertical spine line */}
+              <div className="relative pl-6">
+                {/* Vertical spine line — starts below the dot, runs full height of group */}
                 <div
-                  className="absolute left-[4px] top-0 bottom-0 w-px bg-border/40"
+                  className="absolute top-0 bottom-0"
+                  style={{ left: 5, width: 2, background: 'linear-gradient(180deg, #4797FF55 0%, #335B7E33 100%)', borderRadius: 1 }}
                   aria-hidden="true"
                 />
                 <div className="flex flex-col gap-3">
@@ -564,7 +563,7 @@ export default function FeedPage() {
                       return (
                         <div key={item.threadId} className="relative">
                           {/* Node dot on spine */}
-                          <div className="absolute -left-[17px] top-4 h-2 w-2 rounded-full bg-border/60" />
+                          <div className="absolute top-4 h-2 w-2 rounded-full bg-primary/50" style={{ left: -16 }} />
                           <ThreadCard
                             group={item}
                             isSelectMode={isSelectMode}
@@ -581,7 +580,7 @@ export default function FeedPage() {
                     return (
                       <div key={item.id} className="relative">
                         {/* Node dot on spine */}
-                        <div className="absolute -left-[17px] top-4 h-2 w-2 rounded-full bg-border/60" />
+                        <div className="absolute top-4 h-2 w-2 rounded-full bg-primary/50" style={{ left: -16 }} />
                         <SwipeableCard
                           entry={item}
                           isSelectMode={isSelectMode}

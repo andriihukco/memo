@@ -168,11 +168,14 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
 // ── Pill Tab Bar ──────────────────────────────────────────────────────────────
 
 const tabs = [
-  { label: 'Стрічка',  href: '/miniapp',           icon: 'home' },
-  { label: 'Віджети',  href: '/miniapp/dashboard',  icon: 'widgets' },
-  { label: 'Графік',   href: '/miniapp/graph',       icon: 'show_chart' },
-  { label: 'Інсайти',  href: '/miniapp/reports',     icon: 'lightbulb' },
+  { label: 'Стрічка',  href: '/miniapp',           icon: 'contract' },
+  { label: 'Віджети',  href: '/miniapp/dashboard',  icon: 'dashboard' },
+  { label: 'Графік',   href: '/miniapp/graph',       icon: 'hub' },
+  { label: 'Інсайти',  href: '/miniapp/reports',     icon: 'wb_incandescent' },
 ];
+
+const ACTIVE_COLOR = '#4797FF';
+const INACTIVE_COLOR = '#335B7E';
 
 function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: number }) {
   const { play } = useSound();
@@ -185,16 +188,19 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
         bottom: bottomInset + 12,
         left: '50%',
         transform: 'translateX(-50%)',
-        borderRadius: 9999,
-        background: 'rgba(15, 20, 35, 0.92)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
-        width: 'min(calc(100vw - 32px), 320px)',
+        borderRadius: 96,
+        background: '#1F2234',
+        width: 'min(calc(100vw - 32px), 456px)',
+        minWidth: 'min(calc(100vw - 32px), 400px)',
+        height: 100,
         zIndex: 50,
         display: 'flex',
+        flexDirection: 'row',
+        justifyContent: 'center',
         alignItems: 'center',
-        padding: 6,
+        padding: '16px 32px',
+        gap: 32,
+        boxSizing: 'border-box',
       }}
     >
       {tabs.map(({ label, href, icon }) => {
@@ -206,35 +212,34 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
             aria-current={isActive ? 'page' : undefined}
             onClick={() => play('SLIDE')}
             style={{
-              flex: 1,
-              minWidth: 44,
-              minHeight: 44,
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
               justifyContent: 'center',
-              gap: 2,
+              alignItems: 'center',
+              gap: 4,
+              minWidth: 44,
+              minHeight: 68,
               textDecoration: 'none',
+              flex: 'none',
             }}
           >
-            {isActive ? (
-              <div
-                style={{
-                  background: 'rgba(255,255,255,0.12)',
-                  borderRadius: 9999,
-                  padding: '4px 12px',
-                }}
-              >
-                <Icon name={icon} size={22} filled={true} className="text-white" />
-              </div>
-            ) : (
-              <Icon name={icon} size={22} filled={false} className="text-white/40" />
-            )}
+            <Icon
+              name={icon}
+              size={40}
+              filled={isActive}
+              style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
+            />
             <span
-              className={cn(
-                'text-[10px] font-medium leading-none tracking-tight transition-all duration-200',
-                isActive ? 'text-white' : 'text-white/40'
-              )}
+              style={{
+                fontFamily: "'Mulish', sans-serif",
+                fontStyle: 'normal',
+                fontWeight: 500,
+                fontSize: 20,
+                lineHeight: '24px',
+                textAlign: 'center',
+                color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR,
+                whiteSpace: 'nowrap',
+              }}
             >
               {label}
             </span>
@@ -258,8 +263,8 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const didInit = useRef(false);
 
-  // Pill tab bar height: ~56px tall + 12px bottom offset + bottomInset
-  const tabBarH = 56 + 12 + bottomInset;
+  // Pill tab bar height: 100px tall + 12px bottom offset + bottomInset
+  const tabBarH = 100 + 12 + bottomInset;
 
   useEffect(() => {
     async function init() {

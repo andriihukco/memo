@@ -1,3 +1,4 @@
+import React from 'react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -58,9 +59,10 @@ interface IconProps {
   className?: string;
   'aria-label'?: string;
   filled?: boolean;
+  style?: React.CSSProperties;
 }
 
-export function Icon({ name, size = 24, className, filled = false, ...props }: IconProps) {
+export function Icon({ name, size = 24, className, filled = false, style, ...props }: IconProps) {
   return (
     <span
       className={cn('material-symbols-rounded select-none', className)}
@@ -71,6 +73,7 @@ export function Icon({ name, size = 24, className, filled = false, ...props }: I
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
+        ...style,
       }}
       aria-hidden={!props['aria-label']}
       {...props}
