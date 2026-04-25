@@ -182,10 +182,11 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
 // ── Pill Tab Bar ──────────────────────────────────────────────────────────────
 
 const tabs = [
-  { label: 'Стрічка',  href: '/miniapp',           icon: 'contract' },
-  { label: 'Віджети',  href: '/miniapp/dashboard',  icon: 'dashboard' },
-  { label: 'Графік',   href: '/miniapp/graph',       icon: 'hub' },
-  { label: 'Інсайти',  href: '/miniapp/reports',     icon: 'wb_incandescent' },
+  { label: 'Стрічка',  href: '/miniapp',            icon: 'contract' },
+  { label: 'Віджети',  href: '/miniapp/dashboard',   icon: 'dashboard' },
+  { label: 'Графік',   href: '/miniapp/graph',        icon: 'hub' },
+  { label: 'Інсайти',  href: '/miniapp/reports',      icon: 'wb_incandescent' },
+  { label: 'Профіль',  href: '/miniapp/settings',     icon: 'manage_accounts' },
 ];
 
 const ACTIVE_COLOR = '#4797FF';
@@ -204,7 +205,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
         transform: 'translateX(-50%)',
         borderRadius: 48,
         background: '#1F2234',
-        width: 'min(calc(100vw - 24px), 340px)',
+        width: 'min(calc(100vw - 16px), 380px)',
         height: 64,
         zIndex: 50,
         display: 'flex',

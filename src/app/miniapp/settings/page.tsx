@@ -35,7 +35,7 @@ function SoundSection() {
               <p className="text-sm font-medium">Звукові ефекти</p>
               <p className="text-xs text-muted-foreground">{enabled ? 'Увімкнено' : 'Вимкнено'}</p>
             </div>
-            {/* Toggle switch */}
+            {/* Toggle switch — iOS style */}
             <button
               role="switch"
               aria-checked={enabled}
@@ -44,30 +44,20 @@ function SoundSection() {
                 setEnabled(next);
                 if (next) play('TOGGLE_ON'); else play('TOGGLE_OFF');
               }}
-              style={{
-                position: 'relative',
-                width: 44,
-                height: 26,
-                borderRadius: 13,
-                background: enabled ? '#4797FF' : '#335B7E',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-                flexShrink: 0,
-              }}
+              className={cn(
+                'relative flex-shrink-0 rounded-full transition-colors duration-200',
+                enabled ? 'bg-[#4797FF]' : 'bg-[#335B7E]'
+              )}
+              style={{ width: 44, height: 26 }}
             >
-              <span style={{
-                position: 'absolute',
-                top: 3,
-                left: enabled ? 21 : 3,
-                width: 20,
-                height: 20,
-                borderRadius: '50%',
-                background: '#fff',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-                transition: 'left 0.2s',
-                display: 'block',
-              }} />
+              <span
+                className="absolute top-[3px] rounded-full bg-white shadow-sm transition-all duration-200"
+                style={{
+                  width: 20,
+                  height: 20,
+                  left: enabled ? 21 : 3,
+                }}
+              />
             </button>
           </div>
         </CardContent>

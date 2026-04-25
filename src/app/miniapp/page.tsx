@@ -560,12 +560,7 @@ export default function FeedPage() {
           <Button size="sm" variant="outline" onClick={exitSelectMode}>Скасувати</Button>
         </div>
       ) : (
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Стрічка</h1>
-          <Link href="/miniapp/settings" onClick={() => play('BUTTON')}>
-            <UserAvatar size={36} />
-          </Link>
-        </div>
+        <h1 className="text-lg font-semibold">Стрічка</h1>
       )}
 
       {!isSelectMode && (
