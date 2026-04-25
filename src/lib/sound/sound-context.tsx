@@ -87,6 +87,8 @@ export function SoundProvider({ children }: { children: ReactNode }) {
   const SndRef = useRef<any>(null);   // Snd class (for SOUNDS / KITS constants)
   const loadedKitRef = useRef<string | null>(null);
   const loadingRef = useRef(false);
+  // Sounds queued before the kit finishes loading
+  const pendingRef = useRef<string[]>([]);
 
   // Load (or reload) the snd-lib kit
   const loadKit = useCallback(async (targetKit: string) => {
@@ -94,7 +96,6 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     if (loadingRef.current) return;
     loadingRef.current = true;
     try {
-      // Dynamic import keeps snd-lib out of the SSR bundle
       const mod = await import('snd-lib');
       const Snd = mod.default ?? mod;
       SndRef.current = Snd;
@@ -106,8 +107,18 @@ export function SoundProvider({ children }: { children: ReactNode }) {
       const kitKey = (Snd.KITS as Record<string, unknown>)[targetKit];
       await sndRef.current.load(kitKey);
       loadedKitRef.current = targetKit;
+
+      // Flush any sounds that were queued while loading
+      const pending = pendingRef.current.splice(0);
+      for (const sound of pending) {
+        const soundKey = SOUND_MAP[sound];
+        if (!soundKey) continue;
+        const constant = (SndRef.current.SOUNDS as Record<string, unknown>)[soundKey];
+        if (constant !== undefined) {
+          try { sndRef.current.play(constant); } catch { /* ignore */ }
+        }
+      }
     } catch (err) {
-      // Silently degrade — play() will be a no-op if loading failed
       console.warn('[SoundProvider] Failed to load snd-lib:', err);
     } finally {
       loadingRef.current = false;
@@ -142,7 +153,12 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     (sound: string) => {
       if (!enabled) return;
       if (typeof window === 'undefined') return;
-      if (!sndRef.current || !SndRef.current) return;
+
+      // Kit still loading — queue the sound to play once ready
+      if (!sndRef.current || !SndRef.current) {
+        if (loadingRef.current) pendingRef.current.push(sound);
+        return;
+      }
 
       const soundKey = SOUND_MAP[sound];
       if (!soundKey) return;
