@@ -214,6 +214,15 @@ export function SplashScreen() {
       <div className="relative z-10 flex flex-col items-center gap-6">
         {/* Logo with shimmer skeleton effect */}
         <div className="relative">
+          {/* Radial vignette — fades corners into the dark background */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              zIndex: 2,
+              borderRadius: 24,
+              background: 'radial-gradient(ellipse at center, transparent 45%, #080c14 100%)',
+            }}
+          />
           {/* Shimmer overlay */}
           <div
             className="absolute inset-0 rounded-3xl overflow-hidden"

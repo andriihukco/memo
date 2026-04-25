@@ -16,6 +16,7 @@ import { ErrorBanner } from '@/components/ui/error-banner';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
+import { useReportGeneration } from '@/lib/report-generation-context';
 
 interface ReportSummary {
   id: string;
@@ -322,19 +323,18 @@ export default function ReportsPage() {
   const { accessToken } = useAuth();
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [genError, setGenError] = useState<string | null>(null);
   const [showNewReport, setShowNewReport] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportSummary | null>(null);
-  const [pendingLabel, setPendingLabel] = useState<string | null>(null); // label for in-progress skeleton row
   const lastGenParams = useRef<{ periodType: string; from?: Date; to?: Date } | null>(null);
-  const progressLabel = useProgressLabel(generating);
   const { play } = useSound();
 
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallProps, setPaywallProps] = useState<{ feature: string; current?: number; limit?: number; requiredTier: SubscriptionTier }>({ feature: 'ai_reports', requiredTier: 'stars_basic' });
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
   const { counts } = useUsageCounts(accessToken);
+
+  // Use shared generation context — survives tab switches
+  const { generating, pendingLabel: ctxPendingLabel, startGeneration, setOnComplete } = useReportGeneration();
 
   const fetchUserTier = useCallback(async () => {
     if (!accessToken) return;
@@ -356,43 +356,16 @@ export default function ReportsPage() {
     } finally { setLoading(false); }
   }, [accessToken]);
 
+  // Register reload callback with the context so it fires when generation completes
+  useEffect(() => {
+    setOnComplete(() => loadReports);
+    return () => setOnComplete(null);
+  }, [setOnComplete, loadReports]);
+
   useEffect(() => { loadReports(); fetchUserTier(); }, [loadReports, fetchUserTier]);
 
-  const generateReport = async (periodType: string, from?: Date, to?: Date) => {
-    if (!accessToken || generating) return; // hard guard — no double generation
-    lastGenParams.current = { periodType, from, to };
-    setGenerating(true);
-    setPendingLabel(PERIOD_LABELS[periodType] ?? 'Ретроспектива');
-    play('PROCESSING');
-    setGenError(null);
-    try {
-      const body: Record<string, unknown> = { period_type: periodType };
-      if (from) body.from = from.toISOString();
-      if (to) body.to = to.toISOString();
-      const res = await fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (res.status === 402) {
-        setPaywallProps({ feature: data.feature ?? 'reports', current: data.current, limit: data.limit, requiredTier: (data.required_tier as SubscriptionTier) ?? 'stars_basic' });
-        setPaywallOpen(true);
-        play('CAUTION');
-      } else if (!res.ok) {
-        setGenError(data.error ?? `Помилка ${res.status}`);
-        play('CAUTION');
-      } else {
-        await loadReports();
-        play('CELEBRATION');
-      }
-    } catch (err) {
-      setGenError(err instanceof Error ? err.message : 'Невідома помилка');
-      play('CAUTION');
-    } finally {
-      setGenerating(false);
-      setPendingLabel(null);
-    }
+  const generateReport = (periodType: string, from?: Date, to?: Date) => {
+    startGeneration(periodType, from, to);
   };
 
   const deleteReport = async (id: string) => {
@@ -406,7 +379,6 @@ export default function ReportsPage() {
   const reportsLimit = tierLimits?.reports ?? 5;
   const reportsUsed = counts?.reports ?? 0;
   const _reportsLeft = reportsLimit === Infinity ? null : Math.max(0, reportsLimit - reportsUsed);
-
   const monthGroups = groupReportsByMonth(reports);
 
   // If a report is selected, show detail view
@@ -447,16 +419,7 @@ export default function ReportsPage() {
 
       {/* Usage counter removed — visible only on plans/subscriptions page */}
 
-      {/* Generating indicator — removed, now shown as skeleton row in list */}
-
-      {/* Error banner */}
-      {genError && (
-        <ErrorBanner
-          message={genError}
-          onRetry={() => { if (lastGenParams.current) { const { periodType, from, to } = lastGenParams.current; generateReport(periodType, from, to); } }}
-          onDismiss={() => setGenError(null)}
-        />
-      )}
+      {/* Error banner — now shown as persistent toast in layout */}
 
       {/* Loading */}
       {loading && (
@@ -486,7 +449,7 @@ export default function ReportsPage() {
 
       {/* In-progress skeleton row — shown immediately when generation starts */}
       <AnimatePresence>
-        {generating && pendingLabel && (
+        {generating && ctxPendingLabel && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -498,12 +461,11 @@ export default function ReportsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary shrink-0" />
-                  <span className="text-[15px] font-semibold text-muted-foreground">{pendingLabel}</span>
+                  <span className="text-[15px] font-semibold text-muted-foreground">{ctxPendingLabel}</span>
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Генерується</span>
                 </div>
                 <div className="h-2.5 w-3/4 rounded-full bg-muted/50 animate-pulse" />
                 <div className="h-2 w-1/2 rounded-full bg-muted/30 animate-pulse mt-1.5" />
-                <p className="text-[12px] text-muted-foreground/60 mt-1.5">{progressLabel}</p>
               </div>
             </div>
           </motion.div>
