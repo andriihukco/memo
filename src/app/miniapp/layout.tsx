@@ -131,9 +131,12 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       const tg = window.Telegram?.WebApp;
       if (!tg?.openInvoice) throw new Error('no tg');
 
-      tg.openInvoice(data.invoiceLink, () => {
+      tg.openInvoice(data.invoiceLink, (status) => {
         setPaying(null);
-        finish(); // always finish onboarding after payment attempt
+        if (status === 'paid') {
+          finish(); // only finish onboarding after successful payment
+        }
+        // cancelled or failed — stay on paywall so user can try again or continue free
       });
     } catch {
       setPaying(null);
@@ -281,6 +284,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
       setIndex(i => i + 1);
     } else {
       // Final slide CTA → show paywall instead of finishing directly
+      play('OPEN');
       openPaywall();
     }
   };
@@ -330,7 +334,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
         {/* Skip */}
         <button
           onClick={() => { play('CLOSE'); openPaywall(); }}
-          className="absolute right-5 top-14 text-sm text-white/40 active:text-white/70"
+          className="absolute right-5 top-5 text-sm text-white/40 active:text-white/70 min-h-[44px] flex items-center"
         >
           Пропустити
         </button>

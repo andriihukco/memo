@@ -301,7 +301,10 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
       const res = await fetch('/api/widgets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ prompt: `${selectedCategory.label}: ${prompt}` }),
+        body: JSON.stringify({
+          prompt: `${selectedCategory.label}: ${prompt}`,
+          answers: { question: prompt }, // bypass clarifying questions — sheet already handles selection
+        }),
       });
       const data = await res.json();
       if (res.status === 402) {
@@ -875,7 +878,7 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
       </div>
 
       {/* Inline custom date range */}
-      <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' ? 'max-h-40' : 'max-h-0')}>
+      <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' ? 'max-h-56' : 'max-h-0')}>
         <div className="mx-4 h-px bg-border/40" />
         <div className="px-4 pt-3 pb-1 flex items-center gap-2">
           <input
@@ -892,14 +895,10 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
             className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
-      </div>
-
-      {/* CTA for custom */}
-      {selected === 'custom' && (
-        <div className="px-4 pt-3">
+        <div className="px-4 pt-2 pb-1">
           <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
         </div>
-      )}
+      </div>
     </BottomSheet>
   );
 }
@@ -1578,7 +1577,10 @@ export default function DashboardPage() {
       {showCreateWidget && (
         <CreateWidgetSheet
           onClose={() => { play('CLOSE'); setShowCreateWidget(false); }}
-          onCreated={(widget) => setCustomWidgets(prev => [...prev.filter(w => w.id !== widget.id), widget])}
+          onCreated={(widget) => {
+            setCustomWidgets(prev => [...prev.filter(w => w.id !== widget.id), widget]);
+            fetchCustomWidgets(); // re-sync from server to ensure consistency
+          }}
           onPaywall={openPaywall}
           accessToken={accessToken}
         />

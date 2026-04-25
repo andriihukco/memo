@@ -197,7 +197,6 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6 px-4 pt-5 pb-6">
-      <h1 className="text-lg font-semibold">Профіль</h1>
 
       {/* ── Subscription ────────────────────────────────────────────────────── */}
       <section>
