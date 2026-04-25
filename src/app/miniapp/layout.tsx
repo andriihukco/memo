@@ -714,82 +714,6 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
 // ── Main layout ───────────────────────────────────────────────────────────────
 
 const rootPaths = ['/miniapp', '/miniapp/dashboard', '/miniapp/graph', '/miniapp/reports', '/miniapp/settings'];
-
-// ── ReportGenerationToast — persistent across tab switches ────────────────────
-
-function ReportGenerationToast({ bottomInset }: { bottomInset: number }) {
-  const { generating, pendingLabel, genError, clearError, lastParams, startGeneration } = useReportGeneration();
-  const { play } = useSound();
-
-  const PROGRESS_LABELS = [
-    'Збираю записи...', 'Аналізую патерни...', 'Оцінюю прогрес...',
-    'Шукаю інсайти...', 'Формую ретроспективу...', 'Майже готово...',
-  ];
-  const [labelIdx, setLabelIdx] = useState(0);
-  useEffect(() => {
-    if (!generating) { setLabelIdx(0); return; }
-    const t = setInterval(() => setLabelIdx(i => (i + 1) % PROGRESS_LABELS.length), 1800);
-    return () => clearInterval(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generating]);
-
-  if (!generating && !genError) return null;
-
-  return (
-    <AnimatePresence>
-      {(generating || genError) && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 12 }}
-          transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-          className="fixed left-3 right-3 z-40 rounded-2xl border shadow-lg"
-          style={{
-            bottom: `calc(${bottomInset + 64 + 10 + 8}px)`,
-            background: genError ? 'rgba(30,10,10,0.95)' : 'rgba(10,18,40,0.95)',
-            borderColor: genError ? 'rgba(239,68,68,0.3)' : 'rgba(71,151,255,0.25)',
-            backdropFilter: 'blur(12px)',
-          }}
-        >
-          {generating && (
-            <div className="flex items-center gap-3 px-4 py-3">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary/30 border-t-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-[13px] font-medium text-foreground truncate">
-                  {pendingLabel ?? 'Ретроспектива'}
-                </p>
-                <p className="text-[11px] text-muted-foreground">{PROGRESS_LABELS[labelIdx]}</p>
-              </div>
-            </div>
-          )}
-          {genError && (
-            <div className="flex items-center gap-3 px-4 py-3">
-              <span className="text-base shrink-0">⚠️</span>
-              <p className="flex-1 text-[13px] text-destructive leading-snug">{genError}</p>
-              <div className="flex gap-1 shrink-0">
-                {lastParams && (
-                  <button
-                    onClick={() => { play('BUTTON'); clearError(); startGeneration(lastParams.periodType, lastParams.from, lastParams.to); }}
-                    className="rounded-full bg-primary/15 px-3 py-1.5 text-[12px] font-medium text-primary"
-                  >
-                    Повторити
-                  </button>
-                )}
-                <button
-                  onClick={() => { play('CLOSE'); clearError(); }}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-muted/60 text-muted-foreground text-[14px]"
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
 function MiniAppContent({ children }: { children: React.ReactNode }) {
   const { setAccessToken } = useAuth();
   const { play } = useSound();
@@ -1013,9 +937,6 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
       </main>
 
       <PillTabBar pathname={pathname} bottomInset={bottomInset} />
-
-      {/* Persistent report generation toast — survives tab switches */}
-      <ReportGenerationToast bottomInset={bottomInset} />
 
       {/* Renewal banner — shown once per day when subscription has expired */}
       {showRenewalBanner && (
