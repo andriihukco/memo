@@ -35,11 +35,20 @@ export async function GET(req: Request): Promise<Response> {
     });
   }
 
-  const supabase = makeAnonClient(jwt);
+  // Verify token and get user id via service client
+  const supabase = makeServiceClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, subscription_tier, subscription_status, subscription_ends_at, subscription_start_date")
+    .eq("id", user.id)
     .single();
 
   if (error) {
