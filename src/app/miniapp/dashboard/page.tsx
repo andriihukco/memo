@@ -1355,19 +1355,6 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-[28px] font-bold leading-tight">Віджети</h1>
-          {/* Usage counter chip — shown when Free tier and AI widget usage ≥ 2 */}
-          {userTier === 'free' && (() => {
-            const aiCount = customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length;
-            return aiCount >= 2 ? (
-              <button
-                onClick={() => openPaywall('ai_widgets', aiCount, 3, 'stars_basic')}
-                className="flex items-center gap-1 rounded-full border border-amber-400/30 px-2 py-0.5 text-[11px] text-amber-400/80"
-              >
-                <Icon name="lock" size={10} className="text-amber-400/60" />
-                {3 - aiCount} AI
-              </button>
-            ) : null;
-          })()}
         </div>
         <div className="flex items-center gap-2">
           {/* Date picker */}

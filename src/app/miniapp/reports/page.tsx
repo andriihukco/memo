@@ -319,8 +319,6 @@ export default function ReportsPage() {
   const [paywallProps, setPaywallProps] = useState<{ feature: string; current?: number; limit?: number; requiredTier: SubscriptionTier }>({ feature: 'ai_reports', requiredTier: 'stars_basic' });
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
   const { counts } = useUsageCounts(accessToken);
-
-  const fetchUserTier = useCallback(async () => {
     if (!accessToken) return;
     try {
       const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
@@ -425,21 +423,7 @@ export default function ReportsPage() {
         </button>
       </div>
 
-      {/* Usage counter — reports only, minimal */}
-      {userTier && reportsLeft !== null && (
-        <button
-          onClick={() => { setPaywallProps({ feature: 'reports', current: reportsUsed, limit: reportsLimit, requiredTier: 'stars_basic' }); setPaywallOpen(true); }}
-          className={cn(
-            'self-start flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors',
-            reportsLeft <= 1
-              ? 'border-amber-400/30 text-amber-400/80'
-              : 'border-border/30 text-muted-foreground/60'
-          )}
-        >
-          {reportsLeft <= 1 && <Icon name="lock" size={10} className="text-amber-400/60" />}
-          {reportsLeft} звітів
-        </button>
-      )}
+      {/* Usage counter removed — visible only on plans/subscriptions page */}
 
       {/* Generating indicator */}
       <AnimatePresence>

@@ -114,7 +114,7 @@ const CLASSIFY_PROMPT = `You are a personal diary assistant. Classify the user m
 
 INTENT RULES — read carefully:
 - save_entry → user logs/records something about themselves NOW (food eaten, activity done, mood felt, event happened). Also use save_entry when user says "порахуй/calculate X" meaning they want to LOG it.
-- question   → user asks about PAST diary data they already logged ("скільки я з'їв", "що я робив вчора", "покажи мої витрати"). Also: "insight about me", "what do you know about me", "my habits", "my patterns", "recent activity", "what have I been doing", "show me my stats", "how much did I eat", "what did I eat most", "tell me about myself", "my recent entries"
+- question   → user asks about PAST diary data they already logged ("скільки я з'їв", "що я робив вчора", "покажи мої витрати"). Also: "insight about me", "what do you know about me", "my habits", "my patterns", "recent activity", "what have I been doing", "show me my stats", "how much did I eat", "what did I eat most", "tell me about myself", "my recent entries", "що ти знаєш про мене", "що ти знаєш про мене від мене", "що тобі відомо про мене", "що тобі від мене", "розкажи про мене", "що ти про мене знаєш", "що ти можеш сказати про мене", "які мої звички", "мої патерни", "моя активність", "що я робив", "що я їв", "мої записи", "покажи мої дані", "що в моєму щоденнику", "що ти пам'ятаєш про мене", "що ти знаєш"
 - converse   → user shares feelings, vents, reflects — save + empathetic reply
 - smalltalk  → greetings, thanks, "ok", "👍", bye — do NOT save
 - action     → command to the bot: delete records, edit records, configure settings, create widgets
@@ -139,6 +139,16 @@ CRITICAL DISTINCTION — save_entry vs question:
 - "what did I eat most?" → question
 - "my habits" → question
 - "tell me about myself" → question
+- "що тобі від мене" → question (unusual phrasing = "what do you know about me")
+- "що тобі відомо про мене" → question
+- "що ти про мене знаєш" → question
+- "що ти можеш сказати про мене" → question
+- "розкажи про мене" → question
+- "що в моєму щоденнику" → question
+- "що ти пам'ятаєш про мене" → question
+- "мої звички" → question
+- "моя активність" → question
+- "мої патерни" → question
 
 CATEGORIES (is_new_category=false for all listed):
 thoughts, ideas, feelings, expenses, calories, workout, goals, sleep, health, dreams, books, work, relationships, travel, gratitude, music, social
