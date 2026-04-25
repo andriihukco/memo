@@ -141,10 +141,8 @@ function getEncryptionPepper(): string {
 }
 
 function getCrypto(): Crypto {
-  if (typeof globalThis.crypto !== "undefined") return globalThis.crypto;
-  // Node 18 fallback (should not be needed in practice)
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  return require("crypto").webcrypto as Crypto;
+  // globalThis.crypto is available in Edge runtime, Node 18+, and all modern browsers
+  return globalThis.crypto;
 }
 
 // ── Base64 helpers (no Buffer dependency — works in Edge runtime) ─────────────
