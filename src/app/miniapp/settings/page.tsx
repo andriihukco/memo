@@ -129,7 +129,17 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [userTier, setUserTier] = useState<string | null>(null);
   const router = useRouter();
+
+  // Fetch subscription tier for delete warning
+  useEffect(() => {
+    if (!accessToken) return;
+    fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => r.json())
+      .then(d => setUserTier(d.profile?.subscription_tier ?? 'free'))
+      .catch(() => {});
+  }, [accessToken]);
 
   // Register inline sheets with body attribute so tab bar hides
   useSheetBodyAttr(showDeleteConfirm);
@@ -374,9 +384,20 @@ export default function SettingsPage() {
               <Icon name="delete_forever" size={24} className="text-destructive" />
             </div>
             <h3 className="mb-1 text-center text-base font-semibold">Видалити акаунт?</h3>
-            <p className="mb-5 text-center text-sm text-muted-foreground">
+            <p className="mb-4 text-center text-sm text-muted-foreground">
               Всі твої записи, категорії та налаштування будуть видалені назавжди. Це дію неможливо скасувати.
             </p>
+
+            {/* Subscription warning */}
+            {userTier && userTier !== 'free' && (
+              <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-3">
+                <span className="text-lg leading-none shrink-0">⚠️</span>
+                <p className="text-[13px] text-amber-300 leading-snug">
+                  У тебе активна підписка <span className="font-semibold">{userTier === 'stars_pro' ? 'Memo Pro' : 'Memo Basic'}</span>. Після видалення акаунту вона буде втрачена без відшкодування.
+                </p>
+              </div>
+            )}
+
             {deleteError && <p className="mb-3 text-center text-xs text-destructive">{deleteError}</p>}
             <div className="flex flex-col gap-2">
               <button
