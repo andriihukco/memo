@@ -444,7 +444,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
             key={href}
             href={href}
             aria-current={isActive ? 'page' : undefined}
-            onClick={() => play('SLIDE')}
+            onClick={() => play(isActive ? 'SELECT' : 'SLIDE')}
             style={{
               display: 'flex',
               flexDirection: 'column',

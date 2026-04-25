@@ -117,6 +117,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!accessToken) return;
     setCatLoading(true);
+    setCatError(null);
     fetch('/api/categories', { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.json())
       .then(d => setCategories(d.categories ?? []))
@@ -132,17 +133,6 @@ export default function SettingsPage() {
 
   // Register inline sheets with body attribute so tab bar hides
   useSheetBodyAttr(showDeleteConfirm);
-
-  useEffect(() => {
-    if (!accessToken) return;
-    setCatLoading(true);
-    setCatError(null);
-    fetch('/api/categories', { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then(r => r.json())
-      .then(d => setCategories(d.categories ?? []))
-      .catch(() => setCatError('Не вдалося завантажити категорії'))
-      .finally(() => setCatLoading(false));
-  }, [accessToken]);
 
   // ── Passcode handlers ─────────────────────────────────────────────────────
   const handleEnablePasscode = () => setStep('set_new');
@@ -207,12 +197,12 @@ export default function SettingsPage() {
             <a href="/miniapp/subscriptions"
               onClick={() => play('OPEN')}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <Icon name="lock_open" size={16} className="text-primary" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/15">
+                <span className="text-base leading-none">⭐</span>
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Підписка Stars</p>
-                <p className="text-xs text-muted-foreground">Підтримайте проект та отримайте додаткові функції</p>
+                <p className="text-sm font-medium">Підписка Memo</p>
+                <p className="text-xs text-muted-foreground">Розблокуй AI-функції та більше лімітів</p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
             </a>

@@ -11,6 +11,7 @@ import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { cn } from '@/lib/utils';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
+import { useSound } from '@/lib/sound/use-sound';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -103,12 +104,13 @@ interface NodeDetailPanelProps {
 
 function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, accessToken }: NodeDetailPanelProps) {
   const [editEntry, setEditEntry] = useState<GraphNode | null>(null);
+  const { play } = useSound();
 
   if (!node) return null;
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} aria-hidden="true" />
+      <div className="fixed inset-0 z-40 bg-black/20" onClick={() => { play('CLOSE'); onClose(); }} aria-hidden="true" />
       <div
         className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-background px-5 pt-3 shadow-xl"
         style={{
@@ -123,7 +125,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
 
         {/* Close */}
         <button
-          onClick={onClose}
+          onClick={() => { play('CLOSE'); onClose(); }}
           className="absolute right-4 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground"
           aria-label="Закрити"
         >
@@ -141,7 +143,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
         {/* Full content — tap to edit */}
         <p
           className="mb-4 cursor-pointer text-sm leading-relaxed text-foreground active:opacity-70"
-          onClick={() => setEditEntry(node)}
+          onClick={() => { play('OPEN'); setEditEntry(node); }}
         >
           {node.label}
         </p>
@@ -160,7 +162,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
                   <div
                     key={n.id}
                     className="cursor-pointer rounded-xl bg-muted/50 px-3 py-2.5 active:opacity-70"
-                    onClick={() => setEditEntry(n)}
+                    onClick={() => { play('OPEN'); setEditEntry(n); }}
                   >
                     {isDifferentCategory && (
                       <div className="mb-1.5">
@@ -205,6 +207,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
 
 export default function GraphPage() {
   const { accessToken } = useAuth();
+  const { play } = useSound();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -344,6 +347,7 @@ export default function GraphPage() {
       .attr('stroke-width', 2)
       .style('cursor', 'pointer')
       .on('click', (_event, d) => {
+        play('OPEN');
         const connected = links
           .filter((l) => (l.source as SimNode).id === d.id || (l.target as SimNode).id === d.id)
           .map((l) => {
@@ -469,7 +473,7 @@ export default function GraphPage() {
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
             <p className="mb-1 text-sm font-medium">Не вдалося завантажити граф</p>
             <p className="mb-4 text-xs text-muted-foreground">{errorMsg}</p>
-            <Button size="sm" onClick={fetchGraph}>Спробувати знову</Button>
+            <Button size="sm" onClick={() => { play('BUTTON'); fetchGraph(); }}>Спробувати знову</Button>
           </div>
         )}
         {status === 'ready' && graphData?.nodes.length === 0 && (
@@ -485,7 +489,7 @@ export default function GraphPage() {
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-xl">
             <Icon name="lock" size={48} className="text-muted-foreground/40" />
             <p className="text-[17px] font-semibold text-muted-foreground">Доступно з Basic</p>
-            <Button onClick={() => openPaywall('graph_full', undefined, undefined, 'stars_basic')} className="min-h-[44px]">
+            <Button onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }} className="min-h-[44px]">
               Розблокувати
             </Button>
           </div>
