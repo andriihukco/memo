@@ -333,7 +333,10 @@ export default function GraphPage() {
   const [showDateSheet, setShowDateSheet] = useState(false);
 
   // ── User tier ──────────────────────────────────────────────────────────────
-  const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
+  // Start as 'free' so the paywall overlay shows immediately while loading.
+  // It will be hidden once we confirm the user has a paid tier.
+  const [userTier, setUserTier] = useState<SubscriptionTier>('free');
+  const [tierLoaded, setTierLoaded] = useState(false);
 
   // ── Paywall state ──────────────────────────────────────────────────────────
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -355,8 +358,14 @@ export default function GraphPage() {
       const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) return;
       const { profile } = await res.json();
-      setUserTier((profile?.subscription_tier as SubscriptionTier) ?? 'free');
-    } catch { /* non-critical */ }
+      // Compute effective tier client-side — respect expiry
+      const rawTier = (profile?.subscription_tier as SubscriptionTier) ?? 'free';
+      const endsAt = profile?.subscription_ends_at ? new Date(profile.subscription_ends_at) : null;
+      const isExpired = endsAt ? endsAt < new Date() : false;
+      const effectiveTier: SubscriptionTier = (rawTier !== 'free' && isExpired) ? 'free' : rawTier;
+      setUserTier(effectiveTier);
+    } catch { /* on error, keep 'free' — paywall stays visible */ }
+    finally { setTierLoaded(true); }
   }, [accessToken]);
 
   const fetchGraph = useCallback(async () => {
@@ -721,7 +730,7 @@ export default function GraphPage() {
         )}
         {/* Free tier overlay — shown when userTier is known and is 'free' */}
         <AnimatePresence>
-          {userTier === 'free' && (
+          {tierLoaded && userTier === 'free' && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

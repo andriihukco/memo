@@ -151,7 +151,25 @@ export async function createSubscription(
   }
 
   // Set correct expiry based on billing period
-  const endsAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  // Stack on top of existing subscription if still active
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("subscription_ends_at, subscription_tier")
+    .eq("id", userId)
+    .single();
+
+  const currentEndsAt = currentProfile?.subscription_ends_at
+    ? new Date(currentProfile.subscription_ends_at)
+    : null;
+  const isCurrentlyActive = currentEndsAt && currentEndsAt > new Date();
+
+  // If upgrading to a higher tier while active, start from now
+  // If same tier while active, stack days on top of current expiry
+  const baseDate = (isCurrentlyActive && currentProfile?.subscription_tier === tier)
+    ? currentEndsAt!
+    : new Date();
+
+  const endsAt = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
   await supabase
     .from("profiles")
     .update({ subscription_ends_at: endsAt })

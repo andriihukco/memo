@@ -268,6 +268,21 @@ export default function SubscriptionsPage() {
     if (!accessToken || !profile) return;
     setPaying(tier);
     setError(null);
+
+    // If user already has an active subscription, show stacking info before proceeding
+    const currentEndsAt = profile.subscription_ends_at ? new Date(profile.subscription_ends_at) : null;
+    const isCurrentlyActive = currentEndsAt && currentEndsAt > new Date() && profile.subscription_tier !== 'free';
+    if (isCurrentlyActive) {
+      const periodDays = BILLING_PERIODS[billingPeriod].days;
+      const newEndsAt = new Date(currentEndsAt!.getTime() + periodDays * 24 * 60 * 60 * 1000);
+      const fmtNewEnd = newEndsAt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+      // Show info — user confirmed by tapping the button, so proceed
+      setError(`ℹ️ Твоя підписка буде продовжена до ${fmtNewEnd}`);
+      // Small delay so user sees the message, then open invoice
+      await new Promise(r => setTimeout(r, 1800));
+      setError(null);
+    }
+
     try {
       const res = await fetch('/api/stars/invoice', {
         method: 'POST',

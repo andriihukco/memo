@@ -659,10 +659,11 @@ interface LogEntrySheetProps {
   onSaved: () => void;
   onViewEntries: () => void;
   onDelete: (widgetId: string) => void;
+  onPaywall: (feature: string, current: number | undefined, limit: number | undefined, requiredTier: SubscriptionTier) => void;
   accessToken?: string | null;
 }
 
-function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete, accessToken }: LogEntrySheetProps) {
+function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete, onPaywall, accessToken }: LogEntrySheetProps) {
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -704,6 +705,17 @@ function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete
           },
         }),
       });
+      if (res.status === 402) {
+        const data = await res.json();
+        onClose();
+        onPaywall(
+          data.feature ?? 'entries',
+          data.current,
+          data.limit,
+          (data.required_tier as SubscriptionTier) ?? 'stars_basic',
+        );
+        return;
+      }
       if (!res.ok) throw new Error('Failed');
       play('CELEBRATION');
       onSaved();
@@ -1646,6 +1658,7 @@ export default function DashboardPage() {
           onSaved={() => { fetchEntries(filter.from, filter.to); }}
           onViewEntries={() => { setLogEntry(null); openDrillDown(logEntry.drillEntries, logEntry.widget.title); }}
           onDelete={(widgetId) => { deleteWidget(widgetId); setLogEntry(null); }}
+          onPaywall={openPaywall}
           accessToken={accessToken}
         />
       )}

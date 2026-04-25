@@ -6,8 +6,8 @@ import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { useSound } from '@/lib/sound/use-sound';
 import { useAuth } from '@/lib/supabase/auth-context';
-import type { SubscriptionTier } from '@/lib/stars/paywall';
-import { TIER_INFO } from '@/lib/stars/paywall';
+import type { SubscriptionTier, BillingPeriod } from '@/lib/stars/paywall';
+import { TIER_INFO, BILLING_PERIODS, calcPrice } from '@/lib/stars/paywall';
 import { cn } from '@/lib/utils';
 
 // ── Feature copy map ──────────────────────────────────────────────────────────
@@ -115,6 +115,7 @@ export function PaywallModal({
   const [selectedTier, setSelectedTier] = useState<'stars_basic' | 'stars_pro'>(
     requiredTier === 'stars_pro' ? 'stars_pro' : 'stars_basic'
   );
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
 
   const copy = PAYWALL_COPY[feature] ?? FALLBACK_COPY;
 
@@ -124,6 +125,7 @@ export function PaywallModal({
       setError(null);
       setPaying(false);
       setSelectedTier(requiredTier === 'stars_pro' ? 'stars_pro' : 'stars_basic');
+      setBillingPeriod('monthly');
     }
   }, [open, play, requiredTier]);
 
@@ -148,7 +150,7 @@ export function PaywallModal({
       const res = await fetch('/api/stars/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ userId: profile.id, tier: selectedTier }),
+        body: JSON.stringify({ userId: profile.id, tier: selectedTier, billingPeriod }),
       });
       const data = await res.json();
       if (!data.ok || !data.invoiceLink) throw new Error(data.error ?? 'no invoice');
@@ -177,6 +179,8 @@ export function PaywallModal({
   };
 
   const selectedInfo = TIER_INFO[selectedTier];
+  const starsPrice = calcPrice(selectedInfo.priceStars, billingPeriod);
+  const periodInfo = BILLING_PERIODS[billingPeriod];
   const features = selectedTier === 'stars_basic' ? copy.basicFeatures : copy.proFeatures;
 
   return (
@@ -213,6 +217,34 @@ export function PaywallModal({
           })}
         </div>
 
+        {/* Billing period switcher */}
+        <div className="flex rounded-xl bg-muted/40 p-1 gap-1">
+          {(['monthly', 'quarterly', 'annual'] as BillingPeriod[]).map((p) => {
+            const info = BILLING_PERIODS[p];
+            const isSelected = billingPeriod === p;
+            return (
+              <button
+                key={p}
+                onClick={() => { play('SELECT'); setBillingPeriod(p); }}
+                className={cn(
+                  'relative flex-1 flex flex-col items-center justify-center rounded-lg py-1.5 text-[12px] font-medium transition-all',
+                  isSelected ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                )}
+              >
+                {info.badge && (
+                  <span className={cn(
+                    'absolute -top-2 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap',
+                    isSelected ? 'bg-green-500 text-white' : 'bg-green-500/20 text-green-400'
+                  )}>
+                    {info.badge}
+                  </span>
+                )}
+                {info.label}
+              </button>
+            );
+          })}
+        </div>
+
         {/* Selected plan details */}
         <div className="rounded-xl border border-border/40 bg-card/60 px-4 py-3.5">
           <div className="flex items-center justify-between mb-3">
@@ -221,8 +253,15 @@ export function PaywallModal({
               <p className="text-[15px] font-semibold">{selectedInfo.name}</p>
             </div>
             <div className="text-right">
-              <p className="text-[17px] font-bold">{selectedInfo.priceStars} ⭐</p>
-              <p className="text-[10px] text-muted-foreground">/ місяць</p>
+              <p className="text-[17px] font-bold">{starsPrice} ⭐</p>
+              <p className="text-[10px] text-muted-foreground">
+                {billingPeriod === 'monthly' ? '/ місяць' : `/ ${periodInfo.label.toLowerCase()}`}
+              </p>
+              {billingPeriod !== 'monthly' && (
+                <p className="text-[10px] text-green-400">
+                  ≈ {Math.round(starsPrice / periodInfo.months)} ⭐/міс
+                </p>
+              )}
             </div>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -252,7 +291,7 @@ export function PaywallModal({
                 Відкриваємо оплату...
               </span>
             ) : (
-              `Підписатися — ${selectedInfo.priceStars} ⭐`
+              `Підписатися — ${starsPrice} ⭐`
             )}
           </Button>
           <Button variant="ghost" className="w-full min-h-[44px]" onClick={() => { play('CLOSE'); onClose(); }}>
