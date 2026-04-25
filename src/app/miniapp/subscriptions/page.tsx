@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
-import { Icon } from '@/components/ui/icon';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { cn } from '@/lib/utils';

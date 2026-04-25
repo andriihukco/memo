@@ -34,9 +34,6 @@ interface Entry {
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString('uk-UA', { hour: '2-digit', minute: '2-digit' });
 }
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('uk-UA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
 
 // ── UserAvatar ────────────────────────────────────────────────────────────────
 
