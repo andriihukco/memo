@@ -67,7 +67,7 @@ function SoundSection() {
                 'relative flex-shrink-0 rounded-full transition-colors duration-200',
                 mounted && enabled ? 'bg-[#4797FF]' : 'bg-[#335B7E]'
               )}
-              style={{ width: 44, height: 26 }}
+              style={{ width: 44, height: 26, minWidth: 44, minHeight: 26 }}
             >
               <span
                 className="absolute top-[3px] rounded-full bg-white shadow-sm transition-all duration-200"
