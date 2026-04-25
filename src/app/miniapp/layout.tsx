@@ -554,7 +554,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
               />
               <span
                 style={{
-                  fontFamily: "'Mulish', sans-serif",
+                  fontFamily: "'Comfortaa', 'Mulish', sans-serif",
                   fontWeight: 500,
                   fontSize: 11,
                   lineHeight: '14px',
@@ -733,6 +733,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
       style={{
         '--bottom-inset': `${bottomInset}px`,
         '--tab-bar-h': `${tabBarH}px`,
+        fontFamily: "'Comfortaa', 'Mulish', sans-serif",
       } as React.CSSProperties}
     >
       {showOnboarding && (
