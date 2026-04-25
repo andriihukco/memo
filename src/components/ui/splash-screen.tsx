@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -152,15 +152,6 @@ function spawnShootingStar(W: number, H: number): ShootingStar {
 export function SplashScreen() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef    = useRef<number>(0);
-  const [dots, setDots] = useState(1);
-
-  // Cycling dots: . → .. → ... → . every 500ms
-  useEffect(() => {
-    const id = setInterval(() => {
-      setDots(d => d >= 3 ? 1 : d + 1);
-    }, 500);
-    return () => clearInterval(id);
-  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -280,14 +271,9 @@ export function SplashScreen() {
         style={{ width: '100%', height: '100%' }}
       />
 
-      <div className="relative z-10 flex flex-col items-center gap-6">
-        {/* Logo with pulsing glow */}
-        <div
-          className="relative"
-          style={{
-            animation: 'splashLogoGlow 3s ease-in-out infinite',
-          }}
-        >
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Logo with shimmer overlay */}
+        <div className="relative" style={{ width: 96 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
@@ -299,27 +285,36 @@ export function SplashScreen() {
               filter: 'drop-shadow(0 0 28px rgba(80,170,255,0.45))',
             }}
           />
+          {/* Shimmer — sweeps left→right over the logo, fades to transparent on both edges */}
+          <div
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: 4,
+              overflow: 'hidden',
+              pointerEvents: 'none',
+            }}
+          >
+            <div style={{ animation: 'splashShimmer 1.8s ease-in-out infinite', width: '100%', height: '100%', position: 'relative' }}>
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                width: '60%',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(180,230,255,0.55) 40%, rgba(220,245,255,0.75) 50%, rgba(180,230,255,0.55) 60%, transparent 100%)',
+                transform: 'skewX(-12deg)',
+                animation: 'splashShimmerBar 1.8s ease-in-out infinite',
+              }} />
+            </div>
+          </div>
         </div>
-
-        {/* Loading text with cycling dots */}
-        <p
-          style={{
-            fontFamily: "'Comfortaa', 'Mulish', sans-serif",
-            fontSize: 14,
-            color: 'rgba(255,255,255,0.45)',
-            letterSpacing: '0.01em',
-            minWidth: '13ch',   // prevent layout shift as dots change
-            textAlign: 'left',
-          }}
-        >
-          Запускаємо пам&apos;ять{'.'.repeat(dots)}
-        </p>
       </div>
 
       <style>{`
-        @keyframes splashLogoGlow {
-          0%, 100% { filter: drop-shadow(0 0 18px rgba(80,170,255,0.35)); }
-          50%       { filter: drop-shadow(0 0 38px rgba(80,170,255,0.70)); }
+        @keyframes splashShimmerBar {
+          0%   { left: -80%; }
+          100% { left: 140%; }
         }
       `}</style>
     </div>
