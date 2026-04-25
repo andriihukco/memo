@@ -11,6 +11,7 @@ import { useSound } from '@/lib/sound/use-sound';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
 import { getPasscodeHash, setPasscodeHash, shouldLock, touchLastActive, removePasscode } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
+import { SplashScreen } from '@/components/ui/splash-screen';
 
 declare global {
   interface Window {
@@ -826,30 +827,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   };
 
   if (status === 'loading') {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4, ease: 'easeOut' }}
-          className="text-center"
-        >
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-            className="mx-auto mb-4 h-10 w-10 rounded-full border-[3px] border-muted border-t-primary"
-          />
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-[15px] text-muted-foreground font-medium"
-          >
-            Loading...
-          </motion.p>
-        </motion.div>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (status === 'error') {

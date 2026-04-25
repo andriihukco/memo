@@ -80,7 +80,8 @@ export async function GET(req: Request): Promise<Response> {
 
   const supabaseUrl = process.env.SUPABASE_URL ?? env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
+  // SUPABASE_ANON_KEY first (server-side), then NEXT_PUBLIC fallback
+  const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
   if (!supabaseUrl || !serviceKey) {
     return new Response(JSON.stringify({ error: "Server misconfiguration" }), {
@@ -101,6 +102,7 @@ export async function GET(req: Request): Promise<Response> {
     .single();
 
   if (profileErr || !profileRow) {
+    console.error("[api/graph] profile lookup failed:", profileErr?.message, "anonKey present:", !!anonKey);
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },

@@ -94,9 +94,10 @@ const PERIOD_OPTIONS = [
   { type: 'custom',  label: 'Свій діапазон',  icon: 'tune',           fn: null },
 ] as const;
 
-function NewReportSheet({ open, onClose, onGenerate }: {
+function NewReportSheet({ open, onClose, onGenerate, generating }: {
   open: boolean; onClose: () => void;
   onGenerate: (periodType: string, from?: Date, to?: Date) => void;
+  generating: boolean;
 }) {
   const [fromStr, setFromStr] = useState(isoDate(startOfDay(new Date())));
   const [toStr, setToStr] = useState(isoDate(new Date()));
@@ -157,8 +158,22 @@ function NewReportSheet({ open, onClose, onGenerate }: {
         </div>
       </div>
       <div className="px-4 pt-3 pb-2">
-        <Button className="w-full min-h-[44px]" disabled={!selected} onClick={() => { if (selected) { onGenerate(selected.type, selected.from, selected.to); onClose(); } }}>
-          Згенерувати ретроспективу
+        <Button
+          className="w-full min-h-[44px]"
+          disabled={!selected || generating}
+          onClick={() => {
+            if (selected && !generating) {
+              onGenerate(selected.type, selected.from, selected.to);
+              onClose();
+            }
+          }}
+        >
+          {generating ? (
+            <span className="flex items-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+              Генерується...
+            </span>
+          ) : 'Згенерувати ретроспективу'}
         </Button>
       </div>
     </BottomSheet>
@@ -311,6 +326,7 @@ export default function ReportsPage() {
   const [genError, setGenError] = useState<string | null>(null);
   const [showNewReport, setShowNewReport] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportSummary | null>(null);
+  const [pendingLabel, setPendingLabel] = useState<string | null>(null); // label for in-progress skeleton row
   const lastGenParams = useRef<{ periodType: string; from?: Date; to?: Date } | null>(null);
   const progressLabel = useProgressLabel(generating);
   const { play } = useSound();
@@ -343,9 +359,10 @@ export default function ReportsPage() {
   useEffect(() => { loadReports(); fetchUserTier(); }, [loadReports, fetchUserTier]);
 
   const generateReport = async (periodType: string, from?: Date, to?: Date) => {
-    if (!accessToken || generating) return;
+    if (!accessToken || generating) return; // hard guard — no double generation
     lastGenParams.current = { periodType, from, to };
     setGenerating(true);
+    setPendingLabel(PERIOD_LABELS[periodType] ?? 'Ретроспектива');
     play('PROCESSING');
     setGenError(null);
     try {
@@ -372,7 +389,10 @@ export default function ReportsPage() {
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Невідома помилка');
       play('CAUTION');
-    } finally { setGenerating(false); }
+    } finally {
+      setGenerating(false);
+      setPendingLabel(null);
+    }
   };
 
   const deleteReport = async (id: string) => {
@@ -427,21 +447,7 @@ export default function ReportsPage() {
 
       {/* Usage counter removed — visible only on plans/subscriptions page */}
 
-      {/* Generating indicator */}
-      <AnimatePresence>
-        {generating && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-3"
-          >
-            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
-            <p className="text-sm text-muted-foreground">{progressLabel}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Generating indicator — removed, now shown as skeleton row in list */}
 
       {/* Error banner */}
       {genError && (
@@ -477,6 +483,32 @@ export default function ReportsPage() {
           onCta={() => { play('OPEN'); setShowNewReport(true); }}
         />
       )}
+
+      {/* In-progress skeleton row — shown immediately when generation starts */}
+      <AnimatePresence>
+        {generating && pendingLabel && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden"
+          >
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary shrink-0" />
+                  <span className="text-[15px] font-semibold text-muted-foreground">{pendingLabel}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Генерується</span>
+                </div>
+                <div className="h-2.5 w-3/4 rounded-full bg-muted/50 animate-pulse" />
+                <div className="h-2 w-1/2 rounded-full bg-muted/30 animate-pulse mt-1.5" />
+                <p className="text-[12px] text-muted-foreground/60 mt-1.5">{progressLabel}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Month-grouped report list */}
       {!loading && monthGroups.length > 0 && (
