@@ -573,6 +573,19 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
     <AnimatePresence>
       {!sheetsOpen && (
         <>
+          {/* Wrapper centres the pill without conflicting with Framer Motion's transform */}
+          <div
+            style={{
+              position: 'fixed',
+              bottom: bottomInset + 10,
+              left: 0,
+              right: 0,
+              display: 'flex',
+              justifyContent: 'center',
+              zIndex: 50,
+              pointerEvents: 'none',
+            }}
+          >
           <motion.nav
             role="navigation"
             aria-label="Головна навігація"
@@ -581,21 +594,17 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
             exit={{ y: 80, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
             style={{
-              position: 'fixed',
-              bottom: bottomInset + 10,
-              left: '50%',
-              transform: 'translateX(-50%)',
               borderRadius: 48,
               background: '#1F2234',
               width: 'min(calc(100vw - 16px), 380px)',
               height: 64,
-              zIndex: 50,
               display: 'flex',
               flexDirection: 'row',
               justifyContent: 'space-around',
               alignItems: 'center',
-              padding: '0 16px',
+              padding: '0 8px',
               boxSizing: 'border-box',
+              pointerEvents: 'auto',
             }}
           >
             {tabs.map(({ label, href, icon }) => {
@@ -649,6 +658,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
               );
             })}
           </motion.nav>
+          </div>
           {/* Fill the gap below the pill tab bar so body background doesn't show */}
           <motion.div
             initial={{ opacity: 0 }}

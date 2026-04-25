@@ -1113,7 +1113,9 @@ function Section({ title, count, children, defaultOpen = true }: { title: string
       <button onClick={() => setOpen(o => !o)} className="mb-3 flex w-full items-center justify-between py-0.5">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-semibold">{title}</h2>
-          {count !== undefined && <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{count}</span>}
+          {count !== undefined && (
+            <span className="text-[11px] text-muted-foreground/60">{count}</span>
+          )}
         </div>
         <Icon name="expand_more" size={15} className={cn('text-muted-foreground transition-transform duration-200', !open && '-rotate-90')} />
       </button>
@@ -1360,9 +1362,10 @@ export default function DashboardPage() {
             return aiCount >= 2 ? (
               <button
                 onClick={() => openPaywall('ai_widgets', aiCount, 3, 'stars_basic')}
-                className="flex items-center gap-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 px-3 py-1 text-[12px] font-medium text-amber-300"
+                className="flex items-center gap-1 rounded-full border border-amber-400/30 px-2 py-0.5 text-[11px] text-amber-400/80"
               >
-                {3 - aiCount} AI-віджетів
+                <Icon name="lock" size={10} className="text-amber-400/60" />
+                {3 - aiCount} AI
               </button>
             ) : null;
           })()}
@@ -1473,14 +1476,27 @@ export default function DashboardPage() {
                       const matchedMetric = metricByKey.get(w.metric_key);
                       const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
                       if (matchedMetric) {
+                        // Custom widget with data — tap opens LogEntrySheet (has delete inside)
                         return (
-                          <MetricCard
+                          <Card
                             key={w.id}
-                            metric={matchedMetric}
-                            sourceEntries={srcEntries}
-                            onEntryClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
-                            onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }}
-                          />
+                            className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50 select-none"
+                            onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
+                          >
+                            {(() => { const { bg, text } = metricColor(matchedMetric.key); return (
+                              <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
+                                <MetricIcon name={w.icon ?? matchedMetric.icon} size={16} className={text} />
+                              </div>
+                            ); })()}
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl font-bold tracking-tight">{matchedMetric.value.toLocaleString()}</span>
+                              <span className="text-sm text-muted-foreground">{matchedMetric.unit}</span>
+                            </div>
+                            <p className="text-xs font-medium">{w.title}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {matchedMetric.aggregate === 'avg' ? `середнє · ${matchedMetric.count}` : matchedMetric.aggregate === 'last' ? 'останнє' : `${matchedMetric.count} записів`}
+                            </p>
+                          </Card>
                         );
                       }
                       // Widget defined but no data yet — show empty placeholder

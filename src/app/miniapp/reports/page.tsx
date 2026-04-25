@@ -387,11 +387,6 @@ export default function ReportsPage() {
   const reportsUsed = counts?.reports ?? 0;
   const reportsLeft = reportsLimit === Infinity ? null : Math.max(0, reportsLimit - reportsUsed);
 
-  // Compute remaining AI widgets
-  const widgetsLimit = tierLimits?.ai_widgets ?? 3;
-  const widgetsUsed = counts?.widgets ?? 0;
-  const widgetsLeft = widgetsLimit === Infinity ? null : Math.max(0, widgetsLimit - widgetsUsed);
-
   const monthGroups = groupReportsByMonth(reports);
 
   // If a report is selected, show detail view
@@ -430,38 +425,20 @@ export default function ReportsPage() {
         </button>
       </div>
 
-      {/* Usage counters row */}
-      {userTier && (
-        <div className="flex gap-2 flex-wrap">
-          {reportsLeft !== null && (
-            <button
-              onClick={() => { setPaywallProps({ feature: 'reports', current: reportsUsed, limit: reportsLimit, requiredTier: 'stars_basic' }); setPaywallOpen(true); }}
-              className={cn(
-                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium border transition-colors',
-                reportsLeft <= 1
-                  ? 'bg-amber-400/10 border-amber-400/30 text-amber-300'
-                  : 'bg-muted/40 border-border/30 text-muted-foreground'
-              )}
-            >
-              <span>💡</span>
-              <span>{reportsLeft} звітів залишилось</span>
-            </button>
+      {/* Usage counter — reports only, minimal */}
+      {userTier && reportsLeft !== null && (
+        <button
+          onClick={() => { setPaywallProps({ feature: 'reports', current: reportsUsed, limit: reportsLimit, requiredTier: 'stars_basic' }); setPaywallOpen(true); }}
+          className={cn(
+            'self-start flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+            reportsLeft <= 1
+              ? 'border-amber-400/30 text-amber-400/80'
+              : 'border-border/30 text-muted-foreground/60'
           )}
-          {widgetsLeft !== null && (
-            <button
-              onClick={() => { setPaywallProps({ feature: 'ai_widgets', current: widgetsUsed, limit: widgetsLimit, requiredTier: 'stars_basic' }); setPaywallOpen(true); }}
-              className={cn(
-                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium border transition-colors',
-                widgetsLeft <= 1
-                  ? 'bg-amber-400/10 border-amber-400/30 text-amber-300'
-                  : 'bg-muted/40 border-border/30 text-muted-foreground'
-              )}
-            >
-              <span>📊</span>
-              <span>{widgetsLeft} AI-віджетів залишилось</span>
-            </button>
-          )}
-        </div>
+        >
+          {reportsLeft <= 1 && <Icon name="lock" size={10} className="text-amber-400/60" />}
+          {reportsLeft} звітів
+        </button>
       )}
 
       {/* Generating indicator */}

@@ -383,6 +383,110 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
   );
 }
 
+// ── SwipeableThreadCard — wraps ThreadCard with swipe-to-delete ──────────────
+
+function SwipeableThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSelect, onUpdate, onDelete, accessToken }: {
+  group: ThreadGroup; isSelectMode: boolean; selectedIds: Set<string>;
+  onLongPress: (id: string) => void; onToggleSelect: (id: string) => void;
+  onUpdate: (id: string, content: string, category: string) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  accessToken?: string | null;
+}) {
+  const { play } = useSound();
+  const [offsetX, setOffsetX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef(0), startY = useRef(0);
+  const isScrolling = useRef<boolean | null>(null);
+  const mouseDown = useRef(false);
+  const [pendingDelete, setPendingDelete] = useState(false);
+
+  const commit = () => {
+    if (Math.abs(offsetX) >= SWIPE_COMMIT) {
+      // delete all entries in the thread
+      play('OPEN');
+      setPendingDelete(true);
+    } else if (Math.abs(offsetX) >= SWIPE_THRESHOLD) {
+      setOffsetX(-SWIPE_THRESHOLD);
+    } else {
+      setOffsetX(0);
+    }
+    setDragging(false);
+  };
+
+  const onTS = (e: React.TouchEvent) => {
+    if (isSelectMode) return;
+    const t = e.touches[0]; startX.current = t.clientX; startY.current = t.clientY; isScrolling.current = null;
+  };
+  const onTM = (e: React.TouchEvent) => {
+    const t = e.touches[0]; const dx = t.clientX - startX.current, dy = t.clientY - startY.current;
+    if (isScrolling.current === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) isScrolling.current = Math.abs(dy) > Math.abs(dx);
+    if (isScrolling.current || isSelectMode) return;
+    if (dx < 0) { setDragging(true); setOffsetX(Math.max(dx, -SWIPE_COMMIT - 20)); }
+    else if (offsetX < 0) { setDragging(true); setOffsetX(Math.min(dx + offsetX, 0)); }
+  };
+  const onTE = () => { if (isScrolling.current || isSelectMode) { setDragging(false); return; } commit(); };
+
+  const onMD = (e: React.MouseEvent) => { if (isSelectMode || e.button !== 0) return; mouseDown.current = true; startX.current = e.clientX; startY.current = e.clientY; isScrolling.current = null; };
+  const onMM = (e: React.MouseEvent) => {
+    if (!mouseDown.current || isSelectMode) return;
+    const dx = e.clientX - startX.current, dy = e.clientY - startY.current;
+    if (isScrolling.current === null && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) isScrolling.current = Math.abs(dy) > Math.abs(dx);
+    if (isScrolling.current) return;
+    if (dx < 0) { setDragging(true); setOffsetX(Math.max(dx, -SWIPE_COMMIT - 20)); }
+  };
+  const onMU = () => { if (!mouseDown.current) return; mouseDown.current = false; if (isScrolling.current || isSelectMode) { setOffsetX(0); setDragging(false); return; } commit(); };
+  const onML = () => { if (!mouseDown.current) return; mouseDown.current = false; setOffsetX(0); setDragging(false); };
+
+  const revealRatio = Math.min(Math.abs(offsetX) / SWIPE_THRESHOLD, 1);
+
+  const handleConfirmDelete = async () => {
+    setPendingDelete(false);
+    // delete all entries in the thread
+    for (const entry of group.entries) {
+      await onDelete(entry.id);
+    }
+  };
+
+  return (
+    <>
+      <div
+        className="relative overflow-hidden rounded-2xl"
+        onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
+        onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onML}
+      >
+        {/* Delete background */}
+        <div className="absolute inset-0 flex items-center justify-end rounded-2xl bg-destructive pr-5" style={{ opacity: revealRatio }}>
+          <div className="flex flex-col items-center gap-0.5">
+            <Icon name="delete" size={20} className="text-destructive-foreground" />
+            <span className="text-[10px] font-medium text-destructive-foreground">Видалити</span>
+          </div>
+        </div>
+        {/* Card content shifted */}
+        <div style={{ transform: `translateX(${offsetX}px)`, transition: dragging ? 'none' : 'transform 0.25s ease' }}>
+          <ThreadCard
+            group={group}
+            isSelectMode={isSelectMode}
+            selectedIds={selectedIds}
+            onLongPress={onLongPress}
+            onToggleSelect={onToggleSelect}
+            onUpdate={onUpdate}
+            onDelete={onDelete}
+            accessToken={accessToken}
+          />
+        </div>
+      </div>
+      <ConfirmSheet
+        open={pendingDelete}
+        onClose={() => { play('CLOSE'); setPendingDelete(false); setOffsetX(0); }}
+        onConfirm={handleConfirmDelete}
+        title="Видалити тред?"
+        subtitle={`Буде видалено ${group.entries.length} повідомлень. Цю дію не можна скасувати.`}
+        confirmLabel="Видалити"
+      />
+    </>
+  );
+}
+
 // ── CategoryFilterBar — single select ────────────────────────────────────────
 
 function CategoryFilterBar({ entries, selected, onChange }: {
@@ -627,7 +731,7 @@ export default function FeedPage() {
                 {group.items.map((item) => {
                   if ('threadId' in item) {
                     return (
-                      <ThreadCard
+                      <SwipeableThreadCard
                         key={item.threadId}
                         group={item}
                         isSelectMode={isSelectMode}
