@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import { deriveUserKey, decryptField } from "@/lib/crypto";
 
 const MODEL = "gemini-2.5-flash";
 
@@ -46,7 +47,30 @@ async function loadEntriesForPeriod(userId: string, from: Date, to: Date) {
     .gte("created_at", from.toISOString())
     .lte("created_at", to.toISOString())
     .order("created_at", { ascending: true });
-  return data ?? [];
+
+  const raw = data ?? [];
+
+  // Decrypt content
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("telegram_id")
+      .eq("id", userId)
+      .single();
+    if (profile?.telegram_id) {
+      const key = await deriveUserKey(String(profile.telegram_id));
+      return Promise.all(
+        raw.map(async (e) => ({
+          ...e,
+          content: await decryptField(e.content, key),
+          bot_reply: e.bot_reply ? await decryptField(e.bot_reply, key) : e.bot_reply,
+        }))
+      );
+    }
+  } catch {
+    // fallback: return as-is
+  }
+  return raw;
 }
 
 // ── Generate retrospective ────────────────────────────────────────────────────

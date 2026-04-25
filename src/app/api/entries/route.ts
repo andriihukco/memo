@@ -2,6 +2,7 @@ export const runtime = "edge";
 
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { deriveUserKey, encryptField, decryptField } from "@/lib/crypto";
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get("Authorization");
@@ -16,6 +17,16 @@ function makeSupabase(jwt: string) {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth: { persistSession: false },
   });
+}
+
+/** Resolve the Telegram user ID from the JWT via the profiles table. */
+async function getTelegramId(jwt: string): Promise<string | null> {
+  const supabase = makeSupabase(jwt);
+  const { data } = await supabase
+    .from("profiles")
+    .select("telegram_id")
+    .single();
+  return data?.telegram_id ? String(data.telegram_id) : null;
 }
 
 // Re-extract dashboard_metrics from updated content using Gemini
@@ -55,7 +66,7 @@ export async function PATCH(req: Request): Promise<Response> {
     id = body.id;
     content = body.content;
     category = body.category;
-    metricOverride = body.metric_override; // { key, value } — directly patch one metric
+    metricOverride = body.metric_override;
     if (!id || (!content && !category && !metricOverride)) throw new Error();
   } catch {
     return new Response(JSON.stringify({ error: "id and at least one of content/category/metric_override required" }), { status: 400, headers: { "Content-Type": "application/json" } });
@@ -63,37 +74,55 @@ export async function PATCH(req: Request): Promise<Response> {
 
   const supabase = makeSupabase(jwt);
 
-  // Fetch current entry to get existing metadata
+  // Fetch current entry to get existing metadata and encrypted content
   const { data: existing } = await supabase
     .from("entries")
     .select("metadata, content")
     .eq("id", id)
     .single();
 
+  // Derive encryption key
+  let cryptoKey: CryptoKey | null = null;
+  try {
+    const telegramId = await getTelegramId(jwt);
+    if (telegramId) cryptoKey = await deriveUserKey(telegramId);
+  } catch (cryptoErr) {
+    console.error("[api/entries] key derivation error:", cryptoErr);
+  }
+
   const updates: Record<string, unknown> = {};
-  if (content !== undefined) updates.content = content.trim();
+
+  if (content !== undefined) {
+    const trimmed = content.trim();
+    updates.content = cryptoKey ? await encryptField(trimmed, cryptoKey) : trimmed;
+  }
   if (category !== undefined) updates.category = category.trim();
 
-  // Direct metric value override — patch just that metric key, no AI re-run
   if (metricOverride !== undefined) {
     const existingMeta = (existing?.metadata as Record<string, unknown>) ?? {};
     const existingMetrics = (existingMeta.dashboard_metrics as Record<string, unknown>[] | undefined) ?? [];
     const updatedMetrics = existingMetrics.map(m =>
       m.key === metricOverride!.key ? { ...m, value: metricOverride!.value } : m
     );
-    // If key didn't exist yet, nothing to patch — only update if found
     if (updatedMetrics.some(m => m.key === metricOverride!.key)) {
       updates.metadata = { ...existingMeta, dashboard_metrics: updatedMetrics };
     }
   }
 
-  // Re-compute metrics when content changes
-  if (content !== undefined && content.trim() !== existing?.content) {
-    const newMetrics = await recomputeMetrics(content.trim());
-    if (newMetrics !== null) {
-      const existingMeta = (existing?.metadata as Record<string, unknown>) ?? {};
-      // Preserve non-metric metadata (bot_msg_id, etc.), replace dashboard_metrics
-      updates.metadata = { ...existingMeta, dashboard_metrics: newMetrics };
+  // Re-compute metrics when content changes — use plaintext for AI
+  if (content !== undefined) {
+    const plainContent = content.trim();
+    // Decrypt existing content for comparison
+    let existingPlain = existing?.content ?? "";
+    if (cryptoKey && existingPlain) {
+      try { existingPlain = await decryptField(existingPlain, cryptoKey); } catch { /* legacy plaintext */ }
+    }
+    if (plainContent !== existingPlain) {
+      const newMetrics = await recomputeMetrics(plainContent);
+      if (newMetrics !== null) {
+        const existingMeta = (existing?.metadata as Record<string, unknown>) ?? {};
+        updates.metadata = { ...existingMeta, dashboard_metrics: newMetrics };
+      }
     }
   }
 
@@ -109,7 +138,19 @@ export async function PATCH(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: "Failed to update entry" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 
-  return new Response(JSON.stringify({ entry: data }), { status: 200, headers: { "Content-Type": "application/json" } });
+  // Decrypt before returning to client
+  let entry = data;
+  if (cryptoKey && entry) {
+    try {
+      entry = {
+        ...entry,
+        content: await decryptField(entry.content, cryptoKey),
+        bot_reply: entry.bot_reply ? await decryptField(entry.bot_reply, cryptoKey) : entry.bot_reply,
+      };
+    } catch { /* return as-is */ }
+  }
+
+  return new Response(JSON.stringify({ entry }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
 export async function DELETE(req: Request): Promise<Response> {
@@ -169,10 +210,8 @@ export async function GET(req: Request): Promise<Response> {
   const fromParam = searchParams.get("from");
   const toParam   = searchParams.get("to");
 
-  // category filter — open-ended, any string
   const category = categoryParam ?? null;
 
-  // Build query
   let query = supabase
     .from("entries")
     .select("id, content, category, metadata, bot_reply, thread_id, reply_to_entry_id, created_at", { count: "exact" })
@@ -193,8 +232,27 @@ export async function GET(req: Request): Promise<Response> {
     });
   }
 
+  // Decrypt content and bot_reply for each entry
+  let entries = data ?? [];
+  try {
+    const telegramId = await getTelegramId(jwt);
+    if (telegramId) {
+      const key = await deriveUserKey(telegramId);
+      entries = await Promise.all(
+        entries.map(async (e) => ({
+          ...e,
+          content: await decryptField(e.content, key),
+          bot_reply: e.bot_reply ? await decryptField(e.bot_reply, key) : e.bot_reply,
+        }))
+      );
+    }
+  } catch (cryptoErr) {
+    console.error("[api/entries] decryption error:", cryptoErr);
+    // Return entries as-is (may be plaintext legacy entries)
+  }
+
   return new Response(
-    JSON.stringify({ entries: data ?? [], total: count ?? 0, page }),
+    JSON.stringify({ entries, total: count ?? 0, page }),
     {
       status: 200,
       headers: { "Content-Type": "application/json" },

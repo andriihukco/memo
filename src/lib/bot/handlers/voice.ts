@@ -12,6 +12,7 @@ import { generateConverseReply, loadUserContext } from "@/lib/bot/converse";
 import { handleAction } from "@/lib/bot/handlers/action";
 import { sanitizeMarkdown } from "@/lib/utils";
 import { extractFacts, saveMemory } from "@/lib/bot/memory";
+import { deriveUserKey, encryptField } from "@/lib/crypto";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -216,14 +217,26 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
 
   const savedIds: string[] = [];
 
+  // Derive encryption key once for all entries in this batch
+  let cryptoKey: CryptoKey | null = null;
+  try {
+    cryptoKey = await deriveUserKey(profile.telegram_id.toString());
+  } catch (cryptoErr) {
+    console.error("[voice handler] key derivation failed:", cryptoErr);
+  }
+
   for (const entryPayload of entriesToSave) {
     await upsertCategory(supabase, profile.id, entryPayload);
+
+    const contentToStore = cryptoKey
+      ? await encryptField(entryPayload.content, cryptoKey)
+      : entryPayload.content;
 
     const { data: entry, error } = await supabase
       .from("entries")
       .insert({
         user_id: profile.id,
-        content: entryPayload.content,
+        content: contentToStore,
         category: entryPayload.category,
         metadata: {
           ...entryPayload.metadata,
@@ -280,8 +293,12 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
     const newThreadId = resolvedThreadId ?? primaryId;
     const primaryMeta = entriesToSave[0].metadata as Record<string, unknown>;
 
+    const botReplyToStore = cryptoKey
+      ? await encryptField(botReplyText, cryptoKey)
+      : botReplyText;
+
     await supabase.from("entries").update({
-      bot_reply: botReplyText,
+      bot_reply: botReplyToStore,
       thread_id: newThreadId,
       metadata: {
         ...primaryMeta,

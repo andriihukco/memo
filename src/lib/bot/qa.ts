@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { generateEmbedding } from "../embedding";
 import { env } from "../env";
+import { deriveUserKey, decryptField } from "../crypto";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,14 +33,9 @@ interface RetrievedEntry {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const QA_MODEL = "gemini-2.5-flash";
-// Lowered from 0.75 — food/macro entries don't semantically match "macro" questions
-// at high cosine similarity; 0.45 gives much better recall without noise.
 const SIMILARITY_THRESHOLD = 0.45;
-const TOP_K = 15; // fetch more candidates so re-ranking has better material
-const RERANK_TOP_K = 5; // how many entries to keep after re-ranking
-
-// UTC offset for the user's timezone (UTC+3 = Kyiv/Moscow time)
-// All "today / yesterday / this week" boundaries are computed in this timezone.
+const TOP_K = 15;
+const RERANK_TOP_K = 5;
 const USER_UTC_OFFSET_HOURS = 3;
 
 // ── Supabase service client ───────────────────────────────────────────────────
@@ -48,6 +44,32 @@ function getServiceClient() {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
+}
+
+// ── Decrypt entries helper ────────────────────────────────────────────────────
+
+async function decryptEntries<T extends { content: string }>(
+  entries: T[],
+  userId: string
+): Promise<T[]> {
+  try {
+    const supabase = getServiceClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("telegram_id")
+      .eq("id", userId)
+      .single();
+    if (!data?.telegram_id) return entries;
+    const key = await deriveUserKey(String(data.telegram_id));
+    return Promise.all(
+      entries.map(async (e) => ({
+        ...e,
+        content: await decryptField(e.content, key),
+      }))
+    );
+  } catch {
+    return entries; // fallback: return as-is (legacy plaintext)
+  }
 }
 
 // ── Temporal filter resolver ──────────────────────────────────────────────────
@@ -240,7 +262,6 @@ export async function retrieveEntries(
 
   // For broad "about me" questions (no temporal, no category filter):
   // skip semantic search entirely — just return the most recent entries.
-  // Semantic search is unreliable for vague questions like "що ти знаєш про мене".
   if (!temporalFilter && !categoryFilter) {
     const { data } = await supabase
       .from("entries")
@@ -248,7 +269,8 @@ export async function retrieveEntries(
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(50);
-    return (data ?? []) as RetrievedEntry[];
+    const raw = (data ?? []) as RetrievedEntry[];
+    return decryptEntries(raw, userId);
   }
 
   const embeddingLiteral = `[${embedding.join(",")}]`;
@@ -291,12 +313,14 @@ export async function retrieveEntries(
   // Semantic intersection hit — fetch full metadata + tag with similarity
   if (intersection.length > 0) {
     const full = await fetchFullEntries(supabase, userId, intersection.map((e) => e.id));
+    const decrypted = await decryptEntries(full, userId);
     const simMap = new Map(intersection.map((e) => [e.id, e.similarity]));
-    return full.map((e) => ({ ...e, similarity: simMap.get(e.id) }));
+    return decrypted.map((e) => ({ ...e, similarity: simMap.get(e.id) }));
   }
 
-  // Fallback — structured-filter-only query (always applies date/category filters)
-  return fetchStructuredEntries(supabase, userId, temporalFilter, categoryFilter);
+  // Fallback — structured-filter-only query
+  const structured = await fetchStructuredEntries(supabase, userId, temporalFilter, categoryFilter);
+  return decryptEntries(structured, userId);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -452,9 +476,8 @@ export async function answerQuestion(ctx: QAContext): Promise<string> {
       entries = await rerankEntries(question, candidates);
     } catch (embErr) {
       console.warn("[qa] embedding/search failed, falling back to direct DB query:", embErr instanceof Error ? embErr.message : embErr);
-      // Direct fallback: fetch recent entries without semantic search
       entries = await fetchStructuredEntries(supabase, userId, temporalFilter, categoryFilter);
-      // If still empty and no filters, grab the last 15 entries
+      entries = await decryptEntries(entries, userId);
       if (entries.length === 0 && !temporalFilter && !categoryFilter) {
         const { data } = await supabase
           .from("entries")
@@ -462,7 +485,8 @@ export async function answerQuestion(ctx: QAContext): Promise<string> {
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(15);
-        entries = (data ?? []) as RetrievedEntry[];
+        const raw = (data ?? []) as RetrievedEntry[];
+        entries = await decryptEntries(raw, userId);
       }
     }
 

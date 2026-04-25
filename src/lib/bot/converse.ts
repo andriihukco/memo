@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { formatMemoryForPrompt, type MemoryMap } from "@/lib/bot/memory";
+import { deriveUserKey, decryptField } from "@/lib/crypto";
 
 const MODEL = "gemini-2.5-flash";
 
@@ -18,7 +19,6 @@ export async function loadUserContext(userId: string): Promise<UserContext> {
       auth: { persistSession: false },
     });
 
-    // Load recent entries for tone + settings for memory in parallel
     const [entriesRes, profileRes] = await Promise.all([
       supabase
         .from("entries")
@@ -28,14 +28,27 @@ export async function loadUserContext(userId: string): Promise<UserContext> {
         .limit(15),
       supabase
         .from("profiles")
-        .select("settings")
+        .select("settings, telegram_id")
         .eq("id", userId)
         .single(),
     ]);
 
-    const entries = (entriesRes.data ?? []) as { content: string }[];
+    let entries = (entriesRes.data ?? []) as { content: string }[];
     const settings = (profileRes.data?.settings as Record<string, unknown>) ?? {};
     const memory = (settings.memory as MemoryMap) ?? {};
+
+    // Decrypt entry content for tone analysis
+    if (profileRes.data?.telegram_id) {
+      try {
+        const key = await deriveUserKey(String(profileRes.data.telegram_id));
+        entries = await Promise.all(
+          entries.map(async (e) => ({
+            ...e,
+            content: await decryptField(e.content, key),
+          }))
+        );
+      } catch { /* fallback: use as-is */ }
+    }
 
     const tone = entries.length >= 3
       ? `\nЯк пише користувач (вивчи стиль і копіюй):\n${entries.map(e => `- ${e.content}`).join("\n")}\n`
