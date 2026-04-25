@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
 import { SoundProvider } from '@/lib/sound/sound-context';
@@ -28,7 +28,17 @@ declare global {
 
 // ── Onboarding ────────────────────────────────────────────────────────────────
 
-const SLIDES = [
+interface Slide {
+  emoji: string;
+  title: string;
+  body: string;
+  bg: string;
+  textColor?: string;
+  isFinal?: boolean;
+  showPrivacyBadge?: boolean;
+}
+
+const SLIDES: Slide[] = [
   {
     emoji: '📓',
     title: 'Твій особистий щоденник',
@@ -54,6 +64,14 @@ const SLIDES = [
     bg: 'from-amber-950 to-slate-950',
   },
   {
+    emoji: '🔐',
+    title: 'Твої дані захищені',
+    body: 'Всі записи шифруються на твоєму пристрої перед збереженням. Навіть ми не можемо їх прочитати. Твоя приватність — наш пріоритет.',
+    bg: 'from-emerald-950 to-slate-950',
+    textColor: 'text-emerald-400',
+    showPrivacyBadge: true,
+  },
+  {
     emoji: '⭐',
     title: 'Підтримай проект',
     body: 'Базові функції безкоштовні назавжди. Stars Pro відкриває розширену аналітику та рекомендації.',
@@ -62,9 +80,160 @@ const SLIDES = [
   },
 ];
 
+// ── Plan data for OnboardingPaywall ──────────────────────────────────────────
+
+const PAYWALL_PLANS = [
+  {
+    tier: 'free' as const,
+    emoji: '⭐',
+    name: 'Безкоштовний',
+    price: 'Безкоштовно',
+    features: ['До 100 записів', '3 активних віджети', 'Базові функції'],
+    recommended: false,
+  },
+  {
+    tier: 'stars_basic' as const,
+    emoji: '🌟',
+    name: 'Basic',
+    price: '250 ⭐/міс',
+    features: ['До 2 000 записів', 'AI ретроспективи', 'Трекінг цілей'],
+    recommended: true,
+  },
+  {
+    tier: 'stars_pro' as const,
+    emoji: '💎',
+    name: 'Pro',
+    price: '500 ⭐/міс',
+    features: ['Необмежені записи', 'Пріоритетна обробка', 'Експорт даних'],
+    recommended: false,
+  },
+];
+
+// ── PlanCard ──────────────────────────────────────────────────────────────────
+
+interface PlanCardProps {
+  emoji: string;
+  name: string;
+  price: string;
+  features: string[];
+  recommended: boolean;
+}
+
+function PlanCard({ emoji, name, price, features, recommended }: PlanCardProps) {
+  return (
+    <div
+      className={cn(
+        'relative rounded-2xl border px-4 py-3',
+        recommended
+          ? 'border-yellow-400/60 bg-yellow-950/40'
+          : 'border-white/10 bg-white/5'
+      )}
+    >
+      {recommended && (
+        <span className="absolute -top-2.5 right-3 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-semibold text-slate-950">
+          Рекомендовано
+        </span>
+      )}
+      <div className="mb-2 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xl leading-none">{emoji}</span>
+          <span className="text-[15px] font-semibold text-white">{name}</span>
+        </div>
+        <span className="text-[13px] text-white/60">{price}</span>
+      </div>
+      <ul className="space-y-1">
+        {features.map((f) => (
+          <li key={f} className="flex items-center gap-1.5 text-[12px] text-white/50">
+            <span className="text-[10px] text-yellow-400/80">✓</span>
+            {f}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── OnboardingPaywall ─────────────────────────────────────────────────────────
+
+interface OnboardingPaywallProps {
+  finish: () => void;
+  play: (event: string) => void;
+}
+
+function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
+  const router = useRouter();
+  const [visible, setVisible] = useState(false);
+
+  // Trigger slide-up animation after mount
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const handleContinueFree = () => {
+    play('CLOSE');
+    finish();
+  };
+
+  const handleSubscribe = () => {
+    play('BUTTON');
+    // Navigate to subscriptions page and finish onboarding
+    // (auth is not yet available in OnboardingOverlay, so we navigate instead of opening invoice directly)
+    finish();
+    router.push('/miniapp/subscriptions');
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-[101] flex flex-col bg-gradient-to-b from-yellow-950 to-slate-950"
+      style={{
+        transform: visible ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 300ms ease-out',
+      }}
+    >
+      {/* Scrollable content */}
+      <div className="flex flex-1 flex-col overflow-y-auto px-6 pb-6 pt-14">
+        {/* Title */}
+        <h1 className="mb-2 text-[28px] font-bold leading-tight text-white">
+          Обери свій план
+        </h1>
+        <p className="mb-6 text-[15px] text-white/50">
+          Базові функції безкоштовні назавжди
+        </p>
+
+        {/* Plan cards */}
+        <div className="flex flex-col gap-3">
+          {PAYWALL_PLANS.map((plan) => (
+            <PlanCard key={plan.tier} {...plan} />
+          ))}
+        </div>
+      </div>
+
+      {/* CTAs — fixed at bottom */}
+      <div className="px-6 pb-12 pt-4 space-y-3">
+        <button
+          onClick={handleSubscribe}
+          className="w-full rounded-2xl bg-yellow-400 py-4 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-400/30 transition-all active:scale-95"
+        >
+          Перейти на Basic — 250 ⭐
+        </button>
+        <button
+          onClick={handleContinueFree}
+          className="w-full py-3 text-[15px] text-white/40 active:text-white/60"
+        >
+          Продовжити безкоштовно →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── OnboardingOverlay ─────────────────────────────────────────────────────────
+
 function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [showPaywall, setShowPaywall] = useState(false);
   const startX = useRef(0);
   const startY = useRef(0);
   const isScrolling = useRef<boolean | null>(null);
@@ -78,12 +247,17 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
     setTimeout(onDone, 350);
   };
 
+  const openPaywall = () => {
+    setShowPaywall(true);
+  };
+
   const goNext = () => {
     if (index < SLIDES.length - 1) {
       play('SLIDE');
       setIndex(i => i + 1);
     } else {
-      finish();
+      // Final slide CTA → show paywall instead of finishing directly
+      openPaywall();
     }
   };
   const goPrev = () => {
@@ -118,64 +292,79 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   const slide = SLIDES[index];
 
   return (
-    <div
-      className={cn(
-        'fixed inset-0 z-[100] flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-16 transition-opacity duration-350',
-        slide.bg,
-        !visible && 'opacity-0 pointer-events-none'
-      )}
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-    >
-      {/* Skip */}
-      <button
-        onClick={() => { play('CLOSE'); finish(); }}
-        className="absolute right-5 top-14 text-sm text-white/40 active:text-white/70"
-      >
-        Пропустити
-      </button>
-
-      {/* Content */}
+    <>
       <div
-        className="flex flex-1 flex-col items-center justify-center text-center"
-        style={{
-          transform: `translateX(${dragging ? dragOffset * 0.25 : 0}px)`,
-          transition: dragging ? 'none' : 'transform 0.3s ease',
-        }}
-      >
-        <div className="mb-8 text-8xl leading-none select-none">{slide.emoji}</div>
-        <h1 className="mb-4 text-[28px] font-bold text-white leading-tight">{slide.title}</h1>
-        <p className="max-w-xs text-[15px] leading-relaxed text-white/60">{slide.body}</p>
-      </div>
-
-      {/* Dots */}
-      <div className="mb-8 flex gap-2">
-        {SLIDES.map((_, i) => (
-          <button key={i} onClick={() => { play('SELECT'); setIndex(i); }}
-            className={cn('h-1.5 rounded-full transition-all duration-300', i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/25')}
-          />
-        ))}
-      </div>
-
-      {/* CTA */}
-      <div className="w-full max-w-xs space-y-3">
-        <button
-          onClick={goNext}
-          className={cn(
-            'w-full rounded-2xl py-4 text-base font-semibold text-slate-950 transition-all active:scale-95',
-            slide.isFinal ? 'bg-yellow-400 shadow-lg shadow-yellow-400/30' : 'bg-white shadow-lg shadow-white/10'
-          )}
-        >
-          {slide.isFinal ? '⭐ Почати безкоштовно' : 'Далі →'}
-        </button>
-        {index > 0 && (
-          <button onClick={goPrev} className="w-full py-2 text-sm text-white/40 active:text-white/70">
-            ← Назад
-          </button>
+        className={cn(
+          'fixed inset-0 z-[100] flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-16 transition-opacity duration-350',
+          slide.bg,
+          !visible && 'opacity-0 pointer-events-none'
         )}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Skip */}
+        <button
+          onClick={() => { play('CLOSE'); openPaywall(); }}
+          className="absolute right-5 top-14 text-sm text-white/40 active:text-white/70"
+        >
+          Пропустити
+        </button>
+
+        {/* Content */}
+        <div
+          className="relative flex flex-1 flex-col items-center justify-center text-center"
+          style={{
+            transform: `translateX(${dragging ? dragOffset * 0.25 : 0}px)`,
+            transition: dragging ? 'none' : 'transform 0.3s ease',
+          }}
+        >
+          <div className="mb-8 text-8xl leading-none select-none">{slide.emoji}</div>
+          <h1 className={cn('mb-4 text-[28px] font-bold leading-tight', slide.textColor ?? 'text-white')}>{slide.title}</h1>
+          <p className="max-w-xs text-[15px] leading-relaxed text-white/60">{slide.body}</p>
+
+          {/* Privacy badge — shown on Slide 5 */}
+          {slide.showPrivacyBadge && (
+            <div className="absolute bottom-0 left-0 flex items-center gap-1.5">
+              <Icon name="lock" size={16} className="text-emerald-400/60" />
+              <span className="text-[11px] text-emerald-400/60">Зашифровано</span>
+            </div>
+          )}
+        </div>
+
+        {/* Dots */}
+        <div className="mb-8 flex gap-2">
+          {SLIDES.map((_, i) => (
+            <button key={i} onClick={() => { play('SELECT'); setIndex(i); }}
+              className={cn('h-1.5 rounded-full transition-all duration-300', i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/25')}
+            />
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div className="w-full max-w-xs space-y-3">
+          <button
+            onClick={goNext}
+            className={cn(
+              'w-full rounded-2xl py-4 text-base font-semibold text-slate-950 transition-all active:scale-95',
+              slide.isFinal ? 'bg-yellow-400 shadow-lg shadow-yellow-400/30' : 'bg-white shadow-lg shadow-white/10'
+            )}
+          >
+            {slide.isFinal ? 'Почати безкоштовно →' : 'Далі →'}
+          </button>
+          {index > 0 && (
+            <button onClick={goPrev} className="w-full py-2 text-sm text-white/40 active:text-white/70">
+              ← Назад
+            </button>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Paywall overlay — rendered on top of the onboarding slide */}
+      {showPaywall && (
+        <OnboardingPaywall finish={finish} play={play} />
+      )}
+    </>
   );
 }
 
@@ -264,16 +453,21 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
 
 // ── Main layout ───────────────────────────────────────────────────────────────
 
+const rootPaths = ['/miniapp', '/miniapp/dashboard', '/miniapp/graph', '/miniapp/reports', '/miniapp/settings'];
+
 function MiniAppContent({ children }: { children: React.ReactNode }) {
   const { setAccessToken } = useAuth();
   const { play } = useSound();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const pathname = usePathname();
+  const router = useRouter();
+  const isSubPage = !rootPaths.includes(pathname);
   const [topInset, setTopInset] = useState(0);
   const [bottomInset, setBottomInset] = useState(0);
   const [locked, setLocked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showRenewalBanner, setShowRenewalBanner] = useState(false);
   const didInit = useRef(false);
 
   // Pill tab bar height: 64px tall + 10px bottom offset + bottomInset
@@ -313,6 +507,25 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
         const { access_token } = await res.json();
         setAccessToken(access_token);
+
+        // Check subscription expiry and show renewal banner if needed
+        const profileRes = await fetch('/api/profile', {
+          headers: { Authorization: `Bearer ${access_token}` },
+        });
+        if (profileRes.ok) {
+          const { profile } = await profileRes.json();
+          if (
+            profile?.subscription_ends_at &&
+            new Date(profile.subscription_ends_at) < new Date() &&
+            profile?.subscription_tier !== 'free'
+          ) {
+            const today = new Date().toISOString().slice(0, 10);
+            if (localStorage.getItem('memo_renewal_banner_shown_date') !== today) {
+              setShowRenewalBanner(true);
+            }
+          }
+        }
+
         setStatus('ready');
       } catch (err) {
         setErrorMsg(err instanceof Error ? err.message : 'Authentication failed');
@@ -332,6 +545,12 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const handleUnlock = () => {
     touchLastActive();
     setLocked(false);
+  };
+
+  const dismissRenewalBanner = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    localStorage.setItem('memo_renewal_banner_shown_date', today);
+    setShowRenewalBanner(false);
   };
 
   if (status === 'loading') {
@@ -391,6 +610,16 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
       {/* Top spacer */}
       <div style={{ height: topInset }} />
 
+      {isSubPage && (
+        <button
+          onClick={() => { router.back(); play('SLIDE'); }}
+          className="fixed top-4 left-4 z-50 flex h-[44px] w-[44px] items-center justify-center rounded-full bg-muted/80 backdrop-blur-sm text-foreground"
+          aria-label="Назад"
+        >
+          <Icon name="arrow_back" size={24} />
+        </button>
+      )}
+
       <main
         className="relative flex-1 overflow-y-auto"
         style={{ paddingBottom: `var(--tab-bar-h)` }}
@@ -405,6 +634,34 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
       </main>
 
       <PillTabBar pathname={pathname} bottomInset={bottomInset} />
+
+      {/* Renewal banner — shown once per day when subscription has expired */}
+      {showRenewalBanner && (
+        <div
+          className="fixed left-0 right-0 z-40 flex items-center gap-3 px-4 py-3 bg-amber-950/90 border-t border-amber-400/30 backdrop-blur-sm"
+          style={{
+            bottom: `calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px))`,
+          }}
+        >
+          <p className="flex-1 text-[13px] text-amber-200 leading-snug">
+            Підписка закінчилась. Поновіть для продовження доступу.
+          </p>
+          <button
+            onClick={() => router.push('/miniapp/subscriptions')}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-amber-400 px-3 text-[13px] font-semibold text-slate-950 shrink-0"
+            aria-label="Поновити підписку"
+          >
+            Поновити
+          </button>
+          <button
+            onClick={dismissRenewalBanner}
+            className="min-h-[44px] min-w-[44px] flex items-center justify-center text-amber-400/70 shrink-0"
+            aria-label="Закрити банер"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }

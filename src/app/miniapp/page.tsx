@@ -6,9 +6,18 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
+import { ProgressBar } from '@/components/ui/progress-bar';
 import { cn } from '@/lib/utils';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
 import { useSound } from '@/lib/sound/use-sound';
+import { SkeletonEntryCard } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ErrorBanner } from '@/components/ui/error-banner';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
+import { PaywallModal } from '@/components/ui/paywall-modal';
+import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
+import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
+import type { SubscriptionTier } from '@/lib/stars/paywall';
 
 interface Entry {
   id: string;
@@ -30,29 +39,6 @@ function formatDate(iso: string) {
 }
 
 // ── UserAvatar ────────────────────────────────────────────────────────────────
-
-// ── DeleteConfirmDialog ───────────────────────────────────────────────────────
-
-function DeleteConfirmDialog({ count, onConfirm, onCancel }: { count: number; onConfirm: () => void; onCancel: () => void }) {
-  const { play } = useSound();
-  // Play warning sound when dialog mounts
-  useEffect(() => { play('CAUTION'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 pb-8">
-      <div className="absolute inset-0 bg-black/40" onClick={() => { play('CLOSE'); onCancel(); }} />
-      <Card className="relative w-full max-w-sm p-5 shadow-2xl">
-        <h2 className="mb-1 text-base font-semibold">Видалити записи?</h2>
-        <p className="mb-5 text-sm text-muted-foreground">
-          {count === 1 ? 'Цей запис буде назавжди видалено.' : `${count} записів буде назавжди видалено.`}
-        </p>
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={() => { play('CLOSE'); onCancel(); }}>Скасувати</Button>
-          <Button variant="destructive" className="flex-1" onClick={() => { play('CAUTION'); onConfirm(); }}>Видалити</Button>
-        </div>
-      </Card>
-    </div>
-  );
-}
 
 // ── EntryContent ──────────────────────────────────────────────────────────────
 
@@ -82,11 +68,12 @@ function EntryContent({ content, className }: { content: string; className?: str
 const SWIPE_THRESHOLD = 72;
 const SWIPE_COMMIT = 200;
 
-function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleSelect, onSwipeDelete, onUpdate, accessToken }: {
+function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleSelect, onSwipeDelete, onUpdate, accessToken, userTier }: {
   entry: Entry; isSelectMode: boolean; isSelected: boolean;
   onLongPress: () => void; onToggleSelect: () => void; onSwipeDelete: () => void;
   onUpdate: (id: string, content: string, category: string) => Promise<void>;
   accessToken?: string | null;
+  userTier?: string | null;
 }) {
   const { play } = useSound();
   const [offsetX, setOffsetX] = useState(0);
@@ -124,6 +111,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
   };
 
   const revealRatio = Math.min(Math.abs(offsetX) / SWIPE_THRESHOLD, 1);
+  const entryType = (entry.metadata?.entry_type as string) ?? 'log';
 
   return (
     <>
@@ -135,7 +123,12 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
           </div>
         </div>
         <Card
-          className={cn('relative select-none', isSelected && 'border-destructive bg-destructive/5', Math.abs(offsetX) >= SWIPE_COMMIT && 'opacity-50')}
+          className={cn(
+            'relative select-none',
+            entryType === 'goal' ? 'border-l-4 border-amber-400' : 'border-l-4 border-primary/40',
+            isSelected && 'border-destructive bg-destructive/5',
+            Math.abs(offsetX) >= SWIPE_COMMIT && 'opacity-50',
+          )}
           style={{ transform: `translateX(${offsetX}px)`, transition: dragging ? 'none' : 'transform 0.25s ease' }}
           onTouchStart={onTS} onTouchMove={onTM} onTouchEnd={onTE}
           onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onML}
@@ -150,6 +143,16 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
               </div>
             )}
             <div className={cn('mb-2 flex flex-wrap items-center gap-1.5', isSelectMode && 'pl-7')}>
+              {entryType === 'goal' && (
+                <span className="rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-[10px] px-2 py-0.5">
+                  Ціль
+                </span>
+              )}
+              {entryType !== 'goal' && Array.isArray(entry.metadata?.dashboard_metrics) && (entry.metadata.dashboard_metrics as unknown[]).length > 0 && (
+                <span className="rounded-full bg-primary/20 border border-primary/40 text-primary text-[10px] px-2 py-0.5">
+                  Лог
+                </span>
+              )}
               {entry.category.split(',').map(c => c.trim()).filter(Boolean).map(cat => (
                 <Badge key={cat} className={cn('border text-[10px] font-medium', getCategoryColor(cat))} variant="outline">
                   {getCategoryLabel(cat, entry.category_label)}
@@ -158,6 +161,38 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
               <time className="ml-auto shrink-0 text-xs text-muted-foreground">{formatDate(entry.created_at)}</time>
             </div>
             <EntryContent content={entry.content} className={cn(isSelectMode && 'pl-7')} />
+            {entryType === 'goal' && (() => {
+              const goalMetric = (entry.metadata?.goal_metrics as Array<{target: number; unit: string; key: string}> | undefined)?.[0];
+              if (!goalMetric) return null;
+              // Free tier: show locked state instead of real progress bar
+              if (userTier === 'free') {
+                return (
+                  <div className="mt-2 flex flex-col gap-1">
+                    <div className="relative h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className="absolute inset-0 backdrop-blur-sm bg-muted/60 rounded-full" />
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                      <Icon name="lock" size={10} />
+                      <span>Доступно з Basic</span>
+                    </div>
+                  </div>
+                );
+              }
+              const current = 0; // No aggregation available in feed — show 0 for now
+              const target = goalMetric.target;
+              const unit = goalMetric.unit;
+              const pct = target > 0 ? Math.min(Math.round((current / target) * 100), 100) : 0;
+              const completed = pct >= 100;
+              return (
+                <div className="mt-2 flex flex-col gap-1">
+                  <ProgressBar value={pct} completed={completed} />
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <span>{current} / {target} {unit} · {pct}%</span>
+                    {completed && <Icon name="check_circle" size={14} className="text-green-400" />}
+                  </div>
+                </div>
+              );
+            })()}
             {entry.bot_reply && (
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2.5">
                 <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
@@ -436,11 +471,49 @@ export default function FeedPage() {
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // ── Paywall state ──────────────────────────────────────────────────────────
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallProps, setPaywallProps] = useState<{
+    feature: string;
+    current?: number;
+    limit?: number;
+    requiredTier: SubscriptionTier;
+  }>({ feature: 'entries', requiredTier: 'stars_basic' });
+
+  // ── User tier ──────────────────────────────────────────────────────────────
+  const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
+
+  const fetchUserTier = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return;
+      const { profile } = await res.json();
+      setUserTier((profile?.subscription_tier as SubscriptionTier) ?? 'free');
+    } catch { /* non-critical */ }
+  }, [accessToken]);
+
+  // ── Usage counts ───────────────────────────────────────────────────────────
+  const { counts: usageCounts } = useUsageCounts(accessToken);
+
   const fetchEntries = useCallback(async () => {
     if (!accessToken) return;
     setStatus('loading');
     try {
       const res = await fetch('/api/entries?limit=100', { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (res.status === 402) {
+        // Limit exceeded — open paywall
+        const data = await res.json().catch(() => ({}));
+        setPaywallProps({
+          feature: data.feature ?? 'entries',
+          current: data.current,
+          limit: data.limit,
+          requiredTier: (data.required_tier as SubscriptionTier) ?? 'stars_basic',
+        });
+        setPaywallOpen(true);
+        setStatus('ready');
+        return;
+      }
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? `Request failed (${res.status})`); }
       const { entries: data } = await res.json();
       setAllEntries(data ?? []); setStatus('ready');
@@ -451,7 +524,7 @@ export default function FeedPage() {
     setEntries(selectedCategory ? allEntries.filter(e => e.category === selectedCategory) : allEntries);
   }, [allEntries, selectedCategory]);
 
-  useEffect(() => { fetchEntries(); }, [fetchEntries]);
+  useEffect(() => { fetchEntries(); fetchUserTier(); }, [fetchEntries, fetchUserTier]);
 
   const exitSelectMode = () => { play('TOGGLE_OFF'); setIsSelectMode(false); setSelectedIds(new Set()); };
   const handleLongPress = (id: string) => { play('TOGGLE_ON'); setIsSelectMode(true); setSelectedIds(new Set([id])); };
@@ -505,35 +578,65 @@ export default function FeedPage() {
           <button onClick={toggleSelectAll} className="text-sm font-medium underline-offset-2 hover:underline">
             {allSelected ? 'Зняти все' : `${selectedIds.size} вибрано — Вибрати все`}
           </button>
-          <Button size="sm" variant="outline" onClick={exitSelectMode}>Скасувати</Button>
+          <Button size="sm" variant="outline" className="min-h-[44px]" onClick={exitSelectMode}>Скасувати</Button>
         </div>
       ) : (
-        <h1 className="text-lg font-semibold">Стрічка</h1>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-[28px] font-bold leading-tight">Стрічка</h1>
+          {/* Usage counter chip — shown when Free tier and usage ≥ 70 (70% of 100) */}
+          {userTier === 'free' && usageCounts !== null && usageCounts.entries >= 70 && (
+            <UsageCounterChip
+              label={`${usageCounts.entries} / 100 записів`}
+              onClick={() => {
+                setPaywallProps({
+                  feature: 'entries',
+                  current: usageCounts.entries,
+                  limit: 100,
+                  requiredTier: 'stars_basic',
+                });
+                setPaywallOpen(true);
+              }}
+            />
+          )}
+        </div>
       )}
 
       {!isSelectMode && (
         <CategoryFilterBar entries={allEntries} selected={selectedCategory} onChange={setSelectedCategory} />
       )}
 
-      {status === 'loading' && (
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="mb-3 h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-          <p className="text-sm text-muted-foreground">Завантаження записів...</p>
-        </div>
-      )}
       {status === 'error' && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="mb-1 text-sm font-medium">Щось пішло не так</p>
-          <p className="mb-4 text-xs text-muted-foreground">{errorMsg}</p>
-          <Button size="sm" onClick={() => { play('BUTTON'); fetchEntries(); }}>Спробувати знову</Button>
+        <ErrorBanner
+          message={errorMsg || 'Не вдалося завантажити записи'}
+          onRetry={() => { play('BUTTON'); fetchEntries(); }}
+          onDismiss={() => setStatus('ready')}
+        />
+      )}
+
+      {status === 'loading' && (
+        <div className="flex flex-col gap-3" role="status" aria-label="Завантаження...">
+          <SkeletonEntryCard />
+          <SkeletonEntryCard />
+          <SkeletonEntryCard />
+          <SkeletonEntryCard />
         </div>
       )}
       {status === 'ready' && entries.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-sm text-muted-foreground">
-            {selectedCategory ? 'Немає записів у цій категорії.' : 'Записів ще немає. Надішли повідомлення боту, щоб почати.'}
-          </p>
-        </div>
+        selectedCategory ? (
+          <EmptyState
+            icon="filter_list"
+            title="Немає записів у цій категорії"
+            subtitle="Спробуй іншу категорію або зніми фільтр"
+            ctaLabel="Зняти фільтр"
+            onCta={() => setSelectedCategory(null)}
+          />
+        ) : (
+          <EmptyState
+            icon="contract"
+            title="Стрічка порожня"
+            subtitle="Надішли повідомлення боту, щоб почати"
+          />
+        )
       )}
       {status === 'ready' && entries.length > 0 && (
         <div className="flex flex-col gap-3 pb-4">
@@ -575,6 +678,7 @@ export default function FeedPage() {
                       onSwipeDelete={() => { play('OPEN'); setPendingDeleteIds([item.id]); }}
                       onUpdate={handleUpdate}
                       accessToken={accessToken}
+                      userTier={userTier}
                     />
                   );
                 })}
@@ -589,7 +693,7 @@ export default function FeedPage() {
           <button
             disabled={selectedIds.size === 0}
             onClick={() => { play('OPEN'); setPendingDeleteIds([...selectedIds]); }}
-            className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-semibold text-destructive-foreground shadow-lg disabled:opacity-40"
+            className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-semibold text-destructive-foreground shadow-lg disabled:opacity-40 min-h-[44px]"
           >
             <Icon name="delete" size={15} />
             Видалити {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
@@ -597,9 +701,21 @@ export default function FeedPage() {
         </div>
       )}
 
-      {pendingDeleteIds && (
-        <DeleteConfirmDialog count={pendingDeleteIds.length} onConfirm={isDeleting ? () => { } : confirmDelete} onCancel={() => { play('CLOSE'); setPendingDeleteIds(null); }} />
-      )}
+      <ConfirmSheet
+        open={!!pendingDeleteIds}
+        onClose={() => { play('CLOSE'); setPendingDeleteIds(null); }}
+        onConfirm={isDeleting ? () => {} : confirmDelete}
+        title="Видалити запис?"
+        subtitle="Цю дію не можна скасувати."
+        confirmLabel="Видалити"
+      />
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        open={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        {...paywallProps}
+      />
     </div>
   );
 }

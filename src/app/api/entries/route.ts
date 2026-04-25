@@ -3,6 +3,7 @@ export const runtime = "edge";
 import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { deriveUserKey, encryptField, decryptField } from "@/lib/crypto";
+import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get("Authorization");
@@ -54,6 +55,102 @@ Entry: "${content.replace(/"/g, "'")}"`;
   } catch {
     return null;
   }
+}
+
+export async function POST(req: Request): Promise<Response> {
+  const jwt = getUserJwt(req);
+  if (!jwt) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = makeSupabase(jwt);
+
+  // Resolve user profile id
+  const { data: profile, error: profileErr } = await supabase
+    .from("profiles")
+    .select("id")
+    .single();
+  if (profileErr || !profile) {
+    return new Response(JSON.stringify({ error: "Profile not found" }), {
+      status: 404,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const userId = profile.id as string;
+
+  // Enforce tier entry limit
+  const tier = await getEffectiveTier(userId);
+  const limits = TIER_INFO[tier].limits;
+
+  const { count } = await supabase
+    .from("entries")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  if (limits.entries !== Infinity && (count ?? 0) >= limits.entries) {
+    return new Response(JSON.stringify({
+      error: "limit_exceeded",
+      feature: "entries",
+      limit: limits.entries,
+      current: count,
+      required_tier: "stars_basic",
+    }), { status: 402, headers: { "Content-Type": "application/json" } });
+  }
+
+  // Parse body
+  let content: string, category: string | undefined, metadata: Record<string, unknown> | undefined;
+  try {
+    const body = await req.json();
+    content = body.content;
+    category = body.category;
+    metadata = body.metadata;
+    if (!content) throw new Error("content required");
+  } catch {
+    return new Response(JSON.stringify({ error: "content required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Encrypt content
+  let storedContent = content.trim();
+  try {
+    const telegramId = await getTelegramId(jwt);
+    if (telegramId) {
+      const key = await deriveUserKey(telegramId);
+      storedContent = await encryptField(storedContent, key);
+    }
+  } catch (cryptoErr) {
+    console.error("[api/entries POST] encryption error:", cryptoErr);
+  }
+
+  const { data, error } = await supabase
+    .from("entries")
+    .insert({
+      user_id: userId,
+      content: storedContent,
+      category: category ?? "uncategorized",
+      metadata: metadata ?? {},
+    })
+    .select("id, content, category, metadata, bot_reply, thread_id, reply_to_entry_id, created_at")
+    .single();
+
+  if (error) {
+    console.error("[api/entries POST] insert error:", error.message);
+    return new Response(JSON.stringify({ error: "Failed to create entry" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return new Response(JSON.stringify({ entry: data }), {
+    status: 201,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 export async function PATCH(req: Request): Promise<Response> {
@@ -202,6 +299,12 @@ export async function GET(req: Request): Promise<Response> {
 
   const supabase = makeSupabase(jwt);
 
+  // Resolve user id for tier check
+  const { data: profileForTier } = await supabase
+    .from("profiles")
+    .select("id")
+    .single();
+
   const { searchParams } = new URL(req.url);
   const categoryParam = searchParams.get("category");
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
@@ -221,6 +324,16 @@ export async function GET(req: Request): Promise<Response> {
   if (category) query = query.eq("category", category);
   if (fromParam) query = query.gte("created_at", fromParam);
   if (toParam)   query = query.lte("created_at", toParam);
+
+  // Apply history filter based on effective tier
+  if (profileForTier?.id) {
+    const tier = await getEffectiveTier(profileForTier.id as string);
+    const historyDays = TIER_INFO[tier].limits.historyDays;
+    if (historyDays !== Infinity) {
+      const cutoff = new Date(Date.now() - historyDays * 86_400_000).toISOString();
+      query = query.gte("created_at", cutoff);
+    }
+  }
 
   const { data, error, count } = await query;
 

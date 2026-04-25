@@ -39,7 +39,7 @@ export async function POST(req: Request): Promise<Response> {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title: `${tierInfo.icon} ${tierInfo.name}`,
-        description: tierInfo.features.slice(0, 3).join(" · "),
+        description: tierInfo.features.filter(f => f.included).slice(0, 3).map(f => f.label).join(" · "),
         payload: invoicePayload,
         provider_token: "",          // empty = Telegram Stars
         currency: "XTR",

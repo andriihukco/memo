@@ -1,6 +1,7 @@
 export const runtime = 'edge';
 import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getEffectiveTier, TIER_INFO } from '@/lib/stars/paywall';
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get('Authorization');
@@ -23,6 +24,41 @@ export async function POST(req: Request): Promise<Response> {
 
   const { prompt, answers } = await req.json().catch(() => ({}));
   if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400 });
+
+  // Resolve user id for tier check
+  const supabase = makeSupabase(jwt);
+  const { data: profile } = await supabase.from('profiles').select('id, settings').single();
+  if (!profile) return new Response(JSON.stringify({ error: 'Profile not found' }), { status: 404 });
+
+  const userId = profile.id as string;
+  const tier = await getEffectiveTier(userId);
+  const limits = TIER_INFO[tier].limits;
+
+  // Check custom_widgets feature gate for free tier
+  if (tier === 'free') {
+    return new Response(JSON.stringify({
+      error: 'limit_exceeded',
+      feature: 'custom_widgets',
+      limit: 0,
+      current: 0,
+      required_tier: 'stars_basic',
+    }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
+
+  // Count current widgets
+  const settings = (profile.settings as Record<string, unknown>) ?? {};
+  const customWidgets = (settings.custom_widgets as unknown[]) ?? [];
+  const widgetCount = customWidgets.length;
+
+  if (limits.widgets !== Infinity && widgetCount >= limits.widgets) {
+    return new Response(JSON.stringify({
+      error: 'limit_exceeded',
+      feature: 'widgets',
+      limit: limits.widgets,
+      current: widgetCount,
+      required_tier: 'stars_pro', // Basic has 15, Pro is unlimited
+    }), { status: 402, headers: { 'Content-Type': 'application/json' } });
+  }
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
@@ -73,18 +109,13 @@ Return ONLY valid JSON.`;
   const widget = JSON.parse(raw);
 
   // Save widget definition to user's profile settings
-  const supabase = makeSupabase(jwt);
-  const { data: profile } = await supabase.from('profiles').select('settings').single();
-  const settings = (profile?.settings as Record<string, unknown>) ?? {};
-  const customWidgets = (settings.custom_widgets as unknown[]) ?? [];
-
   // Avoid duplicates
   const filtered = (customWidgets as Array<{ id: string }>).filter(w => w.id !== widget.id);
   filtered.push({ ...widget, created_at: new Date().toISOString() });
 
   await supabase.from('profiles').update({
     settings: { ...settings, custom_widgets: filtered },
-  }).eq('id', (await supabase.auth.getUser()).data.user?.id ?? '');
+  }).eq('id', userId);
 
   return new Response(JSON.stringify({ widget }), {
     headers: { 'Content-Type': 'application/json' },

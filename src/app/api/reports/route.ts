@@ -3,6 +3,7 @@ export const maxDuration = 60; // allow up to 60s for Gemini generation
 
 import { createClient } from "@supabase/supabase-js";
 import { generateRetrospective, saveReport, loadReports, deleteReport } from "@/lib/bot/retrospective";
+import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 
 function jwt(req: Request) {
   const a = req.headers.get("Authorization");
@@ -46,6 +47,37 @@ export async function POST(req: Request) {
   if (profileErr || !profile) {
     console.error("[reports POST] profile lookup failed:", profileErr?.message);
     return Response.json({ error: "Profile not found" }, { status: 404 });
+  }
+
+  // Enforce tier limits
+  const tier = await getEffectiveTier(profile.id);
+  const limits = TIER_INFO[tier].limits;
+
+  // Check ai_reports feature gate for free tier
+  if (tier === "free") {
+    return new Response(JSON.stringify({
+      error: "limit_exceeded",
+      feature: "ai_reports",
+      limit: 0,
+      current: 0,
+      required_tier: "stars_basic",
+    }), { status: 402, headers: { "Content-Type": "application/json" } });
+  }
+
+  // Count current reports
+  const { count } = await db
+    .from("reports")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", profile.id);
+
+  if (limits.reports !== Infinity && (count ?? 0) >= limits.reports) {
+    return new Response(JSON.stringify({
+      error: "limit_exceeded",
+      feature: "reports",
+      limit: limits.reports,
+      current: count,
+      required_tier: "stars_pro",
+    }), { status: 402, headers: { "Content-Type": "application/json" } });
   }
 
   const now = new Date();

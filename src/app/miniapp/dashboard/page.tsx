@@ -11,6 +11,16 @@ import { cn } from '@/lib/utils';
 import type { DashboardMetric } from '@/lib/classifier';
 import { EditDrawer, getCategoryLabel, getCategoryColor, colorFromId } from '@/components/ui/edit-drawer';
 import { useSound } from '@/lib/sound/use-sound';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { Chip } from '@/components/ui/chip';
+import { ErrorBanner } from '@/components/ui/error-banner';
+import { SkeletonMetricCard } from '@/components/ui/skeleton';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PaywallModal } from '@/components/ui/paywall-modal';
+import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
+import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
+import type { SubscriptionTier } from '@/lib/stars/paywall';
 
 interface Entry {
   id: string;
@@ -191,180 +201,280 @@ interface CustomWidget {
   created_at: string;
 }
 
-// ── CreateWidgetSheet — AI-guided custom widget creation ──────────────────────
+// ── CreateWidgetSheet — 3-step chip-based widget creation ────────────────────
 
-function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
+interface WidgetCategory {
+  id: string;
+  label: string;
+  icon: string;
+}
+
+const WIDGET_CATEGORIES: WidgetCategory[] = [
+  { id: 'food', label: 'Харчування', icon: 'restaurant' },
+  { id: 'activity', label: 'Активність', icon: 'fitness_center' },
+  { id: 'sleep', label: 'Сон', icon: 'bedtime' },
+  { id: 'water', label: 'Вода', icon: 'water_drop' },
+  { id: 'weight', label: 'Вага', icon: 'scale' },
+  { id: 'expenses', label: 'Витрати', icon: 'account_balance_wallet' },
+  { id: 'mood', label: 'Настрій', icon: 'sentiment_satisfied' },
+  { id: 'custom', label: 'Кастомний', icon: 'add_circle' },
+];
+
+const CATEGORY_QUESTIONS: Record<string, string[]> = {
+  food: ['Калорії за день', 'Білки / жири / вуглеводи', 'Конкретний продукт'],
+  activity: ['Кроки за день', 'Хвилини тренування', 'Дистанція (км)'],
+  sleep: ['Годин сну', 'Якість сну (1–10)', 'Час підйому'],
+  water: ['Мл води за день', 'Склянки води', 'Відсоток норми'],
+  weight: ['Поточна вага (кг)', 'Зміна ваги за тиждень', 'ІМТ'],
+  expenses: ['Витрати за день (грн)', 'Витрати за категорією', 'Залишок бюджету'],
+  mood: ['Оцінка настрою (1–10)', 'Рівень стресу (1–10)', 'Рівень енергії (1–10)'],
+  custom: [],
+};
+
+function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
   onClose: () => void;
   onCreated: (widget: CustomWidget) => void;
+  onPaywall: (feature: string, current: number | undefined, limit: number | undefined, requiredTier: SubscriptionTier) => void;
   accessToken?: string | null;
 }) {
-  type Step = 'prompt' | 'questions' | 'creating' | 'done';
-  const [step, setStep] = useState<Step>('prompt');
-  const [prompt, setPrompt] = useState('');
-  const [questions, setQuestions] = useState<string[]>([]);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [step, setStep] = useState(0); // 0, 1, 2
+  const [selectedCategory, setSelectedCategory] = useState<WidgetCategory | null>(null);
+  const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customText, setCustomText] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const customInputRef = useRef<HTMLInputElement>(null);
   const { play } = useSound();
 
+  // Auto-focus custom input when revealed
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 100);
-  }, []);
-
-  const handlePromptSubmit = async () => {
-    if (!prompt.trim() || !accessToken) return;
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/widgets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ prompt: prompt.trim() }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      const data = await res.json();
-      setQuestions(data.questions ?? []);
-      setAnswers(Object.fromEntries((data.questions ?? []).map((q: string) => [q, ''])));
-      setStep('questions');
-    } catch {
-      setError('Не вдалося. Спробуй ще раз.');
-    } finally {
-      setLoading(false);
+    if (showCustomInput) {
+      setTimeout(() => customInputRef.current?.focus(), 50);
     }
+  }, [showCustomInput]);
+
+  const handleCategorySelect = (cat: WidgetCategory) => {
+    setSelectedCategory(cat);
+    setSelectedQuestion(null);
+    setShowCustomInput(false);
+    setCustomText('');
+    setError(null);
+    if (cat.id === 'custom') {
+      // Skip step 2 pre-built chips — go to step 1 but show text input immediately
+      setShowCustomInput(true);
+      setStep(1);
+    } else {
+      setStep(1);
+    }
+  };
+
+  const handleQuestionSelect = (q: string) => {
+    setSelectedQuestion(q);
+    setShowCustomInput(false);
+    setCustomText('');
+  };
+
+  const handleCustomChipTap = () => {
+    play('OPEN');
+    setSelectedQuestion(null);
+    setShowCustomInput(true);
+    setTimeout(() => customInputRef.current?.focus(), 50);
+  };
+
+  const canProceedStep1 = selectedQuestion !== null || (showCustomInput && customText.trim().length > 0);
+
+  const handleNextFromStep1 = () => {
+    if (!canProceedStep1) return;
+    setError(null);
+    setStep(2);
   };
 
   const handleCreate = async () => {
-    if (!accessToken) return;
-    setStep('creating');
-    setError('');
+    if (!accessToken || !selectedCategory) return;
+    const prompt = selectedQuestion ?? customText.trim();
+    if (!prompt) return;
+
+    setCreating(true);
+    setError(null);
     try {
       const res = await fetch('/api/widgets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ prompt: prompt.trim(), answers }),
+        body: JSON.stringify({ prompt: `${selectedCategory.label}: ${prompt}` }),
       });
-      if (!res.ok) throw new Error('Failed');
       const data = await res.json();
-      onCreated(data.widget);
-      setStep('done');
-      play('CELEBRATION');
-      setTimeout(onClose, 1200);
+      if (res.status === 402) {
+        // Limit exceeded — close sheet and open paywall
+        onClose();
+        onPaywall(
+          data.feature ?? 'widgets',
+          data.current,
+          data.limit,
+          (data.required_tier as SubscriptionTier) ?? 'stars_basic',
+        );
+      } else if (!res.ok) {
+        setError('Не вдалося створити віджет. Спробуй ще раз.');
+      } else {
+        onCreated(data.widget);
+        play('CELEBRATION');
+        setTimeout(onClose, 1200);
+      }
     } catch {
-      setError('Не вдалося створити віджет.');
-      setStep('questions');
+      setError('Не вдалося створити віджет. Спробуй ще раз.');
+    } finally {
+      setCreating(false);
     }
   };
 
+  const questions = selectedCategory ? CATEGORY_QUESTIONS[selectedCategory.id] ?? [] : [];
+  const displayQuestion = selectedQuestion ?? (showCustomInput && customText.trim() ? customText.trim() : null);
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div
-        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-        style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)', maxHeight: '85vh', overflowY: 'auto' }}
-      >
-        {/* Handle */}
-        <div className="mb-4 flex justify-center">
-          <div className="h-1 w-10 rounded-full bg-muted" />
-        </div>
+    <BottomSheet open onClose={onClose} className="px-4 pt-4 max-h-[85vh] overflow-y-auto">
+      {/* Step indicator */}
+      <div className="flex gap-1.5 justify-center mb-4">
+        {[0, 1, 2].map(i => (
+          <div
+            key={i}
+            className={cn(
+              'w-2 h-2 rounded-full transition-colors',
+              i === step ? 'bg-primary' : 'bg-muted'
+            )}
+          />
+        ))}
+      </div>
 
-        {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold">Новий віджет</h3>
-            <p className="text-xs text-muted-foreground">AI допоможе налаштувати трекінг</p>
-          </div>
-          <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <Icon name="close" size={14} />
-          </button>
-        </div>
-
-        {/* Step: prompt */}
-        {step === 'prompt' && (
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl bg-primary/5 border border-primary/10 px-4 py-3">
-              <p className="text-sm text-muted-foreground">
-                Що хочеш відстежувати? Наприклад: &ldquo;кількість кави на день&rdquo;, &ldquo;час медитації&rdquo;, &ldquo;кроки&rdquo;
-              </p>
+      {/* Sliding steps container */}
+      <div className="overflow-hidden">
+        <div
+          className="flex transition-transform duration-300 ease-out"
+          style={{ transform: `translateX(-${step * 100}%)` }}
+        >
+          {/* ── Step 0: Category selection ── */}
+          <div className="min-w-full">
+            <h3 className="text-[17px] font-semibold mb-4">Що хочеш відстежувати?</h3>
+            <div className="flex flex-wrap gap-2 pb-2">
+              {WIDGET_CATEGORIES.map(cat => (
+                <Chip
+                  key={cat.id}
+                  label={cat.label}
+                  icon={cat.icon}
+                  selected={selectedCategory?.id === cat.id}
+                  onClick={() => handleCategorySelect(cat)}
+                />
+              ))}
             </div>
-            <input
-              ref={inputRef}
-              type="text"
-              value={prompt}
-              onChange={e => { play('TYPE'); setPrompt(e.target.value); }}
-              onKeyDown={e => { if (e.key === 'Enter') handlePromptSubmit(); }}
-              placeholder="Я хочу відстежувати..."
-              className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            <Button
-              className="w-full rounded-full"
-              disabled={!prompt.trim() || loading}
-              onClick={() => { play('BUTTON'); handlePromptSubmit(); }}
+          </div>
+
+          {/* ── Step 1: Question selection ── */}
+          <div className="min-w-full">
+            <button
+              onClick={() => { setStep(0); setError(null); }}
+              className="text-[13px] text-muted-foreground min-h-[44px] flex items-center mb-1"
             >
-              {loading
-                ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-                : 'Далі →'}
-            </Button>
-          </div>
-        )}
+              ← Назад
+            </button>
+            <h3 className="text-[17px] font-semibold mb-4">{selectedCategory?.label ?? ''}</h3>
 
-        {/* Step: questions */}
-        {step === 'questions' && (
-          <div className="flex flex-col gap-4">
-            <div className="rounded-2xl bg-muted/40 px-4 py-3">
-              <p className="text-xs text-muted-foreground">Трекінг: <span className="font-medium text-foreground">{prompt}</span></p>
-            </div>
-            {questions.map((q, i) => (
-              <div key={i}>
-                <p className="mb-1.5 text-sm font-medium">{q}</p>
-                <input
-                  type="text"
-                  value={answers[q] ?? ''}
-                  onChange={e => { play('TYPE'); setAnswers(prev => ({ ...prev, [q]: e.target.value })); }}
-                  placeholder="Ваша відповідь..."
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            {/* Pre-built question chips (not shown for custom category) */}
+            {selectedCategory?.id !== 'custom' && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {questions.map(q => (
+                  <Chip
+                    key={q}
+                    label={q}
+                    selected={selectedQuestion === q}
+                    onClick={() => handleQuestionSelect(q)}
+                  />
+                ))}
+                {/* "Свій варіант" chip */}
+                <Chip
+                  label="Свій варіант"
+                  icon="add_circle"
+                  selected={showCustomInput}
+                  onClick={handleCustomChipTap}
                 />
               </div>
-            ))}
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            <div className="flex gap-2">
-              <button
-                onClick={() => setStep('prompt')}
-                className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground"
-              >
-                ← Назад
-              </button>
-              <Button
-                className="flex-1 rounded-full"
-                disabled={questions.some(q => !answers[q]?.trim())}
-                onClick={() => { play('BUTTON'); handleCreate(); }}
-              >
-                Створити
-              </Button>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Step: creating */}
-        {step === 'creating' && (
-          <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted border-t-primary" />
-            <p className="text-sm text-muted-foreground">AI створює твій віджет...</p>
-          </div>
-        )}
+            {/* Custom text input */}
+            {showCustomInput && (
+              <input
+                ref={customInputRef}
+                type="text"
+                value={customText}
+                onChange={e => setCustomText(e.target.value)}
+                placeholder="Введи свій варіант..."
+                className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring mb-3"
+              />
+            )}
 
-        {/* Step: done */}
-        {step === 'done' && (
-          <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-500/15">
-              <span className="text-2xl">✓</span>
-            </div>
-            <p className="text-sm font-medium text-green-400">Віджет створено!</p>
+            <Button
+              className="w-full min-h-[44px]"
+              disabled={!canProceedStep1}
+              onClick={handleNextFromStep1}
+            >
+              Далі
+            </Button>
           </div>
-        )}
+
+          {/* ── Step 2: Confirmation ── */}
+          <div className="min-w-full">
+            <button
+              onClick={() => { setStep(0); setError(null); }}
+              className="text-[13px] text-muted-foreground min-h-[44px] flex items-center mb-1"
+            >
+              ← Змінити
+            </button>
+
+            {/* Summary card */}
+            {selectedCategory && (
+              <div className="bg-muted/40 rounded-2xl p-4 flex items-center gap-3 mb-4">
+                <Icon
+                  name={selectedCategory.icon}
+                  size={32}
+                  className="text-primary shrink-0"
+                />
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{selectedCategory.label}</p>
+                  {displayQuestion && (
+                    <p className="text-sm text-muted-foreground truncate">{displayQuestion}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Error banner */}
+            {error && (
+              <div className="mb-4">
+                <ErrorBanner
+                  message={error}
+                  onRetry={handleCreate}
+                  onDismiss={() => setError(null)}
+                />
+              </div>
+            )}
+
+            {/* CTA */}
+            <Button
+              className="w-full min-h-[44px]"
+              disabled={creating}
+              onClick={handleCreate}
+            >
+              {creating ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                  AI створює твій віджет...
+                </span>
+              ) : (
+                'Створити віджет'
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -452,92 +562,190 @@ function MetricEditSheet({ metric, sourceEntries, onSave, onDelete, onClose }: {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div
-        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-        style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)' }}
-      >
-        {/* Handle */}
-        <div className="mb-4 flex justify-center">
-          <div className="h-1 w-10 rounded-full bg-muted" />
-        </div>
+    <BottomSheet open onClose={onClose} className="px-4 pt-4">
+      {/* Header row: delete — metric info — close */}
+      <div className="mb-4 mt-3 flex items-center gap-3">
+        {/* Delete button */}
+        <button
+          onClick={() => setConfirmDelete(true)}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
+          aria-label="Видалити"
+        >
+          <Icon name="delete" size={16} />
+        </button>
 
-        {/* Header row: delete — metric info — close */}
-        <div className="mb-4 flex items-center gap-3">
-          {/* Delete / confirm */}
-          {!confirmDelete ? (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
-              aria-label="Видалити"
-            >
-              <Icon name="delete" size={16} />
-            </button>
-          ) : (
-            <div className="flex flex-1 items-center gap-2 rounded-2xl bg-red-50 px-3 py-2">
-              <Icon name="delete" size={13} className="shrink-0 text-red-500" />
-              <span className="flex-1 text-xs text-red-700">
-                Видалити {sourceEntries.length} {sourceEntries.length === 1 ? 'запис' : 'записів'}?
-              </span>
-              <button
-                onClick={() => setConfirmDelete(false)}
-                className="rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
-              >
-                Ні
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="rounded-full bg-red-500 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60"
-              >
-                {deleting ? '...' : 'Так'}
-              </button>
-            </div>
-          )}
+        {/* Metric info */}
+        <>
+          <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', bg)}>
+            <MetricIcon name={metric.icon} size={18} className={text} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold truncate">{metric.label}</p>
+            <p className="text-xs text-muted-foreground">Зараз: {metric.value} {metric.unit}</p>
+          </div>
+        </>
 
-          {/* Metric info — only shown when not in confirm mode */}
-          {!confirmDelete && (
-            <>
-              <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', bg)}>
-                <MetricIcon name={metric.icon} size={18} className={text} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{metric.label}</p>
-                <p className="text-xs text-muted-foreground">Зараз: {metric.value} {metric.unit}</p>
-              </div>
-            </>
-          )}
-
-          {/* Close */}
-          <button
-            onClick={onClose}
-            className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
-          >
-            <Icon name="close" size={14} />
-          </button>
-        </div>
-
-        <div className="mb-4 flex items-center gap-3">
-          <input
-            ref={inputRef}
-            type="number"
-            inputMode="decimal"
-            value={value}
-            onChange={e => setValue(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') save(); }}
-            className="flex-1 rounded-2xl border border-input bg-background px-4 py-3 text-2xl font-bold focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <span className="text-lg text-muted-foreground">{metric.unit}</span>
-        </div>
-
-        <Button className="w-full rounded-full" disabled={saving || !value.trim()} onClick={save}>
-          {saving
-            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-            : 'Зберегти'}
-        </Button>
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
+        >
+          <Icon name="close" size={14} />
+        </button>
       </div>
-    </div>
+
+      <div className="mb-4 flex items-center gap-3">
+        <input
+          ref={inputRef}
+          type="number"
+          inputMode="decimal"
+          value={value}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') save(); }}
+          className="flex-1 rounded-2xl border border-input bg-background px-4 py-3 text-2xl font-bold focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+        <span className="text-lg text-muted-foreground">{metric.unit}</span>
+      </div>
+
+      <Button className="w-full min-h-[44px] rounded-full" disabled={saving || !value.trim()} onClick={save}>
+        {saving
+          ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+          : 'Зберегти'}
+      </Button>
+      <ConfirmSheet
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="Видалити метрику?"
+        subtitle="Цю дію не можна скасувати."
+        confirmLabel="Видалити"
+      />
+    </BottomSheet>
+  );
+}
+
+// ── LogEntrySheet — quick log entry from a custom widget card ────────────────
+
+interface LogEntrySheetProps {
+  open: boolean;
+  onClose: () => void;
+  widget: CustomWidget;
+  onSaved: () => void;
+  onViewEntries: () => void;
+  accessToken?: string | null;
+}
+
+function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, accessToken }: LogEntrySheetProps) {
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { play } = useSound();
+
+  // Reset state when sheet opens
+  useEffect(() => {
+    if (open) {
+      setValue('');
+      setError(null);
+      setSaving(false);
+    }
+  }, [open]);
+
+  const handleSave = async () => {
+    const numericValue = parseFloat(value.replace(',', '.'));
+    if (isNaN(numericValue) || !accessToken) return;
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/entries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          content: `${widget.title}: ${numericValue} ${widget.unit}`,
+          category: widget.category ?? 'health',
+          metadata: {
+            dashboard_metrics: [
+              {
+                key: widget.metric_key,
+                value: numericValue,
+                unit: widget.unit,
+                label: widget.title,
+                aggregate: widget.aggregate,
+              },
+            ],
+          },
+        }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      play('CELEBRATION');
+      onSaved();
+      onClose();
+    } catch {
+      setError('Не вдалося зберегти запис. Спробуй ще раз.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <BottomSheet open={open} onClose={onClose} className="px-4 pt-4">
+      {/* Widget header */}
+      <div className="flex items-center gap-3 mb-4">
+        <MetricIcon name={widget.icon} size={24} className="text-primary" />
+        <div>
+          <h2 className="text-[17px] font-semibold">{widget.title}</h2>
+          <p className="text-[13px] text-muted-foreground">{widget.unit}</p>
+        </div>
+      </div>
+
+      {/* Value input */}
+      <input
+        type="number"
+        inputMode="decimal"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') handleSave(); }}
+        placeholder="0"
+        autoFocus
+        className="text-[24px] font-semibold text-center bg-muted/40 rounded-xl px-4 py-4 w-full focus:outline-none focus:ring-1 focus:ring-ring mb-4"
+      />
+
+      {/* Error banner */}
+      {error && (
+        <div className="mb-4">
+          <ErrorBanner
+            message={error}
+            onRetry={handleSave}
+            onDismiss={() => setError(null)}
+          />
+        </div>
+      )}
+
+      {/* Save button */}
+      <Button
+        className="w-full min-h-[44px] mb-2"
+        disabled={saving || !value.trim()}
+        onClick={handleSave}
+      >
+        {saving ? (
+          <span className="flex items-center gap-2">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+            Збереження...
+          </span>
+        ) : (
+          'Зберегти'
+        )}
+      </Button>
+
+      {/* View entries link */}
+      <button
+        type="button"
+        onClick={onViewEntries}
+        className="text-[13px] text-muted-foreground text-center min-h-[44px] w-full"
+      >
+        Переглянути записи
+      </button>
+    </BottomSheet>
   );
 }
 
@@ -555,21 +763,9 @@ function DrillDownDrawer({ title, entries, onClose, onUpdate, onDelete, accessTo
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-background shadow-2xl"
-        style={{
-          maxHeight: '75vh', display: 'flex', flexDirection: 'column',
-          paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px))'
-        }}
-      >
-        {/* Handle */}
-        <div className="flex-shrink-0 pt-3 pb-2 flex justify-center">
-          <div className="h-1 w-10 rounded-full bg-muted" />
-        </div>
-
+      <BottomSheet open onClose={onClose} className="flex flex-col" style={{ maxHeight: '75vh', paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px))' }}>
         {/* Header */}
-        <div className="flex-shrink-0 flex items-center justify-between px-5 pb-3">
+        <div className="flex-shrink-0 flex items-center justify-between px-5 pb-3 pt-3">
           <h3 className="font-semibold">{title}</h3>
           <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
             <Icon name="close" size={14} />
@@ -601,7 +797,7 @@ function DrillDownDrawer({ title, entries, onClose, onUpdate, onDelete, accessTo
             ))}
           </div>
         </div>
-      </div>
+      </BottomSheet>
 
       {editEntry && (
         <EditDrawer
@@ -635,33 +831,26 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div
-        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-        style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}
-      >
-        <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-        <h3 className="mb-4 text-sm font-semibold">Оберіть період</h3>
-        <div className="mb-4 grid grid-cols-3 gap-2">
-          {(['today', 'week', 'month'] as DateRange[]).map(r => (
-            <button key={r} onClick={() => apply(r)}
-              className={cn('rounded-xl border py-3 text-sm font-medium transition-colors',
-                filter.range === r ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/30 text-foreground')}>
-              {RANGE_LABELS[r]}
-            </button>
-          ))}
-        </div>
-        <div className="mb-3 flex items-center gap-2">
-          <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
-            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
-          <span className="text-muted-foreground">–</span>
-          <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
-            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
-        </div>
-        <Button className="w-full" onClick={applyCustom}>Застосувати</Button>
+    <BottomSheet open onClose={onClose} className="px-4 pt-4" style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
+      <h3 className="mb-4 mt-3 text-sm font-semibold">Оберіть період</h3>
+      <div className="mb-4 grid grid-cols-3 gap-2">
+        {(['today', 'week', 'month'] as DateRange[]).map(r => (
+          <button key={r} onClick={() => apply(r)}
+            className={cn('rounded-xl border py-3 text-sm font-medium transition-colors',
+              filter.range === r ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/30 text-foreground')}>
+            {RANGE_LABELS[r]}
+          </button>
+        ))}
       </div>
-    </div>
+      <div className="mb-3 flex items-center gap-2">
+        <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
+          className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+        <span className="text-muted-foreground">–</span>
+        <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
+          className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+      </div>
+      <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
+    </BottomSheet>
   );
 }
 
@@ -674,10 +863,11 @@ function GoalsTab({ entries }: { entries: Entry[] }) {
 
   if (goals.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-sm text-muted-foreground">Цілей ще немає</p>
-        <p className="mt-1 text-xs text-muted-foreground">Скажи боту: &ldquo;Хочу пробігти 100км цього місяця&rdquo;</p>
-      </div>
+      <EmptyState
+        icon="my_location"
+        title="Цілей ще немає"
+        subtitle="Скажи боту: «Хочу пробігти 100 км цього місяця»"
+      />
     );
   }
 
@@ -869,6 +1059,23 @@ export default function DashboardPage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showCreateWidget, setShowCreateWidget] = useState(false);
   const [customWidgets, setCustomWidgets] = useState<CustomWidget[]>([]);
+  const [logEntry, setLogEntry] = useState<{ widget: CustomWidget; drillEntries: Entry[] } | null>(null);
+  const [widgetToDelete, setWidgetToDelete] = useState<string | null>(null);
+
+  // ── Paywall state ──────────────────────────────────────────────────────────
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallProps, setPaywallProps] = useState<{
+    feature: string;
+    current?: number;
+    limit?: number;
+    requiredTier: SubscriptionTier;
+  }>({ feature: 'custom_widgets', requiredTier: 'stars_basic' });
+
+  // ── User tier (for "+" button intercept) ──────────────────────────────────
+  const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
+
+  // ── Usage counts ───────────────────────────────────────────────────────────
+  const { counts: usageCounts } = useUsageCounts(accessToken);
 
   const { play } = useSound();
 
@@ -905,8 +1112,18 @@ export default function DashboardPage() {
     } catch { /* non-critical */ }
   }, [accessToken]);
 
+  const fetchUserTier = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return;
+      const { profile } = await res.json();
+      setUserTier((profile?.subscription_tier as SubscriptionTier) ?? 'free');
+    } catch { /* non-critical */ }
+  }, [accessToken]);
+
   useEffect(() => { fetchEntries(filter.from, filter.to); }, [fetchEntries, filter]);
-  useEffect(() => { fetchAllEntries(); fetchCustomWidgets(); }, [fetchAllEntries, fetchCustomWidgets]);
+  useEffect(() => { fetchAllEntries(); fetchCustomWidgets(); fetchUserTier(); }, [fetchAllEntries, fetchCustomWidgets, fetchUserTier]);
 
   const handleUpdate = async (id: string, content: string, category: string) => {
     if (!accessToken) return;
@@ -955,6 +1172,18 @@ export default function DashboardPage() {
     if (!res.ok) return;
     setEntries(prev => prev.filter(e => !ids.includes(e.id)));
     setDrillDown(prev => prev ? { ...prev, entries: prev.entries.filter(e => !ids.includes(e.id)) } : null);
+  };
+
+  const deleteWidget = async (id: string) => {
+    if (!accessToken) return;
+    try {
+      await fetch('/api/widgets', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ id }),
+      });
+      setCustomWidgets(prev => prev.filter(w => w.id !== id));
+    } catch { /* non-critical */ }
   };
   // ── Derived ─────────────────────────────────────────────────────────────────
 
@@ -1005,22 +1234,54 @@ export default function DashboardPage() {
   const specialKeys = new Set(['kcal_intake', 'kcal_burned']);
   const genericMetrics = metrics.filter(m => !specialKeys.has(m.key));
 
+  const openPaywall = (feature: string, current: number | undefined, limit: number | undefined, requiredTier: SubscriptionTier) => {
+    setPaywallProps({ feature, current, limit, requiredTier });
+    setPaywallOpen(true);
+  };
+
+  const handleAddWidgetTap = () => {
+    // If user is on Free tier, intercept and show paywall before opening CreateWidgetSheet
+    if (userTier === 'free') {
+      openPaywall('custom_widgets', undefined, undefined, 'stars_basic');
+      return;
+    }
+    play('OPEN');
+    setShowCreateWidget(true);
+  };
+
   return (
     <div className="flex flex-col gap-4 px-4 pt-5 pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Віджети</h1>
+        <div className="flex flex-col gap-1.5">
+          <h1 className="text-[28px] font-bold leading-tight">Віджети</h1>
+          {/* Usage counter chip — shown when Free tier and usage ≥ 2 (67% of 3) */}
+          {userTier === 'free' && usageCounts !== null && usageCounts.widgets >= 2 && (
+            <UsageCounterChip
+              label={`${usageCounts.widgets} / 3 віджетів`}
+              onClick={() => openPaywall('widgets', usageCounts.widgets, 3, 'stars_basic')}
+            />
+          )}
+        </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => { play('OPEN'); setShowCreateWidget(true); }}
-            className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary"
-          >
-            <Icon name="add" size={12} />
-            Віджет
-          </button>
+          <div className="relative">
+            <button
+              onClick={handleAddWidgetTap}
+              className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary min-h-[44px]"
+            >
+              <Icon name="add" size={12} />
+              Віджет
+            </button>
+            {/* Lock badge for Free tier when widget count >= 3 */}
+            {userTier === 'free' && (usageCounts?.widgets ?? 0) >= 3 && (
+              <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center pointer-events-none">
+                <Icon name="lock" size={10} className="text-slate-900" />
+              </div>
+            )}
+          </div>
           <button
             onClick={() => { play('OPEN'); setShowCalendar(true); }}
-            className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground"
+            className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground min-h-[44px]"
           >
             <Icon name="calendar_today" size={13} />
             {filter.range === 'custom' ? `${fmtDate(filter.from)} – ${fmtDate(filter.to)}` : RANGE_LABELS[filter.range]}
@@ -1036,23 +1297,39 @@ export default function DashboardPage() {
         </TabsList>
 
         <TabsContent value="goals">
+          {status === 'loading' && (
+            <div className="grid grid-cols-2 gap-3 mt-4" role="status" aria-label="Завантаження...">
+              <SkeletonMetricCard />
+              <SkeletonMetricCard />
+              <SkeletonMetricCard />
+              <SkeletonMetricCard />
+            </div>
+          )}
           {status === 'ready' && <GoalsTab entries={allEntries} />}
         </TabsContent>
 
         <TabsContent value="actual">
-          {status === 'loading' && <div className="flex items-center justify-center py-16"><div className="h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-foreground" /></div>}
-          {status === 'error' && (
-            <div className="py-12 text-center">
-              <p className="text-sm text-muted-foreground">Не вдалося завантажити дані</p>
-              <Button size="sm" className="mt-3" onClick={() => fetchEntries(filter.from, filter.to)}>Повторити</Button>
+          {status === 'loading' && (
+            <div className="grid grid-cols-2 gap-3 mt-4" role="status" aria-label="Завантаження...">
+              <SkeletonMetricCard />
+              <SkeletonMetricCard />
+              <SkeletonMetricCard />
+              <SkeletonMetricCard />
             </div>
           )}
+          {status === 'error' && (
+            <ErrorBanner
+              message="Не вдалося завантажити дані"
+              onRetry={() => fetchEntries(filter.from, filter.to)}
+              onDismiss={() => setStatus('ready')}
+            />
+          )}
           {status === 'ready' && entries.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-              <Icon name="widgets" size={32} className="text-muted-foreground/40" />
-              <p className="text-sm text-muted-foreground">Немає даних за цей період</p>
-              <p className="text-xs text-muted-foreground/60">Додай записи через бота, щоб побачити метрики</p>
-            </div>
+            <EmptyState
+              icon="dashboard"
+              title="Немає даних за цей період"
+              subtitle="Запиши активність, їжу або сон у боті"
+            />
           )}
 
           {status === 'ready' && entries.length > 0 && (
@@ -1086,14 +1363,18 @@ export default function DashboardPage() {
                             key={w.id}
                             metric={matchedMetric}
                             sourceEntries={srcEntries}
-                            onEntryClick={openDrillDown}
+                            onEntryClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
                             onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }}
                           />
                         );
                       }
                       // Widget defined but no data yet — show empty placeholder
                       return (
-                        <Card key={w.id} className="flex flex-col gap-1 p-4 opacity-60">
+                        <Card
+                          key={w.id}
+                          className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50"
+                          onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
+                        >
                           <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
                             <MetricIcon name={w.icon} size={16} className={colorObj.text} />
                           </div>
@@ -1108,7 +1389,7 @@ export default function DashboardPage() {
                     })}
                     {/* Add widget button */}
                     <button
-                      onClick={() => { play('OPEN'); setShowCreateWidget(true); }}
+                      onClick={handleAddWidgetTap}
                       className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20"
                     >
                       <Icon name="add" size={20} />
@@ -1229,9 +1510,39 @@ export default function DashboardPage() {
         <CreateWidgetSheet
           onClose={() => { play('CLOSE'); setShowCreateWidget(false); }}
           onCreated={(widget) => setCustomWidgets(prev => [...prev.filter(w => w.id !== widget.id), widget])}
+          onPaywall={openPaywall}
           accessToken={accessToken}
         />
       )}
+
+      {/* Log entry sheet */}
+      {logEntry && (
+        <LogEntrySheet
+          open={!!logEntry}
+          onClose={() => { play('CLOSE'); setLogEntry(null); }}
+          widget={logEntry.widget}
+          onSaved={() => { fetchEntries(filter.from, filter.to); }}
+          onViewEntries={() => { setLogEntry(null); openDrillDown(logEntry.drillEntries, logEntry.widget.title); }}
+          accessToken={accessToken}
+        />
+      )}
+
+      {/* Widget delete confirmation */}
+      <ConfirmSheet
+        open={!!widgetToDelete}
+        onClose={() => setWidgetToDelete(null)}
+        onConfirm={() => { if (widgetToDelete) { deleteWidget(widgetToDelete); setWidgetToDelete(null); } }}
+        title="Видалити віджет?"
+        subtitle="Цю дію не можна скасувати."
+        confirmLabel="Видалити"
+      />
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        open={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        {...paywallProps}
+      />
     </div>
   );
 }

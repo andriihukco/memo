@@ -3,8 +3,19 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { Icon } from '@/components/ui/icon';
 
-const SLIDES = [
+interface Slide {
+  emoji: string;
+  title: string;
+  body: string;
+  bg: string;
+  accent: string;
+  isFinal?: boolean;
+  showPrivacyBadge?: boolean;
+}
+
+const SLIDES: Slide[] = [
   {
     emoji: '📓',
     title: 'Твій особистий щоденник',
@@ -32,6 +43,14 @@ const SLIDES = [
     body: 'Memo помічає якщо ти мало спиш, п\'єш забагато алкоголю або не вистачає білка — і підказує що змінити.',
     bg: 'from-amber-950 to-slate-950',
     accent: 'text-amber-400',
+  },
+  {
+    emoji: '🔐',
+    title: 'Твої дані захищені',
+    body: 'Всі записи шифруються на твоєму пристрої перед збереженням. Навіть ми не можемо їх прочитати. Твоя приватність — наш пріоритет.',
+    bg: 'from-emerald-950 to-slate-950',
+    accent: 'text-emerald-400',
+    showPrivacyBadge: true,
   },
   {
     emoji: '⭐',
@@ -124,7 +143,7 @@ export default function OnboardingPage() {
 
       {/* Content */}
       <div
-        className="flex flex-1 flex-col items-center justify-center text-center"
+        className="relative flex flex-1 flex-col items-center justify-center text-center"
         style={{
           transform: `translateX(${dragging ? dragOffset * 0.3 : 0}px)`,
           transition: dragging ? 'none' : 'transform 0.3s ease',
@@ -137,6 +156,14 @@ export default function OnboardingPage() {
         <p className="max-w-xs text-base leading-relaxed text-white/60">
           {slide.body}
         </p>
+
+        {/* Privacy badge — shown on Slide 5 */}
+        {slide.showPrivacyBadge && (
+          <div className="absolute bottom-0 left-0 flex items-center gap-1.5">
+            <Icon name="lock" size={16} className="text-emerald-400/60" />
+            <span className="text-[11px] text-emerald-400/60">Зашифровано</span>
+          </div>
+        )}
       </div>
 
       {/* Dots */}
@@ -164,7 +191,7 @@ export default function OnboardingPage() {
               : 'bg-white shadow-lg shadow-white/10'
           )}
         >
-          {slide.isFinal ? '⭐ Почати безкоштовно' : 'Далі →'}
+          {slide.isFinal ? 'Почати безкоштовно →' : 'Далі →'}
         </button>
         {index > 0 && (
           <button

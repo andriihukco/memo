@@ -284,3 +284,190 @@ All changes build on the existing dark gradient background (`#1E1B4A → #04081A
 5. WHEN a Bottom_Sheet is dragged down past 40% of its height, THE App SHALL commit the close animation and dismiss the sheet, playing the `CLOSE` Haptic_Sound.
 6. THE App SHALL NOT use abrupt show/hide (display: none toggling without animation) for any Bottom_Sheet or modal introduced or modified by this spec.
 
+
+---
+
+## Subscription & Monetisation Requirements
+
+### Glossary Additions
+
+- **Free_Tier**: The default plan every new user starts on. Hard limits apply to entries, widgets, and reports.
+- **Basic_Tier** (`stars_basic`): 250 Telegram Stars (~$3.25 / month). Removes most limits and unlocks AI features.
+- **Pro_Tier** (`stars_pro`): 500 Telegram Stars (~$6.50 / month). Fully unlimited — no caps on any feature.
+- **Paywall_Modal**: A Bottom_Sheet that appears when a user hits a Free_Tier limit or taps a locked feature, explaining the limit and offering an upgrade path.
+- **Onboarding_Paywall**: A full-screen paywall shown immediately after the last onboarding slide, before the user enters the app for the first time.
+- **Usage_Counter**: A small inline indicator (e.g., "3 / 5 звітів") shown near a limited feature so the user always knows how close they are to the cap.
+- **Limit_Gate**: Server-side enforcement of tier limits in API routes; returns HTTP 402 with a structured error body when a limit is exceeded.
+
+---
+
+### Requirement 16: Subscription Tier Definitions and Limits
+
+**User Story:** As a product owner, I want clearly defined tier limits so that the free plan is genuinely useful but creates natural upgrade pressure, and paid plans feel worth the price.
+
+#### Tier Limit Table
+
+| Feature | Free | Basic (250 ⭐) | Pro (500 ⭐) |
+|---|---|---|---|
+| Journal entries (total stored) | 100 | 2 000 | Unlimited |
+| Widgets (active) | 3 | 15 | Unlimited |
+| Retrospective reports (total stored) | 5 | 50 | Unlimited |
+| Entry history visible in feed | 30 days | 1 year | All time |
+| AI retrospective generation | ✗ | ✓ | ✓ |
+| AI smart recommendations | ✗ | ✓ | ✓ |
+| Voice message logging | ✗ | ✓ | ✓ |
+| Goal tracking & progress bars | ✗ | ✓ | ✓ |
+| Custom widget creation (AI flow) | ✗ | ✓ | ✓ |
+| Graph / analytics page | Read-only last 7 days | Full history | Full history + export |
+| Entry encryption (client-side AES) | ✓ | ✓ | ✓ |
+| Passcode lock | ✓ | ✓ | ✓ |
+| Priority AI processing | ✗ | ✗ | ✓ |
+| Data export (JSON / CSV) | ✗ | ✗ | ✓ |
+
+#### Acceptance Criteria
+
+1. THE App SHALL enforce all Free_Tier limits server-side in the relevant API routes (`/api/entries`, `/api/widgets`, `/api/reports`). When a limit is exceeded, the API SHALL return HTTP 402 with body `{ "error": "limit_exceeded", "feature": "<name>", "limit": <n>, "current": <n>, "required_tier": "stars_basic" | "stars_pro" }`.
+2. THE App SHALL enforce all Basic_Tier limits server-side. Pro_Tier has no numeric caps.
+3. THE App SHALL read the user's `subscription_tier` from the `profiles` table on every limit-checked API call using the service-role client (not the user JWT) to prevent spoofing.
+4. THE App SHALL NOT silently drop data when a limit is reached; it SHALL reject the write and return the structured 402 error.
+5. THE App SHALL enforce the entry history visibility limit by filtering `created_at` in the `/api/entries` query: Free = last 30 days, Basic = last 365 days, Pro = no filter.
+6. THE App SHALL enforce the widget active count limit by counting rows in the `widgets` table for the user before inserting a new one.
+7. THE App SHALL enforce the report count limit by counting rows in the `reports` table for the user before inserting a new one.
+
+---
+
+### Requirement 17: Paywall Modal (Limit Gate UI)
+
+**User Story:** As a user, when I hit a plan limit, I want to see a clear, non-intrusive explanation of what I've hit and a direct path to upgrade, so that I understand the value of upgrading without feeling punished.
+
+#### Acceptance Criteria
+
+1. WHEN the App receives an HTTP 402 `limit_exceeded` response from any API route, THE App SHALL open a Paywall_Modal Bottom_Sheet instead of showing a generic error banner.
+2. THE Paywall_Modal SHALL display:
+   - A relevant icon (48 px, primary/amber colour) matching the blocked feature (e.g., `wb_incandescent` for reports, `dashboard` for widgets, `contract` for entries).
+   - A title describing the limit hit (e.g., "Ліміт звітів вичерпано") at Title size (17 px, semibold).
+   - A subtitle showing the current usage (e.g., "У безкоштовному плані доступно 5 звітів. Ти використав 5 з 5.") at Body size (15 px, muted).
+   - A feature comparison row showing what the upgrade unlocks (e.g., "Basic: до 50 звітів · Pro: необмежено").
+   - A primary CTA_Button "Перейти на Basic — 250 ⭐" (or Pro if Basic is already active).
+   - A secondary ghost button "Не зараз" that closes the sheet.
+3. THE Paywall_Modal SHALL play the `CAUTION` Haptic_Sound on open.
+4. WHEN the primary CTA is tapped, THE Paywall_Modal SHALL close and navigate to `/miniapp/subscriptions` with the recommended tier pre-selected, playing the `OPEN` Haptic_Sound.
+5. THE Paywall_Modal SHALL be dismissible by swipe-down, backdrop tap, or "Не зараз" button, all playing the `CLOSE` Haptic_Sound.
+6. THE App SHALL show the Paywall_Modal for the following triggers: entry limit reached (Feed_Page, bot entry creation), widget limit reached (Widgets_Page), report limit reached (Insights_Page), and any attempt to use a locked feature (AI reports, recommendations, voice logging, custom widgets, goal tracking).
+7. WHEN a locked feature (not a count limit) is tapped by a Free_Tier user, THE App SHALL open the Paywall_Modal with a feature-specific message (e.g., "Ретроспективи доступні з планом Basic") before any API call is made.
+
+---
+
+### Requirement 18: Subscriptions Page Redesign
+
+**User Story:** As a user, I want the subscriptions page to clearly show what I get at each tier, how the pricing compares, and make it easy to upgrade, so that the decision to pay feels informed and confident.
+
+#### Acceptance Criteria
+
+1. THE Subscriptions_Page SHALL display a page header with iOS_Large_Title "Підписка" and Caption subtitle "Підтримай Memo та отримай більше можливостей".
+2. THE Subscriptions_Page SHALL display the user's current plan in a highlighted banner at the top, showing the tier name, icon, and either the expiry date or "Постійний доступ" for granted access.
+3. THE Subscriptions_Page SHALL render three plan cards in order: Free → Basic → Pro. Each card SHALL display:
+   - Tier icon (emoji) and name (Title size).
+   - Price in Stars with "/ місяць" label, or "Безкоштовно" for Free.
+   - A short description (Caption, muted).
+   - A feature list with checkmarks (✓ green) for included features and (✗ muted) for excluded features, covering all 14 features from the Tier Limit Table.
+   - A CTA button: "Підписатися за N ⭐" for upgrades, "Активний" badge for the current tier, "Поточний план" label for Free when on Free.
+4. THE Basic plan card SHALL be visually highlighted as the recommended option with a "Найпопулярніший" badge (primary colour, top-right corner of the card).
+5. THE Pro plan card SHALL use a gold gradient (`from-yellow-400 to-amber-400`) on the CTA button.
+6. THE Subscriptions_Page SHALL display a Usage_Counter section below the plan cards showing the user's current usage for each limited feature (e.g., "Записи: 47 / 100", "Віджети: 3 / 3", "Звіти: 2 / 5").
+7. THE Subscriptions_Page SHALL display a footer note: "Оплата через Telegram Stars · Підписка на 30 днів · Поновлення вручну · Без прихованих платежів".
+8. WHEN the user successfully subscribes, THE Subscriptions_Page SHALL show a success banner (green, dismissible) and refresh the profile data to reflect the new tier.
+9. THE Subscriptions_Page SHALL apply the back-navigation standard from Requirement 14 (arrow_back button, plays `SLIDE`).
+
+---
+
+### Requirement 19: Enhanced Onboarding with Feature Details and Paywall
+
+**User Story:** As a new user, I want the onboarding to explain Memo's key differentiators (including encryption and privacy), and I want to see the subscription options immediately after, so that I understand the value before I start using the app.
+
+#### Acceptance Criteria
+
+1. THE Onboarding SHALL consist of exactly 6 slides (up from 5), in this order:
+   - **Slide 1 — "Твій особистий щоденник"**: emoji 📓, body explains voice + text logging, AI parsing.
+   - **Slide 2 — "AI, що тебе розуміє"**: emoji 🤖, body explains calorie counting, activity tracking, Q&A over past entries.
+   - **Slide 3 — "Дашборд і графіки"**: emoji 📊, body explains metrics, progress, trends.
+   - **Slide 4 — "Розумні рекомендації"**: emoji 💡, body explains AI pattern detection (sleep, nutrition, stress).
+   - **Slide 5 — "Твої дані захищені"**: emoji 🔐, body: "Всі записи шифруються на твоєму пристрої перед збереженням. Навіть ми не можемо їх прочитати. Твоя приватність — наш пріоритет." Accent colour: `text-emerald-400`.
+   - **Slide 6 — "Обери свій план"**: emoji ⭐, body: "Базові функції безкоштовні назавжди. Перейди на Basic або Pro щоб розблокувати AI-аналітику, необмежені записи та більше." Accent colour: `text-yellow-400`, `isFinal: true`.
+2. THE final slide CTA SHALL read "Почати безкоштовно →" (not "⭐ Почати безкоштовно").
+3. WHEN the user taps the final slide CTA or "Пропустити", THE App SHALL NOT immediately dismiss the onboarding. Instead, THE App SHALL show the Onboarding_Paywall full-screen overlay on top of the onboarding background.
+4. THE Onboarding_Paywall SHALL be a full-screen overlay (not a bottom sheet) with:
+   - A gradient background matching the final slide (`from-yellow-950 to-slate-950`).
+   - A title "Обери свій план" (iOS_Large_Title, 28 px, bold, white).
+   - Three compact plan cards (Free, Basic, Pro) stacked vertically, each showing: icon, name, price, and 3 key features.
+   - The Basic card highlighted with a "Рекомендовано" badge.
+   - A primary CTA "Перейти на Basic — 250 ⭐" that opens the Telegram Stars payment flow for `stars_basic`.
+   - A secondary link "Продовжити безкоштовно →" (small, muted) that dismisses the paywall and enters the app.
+5. WHEN the user completes or dismisses the Onboarding_Paywall, THE App SHALL set `localStorage.memo_onboarding_done = '1'` and navigate to the main app.
+6. WHEN the user successfully pays during the Onboarding_Paywall, THE App SHALL show a brief success animation (CELEBRATION sound + confetti-style emoji burst) before entering the app.
+7. THE Onboarding_Paywall SHALL NOT be shown again after `memo_onboarding_done` is set.
+8. THE Onboarding slides SHALL display a small privacy badge on Slide 5: a `lock` icon (16 px, emerald) + "Зашифровано" text (11 px, emerald/60) in the bottom-left corner of the slide.
+
+---
+
+### Requirement 20: Usage Counters and Soft Limit Warnings
+
+**User Story:** As a user, I want to see how close I am to my plan limits before I hit them, so that I can decide to upgrade proactively rather than being surprised.
+
+#### Acceptance Criteria
+
+1. THE Feed_Page SHALL display a Usage_Counter chip below the category filter bar when the user is on the Free_Tier and has used ≥ 70% of their entry limit. The chip SHALL read "N / 100 записів" with a warning amber colour and a `warning` icon.
+2. THE Widgets_Page SHALL display a Usage_Counter chip in the header when the user is on the Free_Tier and has used ≥ 67% (2 of 3) of their widget limit. The chip SHALL read "N / 3 віджетів".
+3. THE Insights_Page SHALL display a Usage_Counter chip in the header when the user is on the Free_Tier and has used ≥ 60% (3 of 5) of their report limit. The chip SHALL read "N / 5 звітів".
+4. WHEN a Usage_Counter chip is tapped, THE App SHALL open the Paywall_Modal for the relevant feature.
+5. THE Usage_Counter chip SHALL have a `bg-amber-400/10 border border-amber-400/30 text-amber-300` appearance and `min-h-[32px] px-3 rounded-full` shape (smaller than a full Chip since it is informational, not interactive in the primary sense).
+6. THE App SHALL fetch the user's current usage counts from the API on page load and cache them in component state for the session.
+
+---
+
+### Requirement 21: Locked Feature Indicators
+
+**User Story:** As a Free_Tier user, I want to see which features are locked and why, so that I understand what I'm missing without having to discover limits by hitting errors.
+
+#### Acceptance Criteria
+
+1. THE Insights_Page "+" button SHALL display a `lock` overlay icon (12 px, amber) in the bottom-right of the button when the user is on the Free_Tier, indicating that AI report generation requires an upgrade.
+2. THE Widgets_Page "+" button SHALL display a `lock` overlay icon when the user is on the Free_Tier and has reached the widget limit (3 widgets).
+3. THE Create_Widget_Sheet SHALL be blocked entirely for Free_Tier users — tapping the "+" button SHALL open the Paywall_Modal directly instead of the chip flow.
+4. THE Feed_Page goal-tracking progress bars (Requirement 6) SHALL be hidden for Free_Tier users; instead, Goal_Entry cards SHALL show a locked state: a blurred/greyed progress bar area with a `lock` icon and "Доступно з Basic" caption.
+5. THE Graph_Page SHALL show a "Доступно з Basic" overlay on the chart area for Free_Tier users, with a CTA button "Розблокувати" that opens the Paywall_Modal.
+6. THE Settings_Page (or wherever recommendations are surfaced) SHALL show locked recommendation cards with a `lock` icon and "Доступно з Basic" for Free_Tier users.
+
+---
+
+### Requirement 22: Unit Economics and Pricing Rationale
+
+*(Non-functional — documents the business logic behind the tier pricing for future reference.)*
+
+**Pricing Model:**
+
+- **1 Telegram Star ≈ $0.013 USD** (Telegram's current rate; Stars are sold in bundles, effective rate ~$0.013/star).
+- **Basic — 250 Stars ≈ $3.25/month**: Targets daily journalers who want AI features. Comparable to a coffee. Break-even at ~77 paying users covering $250/month in AI API costs (GPT-4o-mini at ~$0.003/1K tokens, ~100K tokens/user/month = ~$0.30/user/month AI cost; 250 users × $0.30 = $75 AI cost, leaving $3.25 × 250 − $75 = $737.50 margin at 250 users).
+- **Pro — 500 Stars ≈ $6.50/month**: Targets power users who want unlimited everything + priority processing. 2× Basic price for unlimited storage, export, and priority queue. At 100 Pro users: $650/month revenue, ~$60 AI cost (higher usage), $590 margin.
+- **Conversion target**: 8–12% of active users convert to paid (industry benchmark for Telegram mini-apps: 5–15%). At 1 000 MAU: 80–120 paying users, ~60% Basic / 40% Pro mix → ~$390–$520/month.
+- **Free tier limits are calibrated to**: (a) be genuinely useful for casual users (100 entries ≈ 3 months of daily journaling at 1 entry/day), (b) create natural upgrade pressure at the 30-day mark when history disappears, and (c) make the 5-report limit hit within the first month for active users (1 report/week = 4 reports in month 1).
+
+#### Acceptance Criteria
+
+1. THE `TIER_INFO` constant in `src/lib/stars/paywall.ts` SHALL be updated to reflect the new feature lists, limits, and descriptions defined in Requirement 16.
+2. THE `FEATURE_TIERS` map SHALL be updated to include all gated features: `ai_reports`, `ai_recommendations`, `voice_logging`, `goal_tracking`, `custom_widgets`, `full_history`, `graph_full`, `data_export`, `priority_processing`.
+3. THE `checkFeatureAccess` function SHALL support checking both feature flags (boolean gates) and count limits (numeric gates) via a unified interface.
+
+---
+
+### Requirement 23: Subscription Persistence and Expiry Handling
+
+**User Story:** As a user, I want my subscription to be correctly reflected in the app at all times, including when it expires, so that I'm never confused about my current plan.
+
+#### Acceptance Criteria
+
+1. THE App SHALL check `subscription_ends_at` on every app launch (in the layout auth flow) and downgrade the local UI state to Free_Tier if the date has passed, even before the server confirms it.
+2. THE API routes SHALL check `subscription_ends_at` server-side on every limit-checked request and treat expired subscriptions as Free_Tier regardless of `subscription_tier` column value.
+3. WHEN a subscription expires, THE App SHALL show a one-time renewal banner on the next app open: "Твоя підписка Basic закінчилась. Поновити за 250 ⭐?" with a "Поновити" CTA and "Пізніше" dismiss. This banner SHALL appear above the Tab_Bar, below the page content, and SHALL be dismissible.
+4. THE renewal banner SHALL NOT appear more than once per day (tracked via `localStorage.memo_renewal_banner_shown_date`).
+5. THE Subscriptions_Page SHALL show a "Закінчується N днів" warning badge on the current plan card when `subscription_ends_at` is within 7 days.

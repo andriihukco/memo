@@ -157,6 +157,71 @@ export async function recordTransaction(
   return data.id;
 }
 
+// ── Effective Tier & Usage Helpers ────────────────────────────────────────────
+
+/**
+ * Returns the user's effective subscription tier, accounting for expiry.
+ * If `subscription_ends_at` is set and in the past, returns "free".
+ */
+export async function getEffectiveTier(userId: string): Promise<SubscriptionTier> {
+  const supabase = getServiceClient();
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("subscription_tier, subscription_ends_at")
+    .eq("id", userId)
+    .single();
+
+  if (error || !data) {
+    console.error("[paywall] getEffectiveTier error:", error?.message);
+    return "free";
+  }
+
+  const tier = (data.subscription_tier as SubscriptionTier) || "free";
+
+  // If there's an expiry date and it has passed, treat as free
+  if (data.subscription_ends_at && new Date(data.subscription_ends_at) < new Date()) {
+    return "free";
+  }
+
+  return tier;
+}
+
+/**
+ * Returns the current usage counts for entries, widgets, and reports for a user.
+ * Widgets are stored as a JSON array in profiles.settings.custom_widgets.
+ */
+export async function getUserUsageCounts(
+  userId: string
+): Promise<{ entries: number; widgets: number; reports: number }> {
+  const supabase = getServiceClient();
+
+  const [entriesResult, reportsResult, profileResult] = await Promise.all([
+    supabase
+      .from("entries")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    supabase
+      .from("reports")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId),
+    supabase
+      .from("profiles")
+      .select("settings")
+      .eq("id", userId)
+      .single(),
+  ]);
+
+  const entries = entriesResult.count ?? 0;
+  const reports = reportsResult.count ?? 0;
+
+  const settings = (profileResult.data?.settings as Record<string, unknown>) ?? {};
+  const customWidgets = (settings.custom_widgets as unknown[]) ?? [];
+  const widgets = customWidgets.length;
+
+  return { entries, widgets, reports };
+}
+
 // ── Feature Access Control ────────────────────────────────────────────────────
 
 export interface FeatureAccess {
@@ -165,11 +230,16 @@ export interface FeatureAccess {
   featureName: string;
 }
 
-const FEATURE_TIERS: Record<string, SubscriptionTier> = {
-  recommendations:      "stars_basic",
-  detailed_reports:     "stars_basic",
-  advanced_analytics:   "stars_pro",
-  custom_widgets:       "stars_pro",
+export const FEATURE_TIERS: Record<string, SubscriptionTier> = {
+  ai_reports:           "stars_basic",
+  ai_recommendations:   "stars_basic",
+  voice_logging:        "stars_basic",
+  goal_tracking:        "stars_basic",
+  custom_widgets:       "stars_basic",
+  full_history:         "stars_pro",
+  graph_full:           "stars_basic",
+  data_export:          "stars_pro",
+  priority_processing:  "stars_pro",
 };
 
 export async function checkFeatureAccess(
@@ -196,8 +266,14 @@ export interface TierInfo {
   name: string;
   priceStars: number;
   description: string;
-  features: string[];
   icon: string;
+  limits: {
+    entries: number;       // Infinity for unlimited
+    widgets: number;
+    reports: number;
+    historyDays: number;
+  };
+  features: { label: string; included: boolean }[];
 }
 
 export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
@@ -206,40 +282,87 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
     name: "Безкоштовний",
     priceStars: 0,
     description: "Основні функції для початку",
-    features: [
-      "Записи щоденника",
-      "Базові звіти",
-      "Архів за 30 днів",
-      "Безкоштовна підтримка",
-    ],
     icon: "⭐",
+    limits: {
+      entries: 100,
+      widgets: 3,
+      reports: 5,
+      historyDays: 30,
+    },
+    features: [
+      { label: "До 100 записів",          included: true  },
+      { label: "3 активних віджети",       included: true  },
+      { label: "5 ретроспектив",           included: true  },
+      { label: "Стрічка за 30 днів",       included: true  },
+      { label: "Шифрування записів",       included: true  },
+      { label: "Пін-код захист",           included: true  },
+      { label: "AI ретроспективи",         included: false },
+      { label: "AI рекомендації",          included: false },
+      { label: "Голосові повідомлення",    included: false },
+      { label: "Трекінг цілей",            included: false },
+      { label: "Кастомні віджети (AI)",    included: false },
+      { label: "Повна історія",            included: false },
+      { label: "Експорт даних",            included: false },
+      { label: "Пріоритетна обробка",      included: false },
+    ],
   },
   stars_basic: {
     tier: "stars_basic",
     name: "Stars Basic",
     priceStars: 250,
     description: "Розширені аналітичні можливості",
-    features: [
-      "Розумні рекомендації",
-      "Детальні звіти",
-      "Архів за 1 рік",
-      "Пріоритетна підтримка",
-    ],
     icon: "🌟",
+    limits: {
+      entries: 2000,
+      widgets: 15,
+      reports: 50,
+      historyDays: 365,
+    },
+    features: [
+      { label: "До 2 000 записів",         included: true  },
+      { label: "15 активних віджетів",     included: true  },
+      { label: "50 ретроспектив",          included: true  },
+      { label: "Стрічка за 1 рік",         included: true  },
+      { label: "Шифрування записів",       included: true  },
+      { label: "Пін-код захист",           included: true  },
+      { label: "AI ретроспективи",         included: true  },
+      { label: "AI рекомендації",          included: true  },
+      { label: "Голосові повідомлення",    included: true  },
+      { label: "Трекінг цілей",            included: true  },
+      { label: "Кастомні віджети (AI)",    included: true  },
+      { label: "Повна історія",            included: false },
+      { label: "Експорт даних",            included: false },
+      { label: "Пріоритетна обробка",      included: false },
+    ],
   },
   stars_pro: {
     tier: "stars_pro",
     name: "Stars Pro",
     priceStars: 500,
     description: "Повний доступ до всіх функцій",
-    features: [
-      "Усі функції Basic",
-      "Розширена аналітика",
-      "Кастомні віджети",
-      "Хмарне синхронізація",
-      "Пріоритетна обробка",
-    ],
     icon: "💎",
+    limits: {
+      entries: Infinity,
+      widgets: Infinity,
+      reports: Infinity,
+      historyDays: Infinity,
+    },
+    features: [
+      { label: "До необмеженої кількості записів", included: true },
+      { label: "Необмежені віджети",               included: true },
+      { label: "Необмежені ретроспективи",         included: true },
+      { label: "Повна стрічка",                    included: true },
+      { label: "Шифрування записів",               included: true },
+      { label: "Пін-код захист",                   included: true },
+      { label: "AI ретроспективи",                 included: true },
+      { label: "AI рекомендації",                  included: true },
+      { label: "Голосові повідомлення",             included: true },
+      { label: "Трекінг цілей",                    included: true },
+      { label: "Кастомні віджети (AI)",             included: true },
+      { label: "Повна історія",                    included: true },
+      { label: "Експорт даних",                    included: true },
+      { label: "Пріоритетна обробка",              included: true },
+    ],
   },
 };
 
@@ -270,7 +393,7 @@ export function generatePaymentInvoice(
 
   return {
     title: `${tierInfo.icon} ${tierInfo.name}`,
-    description: `${tierInfo.description}\n\n${tierInfo.features.slice(0, 3).join("\n")}`,
+    description: `${tierInfo.description}\n\n${tierInfo.features.filter(f => f.included).slice(0, 3).map(f => f.label).join("\n")}`,
     payload: JSON.stringify({
       userId,
       tier,

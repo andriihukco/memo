@@ -3,11 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
-import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ReportInsight } from '@/lib/bot/retrospective';
 import { useSound } from '@/lib/sound/use-sound';
+import { SkeletonReportCard } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
+import { ErrorBanner } from '@/components/ui/error-banner';
+import { PaywallModal } from '@/components/ui/paywall-modal';
+import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
+import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
+import type { SubscriptionTier } from '@/lib/stars/paywall';
 
 interface ReportSummary {
   id: string;
@@ -30,7 +38,7 @@ const RETRO_SECTIONS = [
   {
     key: 'went_well' as const,
     emoji: '✅',
-    label: 'Що пройшло добре?',
+    label: 'Що пройшло добре',
     sublabel: 'Успіхи, які варто повторювати',
     color: 'border-l-emerald-400 bg-emerald-50/50',
     labelColor: 'text-emerald-700',
@@ -38,7 +46,7 @@ const RETRO_SECTIONS = [
   {
     key: 'didnt_go_well' as const,
     emoji: '❌',
-    label: 'Що не спрацювало?',
+    label: 'Що не вийшло',
     sublabel: 'Затики та проблеми',
     color: 'border-l-rose-400 bg-rose-50/50',
     labelColor: 'text-rose-700',
@@ -46,7 +54,7 @@ const RETRO_SECTIONS = [
   {
     key: 'start_stop_continue' as const,
     emoji: '🔄',
-    label: 'Старт / Стоп / Продовжити',
+    label: 'Почати / Зупинити / Продовжити',
     sublabel: 'Конкретні дії на наступний спринт',
     color: 'border-l-blue-400 bg-blue-50/50',
     labelColor: 'text-blue-700',
@@ -54,7 +62,7 @@ const RETRO_SECTIONS = [
   {
     key: 'experiment' as const,
     emoji: '🧪',
-    label: 'Один експеримент',
+    label: 'Експеримент',
     sublabel: 'Гіпотеза для наступного спринту',
     color: 'border-l-violet-400 bg-violet-50/50',
     labelColor: 'text-violet-700',
@@ -62,12 +70,21 @@ const RETRO_SECTIONS = [
   {
     key: 'lesson' as const,
     emoji: '💡',
-    label: 'Головний урок',
+    label: 'Урок',
     sublabel: 'Найважливіший інсайт цього періоду',
     color: 'border-l-amber-400 bg-amber-50/50',
     labelColor: 'text-amber-700',
   },
 ] as const;
+
+// iOS-style section label map (Caption, uppercase, tracking-wide)
+const RETRO_SECTION_LABELS: Record<string, string> = {
+  went_well:           'Що пройшло добре',
+  didnt_go_well:       'Що не вийшло',
+  start_stop_continue: 'Почати / Зупинити / Продовжити',
+  experiment:          'Експеримент',
+  lesson:              'Урок',
+};
 
 const INSIGHT_COLORS: Record<string, string> = {
   went_well:           'bg-emerald-50 border-emerald-200 text-emerald-800',
@@ -119,127 +136,153 @@ function startOfDay(d: Date) { const r = new Date(d); r.setHours(0,0,0,0); retur
 function endOfDay(d: Date)   { const r = new Date(d); r.setHours(23,59,59,999); return r; }
 function isoDate(d: Date)    { return d.toISOString().slice(0,10); }
 
-// ── New Report Drawer ─────────────────────────────────────────────────────────
+/** Group reports by month label (uk-UA locale), sorted newest-first */
+function groupReportsByMonth(reports: ReportSummary[]): Array<{ label: string; reports: ReportSummary[] }> {
+  const map: Record<string, ReportSummary[]> = {};
+  const sorted = [...reports].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+  for (const r of sorted) {
+    const raw = new Date(r.created_at).toLocaleDateString('uk-UA', {
+      month: 'long',
+      year: 'numeric',
+    });
+    const label = raw.charAt(0).toUpperCase() + raw.slice(1);
+    (map[label] ??= []).push(r);
+  }
+  // Preserve insertion order (already newest-first due to sorted input)
+  return Object.entries(map).map(([label, reports]) => ({ label, reports }));
+}
 
-function NewReportDrawer({ onClose, onGenerate }: {
+// ── New Report Sheet ──────────────────────────────────────────────────────────
+
+const PERIOD_OPTIONS = [
+  { type: 'daily',   label: 'Сьогодні',      icon: 'today',          fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
+  { type: 'weekly',  label: '7 днів',         icon: 'date_range',     fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { type: 'monthly', label: 'Місяць',         icon: 'calendar_month', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { type: 'custom',  label: 'Свій діапазон',  icon: 'tune',           fn: null },
+] as const;
+
+function NewReportSheet({ open, onClose, onGenerate }: {
+  open: boolean;
   onClose: () => void;
   onGenerate: (periodType: string, from?: Date, to?: Date) => void;
 }) {
-  const { play } = useSound();
   const [fromStr, setFromStr] = useState(isoDate(startOfDay(new Date())));
   const [toStr, setToStr] = useState(isoDate(new Date()));
-  const [showCustom, setShowCustom] = useState(false);
   const [selected, setSelected] = useState<{ type: string; from: Date; to: Date } | null>(null);
 
-  const presets = [
-    { label: 'Сьогодні', type: 'daily', fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
-    { label: '7 днів',   type: 'weekly', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
-    { label: 'Місяць',   type: 'monthly', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  ];
+  // Whether the custom date range section is expanded
+  const customExpanded = selected?.type === 'custom';
 
-  const selectCustom = () => {
-    const from = startOfDay(new Date(fromStr)), to = endOfDay(new Date(toStr));
-    if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return;
-    setSelected({ type: 'custom', from, to });
+  const handleSelectPreset = (opt: typeof PERIOD_OPTIONS[number]) => {
+    if (opt.fn) {
+      const r = opt.fn();
+      setSelected({ type: opt.type, from: r.from, to: r.to });
+    } else {
+      // Custom — expand inline, mark selected with current date inputs
+      const from = startOfDay(new Date(fromStr));
+      const to = endOfDay(new Date(toStr));
+      const valid = !isNaN(from.getTime()) && !isNaN(to.getTime()) && from <= to;
+      setSelected(valid ? { type: 'custom', from, to } : { type: 'custom', from: startOfDay(new Date()), to: endOfDay(new Date()) });
+    }
+  };
+
+  // Keep custom selection in sync when date inputs change
+  const handleFromChange = (val: string) => {
+    setFromStr(val);
+    if (selected?.type === 'custom') {
+      const from = startOfDay(new Date(val));
+      const to = endOfDay(new Date(toStr));
+      if (!isNaN(from.getTime()) && !isNaN(to.getTime()) && from <= to) {
+        setSelected({ type: 'custom', from, to });
+      }
+    }
+  };
+
+  const handleToChange = (val: string) => {
+    setToStr(val);
+    if (selected?.type === 'custom') {
+      const from = startOfDay(new Date(fromStr));
+      const to = endOfDay(new Date(val));
+      if (!isNaN(from.getTime()) && !isNaN(to.getTime()) && from <= to) {
+        setSelected({ type: 'custom', from, to });
+      }
+    }
+  };
+
+  const handleGenerate = () => {
+    if (!selected) return;
+    onGenerate(selected.type, selected.from, selected.to);
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+    <BottomSheet open={open} onClose={onClose}>
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2">
+        <h3 className="text-[17px] font-semibold">Нова ретроспектива</h3>
+        <p className="text-[13px] text-muted-foreground">Оберіть період для аналізу</p>
+      </div>
+
+      {/* Period option rows */}
+      <div className="px-4">
+        {PERIOD_OPTIONS.map((opt) => {
+          const isSelected = selected?.type === opt.type;
+          return (
+            <button
+              key={opt.type}
+              onClick={() => handleSelectPreset(opt)}
+              className="min-h-[44px] flex items-center gap-3 px-0 w-full"
+            >
+              <Icon name={opt.icon} size={20} className="text-primary/60 shrink-0" />
+              <span className="flex-1 text-left text-[15px]">{opt.label}</span>
+              {isSelected
+                ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />
+              }
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Inline date-range expansion */}
       <div
-        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-        style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}
-      >
-        <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-        <h3 className="mb-1 text-sm font-semibold">Нова ретроспектива</h3>
-        <p className="mb-4 text-xs text-muted-foreground">Оберіть період для аналізу</p>
-
-        <div className="mb-3 grid grid-cols-3 gap-2">
-          {presets.map(p => {
-            const isSelected = selected?.type === p.type;
-            return (
-              <button
-                key={p.type}
-                onClick={() => { const r = p.fn(); setSelected({ type: p.type, from: r.from, to: r.to }); setShowCustom(false); }}
-                className={cn(
-                  'rounded-xl border py-3 text-sm font-medium transition-colors',
-                  isSelected
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-muted/30 hover:bg-muted active:bg-muted/70'
-                )}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <button
-          onClick={() => setShowCustom(v => !v)}
-          className="mb-3 flex w-full items-center justify-between rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30"
-        >
-          <span>Свій діапазон</span>
-          <Icon name="expand_more" size={15} className={cn('transition-transform', showCustom && 'rotate-180')} />
-        </button>
-
-        {showCustom && (
-          <div className="mb-3">
-            <div className="mb-3 flex items-center gap-2">
-              <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
-                className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
-              <span className="text-muted-foreground">–</span>
-              <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
-                className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
-            </div>
-            <Button variant="outline" className="w-full" onClick={selectCustom}>Обрати діапазон</Button>
-          </div>
+        className={cn(
+          'overflow-hidden transition-all duration-300',
+          customExpanded ? 'max-h-40' : 'max-h-0'
         )}
+      >
+        {/* Hairline divider */}
+        <div className="mx-4 h-px bg-border/40" />
+        <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+          <input
+            type="date"
+            value={fromStr}
+            onChange={e => handleFromChange(e.target.value)}
+            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <span className="text-muted-foreground">–</span>
+          <input
+            type="date"
+            value={toStr}
+            onChange={e => handleToChange(e.target.value)}
+            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+      </div>
 
+      {/* CTA */}
+      <div className="px-4 pt-3">
         <Button
-          className="w-full"
+          className="w-full min-h-[44px]"
           disabled={!selected}
-          onClick={() => { if (selected) { play('BUTTON'); onGenerate(selected.type, selected.from, selected.to); onClose(); } }}
+          onClick={handleGenerate}
         >
           Згенерувати ретроспективу
         </Button>
       </div>
-    </div>
-  );
-}
-
-// ── Delete confirm sheet ──────────────────────────────────────────────────────
-
-function DeleteSheet({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[60] flex items-end">
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
-        <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-        <h3 className="mb-1 text-base font-semibold">Видалити ретроспективу?</h3>
-        <p className="mb-5 text-sm text-muted-foreground">Це незворотньо.</p>
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={onCancel}>Скасувати</Button>
-          <Button variant="destructive" className="flex-1" onClick={onConfirm}>Видалити</Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Retro section block ───────────────────────────────────────────────────────
-
-function RetroSection({ emoji, label, color, labelColor, text }: {
-  emoji: string; label: string; sublabel: string;
-  color: string; labelColor: string; text: string;
-}) {
-  return (
-    <div className={cn('border-l-4 rounded-r-xl px-3 py-2.5', color)}>
-      <div className="flex items-center gap-1.5 mb-1">
-        <span className="text-sm">{emoji}</span>
-        <span className={cn('text-xs font-semibold', labelColor)}>{label}</span>
-      </div>
-      <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{text}</p>
-    </div>
+    </BottomSheet>
   );
 }
 
@@ -248,70 +291,122 @@ function RetroSection({ emoji, label, color, labelColor, text }: {
 function ReportCard({ report, onDelete }: { report: ReportSummary; onDelete: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
   const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
 
   // Check if we have structured retro sections
-  const hasRetroSections = !!(report.went_well || report.didnt_go_well || report.start_stop_continue || report.experiment || report.lesson);
+  const hasRetroSections = !!(
+    report.went_well ||
+    report.didnt_go_well ||
+    report.start_stop_continue ||
+    report.experiment ||
+    report.lesson
+  );
+
+  // Retro sections that have content
+  const filledSections = RETRO_SECTIONS.filter(s => !!report[s.key]);
 
   return (
     <>
-      <Card className="overflow-hidden">
-        {/* Header */}
-        <div className="flex items-start gap-3 p-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <Icon name="description" size={18} className="text-primary" />
-          </div>
-          <button onClick={() => setExpanded(v => !v)} className="flex-1 min-w-0 text-left">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium">{PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}</p>
-              <span className="text-[10px] text-muted-foreground shrink-0">{from} — {to}</span>
+      <div className={cn('bg-surface-elevated rounded-2xl border border-border/50 px-4 py-3.5 flex flex-col gap-0 transition-all duration-200', deleting ? 'opacity-0 -translate-x-5' : 'opacity-100')}>
+        {/* Collapsed header */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[15px] font-semibold">
+                {PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}
+              </span>
+              <span className="text-[13px] text-muted-foreground">
+                {from} — {to}
+              </span>
             </div>
-            <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">{report.summary}</p>
-          </button>
-          <div className="flex items-center gap-1 shrink-0">
-            <button onClick={() => setExpanded(v => !v)} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground">
-              <Icon name="expand_more" size={15} className={cn('transition-transform', expanded && 'rotate-180')} />
+            <p className="mt-1 text-[15px] text-muted-foreground line-clamp-2 leading-snug">
+              {report.summary}
+            </p>
+          </div>
+
+          {/* Action buttons — 44×44 tap areas */}
+          <div className="flex items-center gap-0 shrink-0 -mr-2">
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="flex h-[44px] w-[44px] items-center justify-center rounded-full text-muted-foreground hover:text-destructive transition-colors"
+              aria-label="Видалити ретроспективу"
+            >
+              <Icon name="delete" size={18} />
             </button>
-            <button onClick={() => setConfirmDelete(true)} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-destructive transition-colors">
-              <Icon name="delete" size={14} />
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="flex h-[44px] w-[44px] items-center justify-center rounded-full text-muted-foreground transition-colors"
+              aria-label={expanded ? 'Згорнути' : 'Розгорнути'}
+              aria-expanded={expanded}
+            >
+              <Icon
+                name="expand_more"
+                size={20}
+                className={cn('transition-transform duration-200', expanded && 'rotate-180')}
+              />
             </button>
           </div>
         </div>
 
-        {/* Expanded: retro sections or legacy insights */}
+        {/* Expanded: retro sections */}
         {expanded && (
-          <div className="border-t px-4 pb-4 pt-3 flex flex-col gap-2">
+          <div className="mt-2 flex flex-col">
+            {/* Hairline divider */}
+            <div className="h-px bg-border/30 mb-0" />
+
             {hasRetroSections ? (
-              RETRO_SECTIONS.map(s => {
+              filledSections.map((s, idx) => {
                 const text = report[s.key];
                 if (!text) return null;
+                const isLast = idx === filledSections.length - 1;
                 return (
-                  <RetroSection
-                    key={s.key}
-                    emoji={s.emoji}
-                    label={s.label}
-                    sublabel={s.sublabel}
-                    color={s.color}
-                    labelColor={s.labelColor}
-                    text={text}
-                  />
+                  <div key={s.key}>
+                    {/* iOS_Section_Header label */}
+                    <p className="text-[13px] uppercase tracking-wide text-muted-foreground pt-3 pb-1">
+                      {RETRO_SECTION_LABELS[s.key]}
+                    </p>
+                    {/* Section body */}
+                    <p className="text-[15px] text-foreground leading-relaxed whitespace-pre-line pb-2">
+                      {text}
+                    </p>
+                    {/* Hairline divider between sections (not after last) */}
+                    {!isLast && <div className="h-px bg-border/30" />}
+                  </div>
                 );
               })
             ) : (
-              report.insights.map((ins, i) => (
-                <div key={i} className={cn('flex items-start gap-2 rounded-xl border px-3 py-2 text-xs', INSIGHT_COLORS[ins.type] ?? 'bg-muted')}>
-                  <span className="shrink-0 text-base leading-none">{ins.emoji}</span>
-                  <p className="leading-relaxed">{ins.text}</p>
-                </div>
-              ))
+              /* Legacy insights fallback */
+              <div className="pt-3 flex flex-col gap-2">
+                {report.insights.map((ins, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      'flex items-start gap-2 rounded-xl border px-3 py-2 text-xs',
+                      INSIGHT_COLORS[ins.type] ?? 'bg-muted'
+                    )}
+                  >
+                    <span className="shrink-0 text-base leading-none">{ins.emoji}</span>
+                    <p className="leading-relaxed">{ins.text}</p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
-      </Card>
+      </div>
 
       {confirmDelete && (
-        <DeleteSheet onConfirm={() => { setConfirmDelete(false); onDelete(); }} onCancel={() => setConfirmDelete(false)} />
+        <ConfirmSheet
+          open={confirmDelete}
+          onClose={() => setConfirmDelete(false)}
+          onConfirm={() => { setConfirmDelete(false); setDeleting(true); setTimeout(() => onDelete(), 200); }}
+          title="Видалити ретроспективу?"
+          subtitle="Цю дію не можна скасувати."
+          confirmLabel="Видалити"
+        />
       )}
     </>
   );
@@ -325,9 +420,35 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
-  const [showNewDrawer, setShowNewDrawer] = useState(false);
+  const [showNewReport, setShowNewReport] = useState(false);
+  const lastGenParams = useRef<{ periodType: string; from?: Date; to?: Date } | null>(null);
   const progressLabel = useProgressLabel(generating);
   const { play } = useSound();
+
+  // ── Paywall state ──────────────────────────────────────────────────────────
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallProps, setPaywallProps] = useState<{
+    feature: string;
+    current?: number;
+    limit?: number;
+    requiredTier: SubscriptionTier;
+  }>({ feature: 'ai_reports', requiredTier: 'stars_basic' });
+
+  // ── User tier ──────────────────────────────────────────────────────────────
+  const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
+
+  const fetchUserTier = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return;
+      const { profile } = await res.json();
+      setUserTier((profile?.subscription_tier as SubscriptionTier) ?? 'free');
+    } catch { /* non-critical */ }
+  }, [accessToken]);
+
+  // ── Usage counts ───────────────────────────────────────────────────────────
+  const { counts } = useUsageCounts(accessToken);
 
   const loadReports = useCallback(async () => {
     if (!accessToken) return;
@@ -341,10 +462,11 @@ export default function ReportsPage() {
     }
   }, [accessToken]);
 
-  useEffect(() => { loadReports(); }, [loadReports]);
+  useEffect(() => { loadReports(); fetchUserTier(); }, [loadReports, fetchUserTier]);
 
   const generateReport = async (periodType: string, from?: Date, to?: Date) => {
     if (!accessToken || generating) return;
+    lastGenParams.current = { periodType, from, to };
     setGenerating(true);
     play('PROCESSING');
     setGenError(null);
@@ -358,7 +480,17 @@ export default function ReportsPage() {
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) {
+      if (res.status === 402) {
+        // Limit exceeded — open paywall instead of error banner
+        setPaywallProps({
+          feature: data.feature ?? 'reports',
+          current: data.current,
+          limit: data.limit,
+          requiredTier: (data.required_tier as SubscriptionTier) ?? 'stars_basic',
+        });
+        setPaywallOpen(true);
+        play('CAUTION');
+      } else if (!res.ok) {
         setGenError(data.error ?? `Помилка ${res.status}`);
         play('CAUTION');
       } else {
@@ -383,73 +515,140 @@ export default function ReportsPage() {
     setReports(prev => prev.filter(r => r.id !== id));
   };
 
+  const monthGroups = groupReportsByMonth(reports);
+
   return (
     <div className="flex flex-col gap-3 px-4 pt-5 pb-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* ── iOS Large Title Header ── */}
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Інсайти</h1>
-          <p className="text-xs text-muted-foreground">Ретроспектива та аналіз</p>
+          <h1 className="text-[28px] font-bold leading-tight">Інсайти</h1>
+          <p className="text-[13px] text-muted-foreground">Ретроспектива та аналіз</p>
+          {/* Usage counter chip — shown when Free tier and usage ≥ 3 (60% of 5) */}
+          {userTier === 'free' && counts !== null && counts.reports >= 3 && (
+            <div className="mt-2">
+              <UsageCounterChip
+                label={`${counts.reports} / 5 звітів`}
+                onClick={() => {
+                  setPaywallProps({
+                    feature: 'reports',
+                    current: counts.reports,
+                    limit: 5,
+                    requiredTier: 'stars_basic',
+                  });
+                  setPaywallOpen(true);
+                }}
+              />
+            </div>
+          )}
         </div>
-        <button
-          onClick={() => { if (!generating) { play('OPEN'); setShowNewDrawer(true); } }}
-          disabled={generating}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm disabled:opacity-50 transition-opacity"
-          aria-label="Нова ретроспектива"
-        >
-          {generating
-            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-            : <Icon name="add" size={18} />}
-        </button>
+        {/* 40×40 circular + button */}
+        <div className="relative shrink-0 mt-1">
+          <button
+            onClick={() => {
+              if (generating) return;
+              if (userTier === 'free') {
+                play('CAUTION');
+                setPaywallProps({ feature: 'ai_reports', requiredTier: 'stars_basic' });
+                setPaywallOpen(true);
+                return;
+              }
+              play('OPEN');
+              setShowNewReport(true);
+            }}
+            disabled={generating}
+            className="flex h-[44px] w-[44px] items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm disabled:opacity-50 transition-opacity"
+            aria-label="Нова ретроспектива"
+          >
+            {generating
+              ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+              : <Icon name="add" size={20} />}
+          </button>
+          {/* Lock badge for Free tier */}
+          {userTier === 'free' && (
+            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center pointer-events-none">
+              <Icon name="lock" size={10} className="text-slate-900" />
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Generating indicator */}
+      {/* ── Generating indicator (existing rotating labels) ── */}
       {generating && (
         <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-3">
           <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
           <p className="text-sm text-muted-foreground transition-all">{progressLabel}</p>
         </div>
       )}
+
+      {/* ── Error banner ── */}
       {genError && (
-        <div className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{genError}</div>
-      )}
-
-      {/* Legend */}
-      {!loading && reports.length === 0 && !generating && (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <Icon name="lightbulb" size={32} className="mb-3 text-muted-foreground/40" />
-          <p className="text-sm font-medium text-muted-foreground">Ретроспектив ще немає</p>
-          <p className="mt-1 text-xs text-muted-foreground">Натисни + щоб згенерувати першу ретроспективу</p>
-          <div className="mt-6 flex flex-col gap-1.5 w-full max-w-xs text-left">
-            {RETRO_SECTIONS.map(s => (
-              <div key={s.key} className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{s.emoji}</span>
-                <span className="font-medium">{s.label}</span>
-                <span className="text-muted-foreground/60">— {s.sublabel}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {loading && (
-        <div className="flex justify-center py-8">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-        </div>
-      )}
-
-      <div className="flex flex-col gap-2">
-        {reports.map(r => (
-          <ReportCard key={r.id} report={r} onDelete={() => deleteReport(r.id)} />
-        ))}
-      </div>
-
-      {showNewDrawer && (
-        <NewReportDrawer
-          onClose={() => { play('CLOSE'); setShowNewDrawer(false); }}
-          onGenerate={(type, from, to) => generateReport(type, from, to)}
+        <ErrorBanner
+          message={genError}
+          onRetry={() => {
+            if (lastGenParams.current) {
+              const { periodType, from, to } = lastGenParams.current;
+              generateReport(periodType, from, to);
+            }
+          }}
+          onDismiss={() => setGenError(null)}
         />
       )}
+
+      {/* ── Loading: SkeletonReportCard × 2 ── */}
+      {loading && (
+        <div className="flex flex-col gap-2" role="status" aria-label="Завантаження...">
+          <SkeletonReportCard />
+          <SkeletonReportCard />
+        </div>
+      )}
+
+      {/* ── Empty state ── */}
+      {!loading && reports.length === 0 && !generating && (
+        <EmptyState
+          icon="wb_incandescent"
+          title="Ще немає ретроспектив"
+          subtitle="Проаналізуй свій прогрес за будь-який період"
+          ctaLabel="Створити першу ретроспективу"
+          onCta={() => { play('OPEN'); setShowNewReport(true); }}
+        />
+      )}
+
+      {/* ── Month-grouped report cards ── */}
+      {!loading && monthGroups.length > 0 && (
+        <div className="flex flex-col gap-4">
+          {monthGroups.map(({ label, reports: groupReports }) => (
+            <div key={label} className="flex flex-col gap-2">
+              {/* iOS_Section_Header */}
+              <p className="text-[13px] uppercase tracking-wide text-muted-foreground px-1">
+                {label}
+              </p>
+              {/* Report cards */}
+              {groupReports.map(r => (
+                <ReportCard
+                  key={r.id}
+                  report={r}
+                  onDelete={() => deleteReport(r.id)}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── New Report Sheet ── */}
+      <NewReportSheet
+        open={showNewReport}
+        onClose={() => { play('CLOSE'); setShowNewReport(false); }}
+        onGenerate={(type, from, to) => generateReport(type, from, to)}
+      />
+
+      {/* ── Paywall Modal ── */}
+      <PaywallModal
+        open={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        {...paywallProps}
+      />
     </div>
   );
 }

@@ -7,6 +7,9 @@ import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
 import { Badge } from '@/components/ui/badge';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
+import { ErrorBanner } from '@/components/ui/error-banner';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
 
@@ -16,6 +19,252 @@ interface ProfileData {
   subscription_status: string;
   subscription_ends_at: string | null;
 }
+
+// ── CurrentPlanBanner ─────────────────────────────────────────────────────────
+
+interface CurrentPlanBannerProps {
+  profile: ProfileData;
+  currentTier: SubscriptionTier;
+}
+
+function CurrentPlanBanner({ profile, currentTier }: CurrentPlanBannerProps) {
+  const info = TIER_INFO[currentTier];
+
+  const daysRemaining =
+    profile.subscription_ends_at
+      ? Math.ceil(
+          (new Date(profile.subscription_ends_at).getTime() - Date.now()) / 86400000
+        )
+      : null;
+
+  const showExpiryWarning =
+    daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 7;
+
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
+      <span className="text-2xl">{info.icon}</span>
+      <div className="flex-1">
+        <p className="text-[15px] font-semibold">Поточний план: {info.name}</p>
+        {profile.subscription_ends_at && (
+          <p className="text-[13px] text-muted-foreground">
+            До {new Date(profile.subscription_ends_at).toLocaleDateString('uk-UA')}
+          </p>
+        )}
+        {currentTier !== 'free' && !profile.subscription_ends_at && (
+          <p className="text-[13px] text-green-500">Постійний доступ</p>
+        )}
+        {currentTier === 'free' && (
+          <p className="text-[13px] text-muted-foreground">Безкоштовно назавжди</p>
+        )}
+      </div>
+      {showExpiryWarning && daysRemaining !== null && (
+        <span className="rounded-full bg-amber-400/15 border border-amber-400/30 px-2.5 py-1 text-[11px] font-medium text-amber-300">
+          Закінчується через {daysRemaining} {daysRemaining === 1 ? 'день' : daysRemaining < 5 ? 'дні' : 'днів'}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── UsageRow ──────────────────────────────────────────────────────────────────
+
+interface UsageRowProps {
+  label: string;
+  current: number;
+  limit: number;
+}
+
+function UsageRow({ label, current, limit }: UsageRowProps) {
+  const isUnlimited = limit === Infinity;
+  const pct = isUnlimited ? 0 : Math.min(Math.round((current / limit) * 100), 100);
+  const completed = !isUnlimited && pct >= 100;
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-20 text-[13px] text-muted-foreground">{label}</span>
+      <span className="w-20 text-[13px] text-foreground/80 tabular-nums">
+        {isUnlimited ? 'Необмежено' : `${current} / ${limit}`}
+      </span>
+      {!isUnlimited && (
+        <ProgressBar
+          value={pct}
+          completed={completed}
+          className="w-16 flex-none"
+        />
+      )}
+    </div>
+  );
+}
+
+// ── UsageSection ──────────────────────────────────────────────────────────────
+
+interface UsageSectionProps {
+  accessToken: string | null | undefined;
+  currentTier: SubscriptionTier;
+}
+
+function UsageSection({ accessToken, currentTier }: UsageSectionProps) {
+  const { counts } = useUsageCounts(accessToken);
+  const limits = TIER_INFO[currentTier].limits;
+
+  return (
+    <div className="rounded-2xl border border-border/50 bg-muted/20 px-4 py-3">
+      <p className="mb-3 text-[13px] font-semibold text-muted-foreground uppercase tracking-wide">
+        Використання
+      </p>
+      <div className="flex flex-col gap-2.5">
+        <UsageRow
+          label="Записи"
+          current={counts?.entries ?? 0}
+          limit={limits.entries}
+        />
+        <UsageRow
+          label="Віджети"
+          current={counts?.widgets ?? 0}
+          limit={limits.widgets}
+        />
+        <UsageRow
+          label="Звіти"
+          current={counts?.reports ?? 0}
+          limit={limits.reports}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── PlanCard ──────────────────────────────────────────────────────────────────
+
+interface PlanCardProps {
+  tier: SubscriptionTier;
+  isCurrent: boolean;
+  isUpgrade: boolean;
+  isLoading: boolean;
+  anyPaying: boolean;
+  onSubscribe: (tier: SubscriptionTier) => void;
+}
+
+function PlanCard({
+  tier,
+  isCurrent,
+  isUpgrade,
+  isLoading,
+  anyPaying,
+  onSubscribe,
+}: PlanCardProps) {
+  const info = TIER_INFO[tier];
+  const isBasic = tier === 'stars_basic';
+  const isPro = tier === 'stars_pro';
+  const { play } = useSound();
+
+  return (
+    <div
+      className={cn(
+        'relative rounded-2xl border p-4 transition-all',
+        isCurrent
+          ? 'border-primary/40 bg-primary/5'
+          : 'border-border/50 bg-card'
+      )}
+    >
+      {/* "Найпопулярніший" badge on Basic */}
+      {isBasic && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+          <span className="rounded-full bg-primary px-3 py-0.5 text-[11px] font-semibold text-primary-foreground shadow-sm">
+            Найпопулярніший
+          </span>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className={cn('mb-3 flex items-center justify-between', isBasic && 'mt-1')}>
+        <div className="flex items-center gap-2">
+          <span className="text-2xl">{info.icon}</span>
+          <div>
+            <p className="text-[17px] font-semibold leading-tight">{info.name}</p>
+            <p className="text-[13px] text-muted-foreground">{info.description}</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          {isCurrent && (
+            <Badge variant="outline" className="text-[11px] border-primary/40 text-primary">
+              Активний
+            </Badge>
+          )}
+          {tier !== 'free' && (
+            <div className="text-right">
+              <p className="text-[17px] font-bold">{info.priceStars} ⭐</p>
+              <p className="text-[11px] text-muted-foreground">/ місяць</p>
+            </div>
+          )}
+          {tier === 'free' && !isCurrent && (
+            <p className="text-[13px] text-muted-foreground">Безкоштовно</p>
+          )}
+        </div>
+      </div>
+
+      <Separator className="mb-3 opacity-50" />
+
+      {/* 14 feature rows */}
+      <ul className="mb-4 space-y-1.5">
+        {info.features.map((f, i) => (
+          <li
+            key={i}
+            className={cn(
+              'flex items-center gap-2 text-[15px]',
+              !f.included && 'opacity-40'
+            )}
+          >
+            <span
+              className={cn(
+                'text-[13px] font-bold',
+                f.included ? 'text-green-500' : 'text-muted-foreground'
+              )}
+            >
+              {f.included ? '✓' : '✗'}
+            </span>
+            <span className="text-foreground/80">{f.label}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* CTA */}
+      {isUpgrade && (
+        <button
+          onClick={() => {
+            play('BUTTON');
+            onSubscribe(tier);
+          }}
+          disabled={isLoading || anyPaying}
+          aria-disabled={isLoading || anyPaying}
+          className={cn(
+            'w-full rounded-xl py-3 text-[15px] font-semibold transition-all active:scale-95 min-h-[44px]',
+            isPro
+              ? 'bg-gradient-to-r from-yellow-400 to-amber-400 text-slate-950 shadow-lg shadow-yellow-400/20'
+              : 'bg-primary text-primary-foreground',
+            (isLoading || anyPaying) && 'cursor-not-allowed opacity-60'
+          )}
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Відкриваємо оплату...
+            </span>
+          ) : (
+            `Підписатися за ${info.priceStars} ⭐`
+          )}
+        </button>
+      )}
+      {isCurrent && tier !== 'free' && (
+        <p className="text-center text-[13px] text-muted-foreground">Підписка активна</p>
+      )}
+      {tier === 'free' && isCurrent && (
+        <p className="text-center text-[13px] text-muted-foreground">Безкоштовно назавжди</p>
+      )}
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function SubscriptionsPage() {
   const { accessToken } = useAuth();
@@ -43,7 +292,9 @@ export default function SubscriptionsPage() {
     }
   }, [accessToken]);
 
-  useEffect(() => { loadProfile(); }, [loadProfile]);
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   async function handleSubscribe(tier: SubscriptionTier) {
     if (!accessToken || !profile) return;
@@ -105,133 +356,79 @@ export default function SubscriptionsPage() {
 
   const currentTier = profile?.subscription_tier ?? 'free';
   const tierRank: Record<SubscriptionTier, number> = { free: 0, stars_basic: 1, stars_pro: 2 };
+  const tiers = Object.keys(TIER_INFO) as SubscriptionTier[];
 
   return (
     <div className="flex flex-col gap-5 px-4 pt-5 pb-8">
-      {/* Back header */}
+      {/* iOS_Large_Title header with back button */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => { play('CLOSE'); router.back(); }}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-muted/50 text-muted-foreground active:bg-muted"
+          onClick={() => {
+            play('SLIDE');
+            router.back();
+          }}
+          className="flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-muted/50 text-muted-foreground active:bg-muted"
           aria-label="Назад"
         >
           <Icon name="arrow_back" size={20} />
         </button>
-        <h1 className="text-xl font-bold">Підписка</h1>
-      </div>
-      <p className="text-sm text-muted-foreground -mt-3">Підтримай Memo та отримай більше можливостей</p>
-
-      {/* Current plan badge */}
-      <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
-        <span className="text-2xl">{TIER_INFO[currentTier].icon}</span>
         <div>
-          <p className="text-sm font-semibold">Поточний план: {TIER_INFO[currentTier].name}</p>
-          {profile?.subscription_ends_at && (
-            <p className="text-xs text-muted-foreground">
-              До {new Date(profile.subscription_ends_at).toLocaleDateString('uk-UA')}
-            </p>
-          )}
-          {currentTier !== 'free' && !profile?.subscription_ends_at && (
-            <p className="text-xs text-green-500">Постійний доступ</p>
-          )}
+          <h1 className="text-[28px] font-bold leading-tight">Підписка</h1>
+          <p className="text-[13px] text-muted-foreground">
+            Підтримай Memo та отримай більше можливостей
+          </p>
         </div>
       </div>
 
-      {/* Success / Error messages */}
+      {/* CurrentPlanBanner */}
+      {profile && (
+        <CurrentPlanBanner profile={profile} currentTier={currentTier} />
+      )}
+
+      {/* UsageSection — shown for non-Pro users */}
+      {currentTier !== 'stars_pro' && (
+        <UsageSection accessToken={accessToken} currentTier={currentTier} />
+      )}
+
+      {/* Success message */}
       {successMsg && (
-        <div className="rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-sm text-green-600">
+        <div className="rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-[15px] text-green-600">
           {successMsg}
         </div>
       )}
+
+      {/* Error banner */}
       {error && (
-        <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
+        <ErrorBanner
+          message={error}
+          onDismiss={() => setError(null)}
+          onRetry={undefined}
+        />
       )}
 
-      {/* Plans */}
-      <div className="flex flex-col gap-3">
-        {(Object.keys(TIER_INFO) as SubscriptionTier[]).map((tier) => {
-          const info = TIER_INFO[tier];
+      {/* Three full PlanCards */}
+      <div className="flex flex-col gap-4">
+        {tiers.map((tier) => {
           const isCurrent = currentTier === tier;
           const isUpgrade = tierRank[tier] > tierRank[currentTier];
           const isLoading = paying === tier;
 
           return (
-            <div
+            <PlanCard
               key={tier}
-              className={cn(
-                'rounded-2xl border p-4 transition-all',
-                isCurrent
-                  ? 'border-primary/40 bg-primary/5'
-                  : 'border-border/50 bg-card'
-              )}
-            >
-              {/* Header */}
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-2xl">{info.icon}</span>
-                  <div>
-                    <p className="font-semibold leading-tight">{info.name}</p>
-                    <p className="text-xs text-muted-foreground">{info.description}</p>
-                  </div>
-                </div>
-                {isCurrent && <Badge variant="outline" className="text-xs border-primary/40 text-primary">Активний</Badge>}
-                {tier !== 'free' && (
-                  <div className="text-right">
-                    <p className="font-bold text-base">{info.priceStars} ⭐</p>
-                    <p className="text-[10px] text-muted-foreground">/ місяць</p>
-                  </div>
-                )}
-              </div>
-
-              <Separator className="mb-3 opacity-50" />
-
-              {/* Features */}
-              <ul className="mb-4 space-y-1.5">
-                {info.features.map((f, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm">
-                    <span className="text-green-500 text-xs">✓</span>
-                    <span className="text-foreground/80">{f}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA */}
-              {isUpgrade && (
-                <button
-                  onClick={() => { play('BUTTON'); handleSubscribe(tier); }}
-                  disabled={isLoading || paying !== null}
-                  className={cn(
-                    'w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-95',
-                    tier === 'stars_pro'
-                      ? 'bg-gradient-to-r from-yellow-400 to-amber-400 text-slate-950 shadow-lg shadow-yellow-400/20'
-                      : 'bg-primary text-primary-foreground',
-                    (isLoading || paying !== null) && 'opacity-60 cursor-not-allowed'
-                  )}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Відкриваємо оплату...
-                    </span>
-                  ) : (
-                    `Підписатися за ${info.priceStars} ⭐`
-                  )}
-                </button>
-              )}
-              {isCurrent && tier !== 'free' && (
-                <p className="text-center text-xs text-muted-foreground">Підписка активна</p>
-              )}
-              {tier === 'free' && isCurrent && (
-                <p className="text-center text-xs text-muted-foreground">Безкоштовно назавжди</p>
-              )}
-            </div>
+              tier={tier}
+              isCurrent={isCurrent}
+              isUpgrade={isUpgrade}
+              isLoading={isLoading}
+              anyPaying={paying !== null}
+              onSubscribe={handleSubscribe}
+            />
           );
         })}
       </div>
 
-      <p className="text-center text-xs text-muted-foreground px-4">
+      {/* Footer note */}
+      <p className="text-center text-[11px] text-muted-foreground px-4">
         Оплата через Telegram Stars · Підписка на 30 днів · Поновлення вручну
       </p>
     </div>

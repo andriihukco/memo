@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
@@ -505,124 +506,113 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] flex items-end">
-        <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-        <div
-          className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-          style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)' }}
+      <BottomSheet open onClose={onClose} className="px-4 pt-4">
+        {/* Close */}
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70"
+          aria-label="Закрити"
         >
-          {/* Handle */}
-          <div className="mb-3 flex justify-center">
-            <div className="h-1 w-10 rounded-full bg-muted" />
-          </div>
+          <Icon name="close" size={16} />
+        </button>
 
-          {/* Close */}
+        {/* Delete */}
+        {onDelete && !confirmDelete && (
           <button
-            onClick={onClose}
-            className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70"
-            aria-label="Закрити"
+            onClick={() => setConfirmDelete(true)}
+            className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
+            aria-label="Видалити"
           >
-            <Icon name="close" size={16} />
+            <Icon name="delete" size={16} />
           </button>
+        )}
 
-          {/* Delete */}
-          {onDelete && !confirmDelete && (
-            <button
-              onClick={() => setConfirmDelete(true)}
-              className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
-              aria-label="Видалити"
-            >
-              <Icon name="delete" size={16} />
+        {confirmDelete && (
+          <div className="mb-3 mt-3 flex items-center gap-2 rounded-2xl bg-destructive/10 px-3 py-2.5">
+            <Icon name="delete" size={14} className="shrink-0 text-destructive" />
+            <span className="flex-1 text-xs text-destructive">Видалити запис?</span>
+            <button onClick={() => setConfirmDelete(false)} className="rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted">Ні</button>
+            <button onClick={handleDelete} disabled={deleting} className="rounded-full bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground disabled:opacity-60">
+              {deleting ? '...' : 'Так'}
             </button>
-          )}
+          </div>
+        )}
 
-          {confirmDelete && (
-            <div className="mb-3 flex items-center gap-2 rounded-2xl bg-destructive/10 px-3 py-2.5">
-              <Icon name="delete" size={14} className="shrink-0 text-destructive" />
-              <span className="flex-1 text-xs text-destructive">Видалити запис?</span>
-              <button onClick={() => setConfirmDelete(false)} className="rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted">Ні</button>
-              <button onClick={handleDelete} disabled={deleting} className="rounded-full bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground disabled:opacity-60">
-                {deleting ? '...' : 'Так'}
-              </button>
-            </div>
+        {/* Category chips — sourced entirely from DB */}
+        <div className="mb-3 mt-3 flex flex-wrap gap-1.5 pr-10">
+          {loadingCats && (
+            <div className="h-6 w-24 animate-pulse rounded-full bg-muted" />
           )}
-
-          {/* Category chips — sourced entirely from DB */}
-          <div className="mb-3 flex flex-wrap gap-1.5 pr-10">
-            {loadingCats && (
-              <div className="h-6 w-24 animate-pulse rounded-full bg-muted" />
-            )}
-            {!loadingCats && dbCats.map((cat) => {
-              const color = getCategoryColor(cat.name);
-              const isSelected = selectedCats.has(cat.name);
-              const iconName = getIconName(cat.icon);
-              return (
-                <button
-                  key={cat.name}
-                  onClick={() => toggleCat(cat.name)}
-                  className={cn(
-                    'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                    color,
-                    isSelected ? 'ring-2 ring-offset-1 ring-primary/50 scale-105' : 'opacity-55 hover:opacity-80'
-                  )}
-                >
-                  <Icon name={iconName} size={11} />
-                  {cat.label_ua || getCategoryLabel(cat.name)}
-                </button>
-              );
-            })}
-            {/* Extra selected cats not yet in DB (edge case) */}
-            {extraSelected.map((cat) => (
+          {!loadingCats && dbCats.map((cat) => {
+            const color = getCategoryColor(cat.name);
+            const isSelected = selectedCats.has(cat.name);
+            const iconName = getIconName(cat.icon);
+            return (
               <button
-                key={cat}
-                onClick={() => toggleCat(cat)}
+                key={cat.name}
+                onClick={() => toggleCat(cat.name)}
                 className={cn(
-                  'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
-                  getCategoryColor(cat),
-                  'ring-2 ring-offset-1 ring-primary/50 scale-105'
+                  'flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                  color,
+                  isSelected ? 'ring-2 ring-offset-1 ring-primary/50 scale-105' : 'opacity-55 hover:opacity-80'
                 )}
               >
-                {getCategoryLabel(cat)}
+                <Icon name={iconName} size={11} />
+                {cat.label_ua || getCategoryLabel(cat.name)}
               </button>
-            ))}
-          </div>
-
-          {/* Add custom category */}
-          <div className="mb-3 flex gap-2">
-            <input
-              type="text"
-              placeholder="Нова категорія..."
-              value={customInput}
-              onChange={e => { play('TYPE'); setCustomInput(e.target.value); }}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
-              className="flex-1 rounded-full border border-input bg-background px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
-            />
-            {customInput.trim() && (
-              <button
-                onClick={addCustom}
-                className="rounded-full bg-primary px-3 py-2 text-xs font-medium text-primary-foreground"
-              >
-                Далі →
-              </button>
-            )}
-          </div>
-
-          {/* Content */}
-          <textarea
-            ref={textareaRef}
-            value={editContent}
-            onChange={e => { play('TYPE'); setEditContent(e.target.value); }}
-            rows={4}
-            className="mb-4 w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-
-          <Button className="w-full rounded-full" disabled={saving || !editContent.trim()} onClick={save}>
-            {saving
-              ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-              : 'Зберегти'}
-          </Button>
+            );
+          })}
+          {/* Extra selected cats not yet in DB (edge case) */}
+          {extraSelected.map((cat) => (
+            <button
+              key={cat}
+              onClick={() => toggleCat(cat)}
+              className={cn(
+                'rounded-full border px-2.5 py-1 text-xs font-medium transition-all',
+                getCategoryColor(cat),
+                'ring-2 ring-offset-1 ring-primary/50 scale-105'
+              )}
+            >
+              {getCategoryLabel(cat)}
+            </button>
+          ))}
         </div>
-      </div>
+
+        {/* Add custom category */}
+        <div className="mb-3 flex gap-2">
+          <input
+            type="text"
+            placeholder="Нова категорія..."
+            value={customInput}
+            onChange={e => { play('TYPE'); setCustomInput(e.target.value); }}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
+            className="flex-1 rounded-full border border-input bg-background px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          {customInput.trim() && (
+            <button
+              onClick={addCustom}
+              className="rounded-full bg-primary px-3 py-2 text-xs font-medium text-primary-foreground"
+            >
+              Далі →
+            </button>
+          )}
+        </div>
+
+        {/* Content */}
+        <textarea
+          ref={textareaRef}
+          value={editContent}
+          onChange={e => { play('TYPE'); setEditContent(e.target.value); }}
+          rows={4}
+          className="mb-4 w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+
+        <Button className="w-full min-h-[44px] rounded-full" disabled={saving || !editContent.trim()} onClick={save}>
+          {saving
+            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+            : 'Зберегти'}
+        </Button>
+      </BottomSheet>
 
       {/* New category icon/color picker */}
       {showNewCatSheet && (

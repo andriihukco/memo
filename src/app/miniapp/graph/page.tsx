@@ -5,9 +5,12 @@ import * as d3 from 'd3';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Icon } from '@/components/ui/icon';
 import { X } from 'lucide-react';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
+import { PaywallModal } from '@/components/ui/paywall-modal';
 import { cn } from '@/lib/utils';
+import type { SubscriptionTier } from '@/lib/stars/paywall';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -211,6 +214,33 @@ export default function GraphPage() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [linkedNodes, setLinkedNodes] = useState<GraphNode[]>([]);
 
+  // ── User tier ──────────────────────────────────────────────────────────────
+  const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
+
+  // ── Paywall state ──────────────────────────────────────────────────────────
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallProps, setPaywallProps] = useState<{
+    feature: string;
+    current?: number;
+    limit?: number;
+    requiredTier: SubscriptionTier;
+  }>({ feature: 'graph_full', requiredTier: 'stars_basic' });
+
+  const openPaywall = (feature: string, current: number | undefined, limit: number | undefined, requiredTier: SubscriptionTier) => {
+    setPaywallProps({ feature, current, limit, requiredTier });
+    setPaywallOpen(true);
+  };
+
+  const fetchUserTier = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return;
+      const { profile } = await res.json();
+      setUserTier((profile?.subscription_tier as SubscriptionTier) ?? 'free');
+    } catch { /* non-critical */ }
+  }, [accessToken]);
+
   const fetchGraph = useCallback(async () => {
     if (!accessToken) return;
     setStatus('loading');
@@ -229,7 +259,7 @@ export default function GraphPage() {
     }
   }, [accessToken]);
 
-  useEffect(() => { fetchGraph(); }, [fetchGraph]);
+  useEffect(() => { fetchGraph(); fetchUserTier(); }, [fetchGraph, fetchUserTier]);
 
   const handleUpdate = async (id: string, content: string, category: string) => {
     if (!accessToken) return;
@@ -450,6 +480,16 @@ export default function GraphPage() {
         {status === 'ready' && (graphData?.nodes.length ?? 0) > 0 && (
           <svg ref={svgRef} className="h-full w-full" />
         )}
+        {/* Free tier overlay — shown when userTier is known and is 'free' */}
+        {userTier === 'free' && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-xl">
+            <Icon name="lock" size={48} className="text-muted-foreground/40" />
+            <p className="text-[17px] font-semibold text-muted-foreground">Доступно з Basic</p>
+            <Button onClick={() => openPaywall('graph_full', undefined, undefined, 'stars_basic')} className="min-h-[44px]">
+              Розблокувати
+            </Button>
+          </div>
+        )}
       </div>
 
       <NodeDetailPanel
@@ -459,6 +499,13 @@ export default function GraphPage() {
         onUpdate={handleUpdate}
         onDelete={handleDelete}
         accessToken={accessToken}
+      />
+
+      {/* Paywall Modal */}
+      <PaywallModal
+        open={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        {...paywallProps}
       />
     </div>
   );
