@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
@@ -47,27 +47,6 @@ const PERIOD_LABELS: Record<string, string> = {
   daily: 'Сьогодні', weekly: '7 днів', monthly: 'Місяць', custom: 'Звіт',
 };
 
-// ── Rotating progress labels ──────────────────────────────────────────────────
-
-const PROGRESS_LABELS = [
-  'Збираю записи...', 'Аналізую патерни...', 'Оцінюю прогрес...',
-  'Шукаю інсайти...', 'Формую ретроспективу...', 'Майже готово...',
-];
-
-function _useProgressLabel(active: boolean) {
-  const [idx, setIdx] = useState(0);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  useEffect(() => {
-    if (active) {
-      setIdx(0);
-      timer.current = setInterval(() => setIdx(i => (i + 1) % PROGRESS_LABELS.length), 1800);
-    } else {
-      if (timer.current) clearInterval(timer.current);
-    }
-    return () => { if (timer.current) clearInterval(timer.current); };
-  }, [active]);
-  return PROGRESS_LABELS[idx];
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -325,7 +304,6 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [showNewReport, setShowNewReport] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportSummary | null>(null);
-  const _lastGenParams = useRef<{ periodType: string; from?: Date; to?: Date } | null>(null);
   const { play } = useSound();
 
   const [paywallOpen, setPaywallOpen] = useState(false);
