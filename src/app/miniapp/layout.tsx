@@ -807,6 +807,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showRenewalBanner, setShowRenewalBanner] = useState(false);
   const didInit = useRef(false);
+  const splashStartRef = useRef(Date.now());
 
   // Pill tab bar height: 64px tall + 10px bottom offset + bottomInset
   const tabBarH = 64 + 10 + bottomInset;
@@ -875,14 +876,27 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
           }
         }
 
-        setStatus('ready');
+        // setStatus('ready') is called by initWithMinSplash after the minimum delay
       } catch (err) {
         setErrorMsg(err instanceof Error ? err.message : 'Authentication failed');
-        setStatus('error');
+        // Still respect minimum splash time on error
+        const elapsed = Date.now() - splashStartRef.current;
+        const remaining = Math.max(0, 1500 - elapsed);
+        setTimeout(() => setStatus('error'), remaining);
+        return;
       }
     }
 
-    init();
+    async function initWithMinSplash() {
+      await init();
+      // Ensure splash shows for at least 1.5s so icons/fonts always load fully
+      const elapsed = Date.now() - splashStartRef.current;
+      const remaining = Math.max(0, 1500 - elapsed);
+      if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
+      setStatus('ready');
+    }
+
+    initWithMinSplash();
   }, [setAccessToken]);
 
   useEffect(() => {

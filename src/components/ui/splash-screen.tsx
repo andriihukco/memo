@@ -189,36 +189,32 @@ export function SplashScreen() {
       />
 
       <div className="relative z-10 flex flex-col items-center gap-6">
-        {/* Logo with vignette */}
+        {/* Logo */}
         <div className="relative">
-          {/* Radial vignette — fades corners into dark bg */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              zIndex: 2,
-              borderRadius: 24,
-              background: 'radial-gradient(ellipse at center, transparent 42%, #080c14 100%)',
-            }}
-          />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
             alt="Memo"
-            className="relative block"
+            className="block"
             style={{
               width: 96,
               height: 'auto',
-              borderRadius: 24,
               filter: 'drop-shadow(0 0 28px rgba(80,170,255,0.45))',
             }}
           />
         </div>
 
-        {/* Skeleton text lines */}
-        <div className="flex flex-col items-center gap-2">
-          <div className="h-2.5 rounded-full bg-white/8" style={{ width: 80 }} />
-          <div className="h-2 rounded-full bg-white/5" style={{ width: 52 }} />
-        </div>
+        {/* Loading text */}
+        <p
+          style={{
+            fontFamily: "'Comfortaa', 'Mulish', sans-serif",
+            fontSize: 14,
+            color: 'rgba(255,255,255,0.45)',
+            letterSpacing: '0.01em',
+          }}
+        >
+          Запускаємо пам&apos;ять...
+        </p>
       </div>
     </div>
   );
