@@ -354,7 +354,8 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
         <div className="mb-8 flex gap-1.5 items-center">
           {SLIDES.map((_, i) => (
             <button key={i} onClick={() => { play('SELECT'); setIndex(i); }}
-              className={cn('rounded-full transition-all duration-300', i === index ? 'w-4 h-[3px] bg-white' : 'w-[3px] h-[3px] bg-white/30')}
+              style={{ minWidth: 0, minHeight: 0, width: i === index ? 16 : 6, height: 6 }}
+              className={cn('rounded-full transition-all duration-300', i === index ? 'bg-white' : 'bg-white/30')}
             />
           ))}
         </div>
