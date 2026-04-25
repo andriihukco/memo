@@ -536,9 +536,15 @@ export default function GraphPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex h-full items-center justify-center px-6 text-center"
+            className="flex h-full flex-col items-center justify-center px-8 text-center gap-3"
           >
-            <p className="text-sm text-muted-foreground">Немає записів для відображення.</p>
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30 text-4xl">
+              🕸️
+            </div>
+            <p className="text-[15px] font-semibold">Граф ще порожній</p>
+            <p className="text-[13px] text-muted-foreground leading-relaxed max-w-xs">
+              Почни вести щоденник у боті — після кількох записів тут з&apos;явиться граф зв&apos;язків між ними.
+            </p>
           </motion.div>
         )}
         {status === 'ready' && (graphData?.nodes.length ?? 0) > 0 && (

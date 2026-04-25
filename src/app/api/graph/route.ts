@@ -80,6 +80,7 @@ export async function GET(req: Request): Promise<Response> {
 
   const supabaseUrl = process.env.SUPABASE_URL ?? env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
 
   if (!supabaseUrl || !serviceKey) {
     return new Response(JSON.stringify({ error: "Server misconfiguration" }), {
@@ -88,21 +89,26 @@ export async function GET(req: Request): Promise<Response> {
     });
   }
 
-  // Use service role to fetch entries, then verify user via anon client
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
+  // Resolve user_id via anon client + RLS (same pattern as entries/profile routes)
   const anonClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
     auth: { persistSession: false },
   });
 
-  // Get the authenticated user's ID
-  const { data: { user }, error: authError } = await anonClient.auth.getUser();
-  if (authError || !user) {
+  const { data: profileRow, error: profileErr } = await anonClient
+    .from("profiles")
+    .select("id, telegram_id")
+    .single();
+
+  if (profileErr || !profileRow) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  const userId = profileRow.id as string;
+  const telegramId = profileRow.telegram_id ? String(profileRow.telegram_id) : null;
 
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
@@ -112,7 +118,7 @@ export async function GET(req: Request): Promise<Response> {
   const { data: entriesData, error: entriesError } = await supabase
     .from("entries")
     .select("id, content, category, created_at, branch_id, embedding, embedding_status")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
   if (entriesError) {
@@ -127,7 +133,7 @@ export async function GET(req: Request): Promise<Response> {
   const { data: insightsData, error: insightsError } = await supabase
     .from("insights")
     .select("entry_id, branch_id")
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
 
   if (insightsError) {
     console.error("[api/graph] insights query error:", insightsError.message);
@@ -141,15 +147,9 @@ export async function GET(req: Request): Promise<Response> {
   const insights = (insightsData ?? []) as InsightRow[];
 
   // Decrypt entry content using per-user key derived from telegram_id
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("telegram_id")
-    .eq("id", user.id)
-    .single();
-
-  if (profileData?.telegram_id) {
+  if (telegramId) {
     try {
-      const cryptoKey = await deriveUserKey(String(profileData.telegram_id));
+      const cryptoKey = await deriveUserKey(telegramId);
       await Promise.all(entries.map(async (e) => {
         try { e.content = await decryptField(e.content, cryptoKey); } catch { /* use as-is */ }
       }));
