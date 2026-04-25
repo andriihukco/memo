@@ -1,14 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { Trash2, MessageCircle, Bot, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
+import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
-import { LockButton } from '@/components/ui/lock-button';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
+import { useSound } from '@/lib/sound/use-sound';
 
 interface Entry {
   id: string;
@@ -83,6 +84,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
   onUpdate: (id: string, content: string, category: string) => Promise<void>;
   accessToken?: string | null;
 }) {
+  const { play } = useSound();
   const [offsetX, setOffsetX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0), startY = useRef(0);
@@ -113,6 +115,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
     if (didLongPress.current) return;
     if (isSelectMode) { onToggleSelect(); return; }
     if (offsetX !== 0) { setOffsetX(0); return; }
+    play('OPEN');
     setEditOpen(true);
   };
 
@@ -123,7 +126,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
       <div className="relative overflow-hidden rounded-xl">
         <div className="absolute inset-0 flex items-center justify-end rounded-xl bg-destructive pr-5" style={{ opacity: revealRatio }}>
           <div className="flex flex-col items-center gap-0.5">
-            <Trash2 size={20} className="text-destructive-foreground" />
+            <Icon name="delete" size={20} className="text-destructive-foreground" />
             <span className="text-[10px] font-medium text-destructive-foreground">Видалити</span>
           </div>
         </div>
@@ -154,7 +157,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
             {entry.bot_reply && (
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2.5">
                 <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Bot size={10} className="text-primary" />
+                  <Icon name="smart_toy" size={10} className="text-primary" />
                 </div>
                 <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
               </div>
@@ -162,7 +165,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
           </div>
         </Card>
       </div>
-      {editOpen && <EditDrawer entry={entry} onSave={onUpdate} onClose={() => setEditOpen(false)} accessToken={accessToken} />}
+      {editOpen && <EditDrawer entry={entry} onSave={onUpdate} onClose={() => { play('CLOSE'); setEditOpen(false); }} accessToken={accessToken} />}
     </>
   );
 }
@@ -170,6 +173,39 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
 // ── Thread grouping ───────────────────────────────────────────────────────────
 
 interface ThreadGroup { threadId: string; entries: Entry[]; }
+
+// ── Date grouping ─────────────────────────────────────────────────────────────
+
+interface DateGroup {
+  dateKey: string;    // "2025-07-14" (UTC+3 local date)
+  dateLabel: string;  // "14 липня 2025" (uk-UA locale)
+  items: (Entry | ThreadGroup)[];
+}
+
+const TZ_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+function groupByDate(items: (Entry | ThreadGroup)[]): DateGroup[] {
+  const map = new Map<string, DateGroup>();
+  const order: string[] = [];
+
+  for (const item of items) {
+    // Get the created_at from the item (Entry or ThreadGroup's first entry)
+    const createdAt = 'threadId' in item ? item.entries[0]?.created_at : item.created_at;
+    if (!createdAt) continue;
+
+    const utc3Date = new Date(new Date(createdAt).getTime() + TZ_OFFSET_MS);
+    const dateKey = utc3Date.toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const dateLabel = utc3Date.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    if (!map.has(dateKey)) {
+      map.set(dateKey, { dateKey, dateLabel, items: [] });
+      order.push(dateKey);
+    }
+    map.get(dateKey)!.items.push(item);
+  }
+
+  return order.map(k => map.get(k)!);
+}
 
 function groupByThread(entries: Entry[]): (Entry | ThreadGroup)[] {
   const threadMap = new Map<string, Entry[]>();
@@ -251,7 +287,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
           onClick={() => entries.length > PREVIEW && setShowAll(v => !v)}
         >
           <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
-            <MessageCircle size={11} className="text-primary" />
+            <Icon name="chat_bubble" size={11} className="text-primary" />
           </div>
           <span className="text-xs font-medium text-muted-foreground">
             Розмова · {entries.length} повідомлень
@@ -260,7 +296,8 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
             {getCategoryLabel(entries[0]?.category ?? '', entries[0]?.category_label)}
           </Badge>
           {entries.length > PREVIEW && (
-            <ChevronDown
+            <Icon
+              name="expand_more"
               size={14}
               className={cn('ml-1 shrink-0 text-muted-foreground transition-transform duration-200', showAll && 'rotate-180')}
             />
@@ -293,7 +330,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
                     'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
                     isUser ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
                   )}>
-                    {isUser ? 'Я' : <Bot size={14} />}
+                    {isUser ? 'Я' : <Icon name="smart_toy" size={14} />}
                   </div>
 
                   {/* Content */}
@@ -311,7 +348,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
                     {isUser && entry.bot_reply && (
                       <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2">
                         <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                          <Bot size={10} className="text-primary" />
+                          <Icon name="smart_toy" size={10} className="text-primary" />
                         </div>
                         <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
                       </div>
@@ -362,15 +399,16 @@ function CategoryFilterBar({ entries, selected, onChange }: {
   selected: string | null;
   onChange: (cat: string | null) => void;
 }) {
+  const { play } = useSound();
   const cats = Array.from(new Map(entries.map((e) => [e.category, e.category_label])).entries());
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-      <Button size="sm" variant={selected === null ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => onChange(null)}>
+      <Button size="sm" variant={selected === null ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => { play('SELECT'); onChange(null); }}>
         Всі
       </Button>
       {cats.map(([cat, label]) => (
-        <Button key={cat} size="sm" variant={selected === cat ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => onChange(selected === cat ? null : cat)}>
+        <Button key={cat} size="sm" variant={selected === cat ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => { play('SELECT'); onChange(selected === cat ? null : cat); }}>
           {getCategoryLabel(cat, label ?? undefined)}
         </Button>
       ))}
@@ -382,6 +420,7 @@ function CategoryFilterBar({ entries, selected, onChange }: {
 
 export default function FeedPage() {
   const { accessToken } = useAuth();
+  const { play } = useSound();
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -409,14 +448,15 @@ export default function FeedPage() {
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
-  const exitSelectMode = () => { setIsSelectMode(false); setSelectedIds(new Set()); };
-  const handleLongPress = (id: string) => { setIsSelectMode(true); setSelectedIds(new Set([id])); };
+  const exitSelectMode = () => { play('TOGGLE_OFF'); setIsSelectMode(false); setSelectedIds(new Set()); };
+  const handleLongPress = (id: string) => { play('TOGGLE_ON'); setIsSelectMode(true); setSelectedIds(new Set([id])); };
   const handleToggleSelect = (id: string) => {
     setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); if (next.size === 0) setIsSelectMode(false); return next; });
   };
 
   const confirmDelete = async () => {
     if (!pendingDeleteIds || !accessToken) return;
+    play('CAUTION');
     setIsDeleting(true);
     try {
       const res = await fetch('/api/entries', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ ids: pendingDeleteIds }) });
@@ -455,21 +495,23 @@ export default function FeedPage() {
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-5">
-      <div className="flex items-center justify-between">
-        {isSelectMode ? (
-          <>
-            <button onClick={toggleSelectAll} className="text-sm font-medium underline-offset-2 hover:underline">
-              {allSelected ? 'Зняти все' : `${selectedIds.size} вибрано — Вибрати все`}
+      {isSelectMode ? (
+        <div className="flex items-center justify-between">
+          <button onClick={toggleSelectAll} className="text-sm font-medium underline-offset-2 hover:underline">
+            {allSelected ? 'Зняти все' : `${selectedIds.size} вибрано — Вибрати все`}
+          </button>
+          <Button size="sm" variant="outline" onClick={exitSelectMode}>Скасувати</Button>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold">Стрічка</h1>
+          <Link href="/miniapp/settings">
+            <button className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-muted/30" aria-label="Налаштування" onClick={() => play('BUTTON')}>
+              <Icon name="settings" size={22} aria-label="Налаштування" />
             </button>
-            <Button size="sm" variant="outline" onClick={exitSelectMode}>Скасувати</Button>
-          </>
-        ) : (
-          <div className="flex items-center gap-0">
-            <h1 className="text-lg font-semibold">Стрічка</h1>
-            <LockButton />
-          </div>
-        )}
-      </div>
+          </Link>
+        </div>
+      )}
 
       {!isSelectMode && (
         <CategoryFilterBar entries={allEntries} selected={selectedCategory} onChange={setSelectedCategory} />
@@ -497,36 +539,66 @@ export default function FeedPage() {
       )}
       {status === 'ready' && entries.length > 0 && (
         <div className="flex flex-col gap-3 pb-4">
-          {groupByThread(entries).map((item) => {
-            if ('threadId' in item) {
-              return (
-                <ThreadCard
-                  key={item.threadId}
-                  group={item}
-                  isSelectMode={isSelectMode}
-                  selectedIds={selectedIds}
-                  onLongPress={handleLongPress}
-                  onToggleSelect={handleToggleSelect}
-                  onUpdate={handleUpdate}
-                  onDelete={handleDeleteSingle}
-                  accessToken={accessToken}
+          {groupByDate(groupByThread(entries)).map((group) => (
+            <div key={group.dateKey} className="relative">
+              {/* Date header with timeline dot */}
+              <div className="flex items-center gap-3 mb-3">
+                <div className="relative flex-shrink-0">
+                  <div className="h-2.5 w-2.5 rounded-full bg-primary/60 ring-2 ring-primary/20" />
+                </div>
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  {group.dateLabel}
+                </span>
+              </div>
+
+              {/* Timeline spine + entries */}
+              <div className="relative pl-5">
+                {/* Vertical spine line */}
+                <div
+                  className="absolute left-[4px] top-0 bottom-0 w-px bg-border/40"
+                  aria-hidden="true"
                 />
-              );
-            }
-            return (
-              <SwipeableCard
-                key={item.id}
-                entry={item}
-                isSelectMode={isSelectMode}
-                isSelected={selectedIds.has(item.id)}
-                onLongPress={() => handleLongPress(item.id)}
-                onToggleSelect={() => handleToggleSelect(item.id)}
-                onSwipeDelete={() => setPendingDeleteIds([item.id])}
-                onUpdate={handleUpdate}
-                accessToken={accessToken}
-              />
-            );
-          })}
+                <div className="flex flex-col gap-3">
+                  {group.items.map((item) => {
+                    if ('threadId' in item) {
+                      return (
+                        <div key={item.threadId} className="relative">
+                          {/* Node dot on spine */}
+                          <div className="absolute -left-[17px] top-4 h-2 w-2 rounded-full bg-border/60" />
+                          <ThreadCard
+                            group={item}
+                            isSelectMode={isSelectMode}
+                            selectedIds={selectedIds}
+                            onLongPress={handleLongPress}
+                            onToggleSelect={handleToggleSelect}
+                            onUpdate={handleUpdate}
+                            onDelete={handleDeleteSingle}
+                            accessToken={accessToken}
+                          />
+                        </div>
+                      );
+                    }
+                    return (
+                      <div key={item.id} className="relative">
+                        {/* Node dot on spine */}
+                        <div className="absolute -left-[17px] top-4 h-2 w-2 rounded-full bg-border/60" />
+                        <SwipeableCard
+                          entry={item}
+                          isSelectMode={isSelectMode}
+                          isSelected={selectedIds.has(item.id)}
+                          onLongPress={() => handleLongPress(item.id)}
+                          onToggleSelect={() => handleToggleSelect(item.id)}
+                          onSwipeDelete={() => { play('OPEN'); setPendingDeleteIds([item.id]); }}
+                          onUpdate={handleUpdate}
+                          accessToken={accessToken}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -534,17 +606,17 @@ export default function FeedPage() {
         <div className="fixed left-0 right-0 z-40 flex justify-center px-4 py-3" style={{ bottom: 'calc(var(--tab-bar-h, 60px) + var(--bottom-inset, 0px))' }}>
           <button
             disabled={selectedIds.size === 0}
-            onClick={() => setPendingDeleteIds([...selectedIds])}
+            onClick={() => { play('OPEN'); setPendingDeleteIds([...selectedIds]); }}
             className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-semibold text-destructive-foreground shadow-lg disabled:opacity-40"
           >
-            <Trash2 size={15} />
+            <Icon name="delete" size={15} />
             Видалити {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
           </button>
         </div>
       )}
 
       {pendingDeleteIds && (
-        <DeleteConfirmDialog count={pendingDeleteIds.length} onConfirm={isDeleting ? () => { } : confirmDelete} onCancel={() => setPendingDeleteIds(null)} />
+        <DeleteConfirmDialog count={pendingDeleteIds.length} onConfirm={isDeleting ? () => { } : confirmDelete} onCancel={() => { play('CLOSE'); setPendingDeleteIds(null); }} />
       )}
     </div>
   );

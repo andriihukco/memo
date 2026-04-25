@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/supabase/auth-context';
-import { ScrollText, LayoutDashboard, Network, Settings, FileText } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
+import { SoundProvider } from '@/lib/sound/sound-context';
+import { useSound } from '@/lib/sound/use-sound';
 import { PasscodeScreen } from '@/components/ui/passcode-screen';
 import { getPasscodeHash, shouldLock, touchLastActive } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
@@ -163,75 +165,82 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   );
 }
 
-// ── Tab bar ───────────────────────────────────────────────────────────────────
+// ── Pill Tab Bar ──────────────────────────────────────────────────────────────
 
 const tabs = [
-  { label: 'Стрічка', href: '/miniapp', Icon: ScrollText },
-  { label: 'Дашборд', href: '/miniapp/dashboard', Icon: LayoutDashboard },
-  { label: 'Граф', href: '/miniapp/graph', Icon: Network },
-  { label: 'Звіти', href: '/miniapp/reports', Icon: FileText },
-  { label: 'Профіль', href: '/miniapp/settings', Icon: Settings },
+  { label: 'Стрічка',  href: '/miniapp',           icon: 'home' },
+  { label: 'Віджети',  href: '/miniapp/dashboard',  icon: 'widgets' },
+  { label: 'Графік',   href: '/miniapp/graph',       icon: 'show_chart' },
+  { label: 'Інсайти',  href: '/miniapp/reports',     icon: 'lightbulb' },
 ];
 
-function TabBar({ pathname, bottomInset }: { pathname: string; bottomInset: number }) {
+function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: number }) {
+  const { play } = useSound();
   return (
     <nav
-      className="fixed left-0 right-0 z-50"
-      style={{ bottom: 0 }}
+      role="navigation"
+      aria-label="Головна навігація"
+      style={{
+        position: 'fixed',
+        bottom: bottomInset + 12,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        borderRadius: 9999,
+        background: 'rgba(15, 20, 35, 0.92)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06)',
+        width: 'min(calc(100vw - 32px), 320px)',
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        padding: 6,
+      }}
     >
-      {/* Blur backdrop */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background: 'linear-gradient(to top, rgba(9,11,17,0.97) 60%, rgba(9,11,17,0.85) 100%)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-        }}
-      />
-
-      <div
-        className="relative flex items-stretch justify-around"
-        style={{ paddingBottom: Math.max(bottomInset, 8), paddingTop: 8 }}
-      >
-        {tabs.map(({ label, href, Icon }) => {
-          const isActive = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              className="flex flex-1 flex-col items-center justify-center gap-[3px] px-1 py-1 transition-opacity active:opacity-60"
-              style={{ minHeight: 44 }}
-            >
-              {/* Icon container with active indicator dot */}
-              <div className="relative flex items-center justify-center">
-                <Icon
-                  size={22}
-                  strokeWidth={isActive ? 2 : 1.6}
-                  className={cn(
-                    'transition-all duration-200',
-                    isActive ? 'text-white' : 'text-white/40'
-                  )}
-                />
-                {/* Active dot */}
-                {isActive && (
-                  <span
-                    className="absolute -bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-white"
-                  />
-                )}
-              </div>
-              <span
-                className={cn(
-                  'text-[10px] font-medium leading-none tracking-tight transition-all duration-200',
-                  isActive ? 'text-white' : 'text-white/35'
-                )}
+      {tabs.map(({ label, href, icon }) => {
+        const isActive = pathname === href;
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-current={isActive ? 'page' : undefined}
+            onClick={() => play('SLIDE')}
+            style={{
+              flex: 1,
+              minWidth: 44,
+              minHeight: 44,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              textDecoration: 'none',
+            }}
+          >
+            {isActive ? (
+              <div
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  borderRadius: 9999,
+                  padding: '4px 12px',
+                }}
               >
-                {label}
-              </span>
-            </Link>
-          );
-        })}
-      </div>
+                <Icon name={icon} size={22} filled={true} className="text-white" />
+              </div>
+            ) : (
+              <Icon name={icon} size={22} filled={false} className="text-white/40" />
+            )}
+            <span
+              className={cn(
+                'text-[10px] font-medium leading-none tracking-tight transition-all duration-200',
+                isActive ? 'text-white' : 'text-white/40'
+              )}
+            >
+              {label}
+            </span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }
@@ -249,8 +258,8 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const didInit = useRef(false);
 
-  // Tab bar height: icon(22) + gap(3) + label(10) + padding(8+8) + bottom inset
-  const tabBarH = 51 + Math.max(bottomInset, 8);
+  // Pill tab bar height: ~56px tall + 12px bottom offset + bottomInset
+  const tabBarH = 56 + 12 + bottomInset;
 
   useEffect(() => {
     async function init() {
@@ -371,7 +380,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <TabBar pathname={pathname} bottomInset={bottomInset} />
+      <PillTabBar pathname={pathname} bottomInset={bottomInset} />
     </div>
   );
 }
@@ -379,7 +388,9 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 export default function MiniAppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <MiniAppContent>{children}</MiniAppContent>
+      <SoundProvider>
+        <MiniAppContent>{children}</MiniAppContent>
+      </SoundProvider>
     </AuthProvider>
   );
 }

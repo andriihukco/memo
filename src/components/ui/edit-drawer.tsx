@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useSound } from '@/lib/sound/use-sound';
 
 // ── Icon library ──────────────────────────────────────────────────────────────
 
@@ -388,6 +389,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
   const [dbCats, setDbCats] = useState<DbCategory[]>([]);
   const [loadingCats, setLoadingCats] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { play } = useSound();
 
   // Load all user categories from DB, then merge with built-ins so all standard
   // categories always appear even if the user hasn't logged them yet.
@@ -620,7 +622,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
               type="text"
               placeholder="Нова категорія..."
               value={customInput}
-              onChange={e => setCustomInput(e.target.value)}
+              onChange={e => { play('TYPE'); setCustomInput(e.target.value); }}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
               className="flex-1 rounded-full border border-input bg-background px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
             />
@@ -638,7 +640,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
           <textarea
             ref={textareaRef}
             value={editContent}
-            onChange={e => setEditContent(e.target.value)}
+            onChange={e => { play('TYPE'); setEditContent(e.target.value); }}
             rows={4}
             className="mb-4 w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
           />

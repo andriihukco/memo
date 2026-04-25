@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { FileText, ChevronDown, Plus, Trash2 } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import type { ReportInsight } from '@/lib/bot/retrospective';
+import { useSound } from '@/lib/sound/use-sound';
 
 interface ReportSummary {
   id: string;
@@ -124,6 +125,7 @@ function NewReportDrawer({ onClose, onGenerate }: {
   onClose: () => void;
   onGenerate: (periodType: string, from?: Date, to?: Date) => void;
 }) {
+  const { play } = useSound();
   const [fromStr, setFromStr] = useState(isoDate(startOfDay(new Date())));
   const [toStr, setToStr] = useState(isoDate(new Date()));
   const [showCustom, setShowCustom] = useState(false);
@@ -177,7 +179,7 @@ function NewReportDrawer({ onClose, onGenerate }: {
           className="mb-3 flex w-full items-center justify-between rounded-xl border border-border px-4 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30"
         >
           <span>Свій діапазон</span>
-          <ChevronDown size={15} className={cn('transition-transform', showCustom && 'rotate-180')} />
+          <Icon name="expand_more" size={15} className={cn('transition-transform', showCustom && 'rotate-180')} />
         </button>
 
         {showCustom && (
@@ -196,7 +198,7 @@ function NewReportDrawer({ onClose, onGenerate }: {
         <Button
           className="w-full"
           disabled={!selected}
-          onClick={() => { if (selected) { onGenerate(selected.type, selected.from, selected.to); onClose(); } }}
+          onClick={() => { if (selected) { play('BUTTON'); onGenerate(selected.type, selected.from, selected.to); onClose(); } }}
         >
           Згенерувати ретроспективу
         </Button>
@@ -258,7 +260,7 @@ function ReportCard({ report, onDelete }: { report: ReportSummary; onDelete: () 
         {/* Header */}
         <div className="flex items-start gap-3 p-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <FileText size={18} className="text-primary" />
+            <Icon name="description" size={18} className="text-primary" />
           </div>
           <button onClick={() => setExpanded(v => !v)} className="flex-1 min-w-0 text-left">
             <div className="flex items-center justify-between gap-2">
@@ -269,10 +271,10 @@ function ReportCard({ report, onDelete }: { report: ReportSummary; onDelete: () 
           </button>
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => setExpanded(v => !v)} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground">
-              <ChevronDown size={15} className={cn('transition-transform', expanded && 'rotate-180')} />
+              <Icon name="expand_more" size={15} className={cn('transition-transform', expanded && 'rotate-180')} />
             </button>
             <button onClick={() => setConfirmDelete(true)} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-destructive transition-colors">
-              <Trash2 size={14} />
+              <Icon name="delete" size={14} />
             </button>
           </div>
         </div>
@@ -325,6 +327,7 @@ export default function ReportsPage() {
   const [genError, setGenError] = useState<string | null>(null);
   const [showNewDrawer, setShowNewDrawer] = useState(false);
   const progressLabel = useProgressLabel(generating);
+  const { play } = useSound();
 
   const loadReports = useCallback(async () => {
     if (!accessToken) return;
@@ -343,6 +346,7 @@ export default function ReportsPage() {
   const generateReport = async (periodType: string, from?: Date, to?: Date) => {
     if (!accessToken || generating) return;
     setGenerating(true);
+    play('PROCESSING');
     setGenError(null);
     try {
       const body: Record<string, unknown> = { period_type: periodType };
@@ -356,11 +360,14 @@ export default function ReportsPage() {
       const data = await res.json();
       if (!res.ok) {
         setGenError(data.error ?? `Помилка ${res.status}`);
+        play('CAUTION');
       } else {
         await loadReports();
+        play('CELEBRATION');
       }
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Невідома помилка');
+      play('CAUTION');
     } finally {
       setGenerating(false);
     }
@@ -381,18 +388,18 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Ретроспектива</h1>
-          <p className="text-xs text-muted-foreground">Що пройшло добре? Що покращити?</p>
+          <h1 className="text-lg font-semibold">Інсайти</h1>
+          <p className="text-xs text-muted-foreground">Ретроспектива та аналіз</p>
         </div>
         <button
-          onClick={() => !generating && setShowNewDrawer(true)}
+          onClick={() => { if (!generating) { play('OPEN'); setShowNewDrawer(true); } }}
           disabled={generating}
           className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm disabled:opacity-50 transition-opacity"
           aria-label="Нова ретроспектива"
         >
           {generating
             ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-            : <Plus size={18} />}
+            : <Icon name="add" size={18} />}
         </button>
       </div>
 
@@ -410,9 +417,9 @@ export default function ReportsPage() {
       {/* Legend */}
       {!loading && reports.length === 0 && !generating && (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <FileText size={32} className="mb-3 text-muted-foreground/40" />
+          <Icon name="lightbulb" size={32} className="mb-3 text-muted-foreground/40" />
           <p className="text-sm font-medium text-muted-foreground">Ретроспектив ще немає</p>
-          <p className="mt-1 text-xs text-muted-foreground">Натисни + щоб згенерувати першу</p>
+          <p className="mt-1 text-xs text-muted-foreground">Натисни + щоб згенерувати першу ретроспективу</p>
           <div className="mt-6 flex flex-col gap-1.5 w-full max-w-xs text-left">
             {RETRO_SECTIONS.map(s => (
               <div key={s.key} className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -439,7 +446,7 @@ export default function ReportsPage() {
 
       {showNewDrawer && (
         <NewReportDrawer
-          onClose={() => setShowNewDrawer(false)}
+          onClose={() => { play('CLOSE'); setShowNewDrawer(false); }}
           onGenerate={(type, from, to) => generateReport(type, from, to)}
         />
       )}
