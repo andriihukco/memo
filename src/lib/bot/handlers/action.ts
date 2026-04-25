@@ -91,18 +91,18 @@ export async function checkPendingDelete(ctx: BotContext): Promise<boolean> {
       if (!error) totalDeleted += batch.length;
     }
     await clearPendingSetting(profile.id, pendingKey);
-    await ctx.reply(`✅ Видалено ${totalDeleted} записів.`);
+    await ctx.reply(`✅ Готово — видалено ${totalDeleted} записів.`);
     return true;
   }
 
   if (["ні", "no", "скасувати", "скасуй", "cancel"].includes(text)) {
     await clearPendingSetting(profile.id, pendingKey);
-    await ctx.reply("❌ Видалення скасовано.");
+    await ctx.reply("Окей, нічого не видаляю 👍");
     return true;
   }
 
   await ctx.reply(
-    `⏳ Очікую підтвердження видалення ${ids.length} записів.\n\nНапиши *так* щоб видалити або *ні* щоб скасувати.`,
+    `⏳ Чекаю підтвердження — видалити ${ids.length} записів?\n\nНапиши *так* щоб видалити або *ні* щоб скасувати.`,
     { parse_mode: "Markdown" }
   );
   return true;
@@ -138,7 +138,7 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       const ids = (toDelete ?? []).map((e: { id: string }) => e.id);
 
       if (ids.length === 0) {
-        await ctx.reply(`Не знайшов записів для видалення (${description}). 🤷`);
+        await ctx.reply(`Не знайшов записів для видалення (${description}). Можливо, вони вже видалені або ти мав на увазі щось інше? 🤷`);
         return;
       }
 
@@ -153,7 +153,7 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       await setPendingSetting(profile.id, pendingKey, ids);
 
       await ctx.reply(
-        `🗑 Знайшов *${ids.length}* записів (${description}):\n${preview}${ids.length > 3 ? `\n_...і ще ${ids.length - 3}_` : ""}\n\nНапиши *так* щоб видалити або *ні* щоб скасувати. Це незворотньо.`,
+        `🗑 Знайшов *${ids.length}* записів (${description}):\n${preview}${ids.length > 3 ? `\n_...і ще ${ids.length - 3}_` : ""}\n\nНапиши *так* щоб видалити або *ні* щоб скасувати.\n⚠️ Це незворотньо.`,
         { parse_mode: "Markdown" }
       );
       break;
@@ -182,7 +182,7 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       }
 
       if (!targetId) {
-        await ctx.reply("Не знайшов запис для редагування. Уточни який саме запис змінити.");
+        await ctx.reply("Не знайшов запис для редагування. Уточни який саме — наприклад: _\"Виправ останній запис про їжу\"_", { parse_mode: "Markdown" });
         return;
       }
 
@@ -199,18 +199,18 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
         .from("entries")
         .update(updates)
         .eq("id", targetId)
-        .eq("user_id", profile.id) // safety: can only edit own entries
+        .eq("user_id", profile.id)
         .select("content, category")
         .single();
 
       if (error || !updated) {
         console.error("[action] update_entry error:", error?.message);
-        await ctx.reply("⚠️ Не вдалося оновити запис. Спробуй ще раз.");
+        await ctx.reply("Щось пішло не так при оновленні запису. Спробуй ще раз 🙏");
         return;
       }
 
       await ctx.reply(
-        `✅ Запис оновлено!\n\n_${updated.content}_`,
+        `✅ Оновив!\n\n_${updated.content}_`,
         { parse_mode: "Markdown" }
       );
 
@@ -233,7 +233,7 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       const description = (params.description as string) ?? "";
 
       await ctx.reply(
-        `✨ Зрозумів! Виджет *${label}* (${unit}) буде з'являтись на дашборді автоматично, як тільки ти почнеш записувати ${description}.\n\nПросто скажи мені, наприклад: _"Медитував 20 хвилин"_ — і я сам додам метрику \`${metricKey}\` до запису.`,
+        `✨ Зрозумів! Віджет *${label}* (${unit}) з'явиться на дашборді автоматично, як тільки ти почнеш записувати ${description}.\n\nПросто скажи, наприклад: _"Медитував 20 хвилин"_ — і я сам додам метрику \`${metricKey}\` до запису.`,
         { parse_mode: "Markdown" }
       );
       break;
@@ -244,7 +244,7 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       const keys     = params.keys      as string[];
       const newLabel = params.new_label as string;
       await ctx.reply(
-        `🔗 Об'єднання виджетів *${keys.join(" + ")}* у *${newLabel}* — ця функція поки в розробці. Але я вже знаю про твоє бажання! 😊`,
+        `🔗 Об'єднання *${keys.join(" + ")}* у *${newLabel}* — ця функція поки в розробці. Але я вже знаю про твоє бажання 😊`,
         { parse_mode: "Markdown" }
       );
       break;
@@ -290,6 +290,6 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
     }
 
     default:
-      await ctx.reply("Не зрозумів, яку дію виконати. Спробуй сформулювати інакше.");
+      await ctx.reply("Не зрозумів яку дію виконати. Спробуй сформулювати інакше — або просто напиши що хочеш зробити 🙂");
   }
 }

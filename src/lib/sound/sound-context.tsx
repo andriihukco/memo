@@ -227,6 +227,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     setEnabledState(v);
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const setKit = useCallback((_newKit: string) => {
     // Only SINE is supported — ignore other kit requests
     if (typeof window !== 'undefined') localStorage.setItem(LS_KIT, 'SINE');

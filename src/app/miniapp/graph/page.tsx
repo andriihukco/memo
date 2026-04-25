@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -109,8 +110,20 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={() => { play('CLOSE'); onClose(); }} aria-hidden="true" />
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="fixed inset-0 z-40 bg-black/20"
+        onClick={() => { play('CLOSE'); onClose(); }}
+        aria-hidden="true"
+      />
+      <motion.div
+        initial={{ y: '100%', opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: '100%', opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
         className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl bg-background px-5 pt-3 shadow-xl"
         style={{
           maxHeight: '70vh', overflowY: 'auto',
@@ -119,47 +132,66 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
       >
         {/* Handle */}
         <div className="mb-3 flex justify-center">
-          <div className="h-1 w-10 rounded-full bg-muted" />
+          <motion.div
+            className="h-1 w-10 rounded-full bg-muted"
+            whileHover={{ scaleX: 1.2 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+          />
         </div>
 
         {/* Close */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.88 }}
           onClick={() => { play('CLOSE'); onClose(); }}
           className="absolute right-4 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground"
           aria-label="Закрити"
         >
           <X size={14} />
-        </button>
+        </motion.button>
 
         {/* Category + date */}
-        <div className="mb-3 flex items-center gap-2">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.25 }}
+          className="mb-3 flex items-center gap-2"
+        >
           <Badge className={cn('capitalize border text-[10px]', getCategoryColor(node.category))} variant="outline">
             {getCategoryLabel(node.category)}
           </Badge>
           <time className="text-xs text-muted-foreground">{formatDate(node.created_at)}</time>
-        </div>
+        </motion.div>
 
         {/* Full content — tap to edit */}
-        <p
+        <motion.p
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.12, duration: 0.25 }}
           className="mb-4 cursor-pointer text-sm leading-relaxed text-foreground active:opacity-70"
           onClick={() => { play('OPEN'); setEditEntry(node); }}
         >
           {node.label}
-        </p>
+        </motion.p>
 
         {/* Linked entries */}
         {linkedNodes.length > 0 && (
-          <div>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18, duration: 0.25 }}
+          >
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Пов&apos;язані записи ({linkedNodes.length}):
             </p>
             <div className="flex flex-col gap-2">
-              {linkedNodes.map((n) => {
-                // Only show the category badge when it differs from the selected node
+              {linkedNodes.map((n, i) => {
                 const isDifferentCategory = n.category !== node.category;
                 return (
-                  <div
+                  <motion.div
                     key={n.id}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.2 + i * 0.04, duration: 0.22 }}
                     className="cursor-pointer rounded-xl bg-muted/50 px-3 py-2.5 active:opacity-70"
                     onClick={() => { play('OPEN'); setEditEntry(n); }}
                   >
@@ -174,13 +206,13 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
                       </div>
                     )}
                     <p className="text-xs text-foreground leading-relaxed">{n.label}</p>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
       {editEntry && (
         <EditDrawer
@@ -458,89 +490,164 @@ export default function GraphPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-4 pt-5 pb-3">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="px-4 pt-5 pb-3"
+      >
         <h1 className="text-lg font-semibold">Граф</h1>
-      </div>
+      </motion.div>
 
       <div ref={containerRef} className="relative flex-1 overflow-hidden">
-        {status === 'loading' && (
-          <div className="flex h-full flex-col items-center justify-center">
-            <div className="mb-3 h-7 w-7 animate-spin rounded-full border-2 border-muted border-t-foreground" />
-            <p className="text-sm text-muted-foreground">Завантаження графу...</p>
-          </div>
-        )}
-        {status === 'error' && (
-          <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            <p className="mb-1 text-sm font-medium">Не вдалося завантажити граф</p>
-            <p className="mb-4 text-xs text-muted-foreground">{errorMsg}</p>
-            <Button size="sm" onClick={() => { play('BUTTON'); fetchGraph(); }}>Спробувати знову</Button>
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          {status === 'loading' && (
+            <motion.div
+              key="loading"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex h-full flex-col items-center justify-center"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                className="mb-3 h-7 w-7 rounded-full border-2 border-muted border-t-foreground"
+              />
+              <p className="text-sm text-muted-foreground">Завантаження графу...</p>
+            </motion.div>
+          )}
+          {status === 'error' && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+              className="flex h-full flex-col items-center justify-center px-6 text-center"
+            >
+              <p className="mb-1 text-sm font-medium">Не вдалося завантажити граф</p>
+              <p className="mb-4 text-xs text-muted-foreground">{errorMsg}</p>
+              <Button size="sm" onClick={() => { play('BUTTON'); fetchGraph(); }}>Спробувати знову</Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         {status === 'ready' && graphData?.nodes.length === 0 && (
-          <div className="flex h-full items-center justify-center px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex h-full items-center justify-center px-6 text-center"
+          >
             <p className="text-sm text-muted-foreground">Немає записів для відображення.</p>
-          </div>
+          </motion.div>
         )}
         {status === 'ready' && (graphData?.nodes.length ?? 0) > 0 && (
-          <svg ref={svgRef} className="h-full w-full" />
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="h-full w-full"
+          >
+            <svg ref={svgRef} className="h-full w-full" />
+          </motion.div>
         )}
         {/* Free tier overlay — shown when userTier is known and is 'free' */}
-        {userTier === 'free' && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md px-6">
-            <div className="w-full max-w-xs flex flex-col items-center text-center">
-              {/* Icon */}
-              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-4xl">
-                🕸️
-              </div>
-
-              {/* Title */}
-              <p className="text-[22px] font-bold leading-tight mb-1">Граф зв&apos;язків</p>
-              <p className="text-[14px] text-muted-foreground mb-5">
-                Візуалізуй, як твої думки та записи пов&apos;язані між собою
-              </p>
-
-              {/* Feature list */}
-              <div className="w-full rounded-2xl bg-muted/30 border border-border/30 px-4 py-3 mb-5 flex flex-col gap-2.5 text-left">
-                {[
-                  { emoji: '🔗', text: 'Зв\'язки між записами' },
-                  { emoji: '🎨', text: 'Кольорові кластери по категоріях' },
-                  { emoji: '🔍', text: 'Пошук патернів у думках' },
-                  { emoji: '✏️', text: 'Редагування записів прямо з графу' },
-                  { emoji: '🌐', text: 'Інтерактивна навігація' },
-                ].map(({ emoji, text }) => (
-                  <div key={text} className="flex items-center gap-3">
-                    <span className="text-[18px] leading-none shrink-0">{emoji}</span>
-                    <span className="text-[14px] text-foreground/80">{text}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Tier badge */}
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-lg">🌟</span>
-                <span className="text-[13px] text-muted-foreground">Доступно з плану <span className="font-semibold text-foreground">Memo Nova</span></span>
-              </div>
-
-              {/* CTA */}
-              <Button
-                className="w-full min-h-[48px] text-[15px] font-semibold"
-                onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }}
+        <AnimatePresence>
+          {userTier === 'free' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md px-6"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 26, delay: 0.1 }}
+                className="w-full max-w-xs flex flex-col items-center text-center"
               >
-                Перейти на Nova — 250 ⭐
-              </Button>
-            </div>
-          </div>
-        )}
+                {/* Icon */}
+                <motion.div
+                  initial={{ scale: 0, rotate: -20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.15 }}
+                  className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-4xl"
+                >
+                  🕸️
+                </motion.div>
+
+                {/* Title */}
+                <p className="text-[22px] font-bold leading-tight mb-1">Граф зв&apos;язків</p>
+                <p className="text-[14px] text-muted-foreground mb-5">
+                  Візуалізуй, як твої думки та записи пов&apos;язані між собою
+                </p>
+
+                {/* Feature list */}
+                <div className="w-full rounded-2xl bg-muted/30 border border-border/30 px-4 py-3 mb-5 flex flex-col gap-2.5 text-left">
+                  {[
+                    { emoji: '🔗', text: 'Зв\'язки між записами' },
+                    { emoji: '🎨', text: 'Кольорові кластери по категоріях' },
+                    { emoji: '🔍', text: 'Пошук патернів у думках' },
+                    { emoji: '✏️', text: 'Редагування записів прямо з графу' },
+                    { emoji: '🌐', text: 'Інтерактивна навігація' },
+                  ].map(({ emoji, text }, i) => (
+                    <motion.div
+                      key={text}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.25 + i * 0.06, duration: 0.25 }}
+                      className="flex items-center gap-3"
+                    >
+                      <span className="text-[18px] leading-none shrink-0">{emoji}</span>
+                      <span className="text-[14px] text-foreground/80">{text}</span>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Tier badge */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.55 }}
+                  className="flex items-center gap-2 mb-4"
+                >
+                  <span className="text-lg">🌟</span>
+                  <span className="text-[13px] text-muted-foreground">Доступно з плану <span className="font-semibold text-foreground">Memo Nova</span></span>
+                </motion.div>
+
+                {/* CTA */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6, type: 'spring', stiffness: 300, damping: 26 }}
+                  className="w-full"
+                >
+                  <Button
+                    className="w-full min-h-[48px] text-[15px] font-semibold"
+                    onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }}
+                  >
+                    Перейти на Nova — 250 ⭐
+                  </Button>
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      <NodeDetailPanel
-        node={selectedNode}
-        linkedNodes={linkedNodes}
-        onClose={() => setSelectedNode(null)}
-        onUpdate={handleUpdate}
-        onDelete={handleDelete}
-        accessToken={accessToken}
-      />
+      <AnimatePresence>
+        {selectedNode && (
+          <NodeDetailPanel
+            node={selectedNode}
+            linkedNodes={linkedNodes}
+            onClose={() => setSelectedNode(null)}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            accessToken={accessToken}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Paywall Modal */}
       <PaywallModal

@@ -6,6 +6,7 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
   GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
   ENTRY_ENCRYPTION_PEPPER: z.string().min(32, "ENTRY_ENCRYPTION_PEPPER must be at least 32 chars (run: openssl rand -hex 32)"),
+  MINIAPP_URL: z.string().optional(),
 });
 
 type Env = z.infer<typeof envSchema>;
@@ -21,6 +22,7 @@ function validateEnv(): Env {
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY,
     ENTRY_ENCRYPTION_PEPPER: process.env.ENTRY_ENCRYPTION_PEPPER,
+    MINIAPP_URL: process.env.MINIAPP_URL,
   });
 
   if (!result.success) {

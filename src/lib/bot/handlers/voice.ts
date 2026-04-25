@@ -125,7 +125,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
 
   const profile = ctx.profile;
   if (!profile) {
-    await ctx.reply("⚠️ Не вдалося знайти твій профіль. Спробуй ще раз.");
+    await ctx.reply("Щось пішло не так з профілем. Спробуй ще раз або напиши /start 🙏");
     return;
   }
 
@@ -141,7 +141,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
     audioBuffer = Buffer.from(await response.arrayBuffer());
   } catch (err) {
     console.error("[voice handler] Audio download failed:", err);
-    await ctx.reply("⚠️ Не вдалося завантажити голосове. Спробуй ще раз.");
+    await ctx.reply("Не вдалося завантажити голосове. Спробуй ще раз 🙏");
     return;
   }
 
@@ -167,7 +167,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
     audioBuffer = Buffer.alloc(0);
     if (err instanceof ClassificationError) {
       console.error("[voice handler] ClassificationError:", err.message);
-      await ctx.reply("⚠️ Не вдалося розпізнати голосове. Спробуй ще раз.");
+      await ctx.reply("Не вдалося розпізнати голосове. Спробуй ще раз або напиши текстом 🙏");
       return;
     }
     throw err;
@@ -259,7 +259,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
           console.error("[voice handler] rollback failed:", rollbackError);
         }
       }
-      await ctx.reply("⚠️ Не вдалося зберегти запис. Спробуй ще раз.");
+      await ctx.reply("Не вдалося зберегти запис. Спробуй ще раз 🙏");
       return;
     }
     if (entry) savedIds.push(entry.id);

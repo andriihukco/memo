@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
@@ -388,7 +389,7 @@ export default function ReportsPage() {
 
   // Compute remaining AI widgets
   const widgetsLimit = tierLimits?.ai_widgets ?? 3;
-  const widgetsUsed = counts?.ai_widgets ?? counts?.widgets ?? 0;
+  const widgetsUsed = counts?.widgets ?? 0;
   const widgetsLeft = widgetsLimit === Infinity ? null : Math.max(0, widgetsLimit - widgetsUsed);
 
   const monthGroups = groupReportsByMonth(reports);
@@ -405,7 +406,12 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3 px-4 pt-5 pb-6">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="flex flex-col gap-3 px-4 pt-5 pb-6"
+    >
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
@@ -459,12 +465,20 @@ export default function ReportsPage() {
       )}
 
       {/* Generating indicator */}
-      {generating && (
-        <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-3">
-          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
-          <p className="text-sm text-muted-foreground">{progressLabel}</p>
-        </div>
-      )}
+      <AnimatePresence>
+        {generating && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-3"
+          >
+            <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-foreground" />
+            <p className="text-sm text-muted-foreground">{progressLabel}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Error banner */}
       {genError && (
@@ -503,9 +517,20 @@ export default function ReportsPage() {
 
       {/* Month-grouped report list */}
       {!loading && monthGroups.length > 0 && (
-        <div className="flex flex-col gap-4">
-          {monthGroups.map(({ label, reports: groupReports }) => (
-            <div key={label} className="flex flex-col gap-0">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col gap-4"
+        >
+          {monthGroups.map(({ label, reports: groupReports }, groupIdx) => (
+            <motion.div
+              key={label}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: groupIdx * 0.06, ease: [0.22, 1, 0.36, 1] }}
+              className="flex flex-col gap-0"
+            >
               <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-1 mb-1">{label}</p>
               <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden divide-y divide-border/20">
                 {groupReports.map(r => (
@@ -517,9 +542,9 @@ export default function ReportsPage() {
                   />
                 ))}
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       <NewReportSheet
@@ -529,6 +554,6 @@ export default function ReportsPage() {
       />
 
       <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} {...paywallProps} />
-    </div>
+    </motion.div>
   );
 }

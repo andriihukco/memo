@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icon';
 
@@ -64,9 +65,28 @@ const SLIDES: Slide[] = [
 
 const ONBOARDING_KEY = 'memo_onboarding_done';
 
+const slideVariants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? 80 : -80,
+    opacity: 0,
+    scale: 0.92,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    scale: 1,
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? -80 : 80,
+    opacity: 0,
+    scale: 0.92,
+  }),
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
   const [exiting, setExiting] = useState(false);
   const startX = useRef(0);
   const startY = useRef(0);
@@ -82,15 +102,21 @@ export default function OnboardingPage() {
   };
 
   const goNext = () => {
-    if (index < SLIDES.length - 1) setIndex(i => i + 1);
-    else finish();
+    if (index < SLIDES.length - 1) {
+      setDirection(1);
+      setIndex(i => i + 1);
+    } else {
+      finish();
+    }
   };
 
   const goPrev = () => {
-    if (index > 0) setIndex(i => i - 1);
+    if (index > 0) {
+      setDirection(-1);
+      setIndex(i => i - 1);
+    }
   };
 
-  // Touch handlers
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
     startY.current = e.touches[0].clientY;
@@ -123,85 +149,140 @@ export default function OnboardingPage() {
   const slide = SLIDES[index];
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: exiting ? 0 : 1 }}
+      transition={{ duration: 0.35 }}
       className={cn(
-        'fixed inset-0 flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-16 transition-opacity duration-400',
+        'fixed inset-0 flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-16',
         slide.bg,
-        exiting && 'opacity-0'
       )}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
     >
       {/* Skip */}
-      <button
+      <motion.button
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.3 }}
         onClick={finish}
-        className="absolute right-5 top-14 text-sm text-white/40 hover:text-white/70 transition-colors"
+        className="absolute right-5 top-14 text-sm text-white/40 hover:text-white/70 transition-colors min-h-[44px] flex items-center"
       >
         Пропустити
-      </button>
+      </motion.button>
 
-      {/* Content */}
-      <div
-        className="relative flex flex-1 flex-col items-center justify-center text-center"
-        style={{
-          transform: `translateX(${dragging ? dragOffset * 0.3 : 0}px)`,
-          transition: dragging ? 'none' : 'transform 0.3s ease',
-        }}
-      >
-        <div className="mb-8 text-8xl leading-none select-none">{slide.emoji}</div>
-        <h1 className={cn('mb-4 text-3xl font-bold text-white leading-tight', slide.accent)}>
-          {slide.title}
-        </h1>
-        <p className="max-w-xs text-base leading-relaxed text-white/60">
-          {slide.body}
-        </p>
+      {/* Slide content */}
+      <div className="relative flex flex-1 flex-col items-center justify-center text-center overflow-hidden w-full">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={index}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
+            className="flex flex-col items-center"
+            style={{
+              x: dragging ? dragOffset * 0.15 : 0,
+            }}
+          >
+            {/* Emoji with bounce-in */}
+            <motion.div
+              className="mb-8 text-8xl leading-none select-none"
+              initial={{ scale: 0, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.05 }}
+            >
+              {slide.emoji}
+            </motion.div>
 
-        {/* Privacy badge — shown on Slide 5 */}
-        {slide.showPrivacyBadge && (
-          <div className="absolute bottom-0 left-0 flex items-center gap-1.5">
-            <Icon name="lock" size={16} className="text-emerald-400/60" />
-            <span className="text-[11px] text-emerald-400/60">Зашифровано</span>
-          </div>
-        )}
+            {/* Title */}
+            <motion.h1
+              initial={{ opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+              className={cn('mb-4 text-3xl font-bold text-white leading-tight', slide.accent)}
+            >
+              {slide.title}
+            </motion.h1>
+
+            {/* Body */}
+            <motion.p
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+              className="max-w-xs text-base leading-relaxed text-white/60"
+            >
+              {slide.body}
+            </motion.p>
+
+            {/* Privacy badge */}
+            {slide.showPrivacyBadge && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.4, type: 'spring', stiffness: 300, damping: 20 }}
+                className="mt-5 flex items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1.5"
+              >
+                <Icon name="lock" size={14} className="text-emerald-400/80" />
+                <span className="text-[12px] text-emerald-400/80">Зашифровано</span>
+              </motion.div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* Dots */}
-      <div className="mb-8 flex gap-2">
+      <div className="mb-8 flex gap-2 items-center">
         {SLIDES.map((_, i) => (
-          <button
+          <motion.button
             key={i}
-            onClick={() => setIndex(i)}
-            className={cn(
-              'h-1.5 rounded-full transition-all duration-300',
-              i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/25'
-            )}
+            onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
+            animate={{ width: i === index ? 20 : 6 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            style={{ height: 6, minWidth: 0, minHeight: 0 }}
+            className={cn('rounded-full', i === index ? 'bg-white' : 'bg-white/25')}
           />
         ))}
       </div>
 
       {/* CTA */}
-      <div className="w-full max-w-xs space-y-3">
-        <button
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, type: 'spring', stiffness: 300, damping: 26 }}
+        className="w-full max-w-xs space-y-3"
+      >
+        <motion.button
+          whileTap={{ scale: 0.96 }}
           onClick={goNext}
           className={cn(
-            'w-full rounded-2xl py-4 text-base font-semibold text-slate-950 transition-all active:scale-95',
+            'w-full rounded-2xl py-4 text-base font-semibold text-slate-950 transition-colors',
             slide.isFinal
               ? 'bg-yellow-400 shadow-lg shadow-yellow-400/30'
               : 'bg-white shadow-lg shadow-white/10'
           )}
         >
           {slide.isFinal ? 'Почати безкоштовно →' : 'Далі →'}
-        </button>
-        {index > 0 && (
-          <button
-            onClick={goPrev}
-            className="w-full py-2 text-sm text-white/40 hover:text-white/70 transition-colors"
-          >
-            ← Назад
-          </button>
-        )}
-      </div>
-    </div>
+        </motion.button>
+
+        <AnimatePresence>
+          {index > 0 && (
+            <motion.button
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={goPrev}
+              className="w-full py-2 text-sm text-white/40 hover:text-white/70 transition-colors"
+            >
+              ← Назад
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -146,7 +146,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
 
   const profile = ctx.profile;
   if (!profile) {
-    await ctx.reply("⚠️ Не вдалося знайти твій профіль. Спробуй ще раз.");
+    await ctx.reply("Щось пішло не так з профілем. Спробуй ще раз або напиши /start 🙏");
     return;
   }
 
@@ -173,7 +173,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
 
   if (classifyResult instanceof ClassificationError) {
     console.error("[text handler] ClassificationError:", classifyResult.message, classifyResult.cause);
-    await ctx.reply("⚠️ Не вдалося класифікувати запис. Спробуй ще раз.");
+    await ctx.reply("Не вдалося обробити повідомлення. Спробуй ще раз 🙏");
     return;
   }
 
@@ -276,7 +276,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
           console.error("[text handler] rollback failed:", rollbackError);
         }
       }
-      await ctx.reply("⚠️ Не вдалося зберегти запис. Спробуй ще раз.");
+      await ctx.reply("Не вдалося зберегти запис. Спробуй ще раз 🙏");
       return;
     }
 

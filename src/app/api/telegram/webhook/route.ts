@@ -1,11 +1,11 @@
 export const runtime = "nodejs";
 
-import { Bot, Context, webhookCallback } from "grammy";
+import { Bot, Context, webhookCallback, InlineKeyboard } from "grammy";
 import { env } from "@/lib/env";
 import { resolveOrCreateProfile, ProfileError, Profile } from "@/lib/profile";
 import { handleTextMessage } from "@/lib/bot/handlers/text";
 import { handleVoiceMessage } from "@/lib/bot/handlers/voice";
-import { handleStart, handleHelp, handleReport, handleStats, handleRecommendations } from "@/lib/bot/commands";
+import { handleStart, handleHelp, handleReport, handleReportDaily, handleReportWeekly, handleReportMonthly, handleStats, handleRecommendations, handleCallbackQuery } from "@/lib/bot/commands";
 import { createSubscription, recordTransaction } from "@/lib/stars/paywall";
 
 interface BotContext extends Context {
@@ -28,7 +28,7 @@ function getHandler(): (req: Request) => Promise<Response> {
     } catch (err) {
       if (err instanceof ProfileError) {
         console.error("[webhook] ProfileError:", err.message, err.cause);
-        await ctx.reply("⚠️ We couldn't set up your profile right now. Please try again in a moment.");
+        await ctx.reply("Щось пішло не так при налаштуванні профілю. Спробуй ще раз через хвилину 🙏");
         return;
       }
       throw err;
@@ -41,7 +41,13 @@ function getHandler(): (req: Request) => Promise<Response> {
   bot.command("help", handleHelp);
   bot.command("stats", handleStats);
   bot.command("report", handleReport);
+  bot.command("report_daily", handleReportDaily);
+  bot.command("report_weekly", handleReportWeekly);
+  bot.command("report_monthly", handleReportMonthly);
   bot.command("recommendations", handleRecommendations);
+
+  // ── Callback queries (inline keyboard buttons) ──────────────────────────────
+  bot.on("callback_query:data", handleCallbackQuery);
 
   // ── Stars: pre-checkout — must answer within 10s ────────────────────────────
   bot.on("pre_checkout_query", async (ctx) => {
@@ -94,10 +100,16 @@ function getHandler(): (req: Request) => Promise<Response> {
       }
 
       // Confirm to user
-      const tierNames: Record<string, string> = { stars_basic: "Stars Basic 🌟", stars_pro: "Stars Pro 💎" };
+      const tierNames: Record<string, string> = {
+        stars_basic: "Memo Nova 🌟",
+        stars_pro: "Memo Supernova 💫",
+      };
       await ctx.reply(
-        `✅ Оплата успішна! Підписка *${tierNames[tier] ?? tier}* активована.\n\nДякуємо за підтримку! Відкрий міні-додаток щоб побачити всі функції.`,
-        { parse_mode: "Markdown" }
+        `✅ Оплата пройшла! Підписка *${tierNames[tier] ?? tier}* активована.\n\nДякуємо за підтримку — це дуже важливо для нас 🙏\n\nВідкрий міні-додаток щоб побачити всі нові функції.`,
+        {
+          parse_mode: "Markdown",
+          reply_markup: new InlineKeyboard().webApp("📱 Відкрити Memo", env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp"),
+        }
       );
     } catch (err) {
       console.error("[webhook] successful_payment error:", err);

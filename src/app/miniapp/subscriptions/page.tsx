@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
 import { ErrorBanner } from '@/components/ui/error-banner';
@@ -248,7 +249,12 @@ export default function SubscriptionsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-4 pt-5 pb-10">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="flex flex-col gap-4 px-4 pt-5 pb-10"
+    >
       {/* Header — centered, layout back button is on the left */}
       <div className="text-center">
         <h1 className="text-[28px] font-bold leading-tight">Підписка</h1>
@@ -282,33 +288,47 @@ export default function SubscriptionsPage() {
       )}
 
       {/* Success */}
-      {successMsg && (
-        <div className="rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-[14px] text-green-500">
-          {successMsg}
-        </div>
-      )}
+      <AnimatePresence>
+        {successMsg && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-[14px] text-green-500"
+          >
+            {successMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Error */}
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       {/* Plan cards */}
       <div className="flex flex-col gap-4 pt-2">
-        {tiers.map((tier) => (
-          <PlanCard
+        {tiers.map((tier, i) => (
+          <motion.div
             key={tier}
-            tier={tier}
-            isCurrent={currentTier === tier}
-            isUpgrade={tierRank[tier] > tierRank[currentTier]}
-            isLoading={paying === tier}
-            anyPaying={paying !== null}
-            onSubscribe={handleSubscribe}
-          />
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.1 + i * 0.07, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <PlanCard
+              tier={tier}
+              isCurrent={currentTier === tier}
+              isUpgrade={tierRank[tier] > tierRank[currentTier]}
+              isLoading={paying === tier}
+              anyPaying={paying !== null}
+              onSubscribe={handleSubscribe}
+            />
+          </motion.div>
         ))}
       </div>
 
       <p className="text-center text-[11px] text-muted-foreground">
         Telegram Stars · 30 днів · Поновлення вручну
       </p>
-    </div>
+    </motion.div>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
 import { SoundProvider } from '@/lib/sound/sound-context';
@@ -397,70 +398,137 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   };
 
   const slide = SLIDES[index];
+  const direction = useRef(1);
+
+  const slideVariants = {
+    enter: (d: number) => ({ x: d > 0 ? 120 : -120, opacity: 0, scale: 0.95 }),
+    center: { x: 0, opacity: 1, scale: 1 },
+    exit: (d: number) => ({ x: d > 0 ? -120 : 120, opacity: 0, scale: 0.95 }),
+  };
+
+  const originalGoNext = goNext;
+  const originalGoPrev = goPrev;
+  // Override to track direction
+  const goNextWithDir = () => { direction.current = 1; originalGoNext(); };
+  const goPrevWithDir = () => { direction.current = -1; originalGoPrev(); };
 
   return (
     <>
-      <div
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: visible ? 1 : 0 }}
+        transition={{ duration: 0.35 }}
         className={cn(
-          'fixed inset-0 z-[100] flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-16 transition-opacity duration-350',
+          'fixed inset-0 z-[100] flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-16',
           slide.bg,
-          !visible && 'opacity-0 pointer-events-none'
+          !visible && 'pointer-events-none'
         )}
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
       >
         {/* Skip */}
-        <button
+        <motion.button
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.3 }}
           onClick={() => { play('CLOSE'); openPasscode(); }}
           className="absolute right-5 top-5 text-sm text-white/40 active:text-white/70 min-h-[44px] flex items-center"
         >
           Пропустити
-        </button>
+        </motion.button>
 
         {/* Content */}
-        <div
-          className="relative flex flex-1 flex-col items-center justify-center text-center"
-          style={{
-            transform: `translateX(${dragging ? dragOffset * 0.2 : 0}px)`,
-            transition: dragging ? 'none' : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
-          }}
-        >
-          <div className="mb-8 text-8xl leading-none select-none">{slide.emoji}</div>
-          <h1 className={cn('mb-4 text-[28px] font-bold leading-tight', slide.textColor ?? 'text-white')}>{slide.title}</h1>
-          <p className="max-w-xs text-[15px] leading-relaxed text-white/60">{slide.body}</p>
-
-          {/* Privacy badge — removed */}
+        <div className="relative flex flex-1 flex-col items-center justify-center text-center overflow-hidden">
+          <AnimatePresence mode="wait" custom={direction.current}>
+            <motion.div
+              key={index}
+              custom={direction.current}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ type: 'spring', stiffness: 300, damping: 30, mass: 0.8 }}
+              className="flex flex-col items-center"
+              style={{
+                transform: `translateX(${dragging ? dragOffset * 0.2 : 0}px)`,
+              }}
+            >
+              <motion.div
+                className="mb-8 text-8xl leading-none select-none"
+                initial={{ scale: 0, rotate: -30 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 15, delay: 0.1 }}
+              >
+                {slide.emoji}
+              </motion.div>
+              <motion.h1
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15, duration: 0.35 }}
+                className={cn('mb-4 text-[28px] font-bold leading-tight', slide.textColor ?? 'text-white')}
+              >
+                {slide.title}
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25, duration: 0.35 }}
+                className="max-w-xs text-[15px] leading-relaxed text-white/60"
+              >
+                {slide.body}
+              </motion.p>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Dots */}
         <div className="mb-8 flex gap-1.5 items-center">
           {SLIDES.map((_, i) => (
-            <button key={i} onClick={() => { play('SELECT'); setIndex(i); }}
-              style={{ minWidth: 0, minHeight: 0, width: i === index ? 16 : 6, height: 6 }}
-              className={cn('rounded-full transition-all duration-300', i === index ? 'bg-white' : 'bg-white/30')}
+            <motion.button
+              key={i}
+              onClick={() => { direction.current = i > index ? 1 : -1; play('SELECT'); setIndex(i); }}
+              animate={{ width: i === index ? 16 : 6 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              style={{ minWidth: 0, minHeight: 0, height: 6 }}
+              className={cn('rounded-full', i === index ? 'bg-white' : 'bg-white/30')}
             />
           ))}
         </div>
 
         {/* CTA */}
-        <div className="w-full max-w-xs space-y-3">
-          <button
-            onClick={goNext}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, type: 'spring', stiffness: 300, damping: 25 }}
+          className="w-full max-w-xs space-y-3"
+        >
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={goNextWithDir}
             className={cn(
-              'w-full rounded-2xl py-4 text-base font-semibold text-slate-950 transition-all active:scale-95',
+              'w-full rounded-2xl py-4 text-base font-semibold text-slate-950 transition-colors',
               slide.isFinal ? 'bg-yellow-400 shadow-lg shadow-yellow-400/30' : 'bg-white shadow-lg shadow-white/10'
             )}
           >
             {slide.isFinal ? 'Почати безкоштовно →' : 'Далі →'}
-          </button>
-          {index > 0 && (
-            <button onClick={goPrev} className="w-full py-2 text-sm text-white/40 active:text-white/70">
-              ← Назад
-            </button>
-          )}
-        </div>
-      </div>
+          </motion.button>
+          <AnimatePresence>
+            {index > 0 && (
+              <motion.button
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={goPrevWithDir}
+                className="w-full py-2 text-sm text-white/40 active:text-white/70"
+              >
+                ← Назад
+              </motion.button>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      </motion.div>
 
       {/* Passcode setup — shown after slides, before paywall */}
       {showPasscode && (
@@ -501,87 +569,104 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
     return () => observer.disconnect();
   }, []);
 
-  if (sheetsOpen) return null;
-
   return (
-    <>
-      <nav
-        role="navigation"
-        aria-label="Головна навігація"
-        style={{
-          position: 'fixed',
-          bottom: bottomInset + 10,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          borderRadius: 48,
-          background: '#1F2234',
-          width: 'min(calc(100vw - 16px), 380px)',
-          height: 64,
-          zIndex: 50,
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          padding: '0 16px',
-          boxSizing: 'border-box',
-        }}
-      >
-        {tabs.map(({ label, href, icon }) => {
-          const isActive = pathname === href;
-          return (
-            <Link
-              key={href}
-              href={href}
-              aria-current={isActive ? 'page' : undefined}
-              onClick={() => play(isActive ? 'SELECT' : 'SLIDE')}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                gap: 2,
-                minWidth: 44,
-                minHeight: 44,
-                textDecoration: 'none',
-                flex: 1,
-              }}
-            >
-              <Icon
-                name={icon}
-                size={24}
-                filled={isActive}
-                style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
-              />
-              <span
-                style={{
-                  fontFamily: "'Comfortaa', 'Mulish', sans-serif",
-                  fontWeight: 500,
-                  fontSize: 11,
-                  lineHeight: '14px',
-                  textAlign: 'center',
-                  color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR,
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {label}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
-      {/* Fill the gap below the pill tab bar so body background doesn't show */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: bottomInset + 10,
-          background: 'hsl(var(--background))',
-          zIndex: 49,
-        }}
-      />
-    </>
+    <AnimatePresence>
+      {!sheetsOpen && (
+        <>
+          <motion.nav
+            role="navigation"
+            aria-label="Головна навігація"
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            style={{
+              position: 'fixed',
+              bottom: bottomInset + 10,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              borderRadius: 48,
+              background: '#1F2234',
+              width: 'min(calc(100vw - 16px), 380px)',
+              height: 64,
+              zIndex: 50,
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: 'space-around',
+              alignItems: 'center',
+              padding: '0 16px',
+              boxSizing: 'border-box',
+            }}
+          >
+            {tabs.map(({ label, href, icon }) => {
+              const isActive = pathname === href;
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={isActive ? 'page' : undefined}
+                  onClick={() => play(isActive ? 'SELECT' : 'SLIDE')}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    gap: 2,
+                    minWidth: 44,
+                    minHeight: 44,
+                    textDecoration: 'none',
+                    flex: 1,
+                    position: 'relative',
+                  }}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="tab-indicator"
+                      className="absolute inset-0 rounded-full bg-white/8"
+                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                  <Icon
+                    name={icon}
+                    size={24}
+                    filled={isActive}
+                    style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
+                  />
+                  <span
+                    style={{
+                      fontFamily: "'Comfortaa', 'Mulish', sans-serif",
+                      fontWeight: 500,
+                      fontSize: 11,
+                      lineHeight: '14px',
+                      textAlign: 'center',
+                      color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {label}
+                  </span>
+                </Link>
+              );
+            })}
+          </motion.nav>
+          {/* Fill the gap below the pill tab bar so body background doesn't show */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: bottomInset + 10,
+              background: 'hsl(var(--background))',
+              zIndex: 49,
+            }}
+          />
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -701,10 +786,26 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   if (status === 'loading') {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
-        <div className="text-center animate-fadeIn">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-[3px] border-muted border-t-primary" />
-          <p className="text-[15px] text-muted-foreground font-medium">Loading...</p>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+          className="text-center"
+        >
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+            className="mx-auto mb-4 h-10 w-10 rounded-full border-[3px] border-muted border-t-primary"
+          />
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="text-[15px] text-muted-foreground font-medium"
+          >
+            Loading...
+          </motion.p>
+        </motion.div>
       </div>
     );
   }
@@ -712,17 +813,41 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   if (status === 'error') {
     return (
       <div className="flex h-screen items-center justify-center bg-background px-6">
-        <div className="text-center animate-fadeIn">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+          className="text-center"
+        >
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10"
+          >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-destructive">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="8" x2="12" y2="12" />
               <line x1="12" y1="16" x2="12.01" y2="16" />
             </svg>
-          </div>
-          <p className="mb-1 text-[17px] font-semibold text-foreground">Sign In Failed</p>
-          <p className="text-[15px] text-muted-foreground">{errorMsg}</p>
-        </div>
+          </motion.div>
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mb-1 text-[17px] font-semibold text-foreground"
+          >
+            Sign In Failed
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className="text-[15px] text-muted-foreground"
+          >
+            {errorMsg}
+          </motion.p>
+        </motion.div>
       </div>
     );
   }

@@ -1,11 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { useSound } from '@/lib/sound/use-sound';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+
+// ── Animation variants ────────────────────────────────────────────────────────
+
+const pageVariants = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+};
+
+const listItemVariants = {
+  initial: { opacity: 0, x: -12 },
+  animate: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.28, delay: i * 0.04 },
+  }),
+};
 
 // ── Default categories (always shown) ────────────────────────────────────────
 
@@ -69,15 +86,37 @@ function useSheetBodyAttr(open: boolean) {
 
 function InlineSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
   useSheetBodyAttr(open);
-  if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-end">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
-        <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-        {children}
-      </div>
-    </div>
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
+            className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl"
+          >
+            <div className="mb-4 flex justify-center">
+              <motion.div
+                className="h-1 w-10 rounded-full bg-muted"
+                whileHover={{ scaleX: 1.2 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              />
+            </div>
+            {children}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -249,33 +288,55 @@ export default function CategoriesPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 px-4 pt-5 pb-8">
+    <motion.div
+      variants={pageVariants}
+      initial="initial"
+      animate="animate"
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+      className="flex flex-col gap-6 px-4 pt-5 pb-8"
+    >
       {/* ── Header — centered title ── */}
-      <div className="text-center">
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="text-center"
+      >
         <h1 className="text-[28px] font-bold leading-tight">Категорії</h1>
         <p className="text-[13px] text-muted-foreground">Управляй категоріями записів</p>
-      </div>
+      </motion.div>
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 
       {/* ── Custom categories ── */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+      >
         <div className="mb-2 flex items-center justify-between px-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Власні
           </p>
-          <button
+          <motion.button
+            whileTap={{ scale: 0.94 }}
             onClick={() => { play('OPEN'); setShowCreate(true); }}
             className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[12px] font-medium text-primary transition-colors hover:bg-primary/20"
           >
             <Icon name="add" size={14} />
             Нова
-          </button>
+          </motion.button>
         </div>
         {customCats.length > 0 ? (
           <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden">
             {customCats.map((cat, i) => (
-              <div key={cat.name}>
+              <motion.div
+                key={cat.name}
+                custom={i}
+                variants={listItemVariants}
+                initial="initial"
+                animate="animate"
+              >
                 {i > 0 && <Separator />}
                 <CategoryRow
                   label={cat.label_ua}
@@ -284,22 +345,27 @@ export default function CategoriesPage() {
                   onMerge={() => { play('OPEN'); setMergeSource(cat); }}
                   onDelete={() => { play('OPEN'); setDeleteTarget(cat); }}
                 />
-              </div>
+              </motion.div>
             ))}
           </div>
         ) : (
-          <button
+          <motion.button
+            whileTap={{ scale: 0.97 }}
             onClick={() => { play('OPEN'); setShowCreate(true); }}
             className="w-full rounded-2xl border border-dashed border-border/50 py-5 text-center text-[13px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
           >
             + Створити власну категорію
-          </button>
+          </motion.button>
         )}
-      </section>
+      </motion.section>
 
       {/* ── AI-activated defaults ── */}
       {activatedDefaults.length > 0 && (
-        <section>
+        <motion.section
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+        >
           <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Використовуються
           </p>
@@ -307,7 +373,13 @@ export default function CategoriesPage() {
             {activatedDefaults.map((cat, i) => {
               const db = dbByName.get(cat.name)!;
               return (
-                <div key={cat.name}>
+                <motion.div
+                  key={cat.name}
+                  custom={i}
+                  variants={listItemVariants}
+                  initial="initial"
+                  animate="animate"
+                >
                   {i > 0 && <Separator />}
                   <CategoryRow
                     label={db.label_ua || cat.label_ua}
@@ -316,37 +388,51 @@ export default function CategoriesPage() {
                     onMerge={() => { play('OPEN'); setMergeSource(db); }}
                     onDelete={() => { play('OPEN'); setDeleteTarget(db); }}
                   />
-                </div>
+                </motion.div>
               );
             })}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* ── Unused defaults ── */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+      >
         <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Стандартні
         </p>
         {loading ? (
           <div className="flex items-center justify-center py-6">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+              className="h-5 w-5 rounded-full border-2 border-muted border-t-primary"
+            />
           </div>
         ) : (
           <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden">
             {(unusedDefaults.length > 0 ? unusedDefaults : DEFAULT_CATEGORIES).map((cat, i) => (
-              <div key={cat.name}>
+              <motion.div
+                key={cat.name}
+                custom={i}
+                variants={listItemVariants}
+                initial="initial"
+                animate="animate"
+              >
                 {i > 0 && <Separator />}
                 <div className="flex items-center gap-3 px-4 py-3">
                   <span className="text-xl leading-none w-7 text-center">{cat.emoji}</span>
                   <p className="flex-1 text-[14px] text-foreground/60">{cat.label_ua}</p>
                   <p className="text-[11px] text-muted-foreground/50">Не використовується</p>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
-      </section>
+      </motion.section>
 
       {/* ── Create custom category sheet ── */}
       <InlineSheet open={showCreate} onClose={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateEmoji('🏷️'); }}>
@@ -446,7 +532,7 @@ export default function CategoriesPage() {
           </button>
         </div>
       </InlineSheet>
-    </div>
+    </motion.div>
   );
 }
 
@@ -460,20 +546,42 @@ function CategoryRow({ label, emoji, onEdit, onMerge, onDelete }: {
   onDelete: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 px-4 py-3">
+    <motion.div
+      className="flex items-center gap-3 px-4 py-3"
+      whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
+      transition={{ duration: 0.15 }}
+    >
       <span className="text-xl leading-none w-7 text-center">{emoji}</span>
       <p className="flex-1 text-[14px] font-medium">{label}</p>
       <div className="flex items-center gap-0.5">
-        <button onClick={onEdit} className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors" aria-label="Перейменувати" style={{ minHeight: 0, minWidth: 0 }}>
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          onClick={onEdit}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
+          aria-label="Перейменувати"
+          style={{ minHeight: 0, minWidth: 0 }}
+        >
           <Icon name="edit" size={15} />
-        </button>
-        <button onClick={onMerge} className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors" aria-label="Об'єднати" style={{ minHeight: 0, minWidth: 0 }}>
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          onClick={onMerge}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
+          aria-label="Об'єднати"
+          style={{ minHeight: 0, minWidth: 0 }}
+        >
           <Icon name="merge" size={15} />
-        </button>
-        <button onClick={onDelete} className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" aria-label="Видалити" style={{ minHeight: 0, minWidth: 0 }}>
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.88 }}
+          onClick={onDelete}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          aria-label="Видалити"
+          style={{ minHeight: 0, minWidth: 0 }}
+        >
           <Icon name="delete" size={15} />
-        </button>
+        </motion.button>
       </div>
-    </div>
+    </motion.div>
   );
 }

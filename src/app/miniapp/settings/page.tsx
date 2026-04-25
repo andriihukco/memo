@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { useSound } from '@/lib/sound/use-sound';
@@ -274,10 +275,19 @@ export default function SettingsPage() {
   const TIMERS: LockTimer[] = [0, 1, 5, 15, 60];
 
   return (
-    <div className="flex flex-col gap-6 px-4 pt-5 pb-6">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="flex flex-col gap-6 px-4 pt-5 pb-6"
+    >
 
       {/* ── Subscription ────────────────────────────────────────────────────── */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+      >
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підписка</p>
         <Card>
           <CardContent className="p-0">
@@ -295,14 +305,20 @@ export default function SettingsPage() {
             </a>
           </CardContent>
         </Card>
-      </section>
+      </motion.section>
 
       {/* ── Privacy ───────────────────────────────────────────────────────── */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+      >
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Конфіденційність</p>
         <Card>
           <CardContent className="p-0">
-            <button onClick={hasPasscode ? handleChangePasscode : handleEnablePasscode}
+            <motion.button
+              whileTap={{ scale: 0.99, backgroundColor: 'rgba(255,255,255,0.03)' }}
+              onClick={hasPasscode ? handleChangePasscode : handleEnablePasscode}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
               onClickCapture={() => play('OPEN')}>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
@@ -313,13 +329,15 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">{hasPasscode ? 'Змінити 4-значний код доступу' : 'Захистити додаток кодом'}</p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
-            </button>
+            </motion.button>
 
             {hasPasscode && <Separator />}
 
             {hasPasscode && (
               <div>
-                <button onClick={() => { play('SELECT'); setShowTimerPicker(v => !v); }}
+                <motion.button
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => { play('SELECT'); setShowTimerPicker(v => !v); }}
                   className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                     <Icon name="timer" size={16} className="text-primary" />
@@ -329,25 +347,49 @@ export default function SettingsPage() {
                     <p className="text-xs text-muted-foreground">{LOCK_TIMER_LABELS[lockTimer]}</p>
                   </div>
                   <Icon name="chevron_right" size={16} className={cn('text-muted-foreground transition-transform', showTimerPicker && 'rotate-90')} />
-                </button>
-                {showTimerPicker && (
-                  <div className="border-t pb-1">
-                    {TIMERS.map(t => (
-                      <button key={t} onClick={() => handleTimerChange(t)}
-                        className="flex w-full items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-muted/50">
-                        <span className={cn(t === lockTimer && 'font-medium text-primary')}>{LOCK_TIMER_LABELS[t]}</span>
-                        {t === lockTimer && <Icon name="check" size={16} className="text-primary" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                </motion.button>
+                <AnimatePresence>
+                  {showTimerPicker && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                      className="overflow-hidden border-t"
+                    >
+                      <div className="pb-1">
+                        {TIMERS.map(t => (
+                          <motion.button
+                            key={t}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => handleTimerChange(t)}
+                            className="flex w-full items-center justify-between px-4 py-3 text-sm transition-colors hover:bg-muted/50"
+                          >
+                            <span className={cn(t === lockTimer && 'font-medium text-primary')}>{LOCK_TIMER_LABELS[t]}</span>
+                            {t === lockTimer && (
+                              <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                              >
+                                <Icon name="check" size={16} className="text-primary" />
+                              </motion.div>
+                            )}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             )}
 
             {hasPasscode && <Separator />}
 
             {hasPasscode && (
-              <button onClick={handleDisablePasscode}
+              <motion.button
+                whileTap={{ scale: 0.99 }}
+                onClick={handleDisablePasscode}
                 className="flex w-full items-center gap-3 px-4 py-3.5 text-destructive transition-colors hover:bg-destructive/5">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
                   <Icon name="lock_open" size={16} className="text-destructive" />
@@ -356,19 +398,24 @@ export default function SettingsPage() {
                   <p className="text-sm font-medium">Вимкнути код</p>
                   <p className="text-xs text-destructive/60">Потрібно підтвердити поточний код</p>
                 </div>
-              </button>
+              </motion.button>
             )}
           </CardContent>
         </Card>
-      </section>
+      </motion.section>
 
       {/* ── Categories ──────────────────────────────────────────────────── */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
+      >
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Категорії</p>
         {catError && <p className="mb-2 text-xs text-destructive">{catError}</p>}
         <Card>
           <CardContent className="p-0">
-            <a
+            <motion.a
+              whileTap={{ scale: 0.99 }}
               href="/miniapp/categories"
               onClick={() => play('OPEN')}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
@@ -383,20 +430,31 @@ export default function SettingsPage() {
                 </p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
-            </a>
+            </motion.a>
           </CardContent>
         </Card>
-      </section>
+      </motion.section>
 
       {/* ── Sound ───────────────────────────────────────────────────────── */}
-      <SoundSection />
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <SoundSection />
+      </motion.div>
 
       {/* ── Support ─────────────────────────────────────────────────────── */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+      >
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підтримка</p>
         <Card>
           <CardContent className="p-0">
-            <a
+            <motion.a
+              whileTap={{ scale: 0.99 }}
               href="https://t.me/get_memo_help"
               target="_blank"
               rel="noopener noreferrer"
@@ -411,9 +469,10 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">@get_memo_help</p>
               </div>
               <Icon name="open_in_new" size={16} className="text-muted-foreground" />
-            </a>
+            </motion.a>
             <Separator />
-            <a
+            <motion.a
+              whileTap={{ scale: 0.99 }}
               href="https://t.me/get_memo_updates"
               target="_blank"
               rel="noopener noreferrer"
@@ -428,17 +487,22 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">Новини та зміни</p>
               </div>
               <Icon name="open_in_new" size={16} className="text-muted-foreground" />
-            </a>
+            </motion.a>
           </CardContent>
         </Card>
-      </section>
+      </motion.section>
 
       {/* ── Danger zone ─────────────────────────────────────────────────── */}
-      <section>
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      >
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Акаунт</p>
         <Card>
           <CardContent className="p-0">
-            <button
+            <motion.button
+              whileTap={{ scale: 0.99 }}
               onClick={() => { play('CAUTION'); setShowDeleteConfirm(true); }}
               className="flex w-full items-center gap-3 px-4 py-3.5 text-destructive transition-colors hover:bg-destructive/5"
             >
@@ -449,55 +513,89 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium">Видалити акаунт</p>
                 <p className="text-xs text-destructive/70">Всі дані будуть видалені назавжди</p>
               </div>
-            </button>
+            </motion.button>
           </CardContent>
         </Card>
-      </section>
+      </motion.section>
 
       {/* Delete account confirmation sheet */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-end">
-          <div className="absolute inset-0 bg-black/50" onClick={() => { play('CLOSE'); setShowDeleteConfirm(false); setDeleteError(null); }} />
-          <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
-            <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mx-auto">
-              <Icon name="delete_forever" size={24} className="text-destructive" />
-            </div>
-            <h3 className="mb-1 text-center text-base font-semibold">Видалити акаунт?</h3>
-            <p className="mb-4 text-center text-sm text-muted-foreground">
-              Всі твої записи, категорії та налаштування будуть видалені назавжди. Це дію неможливо скасувати.
-            </p>
-
-            {/* Subscription warning */}
-            {userTier && userTier !== 'free' && (
-              <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-3">
-                <span className="text-lg leading-none shrink-0">⚠️</span>
-                <p className="text-[13px] text-amber-300 leading-snug">
-                  У тебе активна підписка <span className="font-semibold">{userTier === 'stars_pro' ? 'Memo Supernova' : 'Memo Nova'}</span>. Після видалення акаунту вона буде втрачена без відшкодування.
-                </p>
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-end">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-black/50"
+              onClick={() => { play('CLOSE'); setShowDeleteConfirm(false); setDeleteError(null); }}
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
+              className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl"
+            >
+              <div className="mb-4 flex justify-center">
+                <motion.div
+                  className="h-1 w-10 rounded-full bg-muted"
+                  whileHover={{ scaleX: 1.2 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+                />
               </div>
-            )}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 18, delay: 0.1 }}
+                className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mx-auto"
+              >
+                <Icon name="delete_forever" size={24} className="text-destructive" />
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12, duration: 0.25 }}
+              >
+                <h3 className="mb-1 text-center text-base font-semibold">Видалити акаунт?</h3>
+                <p className="mb-4 text-center text-sm text-muted-foreground">
+                  Всі твої записи, категорії та налаштування будуть видалені назавжди. Це дію неможливо скасувати.
+                </p>
 
-            {deleteError && <p className="mb-3 text-center text-xs text-destructive">{deleteError}</p>}
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => { play('BUTTON'); handleDeleteAccount(); }}
-                disabled={deleteLoading}
-                className="w-full rounded-full bg-destructive py-3.5 text-sm font-semibold text-destructive-foreground disabled:opacity-50"
-              >
-                {deleteLoading ? 'Видалення...' : 'Так, видалити все'}
-              </button>
-              <button
-                onClick={() => { play('CLOSE'); setShowDeleteConfirm(false); setDeleteError(null); }}
-                className="w-full py-3 text-sm text-muted-foreground"
-              >
-                Скасувати
-              </button>
-            </div>
+                {/* Subscription warning */}
+                {userTier && userTier !== 'free' && (
+                  <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-3">
+                    <span className="text-lg leading-none shrink-0">⚠️</span>
+                    <p className="text-[13px] text-amber-300 leading-snug">
+                      У тебе активна підписка <span className="font-semibold">{userTier === 'stars_pro' ? 'Memo Supernova' : 'Memo Nova'}</span>. Після видалення акаунту вона буде втрачена без відшкодування.
+                    </p>
+                  </div>
+                )}
+
+                {deleteError && <p className="mb-3 text-center text-xs text-destructive">{deleteError}</p>}
+                <div className="flex flex-col gap-2">
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => { play('BUTTON'); handleDeleteAccount(); }}
+                    disabled={deleteLoading}
+                    className="w-full rounded-full bg-destructive py-3.5 text-sm font-semibold text-destructive-foreground disabled:opacity-50"
+                  >
+                    {deleteLoading ? 'Видалення...' : 'Так, видалити все'}
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => { play('CLOSE'); setShowDeleteConfirm(false); setDeleteError(null); }}
+                    className="w-full py-3 text-sm text-muted-foreground"
+                  >
+                    Скасувати
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
-    </div>
+    </motion.div>
   );
 }

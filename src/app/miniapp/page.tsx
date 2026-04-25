@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -522,7 +523,12 @@ export default function FeedPage() {
   const toggleSelectAll = () => { if (allSelected) exitSelectMode(); else { setIsSelectMode(true); setSelectedIds(new Set(allIds)); } };
 
   return (
-    <div className="flex flex-col gap-4 px-4 pt-5">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="flex flex-col gap-4 px-4 pt-5"
+    >
       {isSelectMode ? (
         <div className="flex items-center justify-between">
           <button onClick={toggleSelectAll} className="text-sm font-medium underline-offset-2 hover:underline">
@@ -596,16 +602,22 @@ export default function FeedPage() {
         )
       )}
       {status === 'ready' && entries.length > 0 && (
-        <div className="flex flex-col gap-3 pb-4">
-          {groupByDate(groupByThread(entries)).map((group) => (
-            <div key={group.dateKey}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col gap-3 pb-4"
+        >
+          {groupByDate(groupByThread(entries)).map((group, groupIdx) => (
+            <motion.div
+              key={group.dateKey}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: groupIdx * 0.05, ease: [0.22, 1, 0.36, 1] }}
+            >
               {/* Date header */}
               <div className="mb-2 px-1">
                 <span className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest">
-                  {group.dateLabel}
-                </span>
-              </div> <div className="mb-3 px-1">
-                <span className="text-xs font-semibold text-foreground/50 uppercase tracking-widest">
                   {group.dateLabel}
                 </span>
               </div>
@@ -644,9 +656,9 @@ export default function FeedPage() {
                   );
                 })}
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {isSelectMode && (
@@ -677,6 +689,6 @@ export default function FeedPage() {
         onClose={() => setPaywallOpen(false)}
         {...paywallProps}
       />
-    </div>
+    </motion.div>
   );
 }
