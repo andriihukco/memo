@@ -546,6 +546,7 @@ export default function ReportsPage() {
         open={showNewReport}
         onClose={() => { play('CLOSE'); setShowNewReport(false); }}
         onGenerate={(type, from, to) => generateReport(type, from, to)}
+        generating={generating}
       />
 
       <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} {...paywallProps} />
