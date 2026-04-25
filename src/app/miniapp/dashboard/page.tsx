@@ -861,7 +861,7 @@ function GoalsTab({ entries }: { entries: Entry[] }) {
   if (goals.length === 0) {
     return (
       <EmptyState
-        icon="my_location"
+        icon="🎯"
         title="Цілей ще немає"
         subtitle="Скажи боту: «Хочу пробігти 100 км цього місяця»"
       />
@@ -1325,10 +1325,10 @@ export default function DashboardPage() {
           )}
           {status === 'ready' && entries.length === 0 && (
             <EmptyState
-              icon="dashboard"
+              icon="📊"
               title="Немає даних за цей період"
               subtitle="Запиши активність, їжу або сон у боті"
-              ctaLabel="+ Новий віджет"
+              ctaLabel="Новий віджет"
               onCta={handleAddWidgetTap}
             />
           )}
@@ -1397,8 +1397,7 @@ export default function DashboardPage() {
                         <Icon name="add" size={18} className="text-primary" />
                       </div>
                       <span className="text-xs font-medium">Новий</span>
-                    </button>
-                  </div>
+                    </button>                  </div>
                 </Section>
               )}
 

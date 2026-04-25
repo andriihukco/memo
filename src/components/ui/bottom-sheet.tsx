@@ -34,19 +34,16 @@ export function BottomSheet({ open, onClose, children, className, style }: Botto
           setState('open');
         });
       });
+      // Cleanup: decrement when this effect re-runs (open → false)
+      return () => {
+        const cur = parseInt(document.body.getAttribute('data-sheets-open') ?? '1', 10);
+        const next = Math.max(0, cur - 1);
+        if (next === 0) document.body.removeAttribute('data-sheets-open');
+        else document.body.setAttribute('data-sheets-open', String(next));
+      };
     } else {
       setState('closed');
-      // Decrement counter and unmount after close animation
-      const timer = setTimeout(() => {
-        setMounted(false);
-        const prev = parseInt(document.body.getAttribute('data-sheets-open') ?? '1', 10);
-        const next = Math.max(0, prev - 1);
-        if (next === 0) {
-          document.body.removeAttribute('data-sheets-open');
-        } else {
-          document.body.setAttribute('data-sheets-open', String(next));
-        }
-      }, 250);
+      const timer = setTimeout(() => setMounted(false), 250);
       return () => clearTimeout(timer);
     }
   }, [open]);

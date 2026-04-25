@@ -191,10 +191,8 @@ export function PaywallModal({
           onClose();
         } else if (status === 'failed') {
           setError('Оплата не вдалася. Спробуй ще раз.');
-        } else {
-          // cancelled — just close
-          onClose();
         }
+        // cancelled — stay on paywall, do nothing
       });
     } catch {
       setPaying(false);

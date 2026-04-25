@@ -16,18 +16,22 @@ import { cn } from '@/lib/utils';
 
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
-// Helper: register an inline sheet with the body attribute so tab bar hides
+// Fix: robust body attribute management for tab bar hiding
 function useSheetBodyAttr(open: boolean) {
   useEffect(() => {
     if (!open) return;
-    const prev = parseInt(document.body.getAttribute('data-sheets-open') ?? '0', 10);
-    document.body.setAttribute('data-sheets-open', String(prev + 1));
-    return () => {
+    const increment = () => {
+      const prev = parseInt(document.body.getAttribute('data-sheets-open') ?? '0', 10);
+      document.body.setAttribute('data-sheets-open', String(prev + 1));
+    };
+    const decrement = () => {
       const cur = parseInt(document.body.getAttribute('data-sheets-open') ?? '1', 10);
       const next = Math.max(0, cur - 1);
       if (next === 0) document.body.removeAttribute('data-sheets-open');
       else document.body.setAttribute('data-sheets-open', String(next));
     };
+    increment();
+    return decrement;
   }, [open]);
 }
 
@@ -363,52 +367,94 @@ export default function SettingsPage() {
               <div className="flex items-center justify-center py-8">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
               </div>
-            ) : categories.length === 0 ? (
-              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-                Категорії ще не створені
-              </div>
             ) : (
-              categories.map((cat, i) => {
-                const isLocked = cat.name === 'uncategorized';
-                return (
-                  <div key={cat.name}>
-                    {i > 0 && <Separator />}
-                    <div className="flex items-center gap-3 px-4 py-3.5">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{cat.label_ua}</p>
-                        {isLocked && <p className="text-xs text-muted-foreground">Системна категорія — не можна змінити</p>}
-                      </div>
-                      {isLocked ? (
-                        <Icon name="lock" size={16} className="text-muted-foreground/50" />
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); }}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
-                            aria-label={`Перейменувати ${cat.label_ua}`}
-                          >
-                            <Icon name="edit" size={15} />
-                          </button>
-                          <button
-                            onClick={() => { play('OPEN'); setMergeSource(cat); }}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
-                            aria-label={`Об'єднати ${cat.label_ua}`}
-                          >
-                            <Icon name="merge" size={15} />
-                          </button>
-                          <button
-                            onClick={() => { play('OPEN'); setRemoveTarget(cat); }}
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                            aria-label={`Видалити ${cat.label_ua}`}
-                          >
-                            <Icon name="delete" size={15} />
-                          </button>
+              <>
+                {/* Custom categories (non-default, non-system) */}
+                {(() => {
+                  const DEFAULT_NAMES = new Set([
+                    'thoughts','ideas','feelings','expenses','calories','workout','dreams',
+                    'relationships','health','travel','books','gratitude','goals','sleep',
+                    'music','work','social','career','sex_life','sport','food','finance',
+                    'meditation','hobby','family','friends','nature','art','learning','uncategorized',
+                  ]);
+                  const customCats = categories.filter(c => !DEFAULT_NAMES.has(c.name));
+                  const defaultCats = categories.filter(c => DEFAULT_NAMES.has(c.name) && c.name !== 'uncategorized');
+
+                  return (
+                    <>
+                      {/* Custom categories */}
+                      {customCats.length > 0 && (
+                        <>
+                          <div className="px-4 pt-3 pb-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Власні</p>
+                          </div>
+                          {customCats.map((cat, i) => (
+                            <div key={cat.name}>
+                              {i > 0 && <Separator />}
+                              <div className="flex items-center gap-3 px-4 py-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{cat.label_ua}</p>
+                                  <p className="text-[11px] text-muted-foreground">{cat.name}</p>
+                                </div>
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    onClick={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); }}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
+                                    aria-label={`Перейменувати ${cat.label_ua}`}
+                                  >
+                                    <Icon name="edit" size={15} />
+                                  </button>
+                                  <button
+                                    onClick={() => { play('OPEN'); setMergeSource(cat); }}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
+                                    aria-label={`Об'єднати ${cat.label_ua}`}
+                                  >
+                                    <Icon name="merge" size={15} />
+                                  </button>
+                                  <button
+                                    onClick={() => { play('OPEN'); setRemoveTarget(cat); }}
+                                    className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                                    aria-label={`Видалити ${cat.label_ua}`}
+                                  >
+                                    <Icon name="delete" size={15} />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          {defaultCats.length > 0 && <Separator />}
+                        </>
+                      )}
+
+                      {/* Default categories — read-only list */}
+                      {defaultCats.length > 0 && (
+                        <>
+                          <div className="px-4 pt-3 pb-1">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Стандартні</p>
+                          </div>
+                          <div className="px-4 pb-3 flex flex-wrap gap-2">
+                            {defaultCats.map(cat => (
+                              <span
+                                key={cat.name}
+                                className="rounded-full bg-muted/50 border border-border/40 px-3 py-1 text-[12px] text-foreground/70"
+                              >
+                                {cat.label_ua}
+                              </span>
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      {/* Empty state */}
+                      {categories.length === 0 && (
+                        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                          Категорії з&apos;являться після перших записів
                         </div>
                       )}
-                    </div>
-                  </div>
-                );
-              })
+                    </>
+                  );
+                })()}
+              </>
             )}
           </CardContent>
         </Card>

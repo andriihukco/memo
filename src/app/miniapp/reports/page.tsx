@@ -606,7 +606,7 @@ export default function ReportsPage() {
       {/* ── Empty state ── */}
       {!loading && reports.length === 0 && !generating && (
         <EmptyState
-          icon="wb_incandescent"
+          icon="💡"
           title="Ще немає ретроспектив"
           subtitle="Проаналізуй свій прогрес за будь-який період"
           ctaLabel="Створити першу ретроспективу"
