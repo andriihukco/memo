@@ -85,15 +85,13 @@ function PlanCard({
       className={cn(
         'relative rounded-2xl border overflow-hidden',
         isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border/40 bg-card/60',
-        isBasic && !isCurrent && 'border-primary/30'
+        isBasic && !isCurrent && 'border-primary/30',
+        isBasic && !isCurrent && 'mt-4'
       )}
     >
-      {isBasic && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary/60 via-primary to-primary/60" />
-      )}
       {isBasic && !isCurrent && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold text-primary-foreground whitespace-nowrap">
+        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
+          <span className="rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold text-primary-foreground whitespace-nowrap shadow-sm">
             🔥 Найпопулярніший
           </span>
         </div>
@@ -251,8 +249,8 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="flex flex-col gap-4 px-4 pt-5 pb-10">
-      {/* Header */}
-      <div>
+      {/* Header — centered, layout back button is on the left */}
+      <div className="text-center">
         <h1 className="text-[28px] font-bold leading-tight">Підписка</h1>
         <p className="text-[13px] text-muted-foreground">Підтримай Memo та отримай більше</p>
       </div>
@@ -294,7 +292,7 @@ export default function SubscriptionsPage() {
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       {/* Plan cards */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 pt-2">
         {tiers.map((tier) => (
           <PlanCard
             key={tier}

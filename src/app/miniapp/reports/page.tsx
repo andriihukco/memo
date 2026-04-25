@@ -524,7 +524,7 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-[28px] font-bold leading-tight">Інсайти</h1>
           <p className="text-[13px] text-muted-foreground">Ретроспектива та аналіз</p>
-          {/* Usage counter chip — shown when Free tier and usage ≥ 3 (60% of 5) */}
+          {/* Usage counter chip — shown when usage ≥ 3 (60% of 5) */}
           {userTier === 'free' && counts !== null && counts.reports >= 3 && (
             <div className="mt-2">
               <UsageCounterChip
@@ -547,12 +547,6 @@ export default function ReportsPage() {
           <button
             onClick={() => {
               if (generating) return;
-              if (userTier === 'free') {
-                play('CAUTION');
-                setPaywallProps({ feature: 'ai_reports', requiredTier: 'stars_basic' });
-                setPaywallOpen(true);
-                return;
-              }
               play('OPEN');
               setShowNewReport(true);
             }}
@@ -564,12 +558,6 @@ export default function ReportsPage() {
               ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
               : <Icon name="add" size={20} />}
           </button>
-          {/* Lock badge for Free tier */}
-          {userTier === 'free' && (
-            <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center pointer-events-none">
-              <Icon name="lock" size={10} className="text-slate-900" />
-            </div>
-          )}
         </div>
       </div>
 

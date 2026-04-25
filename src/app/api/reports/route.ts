@@ -49,15 +49,20 @@ export async function POST(req: Request) {
     return Response.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  // Enforce tier limits — free tier gets 5 reports
+  // Enforce tier limits — free tier gets 5 reports per month
   const tier = await getEffectiveTier(profile.id);
   const limits = TIER_INFO[tier].limits;
 
-  // Count current reports
+  // Count reports created this calendar month
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
   const { count } = await db
     .from("reports")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", profile.id);
+    .eq("user_id", profile.id)
+    .gte("created_at", monthStart.toISOString());
 
   if (limits.reports !== Infinity && (count ?? 0) >= limits.reports) {
     return new Response(JSON.stringify({

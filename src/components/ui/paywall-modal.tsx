@@ -8,119 +8,113 @@ import { useSound } from '@/lib/sound/use-sound';
 import { useAuth } from '@/lib/supabase/auth-context';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
 import { TIER_INFO } from '@/lib/stars/paywall';
+import { cn } from '@/lib/utils';
 
-// ── Props ─────────────────────────────────────────────────────────────────────
+// ── Feature emoji map ─────────────────────────────────────────────────────────
 
-interface PaywallModalProps {
-  open: boolean;
-  onClose: () => void;
-  /** Feature key — one of the 9 gated features or a count-limit key */
-  feature: string;
-  /** Current usage count (for count-limit features: entries, widgets, reports) */
-  current?: number;
-  /** Plan limit (for count-limit features) */
-  limit?: number;
-  /** The minimum tier required to unlock this feature */
-  requiredTier: SubscriptionTier;
-}
+const FEATURE_EMOJI: Record<string, string> = {
+  auto_awesome: '✨',
+  dashboard_customize: '📊',
+  summarize: '💡',
+  dashboard: '📊',
+  edit_note: '📝',
+  lightbulb: '💡',
+  mic: '🎙️',
+  my_location: '🎯',
+  history: '📅',
+  bar_chart: '📈',
+  download: '📤',
+  bolt: '⚡',
+  lock: '🔒',
+};
 
 // ── Feature copy map ──────────────────────────────────────────────────────────
 
 interface FeatureCopy {
-  icon: string;
+  emoji: string;
   title: string;
   subtitle: (current: number, limit: number) => string;
-  comparisonText: string;
+  basicFeatures: string[];
+  proFeatures: string[];
 }
 
 const PAYWALL_COPY: Record<string, FeatureCopy> = {
   ai_reports: {
-    icon: 'auto_awesome',
+    emoji: '✨',
     title: 'AI ретроспективи',
-    subtitle: () =>
-      'Аналізуй свій прогрес за будь-який період за допомогою штучного інтелекту',
-    comparisonText: 'Basic: 50 звітів · Pro: необмежено',
+    subtitle: () => 'Аналізуй свій прогрес за будь-який період',
+    basicFeatures: ['50 звітів на місяць', 'Щоденні, тижневі, місячні', 'Структурований аналіз'],
+    proFeatures: ['Необмежені звіти', 'Пріоритетна обробка', 'Повна аналітика'],
   },
   ai_recommendations: {
-    icon: 'lightbulb',
+    emoji: '💡',
     title: 'AI рекомендації',
-    subtitle: () => 'Отримуй персоналізовані поради на основі твоїх даних',
-    comparisonText: 'Basic: ✓ · Pro: ✓',
+    subtitle: () => 'Персоналізовані поради на основі твоїх даних',
+    basicFeatures: ['Щотижневі рекомендації', 'Аналіз патернів', 'Поради по здоров\'ю'],
+    proFeatures: ['Щоденні рекомендації', 'Пріоритетна обробка', 'Розширений аналіз'],
   },
   voice_logging: {
-    icon: 'mic',
+    emoji: '🎙️',
     title: 'Голосові повідомлення',
     subtitle: () => 'Записуй нотатки голосом — Memo розпізнає і збереже',
-    comparisonText: 'Basic: ✓ · Pro: ✓',
+    basicFeatures: ['Розпізнавання мови', 'Автокласифікація', 'Метрики з голосу'],
+    proFeatures: ['Пріоритетна обробка', 'Розширений аналіз', 'Всі функції Basic'],
   },
   goal_tracking: {
-    icon: 'my_location',
+    emoji: '🎯',
     title: 'Трекінг цілей',
-    subtitle: () => 'Ставь цілі та відстежуй прогрес у стрічці',
-    comparisonText: 'Basic: ✓ · Pro: ✓',
+    subtitle: () => 'Ставь цілі та відстежуй прогрес',
+    basicFeatures: ['Необмежені цілі', 'Прогрес-бари', 'Нагадування'],
+    proFeatures: ['AI аналіз цілей', 'Пріоритетна обробка', 'Всі функції Basic'],
   },
   custom_widgets: {
-    icon: 'dashboard_customize',
+    emoji: '📊',
     title: 'Кастомні віджети',
     subtitle: () => 'Створюй власні метрики за допомогою AI',
-    comparisonText: 'Basic: 15 віджетів · Pro: необмежено',
-  },
-  full_history: {
-    icon: 'history',
-    title: 'Повна історія',
-    subtitle: () => 'Переглядай всі записи без обмежень за часом',
-    comparisonText: 'Basic: 1 рік · Pro: вся історія',
-  },
-  graph_full: {
-    icon: 'bar_chart',
-    title: 'Графіки та аналітика',
-    subtitle: () => 'Повний доступ до графіків і статистики',
-    comparisonText: 'Basic: повна · Pro: повна + експорт',
-  },
-  data_export: {
-    icon: 'download',
-    title: 'Експорт даних',
-    subtitle: () => 'Вивантажуй свої дані у форматі JSON або CSV',
-    comparisonText: 'Basic: ✗ · Pro: ✓',
-  },
-  priority_processing: {
-    icon: 'bolt',
-    title: 'Пріоритетна обробка',
-    subtitle: () => 'Твої запити обробляються першими',
-    comparisonText: 'Basic: ✗ · Pro: ✓',
+    basicFeatures: ['15 кастомних віджетів', 'AI генерація', 'Всі типи метрик'],
+    proFeatures: ['Необмежені віджети', 'Пріоритетна обробка', 'Розширена аналітика'],
   },
   entries: {
-    icon: 'edit_note',
+    emoji: '📝',
     title: 'Ліміт записів вичерпано',
-    subtitle: (c, l) =>
-      `У тебе ${c} з ${l} записів. Перейди на Basic для збільшення ліміту.`,
-    comparisonText: 'Basic: 2 000 · Pro: необмежено',
+    subtitle: (c, l) => `${c} з ${l} записів використано`,
+    basicFeatures: ['До 2 000 записів', 'Повна стрічка', 'Всі категорії'],
+    proFeatures: ['Необмежені записи', 'Пріоритетна обробка', 'Повна аналітика'],
   },
   widgets: {
-    icon: 'dashboard',
+    emoji: '📊',
     title: 'Ліміт віджетів вичерпано',
-    subtitle: (c, l) =>
-      `У тебе ${c} з ${l} віджетів. Перейди на Basic для збільшення ліміту.`,
-    comparisonText: 'Basic: 15 · Pro: необмежено',
+    subtitle: (c, l) => `${c} з ${l} віджетів використано`,
+    basicFeatures: ['15 кастомних віджетів', 'AI генерація', 'Всі типи метрик'],
+    proFeatures: ['Необмежені віджети', 'Пріоритетна обробка', 'Розширена аналітика'],
   },
   reports: {
-    icon: 'summarize',
+    emoji: '💡',
     title: 'Ліміт ретроспектив вичерпано',
-    subtitle: (c, l) =>
-      `У тебе ${c} з ${l} ретроспектив. Перейди на Basic для збільшення ліміту.`,
-    comparisonText: 'Basic: 50 · Pro: необмежено',
+    subtitle: (c, l) => `${c} з ${l} звітів цього місяця`,
+    basicFeatures: ['50 звітів на місяць', 'Всі типи аналізу', 'Структурований звіт'],
+    proFeatures: ['Необмежені звіти', 'Пріоритетна обробка', 'Повна аналітика'],
   },
 };
 
-/** Fallback copy for unknown feature keys */
 const FALLBACK_COPY: FeatureCopy = {
-  icon: 'lock',
+  emoji: '🔒',
   title: 'Функція недоступна',
-  subtitle: () => 'Перейди на платний план, щоб розблокувати цю функцію',
-  comparisonText: 'Basic: ✓ · Pro: ✓',
+  subtitle: () => 'Перейди на платний план, щоб розблокувати',
+  basicFeatures: ['Розширені функції', 'AI аналітика', 'Більше лімітів'],
+  proFeatures: ['Необмежений доступ', 'Пріоритетна обробка', 'Всі функції'],
 };
 
 // ── Component ─────────────────────────────────────────────────────────────────
+
+interface PaywallModalProps {
+  open: boolean;
+  onClose: () => void;
+  feature: string;
+  current?: number;
+  limit?: number;
+  requiredTier: SubscriptionTier;
+}
 
 export function PaywallModal({
   open,
@@ -135,25 +129,27 @@ export function PaywallModal({
   const { accessToken } = useAuth();
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Allow switching between plans in the modal
+  const [selectedTier, setSelectedTier] = useState<'stars_basic' | 'stars_pro'>(
+    requiredTier === 'stars_pro' ? 'stars_pro' : 'stars_basic'
+  );
 
   const copy = PAYWALL_COPY[feature] ?? FALLBACK_COPY;
-  const tierInfo = TIER_INFO[requiredTier];
 
-  // Play CAUTION when the sheet opens
   useEffect(() => {
     if (open) {
       play('CAUTION');
       setError(null);
       setPaying(false);
+      setSelectedTier(requiredTier === 'stars_pro' ? 'stars_pro' : 'stars_basic');
     }
-  }, [open, play]);
+  }, [open, play, requiredTier]);
 
   const handleUpgrade = async () => {
     play('BUTTON');
     setError(null);
 
     if (!accessToken) {
-      // Not authenticated yet — fall back to subscriptions page
       router.push('/miniapp/subscriptions');
       onClose();
       return;
@@ -170,14 +166,13 @@ export function PaywallModal({
       const res = await fetch('/api/stars/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ userId: profile.id, tier: requiredTier }),
+        body: JSON.stringify({ userId: profile.id, tier: selectedTier }),
       });
       const data = await res.json();
       if (!data.ok || !data.invoiceLink) throw new Error(data.error ?? 'no invoice');
 
       const tg = window.Telegram?.WebApp;
       if (!tg?.openInvoice) {
-        // Not in Telegram — fall back to subscriptions page
         router.push('/miniapp/subscriptions');
         onClose();
         return;
@@ -191,7 +186,7 @@ export function PaywallModal({
         } else if (status === 'failed') {
           setError('Оплата не вдалася. Спробуй ще раз.');
         }
-        // cancelled — stay on paywall, do nothing
+        // cancelled — stay on paywall
       });
     } catch {
       setPaying(false);
@@ -199,99 +194,89 @@ export function PaywallModal({
     }
   };
 
-  const handleDismiss = () => {
-    play('CLOSE');
-    onClose();
-  };
-
-  const ctaLabel =
-    requiredTier === 'stars_pro'
-      ? `Підписатися — ${tierInfo.priceStars} ⭐`
-      : `Підписатися — ${tierInfo.priceStars} ⭐`;
+  const selectedInfo = TIER_INFO[selectedTier];
+  const features = selectedTier === 'stars_basic' ? copy.basicFeatures : copy.proFeatures;
 
   return (
-    <BottomSheet open={open} onClose={handleDismiss}>
-      {/* Content area */}
-      <div className="flex flex-col gap-3 px-4 pt-2 pb-2">
+    <BottomSheet open={open} onClose={() => { play('CLOSE'); onClose(); }}>
+      <div className="flex flex-col gap-4 px-4 pt-1 pb-2">
         {/* Feature header */}
-        <div className="flex flex-col items-center text-center gap-2">
-          <span className="text-5xl leading-none select-none">
-            {copy.icon === 'auto_awesome' ? '✨' :
-             copy.icon === 'dashboard_customize' ? '📊' :
-             copy.icon === 'summarize' ? '💡' :
-             copy.icon === 'dashboard' ? '📊' :
-             copy.icon === 'edit_note' ? '📝' :
-             copy.icon === 'lightbulb' ? '💡' :
-             copy.icon === 'mic' ? '🎙️' :
-             copy.icon === 'my_location' ? '🎯' :
-             copy.icon === 'history' ? '📅' :
-             copy.icon === 'bar_chart' ? '📈' :
-             copy.icon === 'download' ? '📤' :
-             copy.icon === 'bolt' ? '⚡' :
-             '🔒'}
-          </span>
-          <h2 className="text-[17px] font-semibold leading-snug">{copy.title}</h2>
-          <p className="text-[14px] text-muted-foreground leading-relaxed">
-            {copy.subtitle(current, limit)}
-          </p>
+        <div className="flex flex-col items-center text-center gap-1.5">
+          <span className="text-5xl leading-none select-none">{copy.emoji}</span>
+          <h2 className="text-[17px] font-semibold">{copy.title}</h2>
+          <p className="text-[13px] text-muted-foreground">{copy.subtitle(current, limit)}</p>
         </div>
 
-        {/* Mini plan cards */}
-        <div className="flex flex-col gap-2 mt-1">
+        {/* Plan selector tabs */}
+        <div className="flex rounded-xl bg-muted/40 p-1 gap-1">
           {(['stars_basic', 'stars_pro'] as const).map((planTier) => {
             const info = TIER_INFO[planTier];
-            const isRequired = planTier === requiredTier;
+            const isSelected = selectedTier === planTier;
             return (
-              <div
+              <button
                 key={planTier}
-                className={`rounded-xl border px-3 py-2.5 ${isRequired ? 'border-primary/40 bg-primary/5' : 'border-border/30 bg-muted/20'}`}
+                onClick={() => { play('SELECT'); setSelectedTier(planTier); }}
+                style={{ minHeight: 0, minWidth: 0 }}
+                className={cn(
+                  'flex-1 flex items-center justify-center gap-1.5 rounded-lg py-2 text-[13px] font-medium transition-all',
+                  isSelected
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground'
+                )}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg leading-none">{info.icon}</span>
-                    <div>
-                      <p className="text-[13px] font-semibold">{info.name}</p>
-                      <p className="text-[11px] text-muted-foreground">{copy.comparisonText.split('·')[planTier === 'stars_basic' ? 0 : 1]?.trim()}</p>
-                    </div>
-                  </div>
-                  <p className="text-[13px] font-bold">{info.priceStars} ⭐</p>
-                </div>
-              </div>
+                <span className="text-base leading-none">{info.icon}</span>
+                <span>{info.name}</span>
+              </button>
             );
           })}
         </div>
 
+        {/* Selected plan details */}
+        <div className="rounded-xl border border-border/40 bg-card/60 px-4 py-3.5">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xl leading-none">{selectedInfo.icon}</span>
+              <p className="text-[15px] font-semibold">{selectedInfo.name}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[17px] font-bold">{selectedInfo.priceStars} ⭐</p>
+              <p className="text-[10px] text-muted-foreground">/ місяць</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {features.map((f, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <span className="text-[11px] text-green-400 font-bold w-3 shrink-0">✓</span>
+                <span className="text-[13px] text-foreground/80">{f}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Error */}
-        {error && (
-          <p className="text-[13px] text-destructive text-center">{error}</p>
-        )}
-      </div>
+        {error && <p className="text-[13px] text-destructive text-center">{error}</p>}
 
-      {/* CTA area */}
-      <div className="px-4 pb-2 flex flex-col gap-2 mt-1">
-        <Button
-          variant="default"
-          className="w-full min-h-[44px]"
-          disabled={paying}
-          onClick={handleUpgrade}
-        >
-          {paying ? (
-            <span className="flex items-center gap-2">
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-              Відкриваємо оплату...
-            </span>
-          ) : (
-            ctaLabel
-          )}
-        </Button>
-
-        <Button
-          variant="ghost"
-          className="w-full min-h-[44px]"
-          onClick={handleDismiss}
-        >
-          Не зараз
-        </Button>
+        {/* CTA */}
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="default"
+            className="w-full min-h-[44px]"
+            disabled={paying}
+            onClick={handleUpgrade}
+          >
+            {paying ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                Відкриваємо оплату...
+              </span>
+            ) : (
+              `Підписатися — ${selectedInfo.priceStars} ⭐`
+            )}
+          </Button>
+          <Button variant="ghost" className="w-full min-h-[44px]" onClick={() => { play('CLOSE'); onClose(); }}>
+            Не зараз
+          </Button>
+        </div>
       </div>
     </BottomSheet>
   );
