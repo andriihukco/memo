@@ -1033,7 +1033,7 @@ function MetricCard({ metric, sourceEntries, onEntryClick, onLongPress, goal }: 
   onLongPress: (metric: AggregatedMetric, sourceEntries: Entry[]) => void;
   goal?: { target: number; period?: string };
 }) {
-  const { bg, text } = metricColor(metric.key);
+  const { text } = metricColor(metric.key);
   const aggLabel = metric.aggregate === 'avg' ? `середнє · ${metric.count}` : metric.aggregate === 'last' ? 'останнє' : `${metric.count} записів`;
   const pct = goal ? Math.min(100, Math.round((metric.value / goal.target) * 100)) : null;
 
@@ -1051,16 +1051,14 @@ function MetricCard({ metric, sourceEntries, onEntryClick, onLongPress, goal }: 
 
   return (
     <Card
-      className="flex cursor-pointer flex-col gap-1 p-4 transition-colors hover:bg-muted/30 active:bg-muted/50 select-none"
+      className="flex cursor-pointer flex-col gap-1 p-4 active:opacity-70 select-none"
       onClick={() => onEntryClick(sourceEntries, metric.label)}
       onPointerDown={handlePointerDown}
       onPointerUp={cancelLongPress}
       onPointerLeave={cancelLongPress}
       onPointerCancel={cancelLongPress}
     >
-      <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
-        <MetricIcon name={metric.icon} size={16} className={text} />
-      </div>
+      <MetricIcon name={metric.icon} size={20} className={cn('mb-1', text)} />
       <div className="flex items-baseline gap-1">
         <span className="text-2xl font-bold tracking-tight">{metric.value.toLocaleString()}</span>
         {goal && <span className="text-sm text-muted-foreground">/ {goal.target}</span>}
@@ -1467,20 +1465,18 @@ export default function DashboardPage() {
               <Section title="Мої віджети" count={customWidgets.length}>
                 <div className="grid grid-cols-2 gap-3">
                   {customWidgets.map(w => {
-                    const colorObj = { bg: 'bg-primary/10', text: 'text-primary' };
+                    const colorObj = { text: 'text-primary' };
                     const matchedMetric = metricByKey.get(w.metric_key);
                     const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
                     if (matchedMetric) {
                       return (
                         <Card
                           key={w.id}
-                          className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50 select-none"
+                          className="flex flex-col gap-1 p-4 cursor-pointer active:opacity-70 select-none"
                           onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
                         >
-                          {(() => { const { bg, text } = metricColor(matchedMetric.key); return (
-                            <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
-                              <MetricIcon name={w.icon ?? matchedMetric.icon} size={16} className={text} />
-                            </div>
+                          {(() => { const { text } = metricColor(matchedMetric.key); return (
+                            <MetricIcon name={w.icon ?? matchedMetric.icon} size={20} className={cn('mb-1', text)} />
                           ); })()}
                           <div className="flex items-baseline gap-1">
                             <span className="text-2xl font-bold tracking-tight">{matchedMetric.value.toLocaleString()}</span>
@@ -1496,12 +1492,10 @@ export default function DashboardPage() {
                     return (
                       <Card
                         key={w.id}
-                        className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50"
+                        className="flex flex-col gap-1 p-4 cursor-pointer active:opacity-70"
                         onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
                       >
-                        <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
-                          <MetricIcon name={w.icon} size={16} className={colorObj.text} />
-                        </div>
+                        <MetricIcon name={w.icon} size={20} className={cn('mb-1', colorObj.text)} />
                         <div className="flex items-baseline gap-1">
                           <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
                           <span className="text-sm text-muted-foreground">{w.unit}</span>
