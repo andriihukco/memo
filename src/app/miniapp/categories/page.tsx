@@ -32,6 +32,21 @@ const DEFAULT_CATEGORIES: { name: string; label_ua: string; emoji: string }[] = 
 const DEFAULT_NAMES = new Set(DEFAULT_CATEGORIES.map(c => c.name));
 DEFAULT_NAMES.add('uncategorized');
 
+// ── Emoji picker options ──────────────────────────────────────────────────────
+
+const EMOJI_OPTIONS = [
+  '🏷️','⭐','🔥','💎','🌟','🎨','🎭','🎪','🎬','🎤',
+  '🏆','🥇','🎯','🎲','🎮','🕹️','🎸','🎹','🎺','🎻',
+  '🌈','🌊','🌸','🌺','🌻','🍀','🌿','🍁','🌙','☀️',
+  '🦋','🐉','🦄','🐺','🦊','🐻','🐼','🦁','🐯','🦅',
+  '🍕','🍔','🍜','🍣','🍰','🧁','🍩','☕','🧃','🍷',
+  '🏠','🏡','🏰','🗼','🗺️','🧭','🚀','✈️','🚂','⛵',
+  '💻','📱','📷','🎥','📺','🎙️','🔬','🔭','⚗️','🧪',
+  '💰','💳','📈','📊','🏦','💹','🛒','🎁','🎀','🎊',
+  '📝','📖','📚','✏️','🖊️','📌','📎','🗂️','📋','🗒️',
+  '❤️','🧡','💛','💚','💙','💜','🖤','🤍','💗','💖',
+];
+
 interface DbCategory { name: string; label_ua: string; color: string; }
 
 // ── Sheet body attr helper ────────────────────────────────────────────────────
@@ -66,6 +81,28 @@ function InlineSheet({ open, onClose, children }: { open: boolean; onClose: () =
   );
 }
 
+// ── Emoji picker ──────────────────────────────────────────────────────────────
+
+function EmojiPicker({ selected, onSelect }: { selected: string; onSelect: (emoji: string) => void }) {
+  return (
+    <div className="grid grid-cols-10 gap-1 max-h-36 overflow-y-auto py-1">
+      {EMOJI_OPTIONS.map(emoji => (
+        <button
+          key={emoji}
+          type="button"
+          onClick={() => onSelect(emoji)}
+          className={cn(
+            'flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors',
+            selected === emoji ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted/60'
+          )}
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function CategoriesPage() {
@@ -92,6 +129,13 @@ export default function CategoriesPage() {
   const [mergeTarget, setMergeTarget] = useState<DbCategory | null>(null);
   const [mergeLoading, setMergeLoading] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
+
+  // Create custom category sheet
+  const [showCreate, setShowCreate] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createEmoji, setCreateEmoji] = useState('🏷️');
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken) return;
@@ -167,12 +211,47 @@ export default function CategoriesPage() {
     } finally { setMergeLoading(false); }
   };
 
+  const handleCreate = async () => {
+    if (!accessToken || !createName.trim()) return;
+    setCreateLoading(true); setCreateError(null);
+    // Derive a slug-like name from the label
+    const slug = createName.trim()
+      .toLowerCase()
+      .replace(/\s+/g, '_')
+      .replace(/[^a-z0-9_а-яіїєґ]/gi, '')
+      .slice(0, 40) || `custom_${Date.now()}`;
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ name: slug, label_ua: createName.trim(), color: createEmoji }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
+      const d = await res.json();
+      setDbCategories(prev => [...prev, d.category ?? { name: slug, label_ua: createName.trim(), color: createEmoji }]);
+      play('CELEBRATION');
+      setShowCreate(false);
+      setCreateName('');
+      setCreateEmoji('🏷️');
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Помилка');
+      play('CAUTION');
+    } finally { setCreateLoading(false); }
+  };
+
   // All DB cats available as merge targets (excluding source and uncategorized)
   const mergeTargets = dbCategories.filter(c => c.name !== mergeSource?.name && c.name !== 'uncategorized');
 
+  // Emoji for a custom category — stored in color field or fallback
+  const customEmoji = (cat: DbCategory) => {
+    if (cat.color && EMOJI_OPTIONS.includes(cat.color)) return cat.color;
+    return '🏷️';
+  };
+
   return (
     <div className="flex flex-col gap-6 px-4 pt-5 pb-8">
-      <div>
+      {/* ── Header — centered title ── */}
+      <div className="text-center">
         <h1 className="text-[28px] font-bold leading-tight">Категорії</h1>
         <p className="text-[13px] text-muted-foreground">Управляй категоріями записів</p>
       </div>
@@ -180,18 +259,27 @@ export default function CategoriesPage() {
       {error && <p className="text-xs text-destructive">{error}</p>}
 
       {/* ── Custom categories ── */}
-      {customCats.length > 0 && (
-        <section>
-          <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+      <section>
+        <div className="mb-2 flex items-center justify-between px-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Власні
           </p>
+          <button
+            onClick={() => { play('OPEN'); setShowCreate(true); }}
+            className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[12px] font-medium text-primary transition-colors hover:bg-primary/20"
+          >
+            <Icon name="add" size={14} />
+            Нова
+          </button>
+        </div>
+        {customCats.length > 0 ? (
           <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden">
             {customCats.map((cat, i) => (
               <div key={cat.name}>
                 {i > 0 && <Separator />}
                 <CategoryRow
                   label={cat.label_ua}
-                  emoji="🏷️"
+                  emoji={customEmoji(cat)}
                   onEdit={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); }}
                   onMerge={() => { play('OPEN'); setMergeSource(cat); }}
                   onDelete={() => { play('OPEN'); setDeleteTarget(cat); }}
@@ -199,8 +287,15 @@ export default function CategoriesPage() {
               </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <button
+            onClick={() => { play('OPEN'); setShowCreate(true); }}
+            className="w-full rounded-2xl border border-dashed border-border/50 py-5 text-center text-[13px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+          >
+            + Створити власну категорію
+          </button>
+        )}
+      </section>
 
       {/* ── AI-activated defaults ── */}
       {activatedDefaults.length > 0 && (
@@ -252,6 +347,46 @@ export default function CategoriesPage() {
           </div>
         )}
       </section>
+
+      {/* ── Create custom category sheet ── */}
+      <InlineSheet open={showCreate} onClose={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateEmoji('🏷️'); }}>
+        <h3 className="mb-3 text-sm font-semibold">Нова категорія</h3>
+        {/* Emoji + name row */}
+        <div className="mb-3 flex items-center gap-2">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted/60 text-2xl">
+            {createEmoji}
+          </div>
+          <input
+            type="text"
+            value={createName}
+            onChange={e => setCreateName(e.target.value)}
+            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            placeholder="Назва категорії"
+            autoFocus
+            maxLength={40}
+          />
+        </div>
+        {/* Emoji picker */}
+        <div className="mb-3 rounded-xl border border-border/40 bg-muted/20 p-2">
+          <EmojiPicker selected={createEmoji} onSelect={setCreateEmoji} />
+        </div>
+        {createError && <p className="mb-2 text-xs text-destructive">{createError}</p>}
+        <div className="flex gap-3">
+          <button
+            onClick={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateEmoji('🏷️'); }}
+            className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground"
+          >
+            Скасувати
+          </button>
+          <button
+            onClick={() => { play('BUTTON'); handleCreate(); }}
+            disabled={createLoading || !createName.trim()}
+            className="flex-1 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {createLoading ? '...' : 'Створити'}
+          </button>
+        </div>
+      </InlineSheet>
 
       {/* ── Rename sheet ── */}
       <InlineSheet open={!!renameTarget} onClose={() => { play('CLOSE'); setRenameTarget(null); setRenameError(null); }}>

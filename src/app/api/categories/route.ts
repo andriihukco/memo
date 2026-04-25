@@ -32,21 +32,24 @@ export async function POST(req: Request): Promise<Response> {
   const jwt = getUserJwt(req);
   if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
 
-  const { name, label, color } = await req.json().catch(() => ({}));
+  const { name, label_ua, label, color } = await req.json().catch(() => ({}));
   if (!name) return new Response(JSON.stringify({ error: "name required" }), { status: 400, headers: { "Content-Type": "application/json" } });
 
+  const resolvedLabel = label_ua ?? label ?? name;
+
   const supabase = makeSupabase(jwt);
-  await supabase.from("categories").upsert(
+  const { data, error } = await supabase.from("categories").upsert(
     {
       name,
-      label_ua: label ?? name,
+      label_ua: resolvedLabel,
       color: color ?? "bg-gray-100 text-gray-700",
       icon: "tag",
     },
     { onConflict: "user_id,name", ignoreDuplicates: true }
-  );
+  ).select("name, label_ua, color").single();
 
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ ok: true, category: data ?? { name, label_ua: resolvedLabel, color: color ?? "bg-gray-100 text-gray-700" } }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
 
 export async function PATCH(req: Request): Promise<Response> {

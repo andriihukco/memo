@@ -83,7 +83,7 @@ function PlanCard({
   return (
     <div
       className={cn(
-        'relative rounded-2xl border overflow-hidden',
+        'relative rounded-2xl border',
         isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border/40 bg-card/60',
         isBasic && !isCurrent && 'border-primary/30',
         isBasic && !isCurrent && 'mt-4'

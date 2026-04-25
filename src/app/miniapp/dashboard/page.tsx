@@ -814,10 +814,29 @@ function DrillDownDrawer({ title, entries, onClose, onUpdate, onDelete, accessTo
 function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onChange: (f: DateFilter) => void; onClose: () => void }) {
   const [fromStr, setFromStr] = useState(isoDate(filter.from));
   const [toStr, setToStr] = useState(isoDate(filter.to));
+  const [selected, setSelected] = useState<DateRange>(filter.range);
 
-  const apply = (r: DateRange) => {
-    onChange({ range: r, ...rangeFor(r) });
-    onClose();
+  const PRESET_OPTIONS: { range: DateRange; label: string; icon: string }[] = [
+    { range: 'today', label: RANGE_LABELS.today, icon: 'today' },
+    { range: 'week',  label: RANGE_LABELS.week,  icon: 'date_range' },
+    { range: 'month', label: RANGE_LABELS.month, icon: 'calendar_month' },
+    { range: 'custom', label: RANGE_LABELS.custom, icon: 'tune' },
+  ];
+
+  const handleSelectPreset = (r: DateRange) => {
+    setSelected(r);
+    if (r !== 'custom') {
+      onChange({ range: r, ...rangeFor(r) });
+      onClose();
+    }
+  };
+
+  const handleFromChange = (val: string) => {
+    setFromStr(val);
+  };
+
+  const handleToChange = (val: string) => {
+    setToStr(val);
   };
 
   const applyCustom = () => {
@@ -828,25 +847,59 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
   };
 
   return (
-    <BottomSheet open onClose={onClose} className="px-4 pt-4" style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
-      <h3 className="mb-4 mt-3 text-sm font-semibold">Оберіть період</h3>
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        {(['today', 'week', 'month'] as DateRange[]).map(r => (
-          <button key={r} onClick={() => apply(r)}
-            className={cn('rounded-xl border py-3 text-sm font-medium transition-colors',
-              filter.range === r ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-muted/30 text-foreground')}>
-            {RANGE_LABELS[r]}
-          </button>
-        ))}
+    <BottomSheet open onClose={onClose} style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2">
+        <h3 className="text-[17px] font-semibold">Оберіть період</h3>
       </div>
-      <div className="mb-3 flex items-center gap-2">
-        <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
-          className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
-        <span className="text-muted-foreground">–</span>
-        <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
-          className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+
+      {/* Preset rows */}
+      <div className="px-4">
+        {PRESET_OPTIONS.map(opt => {
+          const isSelected = selected === opt.range;
+          return (
+            <button
+              key={opt.range}
+              onClick={() => handleSelectPreset(opt.range)}
+              className="min-h-[44px] flex items-center gap-3 px-0 w-full"
+            >
+              <Icon name={opt.icon} size={20} className="text-primary/60 shrink-0" />
+              <span className="flex-1 text-left text-[15px]">{opt.label}</span>
+              {isSelected
+                ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />
+              }
+            </button>
+          );
+        })}
       </div>
-      <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
+
+      {/* Inline custom date range */}
+      <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' ? 'max-h-40' : 'max-h-0')}>
+        <div className="mx-4 h-px bg-border/40" />
+        <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+          <input
+            type="date"
+            value={fromStr}
+            onChange={e => handleFromChange(e.target.value)}
+            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <span className="text-muted-foreground">–</span>
+          <input
+            type="date"
+            value={toStr}
+            onChange={e => handleToChange(e.target.value)}
+            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+        </div>
+      </div>
+
+      {/* CTA for custom */}
+      {selected === 'custom' && (
+        <div className="px-4 pt-3">
+          <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
+        </div>
+      )}
     </BottomSheet>
   );
 }
@@ -1237,9 +1290,9 @@ export default function DashboardPage() {
   };
 
   const handleAddWidgetTap = () => {
-    // If user is on Free tier, intercept and show paywall before opening CreateWidgetSheet
-    if (userTier === 'free') {
-      openPaywall('custom_widgets', undefined, undefined, 'stars_basic');
+    // Only block if we know the tier AND the limit is actually reached
+    if (userTier === 'free' && usageCounts !== null && usageCounts.widgets >= 3) {
+      openPaywall('custom_widgets', usageCounts.widgets, 3, 'stars_basic');
       return;
     }
     play('OPEN');
