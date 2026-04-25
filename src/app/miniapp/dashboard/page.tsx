@@ -71,68 +71,6 @@ function getIconColor(id?: string) {
   return ICON_COLORS.find(c => c.id === id) ?? ICON_COLORS[0];
 }
 
-// ── Widget icon builder component ─────────────────────────────────────────────
-
-function IconBuilder({
-  emoji, colorId, onEmojiChange, onColorChange,
-}: {
-  emoji: string; colorId: string;
-  onEmojiChange: (e: string) => void; onColorChange: (c: string) => void;
-}) {
-  const color = getIconColor(colorId);
-
-  return (
-    <div>
-      {/* Preview */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className={cn('flex h-14 w-14 items-center justify-center rounded-2xl text-3xl shrink-0', color.bg)}>
-          {emoji}
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">Іконка віджету</p>
-          <p className="text-xs text-muted-foreground">Оберіть емодзі та колір</p>
-        </div>
-      </div>
-
-      {/* Color row */}
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Колір</p>
-      <div className="flex gap-2 flex-wrap mb-4">
-        {ICON_COLORS.map(c => (
-          <button
-            key={c.id}
-            onClick={() => onColorChange(c.id)}
-            className={cn(
-              'h-7 w-7 rounded-full transition-all',
-              colorId === c.id && 'ring-2 ring-offset-2 ring-white/60 scale-110'
-            )}
-            style={{ backgroundColor: c.hex }}
-            aria-label={c.id}
-          />
-        ))}
-      </div>
-
-      {/* Emoji grid */}
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Емодзі</p>
-      <div className="grid grid-cols-10 gap-1 max-h-40 overflow-y-auto">
-        {EMOJI_LIBRARY.map(e => (
-          <button
-            key={e}
-            onClick={() => onEmojiChange(e)}
-            className={cn(
-              'flex h-9 w-full items-center justify-center rounded-xl text-xl transition-all',
-              emoji === e
-                ? cn(color.bg, 'ring-2 ring-offset-1 ring-white/40')
-                : 'hover:bg-muted/60'
-            )}
-          >
-            {e}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Data types ────────────────────────────────────────────────────────────────
 
 interface Entry {
@@ -368,7 +306,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   accessToken?: string | null;
   hasEntries: boolean;
 }) {
-  const [step, setStep] = useState(0); // 0 = choose, 1 = configure
+  const [step, setStep] = useState(0); // 0 = pick metric, 1 = icon, 2 = details
   const [selected, setSelected] = useState<MeasureOption | null>(null);
   const [title, setTitle] = useState('');
   const [unit, setUnit] = useState('');
@@ -377,7 +315,10 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   const [iconColor, setIconColor] = useState('blue');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
   const { play } = useSound();
+
+  const goTo = (s: number) => { play('SLIDE'); setStep(s); setError(null); };
 
   const handleSelect = (opt: MeasureOption) => {
     play('SELECT');
@@ -391,6 +332,11 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
     setStep(1);
   };
 
+  // Auto-focus title when reaching step 2
+  useEffect(() => {
+    if (step === 2) setTimeout(() => titleRef.current?.focus(), 80);
+  }, [step]);
+
   const handleCreate = async () => {
     if (!accessToken || !selected || !title.trim()) return;
     setCreating(true);
@@ -398,25 +344,11 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
     try {
       const goalNum = goal.trim() ? parseFloat(goal.replace(',', '.')) : undefined;
       const directDef = selected.directWidget
-        ? {
-            ...selected.directWidget,
-            title: title.trim(),
-            unit: unit.trim() || selected.defaultUnit,
-            emoji,
-            iconColor,
-            ...(goalNum ? { goal: goalNum } : {}),
-          }
+        ? { ...selected.directWidget, title: title.trim(), unit: unit.trim() || selected.defaultUnit, emoji, iconColor, ...(goalNum ? { goal: goalNum } : {}) }
         : null;
-
       const body = directDef
         ? { prompt: `${selected.label}: ${title}`, direct: directDef }
-        : {
-            prompt: `${selected.label}: ${title.trim()}`,
-            answers: { question: title.trim(), unit: unit.trim(), goal: goalNum },
-            emoji,
-            iconColor,
-          };
-
+        : { prompt: `${selected.label}: ${title.trim()}`, answers: { question: title.trim(), unit: unit.trim(), goal: goalNum }, emoji, iconColor };
       const res = await fetch('/api/widgets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
@@ -442,130 +374,183 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
 
   const color = getIconColor(iconColor);
 
-  return (
-    <BottomSheet open onClose={onClose} className="px-4 pt-2 pb-6 max-h-[90vh] overflow-y-auto">
-      {/* Step 0 — choose what to measure */}
-      {step === 0 && (
-        <div>
-          <h3 className="text-[19px] font-bold mb-1">Що відстежувати?</h3>
-          <p className="text-sm text-muted-foreground mb-5">Оберіть метрику або створіть свою</p>
-          <div className="grid grid-cols-2 gap-2.5">
-            {MEASURE_OPTIONS.map(opt => (
-              <button
-                key={opt.id}
-                onClick={() => handleSelect(opt)}
-                className="flex items-center gap-3 rounded-2xl bg-muted/40 border border-border/40 px-4 py-3.5 text-left transition-all active:scale-95 hover:bg-muted/60"
-              >
-                <span className="text-2xl shrink-0">{opt.emoji}</span>
-                <div className="min-w-0">
-                  <p className="text-[15px] font-semibold leading-tight">{opt.label}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{opt.sublabel}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+  // ── Step dots ──────────────────────────────────────────────────────────────
+  const StepDots = () => (
+    <div className="flex gap-1.5 justify-center mb-5">
+      {[0, 1, 2].map(i => (
+        <div key={i} className={cn('h-1.5 rounded-full transition-all duration-300',
+          i === step ? 'w-6 bg-primary' : i < step ? 'w-1.5 bg-primary/40' : 'w-1.5 bg-muted'
+        )} />
+      ))}
+    </div>
+  );
 
-      {/* Step 1 — configure */}
-      {step === 1 && selected && (
-        <div>
-          {/* Back */}
+  // ── Step 0: pick what to measure ──────────────────────────────────────────
+  if (step === 0) return (
+    <BottomSheet open onClose={onClose} className="px-4 pb-6">
+      <StepDots />
+      <h3 className="text-[19px] font-bold mb-1">Що відстежувати?</h3>
+      <p className="text-[13px] text-muted-foreground mb-4">Оберіть метрику або створіть свою</p>
+      <div className="grid grid-cols-2 gap-2">
+        {MEASURE_OPTIONS.map(opt => (
           <button
-            onClick={() => { play('SLIDE'); setStep(0); setError(null); }}
-            className="text-[13px] text-muted-foreground flex items-center gap-1 mb-4 min-h-[36px]"
+            key={opt.id}
+            onClick={() => handleSelect(opt)}
+            className="flex items-center gap-3 rounded-2xl bg-muted/40 border border-border/40 px-3.5 py-3 text-left transition-all active:scale-[0.97] active:bg-muted/70"
           >
-            <Icon name="arrow_back_ios" size={13} /> Назад
+            <span className="text-[22px] shrink-0 leading-none">{opt.emoji}</span>
+            <div className="min-w-0">
+              <p className="text-[14px] font-semibold leading-tight">{opt.label}</p>
+              <p className="text-[11px] text-muted-foreground truncate mt-0.5">{opt.sublabel}</p>
+            </div>
           </button>
+        ))}
+      </div>
+    </BottomSheet>
+  );
 
-          {/* Icon builder */}
-          <IconBuilder
-            emoji={emoji}
-            colorId={iconColor}
-            onEmojiChange={setEmoji}
-            onColorChange={setIconColor}
+  // ── Step 1: icon builder ──────────────────────────────────────────────────
+  if (step === 1 && selected) return (
+    <BottomSheet open onClose={onClose} className="px-4 pb-6">
+      <StepDots />
+      {/* Back */}
+      <button onClick={() => goTo(0)} className="flex items-center gap-1 text-[13px] text-muted-foreground mb-4 min-h-[36px]">
+        <Icon name="arrow_back_ios" size={12} /> Назад
+      </button>
+
+      <h3 className="text-[19px] font-bold mb-1">Іконка</h3>
+      <p className="text-[13px] text-muted-foreground mb-4">Оберіть емодзі та колір</p>
+
+      {/* Big preview */}
+      <div className="flex justify-center mb-5">
+        <div className={cn('flex h-20 w-20 items-center justify-center rounded-3xl text-4xl shadow-lg', color.bg)}>
+          {emoji}
+        </div>
+      </div>
+
+      {/* Color swatches */}
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Колір</p>
+      <div className="flex gap-2 flex-wrap mb-4">
+        {ICON_COLORS.map(c => (
+          <button
+            key={c.id}
+            onClick={() => setIconColor(c.id)}
+            className={cn('h-8 w-8 rounded-full transition-all', iconColor === c.id && 'ring-2 ring-offset-2 ring-white/70 scale-110')}
+            style={{ backgroundColor: c.hex }}
           />
+        ))}
+      </div>
 
-          <div className="h-px bg-border/40 my-4" />
+      {/* Emoji grid */}
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Емодзі</p>
+      <div className="grid grid-cols-10 gap-1 max-h-36 overflow-y-auto mb-5">
+        {EMOJI_LIBRARY.map(e => (
+          <button
+            key={e}
+            onClick={() => setEmoji(e)}
+            className={cn('flex h-9 w-full items-center justify-center rounded-xl text-xl transition-all',
+              emoji === e ? cn(color.bg, 'ring-2 ring-offset-1 ring-white/40') : 'hover:bg-muted/60'
+            )}
+          >{e}</button>
+        ))}
+      </div>
 
-          {/* Name */}
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Назва</p>
-          <input
-            type="text"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Назва віджету"
-            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] font-medium focus:outline-none focus:ring-1 focus:ring-ring mb-3"
-          />
+      <Button className="w-full min-h-[48px] rounded-full text-[15px] font-semibold" onClick={() => goTo(2)}>
+        Далі
+      </Button>
+    </BottomSheet>
+  );
 
-          {/* Unit */}
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Одиниця виміру</p>
+  // ── Step 2: name / unit / goal ────────────────────────────────────────────
+  if (step === 2 && selected) return (
+    <BottomSheet open onClose={onClose} className="px-4 pb-6">
+      <StepDots />
+      {/* Back */}
+      <button onClick={() => goTo(1)} className="flex items-center gap-1 text-[13px] text-muted-foreground mb-4 min-h-[36px]">
+        <Icon name="arrow_back_ios" size={12} /> Назад
+      </button>
+
+      {/* Preview pill */}
+      <div className="flex items-center gap-3 rounded-2xl bg-muted/30 border border-border/40 px-4 py-3 mb-5">
+        <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl text-2xl shrink-0', color.bg)}>
+          {emoji}
+        </div>
+        <div className="min-w-0">
+          <p className="font-semibold truncate">{title || selected.label}</p>
+          <p className="text-[13px] text-muted-foreground">{unit || selected.defaultUnit}{goal ? ` · ціль ${goal}` : ''}</p>
+        </div>
+      </div>
+
+      {/* Name */}
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Назва</p>
+      <input
+        ref={titleRef}
+        type="text"
+        value={title}
+        onChange={e => setTitle(e.target.value)}
+        placeholder="Назва віджету"
+        className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] font-medium focus:outline-none focus:ring-1 focus:ring-ring mb-3"
+      />
+
+      {/* Unit + Goal side by side */}
+      <div className="flex gap-2 mb-4">
+        <div className="flex-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Одиниця</p>
           <input
             type="text"
             value={unit}
             onChange={e => setUnit(e.target.value)}
-            placeholder={selected.defaultUnit || 'мл, кг, хв...'}
-            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-ring mb-3"
+            placeholder={selected.defaultUnit || 'мл, кг...'}
+            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-ring"
           />
-
-          {/* Goal (optional) */}
+        </div>
+        <div className="flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-            Ціль <span className="normal-case font-normal text-muted-foreground/60">(необов&apos;язково)</span>
+            Ціль <span className="normal-case font-normal opacity-50">(опц.)</span>
           </p>
           <input
             type="number"
             inputMode="decimal"
             value={goal}
             onChange={e => setGoal(e.target.value)}
-            placeholder={`напр. ${selected.id === 'water' ? '2000' : selected.id === 'steps' ? '10000' : '100'}`}
-            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-ring mb-4"
+            placeholder={selected.id === 'water' ? '2000' : selected.id === 'steps' ? '10000' : '100'}
+            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-ring"
           />
+        </div>
+      </div>
 
-          {/* Preview card */}
-          <div className="rounded-2xl bg-muted/30 border border-border/40 p-4 flex items-center gap-3 mb-4">
-            <div className={cn('flex h-12 w-12 items-center justify-center rounded-2xl text-2xl shrink-0', color.bg)}>
-              {emoji}
-            </div>
-            <div>
-              <p className="font-semibold">{title || selected.label}</p>
-              <p className="text-sm text-muted-foreground">{unit || selected.defaultUnit}{goal ? ` · ціль ${goal}` : ''}</p>
-            </div>
-          </div>
-
-          {/* AI warning */}
-          {!hasEntries && !selected.directWidget && (
-            <div className="mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 flex items-start gap-2.5">
-              <span className="text-base shrink-0 mt-0.5">⚠️</span>
-              <p className="text-[13px] text-amber-300 leading-snug">
-                AI-віджет потребує записів у боті. Спочатку зроби кілька записів.
-              </p>
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4">
-              <ErrorBanner message={error} onRetry={handleCreate} onDismiss={() => setError(null)} />
-            </div>
-          )}
-
-          <Button
-            className="w-full min-h-[48px] rounded-full text-[15px] font-semibold"
-            disabled={creating || !title.trim()}
-            onClick={handleCreate}
-          >
-            {creating ? (
-              <span className="flex items-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-                {selected.directWidget ? 'Створюємо...' : 'AI створює...'}
-              </span>
-            ) : (
-              'Створити віджет'
-            )}
-          </Button>
+      {/* AI warning */}
+      {!hasEntries && !selected.directWidget && (
+        <div className="mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 flex items-start gap-2.5">
+          <span className="text-base shrink-0 mt-0.5">⚠️</span>
+          <p className="text-[13px] text-amber-300 leading-snug">
+            AI-віджет потребує записів у боті. Спочатку зроби кілька записів.
+          </p>
         </div>
       )}
+
+      {error && (
+        <div className="mb-4">
+          <ErrorBanner message={error} onRetry={handleCreate} onDismiss={() => setError(null)} />
+        </div>
+      )}
+
+      <Button
+        className="w-full min-h-[48px] rounded-full text-[15px] font-semibold"
+        disabled={creating || !title.trim()}
+        onClick={handleCreate}
+      >
+        {creating ? (
+          <span className="flex items-center gap-2">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+            {selected.directWidget ? 'Створюємо...' : 'AI створює...'}
+          </span>
+        ) : 'Створити віджет'}
+      </Button>
     </BottomSheet>
   );
+
+  return null;
 }
 
 // ── Color for metric key ──────────────────────────────────────────────────────
