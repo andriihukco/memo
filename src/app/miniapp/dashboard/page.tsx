@@ -1323,9 +1323,10 @@ export default function DashboardPage() {
   };
 
   const handleAddWidgetTap = () => {
-    // Only block if we know the tier AND the limit is actually reached
-    if (userTier === 'free' && usageCounts !== null && usageCounts.widgets >= 3) {
-      openPaywall('custom_widgets', usageCounts.widgets, 3, 'stars_basic');
+    // Count only AI widgets against the limit — preset widgets are always free
+    const aiWidgetCount = customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length;
+    if (userTier === 'free' && usageCounts !== null && aiWidgetCount >= 3) {
+      openPaywall('ai_widgets', aiWidgetCount, 3, 'stars_basic');
       return;
     }
     play('OPEN');
@@ -1338,13 +1339,18 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-[28px] font-bold leading-tight">Віджети</h1>
-          {/* Usage counter chip — shown when Free tier and usage ≥ 2 (67% of 3) */}
-          {userTier === 'free' && usageCounts !== null && usageCounts.widgets >= 2 && (
-            <UsageCounterChip
-              label={`${usageCounts.widgets} / 3`}
-              onClick={() => openPaywall('widgets', usageCounts.widgets, 3, 'stars_basic')}
-            />
-          )}
+          {/* Usage counter chip — shown when Free tier and AI widget usage ≥ 2 */}
+          {userTier === 'free' && (() => {
+            const aiCount = customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length;
+            return aiCount >= 2 ? (
+              <button
+                onClick={() => openPaywall('ai_widgets', aiCount, 3, 'stars_basic')}
+                className="flex items-center gap-1.5 rounded-full bg-amber-400/10 border border-amber-400/30 px-3 py-1 text-[12px] font-medium text-amber-300"
+              >
+                {3 - aiCount} AI-віджетів
+              </button>
+            ) : null;
+          })()}
         </div>
         <div className="flex items-center gap-2">
           {/* Date picker */}
@@ -1364,8 +1370,8 @@ export default function DashboardPage() {
             >
               <Icon name="add" size={20} />
             </button>
-            {/* Lock badge for Free tier when widget count >= 3 */}
-            {userTier === 'free' && (usageCounts?.widgets ?? 0) >= 3 && (
+            {/* Lock badge for Free tier when AI widget count >= 3 */}
+            {userTier === 'free' && customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length >= 3 && (
               <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center pointer-events-none">
                 <Icon name="lock" size={10} className="text-slate-900" />
               </div>

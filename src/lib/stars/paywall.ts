@@ -268,8 +268,9 @@ export interface TierInfo {
   description: string;
   icon: string;
   limits: {
-    entries: number;       // Infinity for unlimited
-    widgets: number;
+    entries: number;
+    ai_widgets: number;    // AI-generated custom widgets (limited)
+    widgets: number;       // total widgets shown (preset + ai) — kept for backward compat
     reports: number;
     historyDays: number;
   };
@@ -285,14 +286,16 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
     icon: "⭐",
     limits: {
       entries: 100,
+      ai_widgets: 3,
       widgets: 3,
       reports: 5,
       historyDays: 30,
     },
     features: [
       { label: "До 100 записів",                  included: true  },
-      { label: "3 кастомних AI-віджети",           included: true  },
-      { label: "5 ретроспектив на місяць",         included: true  },
+      { label: "3 AI-віджети",                     included: true  },
+      { label: "Необмежені preset-віджети",        included: true  },
+      { label: "5 ретроспектив",                   included: true  },
       { label: "Стрічка за 30 днів",               included: true  },
       { label: "Шифрування записів",               included: true  },
       { label: "Пін-код захист",                   included: true  },
@@ -301,9 +304,8 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
       { label: "Голосові повідомлення",             included: false },
       { label: "Трекінг цілей",                    included: false },
       { label: "Більше AI-віджетів (до 15)",       included: false },
+      { label: "Граф зв'язків",                    included: false },
       { label: "Повна історія",                    included: false },
-      { label: "Експорт даних",                    included: false },
-      { label: "Пріоритетна обробка",              included: false },
     ],
   },
   stars_basic: {
@@ -314,14 +316,16 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
     icon: "🌟",
     limits: {
       entries: 2000,
+      ai_widgets: 15,
       widgets: 15,
       reports: 50,
       historyDays: 365,
     },
     features: [
       { label: "До 2 000 записів",              included: true  },
-      { label: "15 кастомних AI-віджетів",      included: true  },
-      { label: "50 ретроспектив на місяць",     included: true  },
+      { label: "15 AI-віджетів",                included: true  },
+      { label: "Необмежені preset-віджети",     included: true  },
+      { label: "50 ретроспектив",               included: true  },
       { label: "Стрічка за 1 рік",              included: true  },
       { label: "Шифрування записів",            included: true  },
       { label: "Пін-код захист",                included: true  },
@@ -329,10 +333,9 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
       { label: "AI рекомендації",               included: true  },
       { label: "Голосові повідомлення",         included: true  },
       { label: "Трекінг цілей",                 included: true  },
-      { label: "Кастомні AI-віджети",           included: true  },
+      { label: "Граф зв'язків",                 included: true  },
       { label: "Повна історія",                 included: false },
       { label: "Експорт даних",                 included: false },
-      { label: "Пріоритетна обробка",           included: false },
     ],
   },
   stars_pro: {
@@ -343,25 +346,26 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
     icon: "💎",
     limits: {
       entries: Infinity,
+      ai_widgets: Infinity,
       widgets: Infinity,
       reports: Infinity,
       historyDays: Infinity,
     },
     features: [
-      { label: "До необмеженої кількості записів", included: true },
-      { label: "Необмежені віджети",               included: true },
-      { label: "Необмежені ретроспективи",         included: true },
-      { label: "Повна стрічка",                    included: true },
-      { label: "Шифрування записів",               included: true },
-      { label: "Пін-код захист",                   included: true },
-      { label: "AI ретроспективи",                 included: true },
-      { label: "AI рекомендації",                  included: true },
-      { label: "Голосові повідомлення",             included: true },
-      { label: "Трекінг цілей",                    included: true },
-      { label: "Кастомні віджети (AI)",             included: true },
-      { label: "Повна історія",                    included: true },
-      { label: "Експорт даних",                    included: true },
-      { label: "Пріоритетна обробка",              included: true },
+      { label: "Необмежені записи",             included: true },
+      { label: "Необмежені AI-віджети",         included: true },
+      { label: "Необмежені ретроспективи",      included: true },
+      { label: "Повна стрічка",                 included: true },
+      { label: "Шифрування записів",            included: true },
+      { label: "Пін-код захист",                included: true },
+      { label: "AI ретроспективи",              included: true },
+      { label: "AI рекомендації",               included: true },
+      { label: "Голосові повідомлення",         included: true },
+      { label: "Трекінг цілей",                 included: true },
+      { label: "Граф зв'язків",                 included: true },
+      { label: "Повна історія",                 included: true },
+      { label: "Експорт даних",                 included: true },
+      { label: "Пріоритетна обробка",           included: true },
     ],
   },
 };

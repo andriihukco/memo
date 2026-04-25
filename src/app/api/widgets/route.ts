@@ -34,17 +34,18 @@ export async function POST(req: Request): Promise<Response> {
   const tier = await getEffectiveTier(userId);
   const limits = TIER_INFO[tier].limits;
 
-  // Check custom_widgets feature gate — free tier gets 3 widgets
+  // Only AI-generated widgets count against the limit (preset/direct widgets are free)
   const settings = (profile.settings as Record<string, unknown>) ?? {};
-  const customWidgets = (settings.custom_widgets as unknown[]) ?? [];
-  const widgetCount = customWidgets.length;
+  const customWidgets = (settings.custom_widgets as Array<{ id: string; is_ai?: boolean }>) ?? [];
+  const aiWidgetCount = direct ? 0 : customWidgets.filter(w => w.is_ai !== false).length;
+  const aiLimit = limits.ai_widgets ?? limits.widgets;
 
-  if (limits.widgets !== Infinity && widgetCount >= limits.widgets) {
+  if (!direct && aiLimit !== Infinity && aiWidgetCount >= aiLimit) {
     return new Response(JSON.stringify({
       error: 'limit_exceeded',
-      feature: tier === 'free' ? 'custom_widgets' : 'widgets',
-      limit: limits.widgets,
-      current: widgetCount,
+      feature: 'ai_widgets',
+      limit: aiLimit,
+      current: aiWidgetCount,
       required_tier: tier === 'free' ? 'stars_basic' : 'stars_pro',
     }), { status: 402, headers: { 'Content-Type': 'application/json' } });
   }
@@ -52,9 +53,9 @@ export async function POST(req: Request): Promise<Response> {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-  // Direct widget creation — client provides full definition, skip AI
+  // Direct widget creation — client provides full definition, skip AI (preset widgets, no limit)
   if (direct && typeof direct === 'object' && direct.id) {
-    const widget = { ...direct, created_at: new Date().toISOString() };
+    const widget = { ...direct, is_ai: false, created_at: new Date().toISOString() };
     const filtered = (customWidgets as Array<{ id: string }>).filter((w: { id: string }) => w.id !== widget.id);
     filtered.push(widget as { id: string });
     await supabase.from('profiles').update({
@@ -111,7 +112,7 @@ Return ONLY valid JSON.`;
   // Save widget definition to user's profile settings
   // Avoid duplicates
   const filtered = (customWidgets as Array<{ id: string }>).filter(w => w.id !== widget.id);
-  filtered.push({ ...widget, created_at: new Date().toISOString() });
+  filtered.push({ ...widget, is_ai: true, created_at: new Date().toISOString() });
 
   await supabase.from('profiles').update({
     settings: { ...settings, custom_widgets: filtered },

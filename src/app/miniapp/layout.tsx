@@ -7,8 +7,8 @@ import { AuthProvider, useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
 import { SoundProvider } from '@/lib/sound/sound-context';
 import { useSound } from '@/lib/sound/use-sound';
-import { PasscodeScreen } from '@/components/ui/passcode-screen';
-import { getPasscodeHash, shouldLock, touchLastActive, removePasscode } from '@/lib/passcode';
+import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
+import { getPasscodeHash, setPasscodeHash, shouldLock, touchLastActive, removePasscode } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
 
 declare global {
@@ -150,7 +150,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       emoji: '🌟',
       name: 'Basic',
       price: '250 ⭐ / міс',
-      features: ['До 2 000 записів', 'AI ретроспективи', 'Трекінг цілей', '15 кастомних віджетів'],
+      features: ['До 2 000 записів', '15 AI-віджетів', 'AI ретроспективи', 'Граф зв\'язків'],
       recommended: true,
     },
     {
@@ -158,7 +158,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       emoji: '💎',
       name: 'Pro',
       price: '500 ⭐ / міс',
-      features: ['Необмежені записи', 'Пріоритетна обробка', 'Експорт даних', 'Вся аналітика'],
+      features: ['Необмежені записи', 'Необмежені AI-віджети', 'Повна історія', 'Експорт даних'],
       recommended: false,
     },
   ];
@@ -181,7 +181,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
           <span className="text-xl">⭐</span>
           <div className="flex-1">
             <p className="text-[14px] font-semibold text-white">Безкоштовний</p>
-            <p className="text-[12px] text-white/40">До 100 записів · 3 віджети · Базові функції</p>
+            <p className="text-[12px] text-white/40">До 100 записів · 3 AI-віджети · 5 ретроспектив</p>
           </div>
           <span className="text-[13px] text-white/40">Безкоштовно</span>
         </div>
@@ -255,11 +255,91 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
   );
 }
 
+// ── OnboardingPasscode ────────────────────────────────────────────────────────
+
+function OnboardingPasscode({ onDone, play }: { onDone: () => void; play: (s: string) => void }) {
+  const [visible, setVisible] = useState(false);
+  const [step, setStep] = useState<'ask' | 'set' | 'confirm'>('ask');
+  const [pendingPin, setPendingPin] = useState('');
+  const [mismatch, setMismatch] = useState(false);
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const skip = () => { play('CLOSE'); onDone(); };
+
+  const handleNewPin = (pin: string) => {
+    setPendingPin(pin);
+    setMismatch(false);
+    setStep('confirm');
+  };
+
+  const handleConfirm = async (pin: string) => {
+    if (pin !== pendingPin) {
+      setMismatch(true);
+      setTimeout(() => { setMismatch(false); setPendingPin(''); setStep('set'); }, 800);
+      return;
+    }
+    const hash = await createPinHash(pin);
+    setPasscodeHash(hash);
+    play('CELEBRATION');
+    onDone();
+  };
+
+  if (step === 'set') {
+    return (
+      <div className="fixed inset-0 z-[102]" style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)' }}>
+        <PasscodeScreen mode="set" title="Новий код" subtitle="Введіть 4-значний код" stepCurrent={1} stepTotal={2} onSuccess={handleNewPin} onCancel={skip} />
+      </div>
+    );
+  }
+  if (step === 'confirm') {
+    return (
+      <div className="fixed inset-0 z-[102]" style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)' }}>
+        <PasscodeScreen mode="confirm" title="Підтвердіть код" subtitle="Введіть код ще раз" stepCurrent={2} stepTotal={2} mismatch={mismatch} onSuccess={handleConfirm} onCancel={skip} />
+      </div>
+    );
+  }
+
+  // 'ask' step
+  return (
+    <div
+      className="fixed inset-0 z-[102] flex flex-col items-center justify-center bg-gradient-to-b from-emerald-950 to-slate-950 px-6"
+      style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)' }}
+    >
+      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-400/15 text-5xl">
+        🔐
+      </div>
+      <h2 className="mb-2 text-[24px] font-bold text-white text-center">Захисти Memo</h2>
+      <p className="mb-8 text-[15px] text-white/60 text-center max-w-xs leading-relaxed">
+        Встанови 4-значний пін-код, щоб ніхто не міг переглянути твої записи
+      </p>
+      <div className="w-full max-w-xs flex flex-col gap-3">
+        <button
+          onClick={() => { play('OPEN'); setStep('set'); }}
+          className="w-full rounded-2xl bg-emerald-400 py-4 text-[16px] font-semibold text-slate-950 active:scale-95 transition-all"
+        >
+          Встановити код →
+        </button>
+        <button
+          onClick={skip}
+          className="w-full py-3 text-[14px] text-white/40 active:text-white/60"
+        >
+          Пропустити
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── OnboardingOverlay ─────────────────────────────────────────────────────────
 
 function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [showPasscode, setShowPasscode] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const startX = useRef(0);
   const startY = useRef(0);
@@ -274,18 +354,17 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
     setTimeout(onDone, 350);
   };
 
-  const openPaywall = () => {
-    setShowPaywall(true);
-  };
+  // Flow: slides → passcode → paywall → done
+  const openPasscode = () => setShowPasscode(true);
+  const openPaywall = () => { setShowPasscode(false); setShowPaywall(true); };
 
   const goNext = () => {
     if (index < SLIDES.length - 1) {
       play('SLIDE');
       setIndex(i => i + 1);
     } else {
-      // Final slide CTA → show paywall instead of finishing directly
       play('OPEN');
-      openPaywall();
+      openPasscode();
     }
   };
   const goPrev = () => {
@@ -333,7 +412,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
       >
         {/* Skip */}
         <button
-          onClick={() => { play('CLOSE'); openPaywall(); }}
+          onClick={() => { play('CLOSE'); openPasscode(); }}
           className="absolute right-5 top-5 text-sm text-white/40 active:text-white/70 min-h-[44px] flex items-center"
         >
           Пропустити
@@ -382,6 +461,11 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
           )}
         </div>
       </div>
+
+      {/* Passcode setup — shown after slides, before paywall */}
+      {showPasscode && (
+        <OnboardingPasscode onDone={openPaywall} play={play} />
+      )}
 
       {/* Paywall overlay — rendered on top of the onboarding slide */}
       {showPaywall && (
