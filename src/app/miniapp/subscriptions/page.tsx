@@ -70,7 +70,7 @@ function UsageSection({ accessToken, currentTier }: { accessToken: string | null
 
   const rows = [
     { label: 'Записи', icon: '📝', current: counts?.entries ?? 0, limit: limits.entries },
-    { label: 'Віджети', icon: '📊', current: counts?.widgets ?? 0, limit: limits.widgets },
+    { label: 'AI-віджети', icon: '📊', current: counts?.widgets ?? 0, limit: limits.ai_widgets },
     { label: 'Звіти', icon: '💡', current: counts?.reports ?? 0, limit: limits.reports },
   ];
 
