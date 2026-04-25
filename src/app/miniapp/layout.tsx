@@ -519,7 +519,12 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
         if (!didInit.current) {
           didInit.current = true;
-          if (shouldLock()) setLocked(true);
+          // Use sessionStorage so lock check only fires once per browser session,
+          // not on every navigation that causes layout remount
+          if (!sessionStorage.getItem('memo_session_init')) {
+            sessionStorage.setItem('memo_session_init', '1');
+            if (shouldLock()) setLocked(true);
+          }
           if (!localStorage.getItem('memo_onboarding_done')) {
             setShowOnboarding(true);
           }

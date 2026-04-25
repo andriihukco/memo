@@ -124,8 +124,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
         </div>
         <Card
           className={cn(
-            'relative select-none',
-            entryType === 'goal' ? 'border-l-4 border-amber-400' : 'border-l-4 border-primary/40',
+            'relative select-none bg-card/60 border-border/30',
             isSelected && 'border-destructive bg-destructive/5',
             Math.abs(offsetX) >= SWIPE_COMMIT && 'opacity-50',
           )}
@@ -134,7 +133,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
           onMouseDown={onMD} onMouseMove={onMM} onMouseUp={onMU} onMouseLeave={onML}
           onContextMenu={onCM} onClick={onClick}
         >
-          <div className="p-4">
+          <div className="px-4 py-3.5">
             {isSelectMode && (
               <div className="absolute left-3 top-3 z-10">
                 <div className={cn('flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors', isSelected ? 'border-destructive bg-destructive' : 'border-muted-foreground/30 bg-background')}>
@@ -142,7 +141,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
                 </div>
               </div>
             )}
-            <div className={cn('mb-2 flex flex-wrap items-center gap-1.5', isSelectMode && 'pl-7')}>
+            <div className={cn('mb-1.5 flex flex-wrap items-center gap-1.5', isSelectMode && 'pl-7')}>
               {entryType === 'goal' && (
                 <span className="rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-[10px] px-2 py-0.5">
                   Ціль
@@ -158,13 +157,12 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
                   {getCategoryLabel(cat, entry.category_label)}
                 </Badge>
               ))}
-              <time className="ml-auto shrink-0 text-xs text-muted-foreground">{formatDate(entry.created_at)}</time>
+              <time className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">{formatTime(entry.created_at)}</time>
             </div>
             <EntryContent content={entry.content} className={cn(isSelectMode && 'pl-7')} />
             {entryType === 'goal' && (() => {
               const goalMetric = (entry.metadata?.goal_metrics as Array<{target: number; unit: string; key: string}> | undefined)?.[0];
               if (!goalMetric) return null;
-              // Free tier: show locked state instead of real progress bar
               if (userTier === 'free') {
                 return (
                   <div className="mt-2 flex flex-col gap-1">
@@ -178,7 +176,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
                   </div>
                 );
               }
-              const current = 0; // No aggregation available in feed — show 0 for now
+              const current = 0;
               const target = goalMetric.target;
               const unit = goalMetric.unit;
               const pct = target > 0 ? Math.min(Math.round((current / target) * 100), 100) : 0;
@@ -194,12 +192,9 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
               );
             })()}
             {entry.bot_reply && (
-              <div className="mt-3 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2.5">
-                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                  <Icon name="smart_toy" size={10} className="text-primary" />
-                </div>
-                <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
-              </div>
+              <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground/60 italic line-clamp-2">
+                {entry.bot_reply}
+              </p>
             )}
           </div>
         </Card>
@@ -273,7 +268,7 @@ function groupByThread(entries: Entry[]): (Entry | ThreadGroup)[] {
   return result;
 }
 
-// ── ThreadCard — Reddit-style ─────────────────────────────────────────────────
+// ── ThreadCard — minimal iOS-style ───────────────────────────────────────────
 
 function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSelect, onUpdate, onDelete, accessToken }: {
   group: ThreadGroup; isSelectMode: boolean; selectedIds: Set<string>;
@@ -283,141 +278,99 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
   accessToken?: string | null;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const PREVIEW = 3;
+  const PREVIEW = 2;
   const entries = group.entries;
   const visible = showAll ? entries : entries.slice(0, PREVIEW);
   const hidden = entries.length - PREVIEW;
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const prevShowAll = useRef(showAll);
   const { play } = useSound();
 
-  useEffect(() => {
-    if (prevShowAll.current !== showAll && contentRef.current) {
-      const el = contentRef.current;
-      // Animate from current height to new height
-      const from = el.scrollHeight;
-      el.style.height = `${from}px`;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          el.style.height = 'auto';
-          const to = el.scrollHeight;
-          el.style.height = `${from}px`;
-          requestAnimationFrame(() => {
-            el.style.transition = 'height 0.25s ease';
-            el.style.height = `${to}px`;
-            const cleanup = () => {
-              el.style.height = 'auto';
-              el.style.transition = '';
-            };
-            el.addEventListener('transitionend', cleanup, { once: true });
-          });
-        });
-      });
-    }
-    prevShowAll.current = showAll;
-  }, [showAll]);
+  // Category badge from first entry
+  const firstCat = entries[0]?.category ?? '';
 
   return (
     <>
-      <Card className="overflow-hidden">
-        {/* Thread header */}
-        <button
-          className="flex w-full items-center gap-2 border-b border-border/50 bg-surface-elevated/50 px-4 py-2.5 transition-colors active:bg-muted/20"
-          onClick={() => entries.length > PREVIEW && setShowAll(v => !v)}
-        >
-          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
-            <Icon name="chat_bubble" size={11} className="text-primary" />
-          </div>
-          <span className="text-xs font-medium text-muted-foreground">
-            Розмова · {entries.length} повідомлень
+      <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden">
+        {/* Thread meta row */}
+        <div className="flex items-center gap-2 px-3 pt-3 pb-2">
+          <span className="text-[11px] text-muted-foreground/60">
+            {entries.length} повідомлень
           </span>
-          <Badge className={cn('ml-auto border text-[10px]', getCategoryColor(entries[0]?.category ?? ''))} variant="outline">
-            {getCategoryLabel(entries[0]?.category ?? '', entries[0]?.category_label)}
-          </Badge>
-          {entries.length > PREVIEW && (
-            <Icon
-              name="expand_more"
-              size={14}
-              className={cn('ml-1 shrink-0 text-muted-foreground transition-transform duration-200', showAll && 'rotate-180')}
-            />
-          )}
-        </button>
+          <span className="ml-auto">
+            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-medium', getCategoryColor(firstCat))}>
+              {getCategoryLabel(firstCat, entries[0]?.category_label)}
+            </span>
+          </span>
+        </div>
 
         {/* Messages */}
-        <div ref={contentRef} style={{ overflow: 'hidden' }}>
-          <div className="divide-y">
-            {visible.map((entry, i) => {
-              const isUser = !entry.reply_to_entry_id || i === 0;
-              const isSelected = selectedIds.has(entry.id);
-              return (
-                <div
-                  key={entry.id}
-                  className={cn(
-                    'flex gap-3 px-4 py-3 cursor-pointer transition-colors active:bg-muted/30',
-                    isSelected && 'bg-destructive/5',
-                    !isUser && 'bg-muted/20',
-                    isUser && !isSelectMode && 'hover:bg-muted/10',
-                  )}
-                  onClick={() => {
-                    if (isSelectMode) { onToggleSelect(entry.id); return; }
-                    if (isUser) setEditEntry(entry);
-                  }}
-                  onContextMenu={(e) => { e.preventDefault(); onLongPress(entry.id); }}
-                >
-                  {/* Avatar */}
+        <div className="flex flex-col divide-y divide-border/20">
+          {visible.map((entry) => {
+            const isUser = !entry.reply_to_entry_id;
+            const isSelected = selectedIds.has(entry.id);
+            return (
+              <div
+                key={entry.id}
+                className={cn(
+                  'px-3 py-2.5 cursor-pointer transition-colors active:bg-muted/20',
+                  isSelected && 'bg-destructive/5',
+                  !isUser && 'bg-muted/10',
+                )}
+                onClick={() => {
+                  if (isSelectMode) { onToggleSelect(entry.id); return; }
+                  if (isUser) setEditEntry(entry);
+                }}
+                onContextMenu={(e) => { e.preventDefault(); onLongPress(entry.id); }}
+              >
+                <div className="flex items-start gap-2.5">
+                  {/* Avatar dot */}
                   <div className={cn(
-                    'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                    isUser ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
+                    'mt-1 h-5 w-5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold',
+                    isUser ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
                   )}>
-                    {isUser ? 'Я' : <Icon name="smart_toy" size={14} />}
+                    {isUser ? 'Я' : <Icon name="smart_toy" size={11} />}
                   </div>
-
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <div className="mb-0.5 flex items-center gap-2">
-                      <span className="text-xs font-medium">{isUser ? 'Ти' : 'Memo'}</span>
-                      <time className="text-[10px] text-muted-foreground">{formatTime(entry.created_at)}</time>
-                      {isSelectMode && (
-                        <div className={cn('ml-auto flex h-4 w-4 items-center justify-center rounded-full border-2', isSelected ? 'border-destructive bg-destructive' : 'border-muted-foreground/30')}>
-                          {isSelected && <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 6 5 9 10 3" /></svg>}
-                        </div>
-                      )}
+                    <div className="flex items-baseline gap-1.5 mb-0.5">
+                      <span className="text-[11px] font-medium text-muted-foreground">{isUser ? 'Ти' : 'Memo'}</span>
+                      <time className="text-[10px] text-muted-foreground/50">{formatTime(entry.created_at)}</time>
                     </div>
-                    <p className="text-sm leading-relaxed text-foreground">{entry.content}</p>
+                    <p className="text-[14px] leading-snug text-foreground/90">{entry.content}</p>
                     {isUser && entry.bot_reply && (
-                      <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-surface-elevated/80 border border-border/30 px-3 py-2">
-                        <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/10">
-                          <Icon name="smart_toy" size={10} className="text-primary" />
-                        </div>
-                        <p className="text-xs leading-relaxed text-muted-foreground line-clamp-2">{entry.bot_reply}</p>
-                      </div>
+                      <p className="mt-1 text-[12px] leading-relaxed text-muted-foreground/70 line-clamp-1 italic">
+                        {entry.bot_reply}
+                      </p>
                     )}
                   </div>
+                  {isSelectMode && (
+                    <div className={cn('mt-1 h-4 w-4 shrink-0 rounded-full border-2', isSelected ? 'border-destructive bg-destructive' : 'border-muted-foreground/30')}>
+                      {isSelected && <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="2 6 5 9 10 3" /></svg>}
+                    </div>
+                  )}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Show more / collapse */}
-          {hidden > 0 && !showAll && (
-            <button
-              onClick={() => { play('OPEN'); setShowAll(true); }}
-              className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/5 transition-all duration-200 active:bg-primary/10"
-            >
-              ↓ Ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'}
-            </button>
-          )}
-          {showAll && entries.length > PREVIEW && (
-            <button
-              onClick={() => { play('CLOSE'); setShowAll(false); }}
-              className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-all duration-200"
-            >
-              ↑ Згорнути
-            </button>
-          )}
+              </div>
+            );
+          })}
         </div>
-      </Card>
+
+        {/* Expand / collapse */}
+        {hidden > 0 && !showAll && (
+          <button
+            onClick={() => { play('OPEN'); setShowAll(true); }}
+            className="w-full py-2 text-[12px] text-primary/70 border-t border-border/20 active:bg-muted/10"
+          >
+            Ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'} ↓
+          </button>
+        )}
+        {showAll && entries.length > PREVIEW && (
+          <button
+            onClick={() => { play('CLOSE'); setShowAll(false); }}
+            className="w-full py-2 text-[12px] text-muted-foreground border-t border-border/20 active:bg-muted/10"
+          >
+            Згорнути ↑
+          </button>
+        )}
+      </div>
 
       {editEntry && (
         <EditDrawer
@@ -631,19 +584,23 @@ export default function FeedPage() {
             onCta={() => setSelectedCategory(null)}
           />
         ) : (
-          <EmptyState
-            icon="contract"
-            title="Стрічка порожня"
-            subtitle="Надішли повідомлення боту, щоб почати"
-          />
+          <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+            <span className="text-6xl">📓</span>
+            <p className="text-[17px] font-semibold text-muted-foreground">Стрічка порожня</p>
+            <p className="text-[14px] text-muted-foreground/60">Надішли повідомлення боту, щоб почати</p>
+          </div>
         )
       )}
       {status === 'ready' && entries.length > 0 && (
         <div className="flex flex-col gap-3 pb-4">
           {groupByDate(groupByThread(entries)).map((group) => (
             <div key={group.dateKey}>
-              {/* Date header — no dot, no spine */}
-              <div className="mb-3 px-1">
+              {/* Date header */}
+              <div className="mb-2 px-1">
+                <span className="text-[11px] font-medium text-muted-foreground/50 uppercase tracking-widest">
+                  {group.dateLabel}
+                </span>
+              </div> <div className="mb-3 px-1">
                 <span className="text-xs font-semibold text-foreground/50 uppercase tracking-widest">
                   {group.dateLabel}
                 </span>
