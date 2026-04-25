@@ -528,7 +528,6 @@ function MetricEditSheet({ metric, sourceEntries, onSave, onDelete, onClose }: {
   const [value, setValue] = useState(String(metric.value));
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { bg, text } = metricColor(metric.key);
 
@@ -552,12 +551,10 @@ function MetricEditSheet({ metric, sourceEntries, onSave, onDelete, onClose }: {
   };
 
   const handleDelete = async () => {
-    setDeleting(true);
     try {
       await onDelete(sourceEntries.map(e => e.id));
       onClose();
     } finally {
-      setDeleting(false);
     }
   };
 
