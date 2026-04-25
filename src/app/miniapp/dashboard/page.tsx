@@ -1197,7 +1197,7 @@ export default function DashboardPage() {
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
 
   // ── Usage counts ───────────────────────────────────────────────────────────
-  const { counts: usageCounts } = useUsageCounts(accessToken);
+  useUsageCounts(accessToken);
 
   const { play } = useSound();
 
