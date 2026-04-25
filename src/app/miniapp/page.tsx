@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,57 +30,6 @@ function formatDate(iso: string) {
 }
 
 // ── UserAvatar ────────────────────────────────────────────────────────────────
-
-function UserAvatar({ size = 36 }: { size?: number }) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [initials, setInitials] = useState('?');
-
-  useEffect(() => {
-    const tg = window.Telegram?.WebApp as unknown as {
-      initDataUnsafe?: { user?: { first_name?: string; last_name?: string; photo_url?: string } };
-    } | undefined;
-    const user = tg?.initDataUnsafe?.user;
-    if (user?.photo_url) setPhotoUrl(user.photo_url);
-    if (user?.first_name) {
-      const f = user.first_name[0] ?? '';
-      const l = user.last_name?.[0] ?? '';
-      setInitials((f + l).toUpperCase() || '?');
-    }
-  }, []);
-
-  if (photoUrl) {
-    return (
-      <img
-        src={photoUrl}
-        alt="Avatar"
-        width={size}
-        height={size}
-        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-      />
-    );
-  }
-
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, #4797FF 0%, #335B7E 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        fontSize: size * 0.38,
-        fontWeight: 600,
-        color: '#fff',
-        fontFamily: "'Mulish', sans-serif",
-      }}
-    >
-      {initials}
-    </div>
-  );
-}
 
 // ── DeleteConfirmDialog ───────────────────────────────────────────────────────
 
