@@ -46,9 +46,19 @@ const PERIOD_LABELS: Record<string, string> = {
   daily: 'Сьогодні', weekly: '7 днів', monthly: 'Місяць', custom: 'Звіт',
 };
 
-const PERIOD_ICONS: Record<string, string> = {
-  daily: '☀️', weekly: '📅', monthly: '🗓️', custom: '📌',
-};
+// ── Strip AI-generated section header from content ───────────────────────────
+// The AI sometimes starts section text with "✅ ЩО ПРОЙШЛО ДОБРЕ?" — strip it
+
+function stripSectionHeader(text: string): string {
+  // Remove first line if it looks like a heading (emoji + caps, or # heading, or all-caps short line)
+  const lines = text.split('\n');
+  const first = lines[0].trim();
+  // Matches: emoji at start, or all-caps line under 60 chars, or markdown heading
+  if (/^[#\s]*[^\w\s\u0400-\u04FF]/.test(first) || /^#{1,3}\s/.test(first) || (first === first.toUpperCase() && first.length < 60 && first.length > 3)) {
+    return lines.slice(1).join('\n').trimStart();
+  }
+  return text;
+}
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
 // Handles: **bold**, *italic*, bullet lists (* item), numbered lists, blank lines
@@ -267,11 +277,9 @@ function ReportDetail({ report, onClose }: {
 
   const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
   const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
-  const periodIcon = PERIOD_ICONS[report.period_type] ?? '📌';
 
   const hasRetroSections = !!(report.went_well || report.didnt_go_well || report.start_stop_continue || report.experiment || report.lesson);
   const filledSections = RETRO_SECTIONS.filter(s => !!report[s.key]);
-  const filledCount = filledSections.length;
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col" style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px))' }}>
@@ -284,20 +292,9 @@ function ReportDetail({ report, onClose }: {
           <Icon name="arrow_back" size={20} />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-lg leading-none">{periodIcon}</span>
-            <p className="text-[17px] font-semibold truncate">{PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}</p>
-          </div>
+          <p className="text-[17px] font-semibold truncate">{PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}</p>
           <p className="text-[12px] text-muted-foreground">{from} — {to}</p>
         </div>
-        {/* Section count badge */}
-        {filledCount > 0 && (
-          <div className="flex gap-1 shrink-0">
-            {filledSections.map(s => (
-              <span key={s.key} className="text-base leading-none">{s.emoji}</span>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Scrollable content */}
@@ -330,12 +327,11 @@ function ReportDetail({ report, onClose }: {
                   className="rounded-2xl px-4 py-4"
                   style={{ background: s.bg, border: `1px solid ${s.border}` }}
                 >
-                  {/* Section header */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl leading-none">{s.emoji}</span>
-                    <p className="text-[12px] font-bold uppercase tracking-widest" style={{ color: s.accent }}>{s.label}</p>
+                  {/* Section header — label only, no emoji */}
+                  <div className="mb-3">
+                    <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: s.accent }}>{s.label}</p>
                   </div>
-                  <MarkdownText text={text} />
+                  <MarkdownText text={stripSectionHeader(text)} />
                 </motion.div>
               );
             })}
@@ -375,35 +371,19 @@ function ReportRow({ report, onTap }: {
 
   const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
   const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
-  const periodIcon = PERIOD_ICONS[report.period_type] ?? '📌';
-  const filledSections = RETRO_SECTIONS.filter(s => !!report[s.key]);
 
   return (
     <div
       className="flex items-center gap-3 px-4 py-4 cursor-pointer active:bg-muted/20 transition-colors"
       onClick={() => { play('OPEN'); onTap(); }}
     >
-      {/* Period icon */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-xl" style={{ background: 'rgba(71,151,255,0.1)', border: '1px solid rgba(71,151,255,0.15)' }}>
-        {periodIcon}
-      </div>
-
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5">
           <span className="text-[15px] font-semibold">{PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}</span>
           <span className="text-[12px] text-muted-foreground/60">{from} — {to}</span>
         </div>
         <p className="text-[13px] text-muted-foreground line-clamp-1 leading-snug">{report.summary.replace(/\*\*/g, '').replace(/\*/g, '')}</p>
-        {/* Section dots */}
-        {filledSections.length > 0 && (
-          <div className="flex gap-1 mt-1.5">
-            {filledSections.map(s => (
-              <div key={s.key} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.accent }} />
-            ))}
-          </div>
-        )}
       </div>
-
       <Icon name="chevron_right" size={16} className="text-muted-foreground/40 shrink-0" />
     </div>
   );
