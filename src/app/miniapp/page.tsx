@@ -30,6 +30,59 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleString('uk-UA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+// ── UserAvatar ────────────────────────────────────────────────────────────────
+
+function UserAvatar({ size = 36 }: { size?: number }) {
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [initials, setInitials] = useState('?');
+
+  useEffect(() => {
+    const tg = window.Telegram?.WebApp as unknown as {
+      initDataUnsafe?: { user?: { first_name?: string; last_name?: string; photo_url?: string } };
+    } | undefined;
+    const user = tg?.initDataUnsafe?.user;
+    if (user?.photo_url) setPhotoUrl(user.photo_url);
+    if (user?.first_name) {
+      const f = user.first_name[0] ?? '';
+      const l = user.last_name?.[0] ?? '';
+      setInitials((f + l).toUpperCase() || '?');
+    }
+  }, []);
+
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt="Avatar"
+        width={size}
+        height={size}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background: 'linear-gradient(135deg, #4797FF 0%, #335B7E 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        fontSize: size * 0.38,
+        fontWeight: 600,
+        color: '#fff',
+        fontFamily: "'Mulish', sans-serif",
+      }}
+    >
+      {initials}
+    </div>
+  );
+}
+
 // ── DeleteConfirmDialog ───────────────────────────────────────────────────────
 
 function DeleteConfirmDialog({ count, onConfirm, onCancel }: { count: number; onConfirm: () => void; onCancel: () => void }) {
@@ -505,10 +558,8 @@ export default function FeedPage() {
       ) : (
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold">Стрічка</h1>
-          <Link href="/miniapp/settings">
-            <button className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors active:bg-muted/30" aria-label="Налаштування" onClick={() => play('BUTTON')}>
-              <Icon name="settings" size={22} aria-label="Налаштування" />
-            </button>
+          <Link href="/miniapp/settings" onClick={() => play('BUTTON')}>
+            <UserAvatar size={36} />
           </Link>
         </div>
       )}
@@ -540,61 +591,46 @@ export default function FeedPage() {
       {status === 'ready' && entries.length > 0 && (
         <div className="flex flex-col gap-3 pb-4">
           {groupByDate(groupByThread(entries)).map((group) => (
-            <div key={group.dateKey} className="relative">
-              {/* Date header with timeline dot */}
-              <div className="flex items-center gap-3 mb-3 pl-1">
-                <div className="h-3 w-3 rounded-full bg-primary flex-shrink-0" style={{ boxShadow: '0 0 0 3px rgba(71,151,255,0.2)' }} />
-                <span className="text-xs font-semibold text-foreground/70 uppercase tracking-widest">
+            <div key={group.dateKey}>
+              {/* Date header — no dot, no spine */}
+              <div className="mb-3 px-1">
+                <span className="text-xs font-semibold text-foreground/50 uppercase tracking-widest">
                   {group.dateLabel}
                 </span>
               </div>
 
-              {/* Timeline spine + entries */}
-              <div className="relative pl-6">
-                {/* Vertical spine line — starts below the dot, runs full height of group */}
-                <div
-                  className="absolute top-0 bottom-0"
-                  style={{ left: 5, width: 2, background: 'linear-gradient(180deg, #4797FF55 0%, #335B7E33 100%)', borderRadius: 1 }}
-                  aria-hidden="true"
-                />
-                <div className="flex flex-col gap-3">
-                  {group.items.map((item) => {
-                    if ('threadId' in item) {
-                      return (
-                        <div key={item.threadId} className="relative">
-                          {/* Node dot on spine */}
-                          <div className="absolute top-4 h-2 w-2 rounded-full bg-primary/50" style={{ left: -16 }} />
-                          <ThreadCard
-                            group={item}
-                            isSelectMode={isSelectMode}
-                            selectedIds={selectedIds}
-                            onLongPress={handleLongPress}
-                            onToggleSelect={handleToggleSelect}
-                            onUpdate={handleUpdate}
-                            onDelete={handleDeleteSingle}
-                            accessToken={accessToken}
-                          />
-                        </div>
-                      );
-                    }
+              {/* Entries */}
+              <div className="flex flex-col gap-3">
+                {group.items.map((item) => {
+                  if ('threadId' in item) {
                     return (
-                      <div key={item.id} className="relative">
-                        {/* Node dot on spine */}
-                        <div className="absolute top-4 h-2 w-2 rounded-full bg-primary/50" style={{ left: -16 }} />
-                        <SwipeableCard
-                          entry={item}
-                          isSelectMode={isSelectMode}
-                          isSelected={selectedIds.has(item.id)}
-                          onLongPress={() => handleLongPress(item.id)}
-                          onToggleSelect={() => handleToggleSelect(item.id)}
-                          onSwipeDelete={() => { play('OPEN'); setPendingDeleteIds([item.id]); }}
-                          onUpdate={handleUpdate}
-                          accessToken={accessToken}
-                        />
-                      </div>
+                      <ThreadCard
+                        key={item.threadId}
+                        group={item}
+                        isSelectMode={isSelectMode}
+                        selectedIds={selectedIds}
+                        onLongPress={handleLongPress}
+                        onToggleSelect={handleToggleSelect}
+                        onUpdate={handleUpdate}
+                        onDelete={handleDeleteSingle}
+                        accessToken={accessToken}
+                      />
                     );
-                  })}
-                </div>
+                  }
+                  return (
+                    <SwipeableCard
+                      key={item.id}
+                      entry={item}
+                      isSelectMode={isSelectMode}
+                      isSelected={selectedIds.has(item.id)}
+                      onLongPress={() => handleLongPress(item.id)}
+                      onToggleSelect={() => handleToggleSelect(item.id)}
+                      onSwipeDelete={() => { play('OPEN'); setPendingDeleteIds([item.id]); }}
+                      onUpdate={handleUpdate}
+                      accessToken={accessToken}
+                    />
+                  );
+                })}
               </div>
             </div>
           ))}

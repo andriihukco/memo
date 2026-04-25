@@ -185,21 +185,19 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
       aria-label="Головна навігація"
       style={{
         position: 'fixed',
-        bottom: bottomInset + 12,
+        bottom: bottomInset + 10,
         left: '50%',
         transform: 'translateX(-50%)',
-        borderRadius: 96,
+        borderRadius: 48,
         background: '#1F2234',
-        width: 'min(calc(100vw - 32px), 456px)',
-        minWidth: 'min(calc(100vw - 32px), 400px)',
-        height: 100,
+        width: 'min(calc(100vw - 24px), 340px)',
+        height: 64,
         zIndex: 50,
         display: 'flex',
         flexDirection: 'row',
-        justifyContent: 'center',
+        justifyContent: 'space-around',
         alignItems: 'center',
-        padding: '16px 32px',
-        gap: 32,
+        padding: '0 16px',
         boxSizing: 'border-box',
       }}
     >
@@ -216,26 +214,25 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
               flexDirection: 'column',
               justifyContent: 'center',
               alignItems: 'center',
-              gap: 4,
+              gap: 2,
               minWidth: 44,
-              minHeight: 68,
+              minHeight: 44,
               textDecoration: 'none',
-              flex: 'none',
+              flex: 1,
             }}
           >
             <Icon
               name={icon}
-              size={40}
+              size={24}
               filled={isActive}
               style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
             />
             <span
               style={{
                 fontFamily: "'Mulish', sans-serif",
-                fontStyle: 'normal',
                 fontWeight: 500,
-                fontSize: 20,
-                lineHeight: '24px',
+                fontSize: 11,
+                lineHeight: '14px',
                 textAlign: 'center',
                 color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR,
                 whiteSpace: 'nowrap',
@@ -263,8 +260,8 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const didInit = useRef(false);
 
-  // Pill tab bar height: 100px tall + 12px bottom offset + bottomInset
-  const tabBarH = 100 + 12 + bottomInset;
+  // Pill tab bar height: 64px tall + 10px bottom offset + bottomInset
+  const tabBarH = 64 + 10 + bottomInset;
 
   useEffect(() => {
     async function init() {
