@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import type { ClassificationResult } from "@/lib/classifier";
+import { deriveUserKey, decryptField } from "@/lib/crypto";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -142,11 +143,24 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
         return;
       }
 
+      // Decrypt entry content for preview
+      let cryptoKey: CryptoKey | null = null;
+      try { cryptoKey = await deriveUserKey(profile.telegram_id.toString()); } catch { /* fallback */ }
+
+      const decryptedEntries = await Promise.all(
+        (toDelete ?? []).map(async (e: { id: string; content: string; created_at: string }) => {
+          let content = e.content;
+          if (cryptoKey) {
+            try { content = await decryptField(content, cryptoKey); } catch { /* use as-is */ }
+          }
+          return { ...e, content };
+        })
+      );
+
       // Show a preview of what will be deleted
-      const preview = (toDelete ?? [])
+      const preview = decryptedEntries
         .slice(0, 3)
-        .map((e: { content: string; created_at: string }) =>
-          `• ${e.content.slice(0, 60)}${e.content.length > 60 ? "…" : ""}`)
+        .map((e) => `• ${e.content.slice(0, 60)}${e.content.length > 60 ? "…" : ""}`)
         .join("\n");
 
       const pendingKey = `del_${Date.now()}`;

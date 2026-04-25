@@ -1,6 +1,8 @@
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 import { createClient } from "@supabase/supabase-js";
+import { deriveUserKey, decryptField } from "@/lib/crypto";
+import { env } from "@/lib/env";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -76,18 +78,33 @@ export async function GET(req: Request): Promise<Response> {
     });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.SUPABASE_URL ?? env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+  if (!supabaseUrl || !serviceKey) {
     return new Response(JSON.stringify({ error: "Server misconfiguration" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  // Use service role to fetch entries, then verify user via anon client
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY ?? "";
+  const anonClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
+    auth: { persistSession: false },
+  });
+
+  // Get the authenticated user's ID
+  const { data: { user }, error: authError } = await anonClient.auth.getUser();
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
 
@@ -95,6 +112,7 @@ export async function GET(req: Request): Promise<Response> {
   const { data: entriesData, error: entriesError } = await supabase
     .from("entries")
     .select("id, content, category, created_at, branch_id, embedding, embedding_status")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
   if (entriesError) {
@@ -108,7 +126,8 @@ export async function GET(req: Request): Promise<Response> {
   // Fetch insights for branch-based edges
   const { data: insightsData, error: insightsError } = await supabase
     .from("insights")
-    .select("entry_id, branch_id");
+    .select("entry_id, branch_id")
+    .eq("user_id", user.id);
 
   if (insightsError) {
     console.error("[api/graph] insights query error:", insightsError.message);
@@ -120,6 +139,22 @@ export async function GET(req: Request): Promise<Response> {
 
   const entries = (entriesData ?? []) as EntryRow[];
   const insights = (insightsData ?? []) as InsightRow[];
+
+  // Decrypt entry content using per-user key derived from telegram_id
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("telegram_id")
+    .eq("id", user.id)
+    .single();
+
+  if (profileData?.telegram_id) {
+    try {
+      const cryptoKey = await deriveUserKey(String(profileData.telegram_id));
+      await Promise.all(entries.map(async (e) => {
+        try { e.content = await decryptField(e.content, cryptoKey); } catch { /* use as-is */ }
+      }));
+    } catch { /* fallback: use as-is */ }
+  }
 
   // ── Build edges ───────────────────────────────────────────────────────────
 

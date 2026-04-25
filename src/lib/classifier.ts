@@ -366,9 +366,12 @@ async function attempt<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
   throw lastErr;
 }
 
-export async function classify(text: string): Promise<ClassificationResult> {
+export async function classify(text: string, threadContext?: string): Promise<ClassificationResult> {
   try {
-    return await attempt(() => classifyText(text));
+    const input = threadContext
+      ? `${text}\n\n[Conversation context for understanding short replies:\n${threadContext}]`
+      : text;
+    return await attempt(() => classifyText(input));
   } catch (err) {
     throw new ClassificationError("Classification failed", err);
   }

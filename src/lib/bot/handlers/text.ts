@@ -161,15 +161,22 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   const replyToMsgId = ctx.message?.reply_to_message?.message_id;
   const supabase = getServiceClient();
 
-  const [userCtx, threadResolution, classifyResult] = await Promise.all([
+  // Resolve thread first so we can pass context to classifier (same as voice handler)
+  const [userCtx, threadResolution] = await Promise.all([
     loadUserContext(profile.id),
     resolveThread(supabase, profile.id, replyToMsgId),
-    // Classify without thread context first — we'll re-use it below
-    classify(text).catch((err) => {
-      if (err instanceof ClassificationError) return err;
-      throw err;
-    }),
   ]);
+
+  // Load thread context for classifier (short replies like "2 ложки" need context)
+  let classifierThreadCtx: string | undefined;
+  if (threadResolution.threadId) {
+    classifierThreadCtx = await loadThreadContext(supabase, threadResolution.threadId, profile.id);
+  }
+
+  const classifyResult = await classify(text, classifierThreadCtx).catch((err) => {
+    if (err instanceof ClassificationError) return err;
+    throw err;
+  });
 
   if (classifyResult instanceof ClassificationError) {
     console.error("[text handler] ClassificationError:", classifyResult.message, classifyResult.cause);
@@ -288,14 +295,25 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
     ? await loadThreadContext(supabase, resolvedThreadId, profile.id, savedIds[0])
     : undefined;
 
+  // Build a summary of what was saved so the bot can confirm it explicitly
+  const savedSummary = entriesToSave.map(e => {
+    const metrics = e.dashboard_metrics ?? [];
+    const metricStr = metrics.length > 0
+      ? '\n' + metrics.map(m => `  • ${m.label}: ${m.value} ${m.unit}`).join('\n')
+      : '';
+    return `[${e.category_label}] ${e.content}${metricStr}`;
+  }).join('\n');
+
   const replyContext = threadCtx
     ? `Контекст розмови:\n${threadCtx}\n\nНове повідомлення: ${text}`
     : text;
 
+  const replyPrompt = `${replyContext}\n\n[ЗБЕРЕЖЕНО В ЩОДЕННИК:\n${savedSummary}\n\nОБОВ'ЯЗКОВО: Підтвердь що саме записав — назви конкретні метрики і цифри з ЗБЕРЕЖЕНО. Відповідь має бути живою, з емодзі, 1-3 речення. Не питай уточнень якщо дані вже є.]`;
+
   let finalReplyText: string;
   try {
     finalReplyText = await withTypingIndicator(ctx, () =>
-      generateConverseReply(replyContext, undefined, undefined, undefined, userCtx)
+      generateConverseReply(replyPrompt, undefined, undefined, undefined, userCtx)
     );
   } catch (err) {
     // Fallback reply so user knows entry was saved (bug 1.22)
