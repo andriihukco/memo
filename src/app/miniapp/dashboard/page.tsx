@@ -1445,7 +1445,7 @@ export default function DashboardPage() {
               onDismiss={() => setStatus('ready')}
             />
           )}
-          {status === 'ready' && entries.length === 0 && (
+          {status === 'ready' && entries.length === 0 && customWidgets.length === 0 && (
             <EmptyState
               icon="📊"
               title="Немає даних за цей період"
@@ -1462,6 +1462,71 @@ export default function DashboardPage() {
             />
           )}
 
+          {/* Custom widgets — always visible when ready, regardless of date filter */}
+          {status === 'ready' && customWidgets.length > 0 && (
+            <div className="flex flex-col gap-6 mt-4">
+              <Section title="Мої віджети" count={customWidgets.length}>
+                <div className="grid grid-cols-2 gap-3">
+                  {customWidgets.map(w => {
+                    const colorObj = { bg: 'bg-primary/10', text: 'text-primary' };
+                    const matchedMetric = metricByKey.get(w.metric_key);
+                    const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
+                    if (matchedMetric) {
+                      return (
+                        <Card
+                          key={w.id}
+                          className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50 select-none"
+                          onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
+                        >
+                          {(() => { const { bg, text } = metricColor(matchedMetric.key); return (
+                            <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
+                              <MetricIcon name={w.icon ?? matchedMetric.icon} size={16} className={text} />
+                            </div>
+                          ); })()}
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold tracking-tight">{matchedMetric.value.toLocaleString()}</span>
+                            <span className="text-sm text-muted-foreground">{matchedMetric.unit}</span>
+                          </div>
+                          <p className="text-xs font-medium">{w.title}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {matchedMetric.aggregate === 'avg' ? `середнє · ${matchedMetric.count}` : matchedMetric.aggregate === 'last' ? 'останнє' : `${matchedMetric.count} записів`}
+                          </p>
+                        </Card>
+                      );
+                    }
+                    return (
+                      <Card
+                        key={w.id}
+                        className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50"
+                        onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
+                      >
+                        <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
+                          <MetricIcon name={w.icon} size={16} className={colorObj.text} />
+                        </div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
+                          <span className="text-sm text-muted-foreground">{w.unit}</span>
+                        </div>
+                        <p className="text-xs font-medium">{w.title}</p>
+                        <p className="text-[10px] text-muted-foreground">Немає даних</p>
+                      </Card>
+                    );
+                  })}
+                  {/* Add widget button */}
+                  <button
+                    onClick={handleAddWidgetTap}
+                    className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20 min-h-[80px]"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <Icon name="add" size={18} className="text-primary" />
+                    </div>
+                    <span className="text-xs font-medium">Новий</span>
+                  </button>
+                </div>
+              </Section>
+            </div>
+          )}
+
           {status === 'ready' && entries.length > 0 && (
             <div className="flex flex-col gap-6">
 
@@ -1475,71 +1540,6 @@ export default function DashboardPage() {
                     {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }} />}
                     {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }} />}
                     {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} onLongPress={(metric, src) => { play('OPEN'); setMetricEdit({ metric, sourceEntries: src }); }} />)}
-                  </div>
-                </Section>
-              )}
-
-              {/* ── Custom widgets ────────────────────────────────────────────── */}
-              {customWidgets.length > 0 && (
-                <Section title="Мої віджети" count={customWidgets.length}>
-                  <div className="grid grid-cols-2 gap-3">
-                    {customWidgets.map(w => {
-                      const colorObj = { bg: 'bg-primary/10', text: 'text-primary' };
-                      const matchedMetric = metricByKey.get(w.metric_key);
-                      const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
-                      if (matchedMetric) {
-                        // Custom widget with data — tap opens LogEntrySheet (has delete inside)
-                        return (
-                          <Card
-                            key={w.id}
-                            className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50 select-none"
-                            onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
-                          >
-                            {(() => { const { bg, text } = metricColor(matchedMetric.key); return (
-                              <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', bg)}>
-                                <MetricIcon name={w.icon ?? matchedMetric.icon} size={16} className={text} />
-                              </div>
-                            ); })()}
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-2xl font-bold tracking-tight">{matchedMetric.value.toLocaleString()}</span>
-                              <span className="text-sm text-muted-foreground">{matchedMetric.unit}</span>
-                            </div>
-                            <p className="text-xs font-medium">{w.title}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {matchedMetric.aggregate === 'avg' ? `середнє · ${matchedMetric.count}` : matchedMetric.aggregate === 'last' ? 'останнє' : `${matchedMetric.count} записів`}
-                            </p>
-                          </Card>
-                        );
-                      }
-                      // Widget defined but no data yet — show empty placeholder
-                      return (
-                        <Card
-                          key={w.id}
-                          className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50"
-                          onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
-                        >
-                          <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
-                            <MetricIcon name={w.icon} size={16} className={colorObj.text} />
-                          </div>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
-                            <span className="text-sm text-muted-foreground">{w.unit}</span>
-                          </div>
-                          <p className="text-xs font-medium">{w.title}</p>
-                          <p className="text-[10px] text-muted-foreground">Немає даних</p>
-                        </Card>
-                      );
-                    })}
-                    {/* Add widget button — matches retro circle style */}
-                    <button
-                      onClick={handleAddWidgetTap}
-                      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20 min-h-[80px]"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                        <Icon name="add" size={18} className="text-primary" />
-                      </div>
-                      <span className="text-xs font-medium">Новий</span>
-                    </button>
                   </div>
                 </Section>
               )}
