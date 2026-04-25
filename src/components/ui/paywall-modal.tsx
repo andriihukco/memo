@@ -10,24 +10,6 @@ import type { SubscriptionTier } from '@/lib/stars/paywall';
 import { TIER_INFO } from '@/lib/stars/paywall';
 import { cn } from '@/lib/utils';
 
-// ── Feature emoji map ─────────────────────────────────────────────────────────
-
-const FEATURE_EMOJI: Record<string, string> = {
-  auto_awesome: '✨',
-  dashboard_customize: '📊',
-  summarize: '💡',
-  dashboard: '📊',
-  edit_note: '📝',
-  lightbulb: '💡',
-  mic: '🎙️',
-  my_location: '🎯',
-  history: '📅',
-  bar_chart: '📈',
-  download: '📤',
-  bolt: '⚡',
-  lock: '🔒',
-};
-
 // ── Feature copy map ──────────────────────────────────────────────────────────
 
 interface FeatureCopy {
