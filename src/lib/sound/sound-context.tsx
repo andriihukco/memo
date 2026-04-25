@@ -227,7 +227,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     setEnabledState(v);
   }, []);
 
-  const setKit = useCallback((newKit: string) => {
+  const setKit = useCallback((_newKit: string) => {
     // Only SINE is supported — ignore other kit requests
     if (typeof window !== 'undefined') localStorage.setItem(LS_KIT, 'SINE');
     setKitState('SINE');

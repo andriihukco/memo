@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { DashboardMetric } from '@/lib/classifier';
-import { EditDrawer, getCategoryLabel, getCategoryColor, colorFromId } from '@/components/ui/edit-drawer';
+import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
 import { useSound } from '@/lib/sound/use-sound';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Chip } from '@/components/ui/chip';
@@ -18,7 +18,6 @@ import { SkeletonMetricCard } from '@/components/ui/skeleton';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PaywallModal } from '@/components/ui/paywall-modal';
-import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
 
@@ -1454,6 +1453,9 @@ export default function DashboardPage() {
                 <Section title="Мої віджети" count={customWidgets.length}>
                   <div className="grid grid-cols-2 gap-3">
                     {customWidgets.map(w => {
+                      const colorObj = { bg: 'bg-primary/10', text: 'text-primary' };
+                      const matchedMetric = metricByKey.get(w.metric_key);
+                      const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
                       const deleteBtn = "absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-muted-foreground/60 hover:text-destructive transition-colors";
                       if (matchedMetric) {
                         return (

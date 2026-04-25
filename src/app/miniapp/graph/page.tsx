@@ -453,6 +453,7 @@ export default function GraphPage() {
       });
 
     return () => { simulation.stop(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, graphData]);
 
   return (
