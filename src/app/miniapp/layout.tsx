@@ -12,7 +12,7 @@ import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
 import { getPasscodeHash, setPasscodeHash, shouldLock, touchLastActive, removePasscode } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
 import { SplashScreen } from '@/components/ui/splash-screen';
-import { ReportGenerationProvider, useReportGeneration } from '@/lib/report-generation-context';
+import { ReportGenerationProvider } from '@/lib/report-generation-context';
 
 declare global {
   interface Window {
