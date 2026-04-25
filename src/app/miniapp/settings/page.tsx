@@ -11,9 +11,25 @@ import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
 import {
   getPasscodeHash, setPasscodeHash, removePasscode,
   getLockTimer, setLockTimer, type LockTimer, LOCK_TIMER_LABELS,
-} from '@/lib/passcode';import { cn } from '@/lib/utils';
+} from '@/lib/passcode';
+import { cn } from '@/lib/utils';
 
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
+
+// Helper: register an inline sheet with the body attribute so tab bar hides
+function useSheetBodyAttr(open: boolean) {
+  useEffect(() => {
+    if (!open) return;
+    const prev = parseInt(document.body.getAttribute('data-sheets-open') ?? '0', 10);
+    document.body.setAttribute('data-sheets-open', String(prev + 1));
+    return () => {
+      const cur = parseInt(document.body.getAttribute('data-sheets-open') ?? '1', 10);
+      const next = Math.max(0, cur - 1);
+      if (next === 0) document.body.removeAttribute('data-sheets-open');
+      else document.body.setAttribute('data-sheets-open', String(next));
+    };
+  }, [open]);
+}
 
 // ---------------------------------------------------------------------------
 // SoundSection component
@@ -117,6 +133,12 @@ export default function SettingsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
+
+  // Register inline sheets with body attribute so tab bar hides
+  useSheetBodyAttr(!!renameTarget);
+  useSheetBodyAttr(!!removeTarget);
+  useSheetBodyAttr(!!mergeSource);
+  useSheetBodyAttr(showDeleteConfirm);
 
   useEffect(() => {
     if (!accessToken) return;

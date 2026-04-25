@@ -25,6 +25,9 @@ export function BottomSheet({ open, onClose, children, className, style }: Botto
   useEffect(() => {
     if (open) {
       setMounted(true);
+      // Increment open sheet counter on body so tab bar can hide
+      const prev = parseInt(document.body.getAttribute('data-sheets-open') ?? '0', 10);
+      document.body.setAttribute('data-sheets-open', String(prev + 1));
       // Allow DOM to paint before triggering open animation
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -33,8 +36,17 @@ export function BottomSheet({ open, onClose, children, className, style }: Botto
       });
     } else {
       setState('closed');
-      // Unmount after close animation completes
-      const timer = setTimeout(() => setMounted(false), 250);
+      // Decrement counter and unmount after close animation
+      const timer = setTimeout(() => {
+        setMounted(false);
+        const prev = parseInt(document.body.getAttribute('data-sheets-open') ?? '1', 10);
+        const next = Math.max(0, prev - 1);
+        if (next === 0) {
+          document.body.removeAttribute('data-sheets-open');
+        } else {
+          document.body.setAttribute('data-sheets-open', String(next));
+        }
+      }, 250);
       return () => clearTimeout(timer);
     }
   }, [open]);

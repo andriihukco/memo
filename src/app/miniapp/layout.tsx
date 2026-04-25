@@ -347,20 +347,14 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
           <h1 className={cn('mb-4 text-[28px] font-bold leading-tight', slide.textColor ?? 'text-white')}>{slide.title}</h1>
           <p className="max-w-xs text-[15px] leading-relaxed text-white/60">{slide.body}</p>
 
-          {/* Privacy badge — shown on Slide 5 */}
-          {slide.showPrivacyBadge && (
-            <div className="absolute bottom-0 left-0 flex items-center gap-1.5">
-              <Icon name="lock" size={16} className="text-emerald-400/60" />
-              <span className="text-[11px] text-emerald-400/60">Зашифровано</span>
-            </div>
-          )}
+          {/* Privacy badge — removed */}
         </div>
 
         {/* Dots */}
-        <div className="mb-8 flex gap-1.5">
+        <div className="mb-8 flex gap-1.5 items-center">
           {SLIDES.map((_, i) => (
             <button key={i} onClick={() => { play('SELECT'); setIndex(i); }}
-              className={cn('h-1.5 rounded-full transition-all duration-300', i === index ? 'w-5 bg-white' : 'w-1.5 bg-white/30')}
+              className={cn('rounded-full transition-all duration-300', i === index ? 'w-4 h-[3px] bg-white' : 'w-[3px] h-[3px] bg-white/30')}
             />
           ))}
         </div>
@@ -407,6 +401,19 @@ const INACTIVE_COLOR = '#335B7E';
 
 function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: number }) {
   const { play } = useSound();
+  const [sheetsOpen, setSheetsOpen] = useState(false);
+
+  // Hide tab bar when any bottom sheet is open
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setSheetsOpen(document.body.hasAttribute('data-sheets-open'));
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-sheets-open'] });
+    return () => observer.disconnect();
+  }, []);
+
+  if (sheetsOpen) return null;
+
   return (
     <nav
       role="navigation"
