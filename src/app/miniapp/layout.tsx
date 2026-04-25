@@ -875,6 +875,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
         <OnboardingOverlay onDone={() => {
           localStorage.setItem('memo_onboarding_done', '1');
           setShowOnboarding(false);
+          router.replace('/miniapp');
         }} />
       )}
 

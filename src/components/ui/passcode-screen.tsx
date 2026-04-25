@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
@@ -175,20 +176,22 @@ export function PasscodeScreen({
       {/* Keypad */}
       <div className="grid w-full max-w-[280px] grid-cols-3 gap-y-2 gap-x-3">
         {DIGITS.map((d, i) => (
-          <button
+          <motion.button
             key={i}
             onClick={() => handleDigit(d)}
             disabled={d === '' || success}
+            whileTap={d !== '' ? { scale: 0.88 } : {}}
+            transition={{ type: 'spring', stiffness: 500, damping: 22 }}
             className={cn(
-              'flex h-[72px] w-full items-center justify-center rounded-2xl text-[26px] font-medium transition-all mx-auto',
+              'flex h-[72px] w-[72px] items-center justify-center rounded-full text-[26px] font-medium mx-auto transition-colors',
               d === '' ? 'pointer-events-none opacity-0' :
-              d === '⌫' ? 'bg-transparent text-muted-foreground active:bg-muted/50 active:scale-95' :
-              'bg-secondary/80 hover:bg-secondary active:scale-95 active:bg-secondary/60'
+              d === '⌫' ? 'bg-transparent text-muted-foreground active:bg-muted/50' :
+              'bg-secondary/80 hover:bg-secondary active:bg-secondary/60'
             )}
             aria-label={d === '⌫' ? 'Видалити' : d === '' ? '' : d}
           >
             {d === '⌫' ? <Icon name="backspace" size={22} /> : d}
-          </button>
+          </motion.button>
         ))}
       </div>
     </div>
