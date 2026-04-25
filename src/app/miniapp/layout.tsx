@@ -881,7 +881,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
         setErrorMsg(err instanceof Error ? err.message : 'Authentication failed');
         // Still respect minimum splash time on error
         const elapsed = Date.now() - splashStartRef.current;
-        const remaining = Math.max(0, 1500 - elapsed);
+        const remaining = Math.max(0, 3000 - elapsed);
         setTimeout(() => setStatus('error'), remaining);
         return;
       }
@@ -889,9 +889,9 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
     async function initWithMinSplash() {
       await init();
-      // Ensure splash shows for at least 1.5s so icons/fonts always load fully
+      // Ensure splash shows for at least 3s so icons/fonts always load fully
       const elapsed = Date.now() - splashStartRef.current;
-      const remaining = Math.max(0, 1500 - elapsed);
+      const remaining = Math.max(0, 3000 - elapsed);
       if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
       setStatus('ready');
     }

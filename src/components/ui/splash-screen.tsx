@@ -211,9 +211,33 @@ export function SplashScreen() {
             fontSize: 14,
             color: 'rgba(255,255,255,0.45)',
             letterSpacing: '0.01em',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 0,
           }}
         >
-          Запускаємо пам&apos;ять...
+          Запускаємо пам&apos;ять
+          <span style={{ display: 'inline-flex', gap: 2, marginLeft: 1 }}>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                style={{
+                  display: 'inline-block',
+                  width: 3,
+                  height: 3,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.45)',
+                  animation: `splashDot 1.2s ease-in-out ${i * 0.2}s infinite`,
+                }}
+              />
+            ))}
+          </span>
+          <style>{`
+            @keyframes splashDot {
+              0%, 80%, 100% { opacity: 0.2; transform: translateY(0); }
+              40% { opacity: 1; transform: translateY(-4px); }
+            }
+          `}</style>
         </p>
       </div>
     </div>
