@@ -1242,6 +1242,7 @@ export default function DashboardPage() {
   const [showCreateWidget, setShowCreateWidget] = useState(false);
   const [customWidgets, setCustomWidgets] = useState<CustomWidget[]>([]);
   const [logEntry, setLogEntry] = useState<{ widget: CustomWidget; drillEntries: Entry[] } | null>(null);
+  const [widgetCatFilter, setWidgetCatFilter] = useState<string | null>(null);
 
   // ── Paywall state ──────────────────────────────────────────────────────────
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -1415,6 +1416,16 @@ export default function DashboardPage() {
   const specialKeys = new Set(['kcal_intake', 'kcal_burned']);
   const genericMetrics = metrics.filter(m => !specialKeys.has(m.key));
 
+  // ── Filtered widgets ──────────────────────────────────────────────────────
+  const filteredWidgets = widgetCatFilter
+    ? customWidgets.filter(w => w.category === widgetCatFilter)
+    : customWidgets;
+
+  // Unique categories from widgets for the filter bar
+  const widgetCategories = Array.from(
+    new Map(customWidgets.map(w => [w.category ?? 'other', w.category ?? 'other'])).entries()
+  ).map(([cat]) => cat);
+
   const openPaywall = (feature: string, current: number | undefined, limit: number | undefined, requiredTier: SubscriptionTier) => {
     setPaywallProps({ feature, current, limit, requiredTier });
     setPaywallOpen(true);
@@ -1467,6 +1478,37 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Category filter bar — only shown when there are widgets */}
+      {customWidgets.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none -mx-4 px-4">
+          <button
+            onClick={() => { setWidgetCatFilter(null); }}
+            className={cn(
+              'shrink-0 rounded-full border px-4 py-1.5 text-[14px] font-medium transition-all',
+              widgetCatFilter === null
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-muted/40 border-border/50 text-foreground/70'
+            )}
+          >
+            Всі
+          </button>
+          {widgetCategories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setWidgetCatFilter(widgetCatFilter === cat ? null : cat)}
+              className={cn(
+                'shrink-0 rounded-full border px-4 py-1.5 text-[14px] font-medium transition-all whitespace-nowrap',
+                widgetCatFilter === cat
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-muted/40 border-border/50 text-foreground/70'
+              )}
+            >
+              {getCategoryLabel(cat)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* View tabs */}
       <Tabs value={view} onValueChange={setView}>
@@ -1525,7 +1567,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-6 mt-4">
               <Section title="Мої віджети" count={customWidgets.length}>
                 <div className="grid grid-cols-2 gap-3">
-                  {customWidgets.map(w => {
+                  {filteredWidgets.map(w => {
                     const matchedMetric = metricByKey.get(w.metric_key);
                     const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
                     const wColor = getIconColor(w.iconColor ?? w.color);
