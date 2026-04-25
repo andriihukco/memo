@@ -70,14 +70,28 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   const isScrolling = useRef<boolean | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const { play } = useSound();
 
   const finish = () => {
+    play('CELEBRATION');
     setVisible(false);
     setTimeout(onDone, 350);
   };
 
-  const goNext = () => { if (index < SLIDES.length - 1) setIndex(i => i + 1); else finish(); };
-  const goPrev = () => { if (index > 0) setIndex(i => i - 1); };
+  const goNext = () => {
+    if (index < SLIDES.length - 1) {
+      play('SLIDE');
+      setIndex(i => i + 1);
+    } else {
+      finish();
+    }
+  };
+  const goPrev = () => {
+    if (index > 0) {
+      play('SLIDE');
+      setIndex(i => i - 1);
+    }
+  };
 
   const onTouchStart = (e: React.TouchEvent) => {
     startX.current = e.touches[0].clientX;
@@ -116,7 +130,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
     >
       {/* Skip */}
       <button
-        onClick={finish}
+        onClick={() => { play('CLOSE'); finish(); }}
         className="absolute right-5 top-14 text-sm text-white/40 active:text-white/70"
       >
         Пропустити
@@ -138,7 +152,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
       {/* Dots */}
       <div className="mb-8 flex gap-2">
         {SLIDES.map((_, i) => (
-          <button key={i} onClick={() => setIndex(i)}
+          <button key={i} onClick={() => { play('SELECT'); setIndex(i); }}
             className={cn('h-1.5 rounded-full transition-all duration-300', i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/25')}
           />
         ))}
@@ -251,6 +265,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
 
 function MiniAppContent({ children }: { children: React.ReactNode }) {
   const { setAccessToken } = useAuth();
+  const { play } = useSound();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const pathname = usePathname();
@@ -378,6 +393,12 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
       <main
         className="relative flex-1 overflow-y-auto"
         style={{ paddingBottom: `var(--tab-bar-h)` }}
+        onClick={(e) => {
+          // Play TAP on empty area clicks (not on interactive elements)
+          const target = e.target as HTMLElement;
+          const isInteractive = target.closest('button, a, input, textarea, select, [role="button"], [role="switch"]');
+          if (!isInteractive) play('TAP');
+        }}
       >
         {children}
       </main>

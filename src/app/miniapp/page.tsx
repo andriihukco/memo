@@ -86,17 +86,20 @@ function UserAvatar({ size = 36 }: { size?: number }) {
 // ── DeleteConfirmDialog ───────────────────────────────────────────────────────
 
 function DeleteConfirmDialog({ count, onConfirm, onCancel }: { count: number; onConfirm: () => void; onCancel: () => void }) {
+  const { play } = useSound();
+  // Play warning sound when dialog mounts
+  useEffect(() => { play('CAUTION'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center px-4 pb-8">
-      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+      <div className="absolute inset-0 bg-black/40" onClick={() => { play('CLOSE'); onCancel(); }} />
       <Card className="relative w-full max-w-sm p-5 shadow-2xl">
         <h2 className="mb-1 text-base font-semibold">Видалити записи?</h2>
         <p className="mb-5 text-sm text-muted-foreground">
           {count === 1 ? 'Цей запис буде назавжди видалено.' : `${count} записів буде назавжди видалено.`}
         </p>
         <div className="flex gap-3">
-          <Button variant="outline" className="flex-1" onClick={onCancel}>Скасувати</Button>
-          <Button variant="destructive" className="flex-1" onClick={onConfirm}>Видалити</Button>
+          <Button variant="outline" className="flex-1" onClick={() => { play('CLOSE'); onCancel(); }}>Скасувати</Button>
+          <Button variant="destructive" className="flex-1" onClick={() => { play('CAUTION'); onConfirm(); }}>Видалити</Button>
         </div>
       </Card>
     </div>
@@ -304,6 +307,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const prevShowAll = useRef(showAll);
+  const { play } = useSound();
 
   useEffect(() => {
     if (prevShowAll.current !== showAll && contentRef.current) {
@@ -415,7 +419,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
           {/* Show more / collapse */}
           {hidden > 0 && !showAll && (
             <button
-              onClick={() => setShowAll(true)}
+              onClick={() => { play('OPEN'); setShowAll(true); }}
               className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-primary hover:text-primary/80 hover:bg-primary/5 transition-all duration-200 active:bg-primary/10"
             >
               ↓ Ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'}
@@ -423,7 +427,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
           )}
           {showAll && entries.length > PREVIEW && (
             <button
-              onClick={() => setShowAll(false)}
+              onClick={() => { play('CLOSE'); setShowAll(false); }}
               className="w-full border-t border-border/50 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-surface-hover transition-all duration-200"
             >
               ↑ Згорнути
@@ -578,7 +582,7 @@ export default function FeedPage() {
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <p className="mb-1 text-sm font-medium">Щось пішло не так</p>
           <p className="mb-4 text-xs text-muted-foreground">{errorMsg}</p>
-          <Button size="sm" onClick={() => fetchEntries()}>Спробувати знову</Button>
+          <Button size="sm" onClick={() => { play('BUTTON'); fetchEntries(); }}>Спробувати знову</Button>
         </div>
       )}
       {status === 'ready' && entries.length === 0 && (

@@ -16,28 +16,17 @@ import { cn } from '@/lib/utils';
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
 // ---------------------------------------------------------------------------
-// Sound section constants
-// ---------------------------------------------------------------------------
-
-const SOUND_KITS = [
-  { id: 'SND01', label: 'Sine', description: 'Прості синусоїдальні звуки' },
-  { id: 'SND02', label: 'Piano', description: 'Рояль Steinway (за замовчуванням)' },
-  { id: 'SND03', label: 'Industrial', description: 'Промислові звуки' },
-] as const;
-
-// ---------------------------------------------------------------------------
 // SoundSection component
 // ---------------------------------------------------------------------------
 
 function SoundSection() {
-  const { enabled, kit, setEnabled, setKit, play } = useSound();
+  const { enabled, setEnabled, play } = useSound();
 
   return (
     <section>
       <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Звук</p>
       <Card>
         <CardContent className="p-0">
-          {/* Toggle */}
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
               <Icon name={enabled ? 'volume_up' : 'volume_off'} size={16} className="text-primary" />
@@ -51,49 +40,36 @@ function SoundSection() {
               role="switch"
               aria-checked={enabled}
               onClick={() => {
-                const newEnabled = !enabled;
-                setEnabled(newEnabled);
-                if (newEnabled) play('TOGGLE_ON'); else play('TOGGLE_OFF');
+                const next = !enabled;
+                setEnabled(next);
+                if (next) play('TOGGLE_ON'); else play('TOGGLE_OFF');
               }}
-              className={cn(
-                'relative h-6 w-11 rounded-full transition-colors',
-                enabled ? 'bg-primary' : 'bg-muted'
-              )}
+              style={{
+                position: 'relative',
+                width: 44,
+                height: 26,
+                borderRadius: 13,
+                background: enabled ? '#4797FF' : '#335B7E',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                flexShrink: 0,
+              }}
             >
-              <span className={cn(
-                'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-                enabled ? 'translate-x-5' : 'translate-x-0.5'
-              )} />
+              <span style={{
+                position: 'absolute',
+                top: 3,
+                left: enabled ? 21 : 3,
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                background: '#fff',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+                transition: 'left 0.2s',
+                display: 'block',
+              }} />
             </button>
           </div>
-
-          {/* Kit selector — only when enabled */}
-          {enabled && (
-            <>
-              <Separator />
-              <div className="px-4 py-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">Набір звуків</p>
-                <div className="flex flex-col gap-1">
-                  {SOUND_KITS.map(k => (
-                    <button
-                      key={k.id}
-                      onClick={() => { play('SELECT'); setKit(k.id); }}
-                      className={cn(
-                        'flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors',
-                        kit === k.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50'
-                      )}
-                    >
-                      <div className="text-left">
-                        <p className="font-medium">{k.label}</p>
-                        <p className="text-xs text-muted-foreground">{k.description}</p>
-                      </div>
-                      {kit === k.id && <Icon name="check" size={16} className="text-primary" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
         </CardContent>
       </Card>
     </section>

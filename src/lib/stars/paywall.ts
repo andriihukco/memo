@@ -217,7 +217,7 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
   stars_basic: {
     tier: "stars_basic",
     name: "Stars Basic",
-    priceStars: 250, // ~$3/month
+    priceStars: 250,
     description: "Розширені аналітичні можливості",
     features: [
       "Розумні рекомендації",
@@ -230,7 +230,7 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
   stars_pro: {
     tier: "stars_pro",
     name: "Stars Pro",
-    priceStars: 750, // ~$9/month
+    priceStars: 500,
     description: "Повний доступ до всіх функцій",
     features: [
       "Усі функції Basic",
