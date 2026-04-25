@@ -202,11 +202,9 @@ export function SplashScreen() {
     let nextShooterIn = 60 + Math.random() * 80; // frames until next spawn
 
     let t = 0;
-    let frame = 0;
 
     const draw = () => {
       t += 0.016;
-      frame++;
       ctx.clearRect(0, 0, W(), H());
 
       // Background
