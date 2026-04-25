@@ -581,11 +581,18 @@ export default function FeedPage() {
             onCta={() => setSelectedCategory(null)}
           />
         ) : (
-          <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-            <span className="text-6xl">📓</span>
-            <p className="text-[17px] font-semibold text-muted-foreground">Стрічка порожня</p>
-            <p className="text-[14px] text-muted-foreground/60">Надішли повідомлення боту, щоб почати</p>
-          </div>
+          <EmptyState
+            icon="📓"
+            title="Стрічка порожня"
+            subtitle="Надішли перше повідомлення боту, щоб почати"
+            features={[
+              { emoji: '💬', text: 'Записуй думки, ідеї та події' },
+              { emoji: '🤖', text: 'AI автоматично категоризує записи' },
+              { emoji: '🔍', text: 'Фільтруй за категоріями' },
+              { emoji: '✏️', text: 'Редагуй та видаляй свайпом' },
+              { emoji: '🧵', text: 'Діалоги з ботом зберігаються як треди' },
+            ]}
+          />
         )
       )}
       {status === 'ready' && entries.length > 0 && (

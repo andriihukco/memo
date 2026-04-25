@@ -916,7 +916,14 @@ function GoalsTab({ entries }: { entries: Entry[] }) {
       <EmptyState
         icon="🎯"
         title="Цілей ще немає"
-        subtitle="Скажи боту: «Хочу пробігти 100 км цього місяця»"
+        subtitle="Скажи боту про свою ціль, і вона з'явиться тут"
+        features={[
+          { emoji: '🏃', text: 'Пробігти 100 км цього місяця' },
+          { emoji: '💧', text: 'Пити 2 л води щодня' },
+          { emoji: '📚', text: 'Читати 20 сторінок на день' },
+          { emoji: '💪', text: 'Тренуватись 3 рази на тиждень' },
+          { emoji: '📈', text: 'Прогрес відстежується автоматично' },
+        ]}
       />
     );
   }
@@ -1380,7 +1387,14 @@ export default function DashboardPage() {
             <EmptyState
               icon="📊"
               title="Немає даних за цей період"
-              subtitle="Запиши активність, їжу або сон у боті"
+              subtitle="Записуй активність у боті — вона з'явиться тут"
+              features={[
+                { emoji: '🔥', text: 'Калорії, кроки, тренування' },
+                { emoji: '😴', text: 'Сон, настрій, рівень енергії' },
+                { emoji: '💸', text: 'Витрати по категоріях' },
+                { emoji: '💡', text: 'Ідеї та нотатки' },
+                { emoji: '➕', text: 'Створи власний AI-віджет' },
+              ]}
               ctaLabel="Новий віджет"
               onCta={handleAddWidgetTap}
             />

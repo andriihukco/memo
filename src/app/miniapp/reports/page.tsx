@@ -597,6 +597,13 @@ export default function ReportsPage() {
           icon="💡"
           title="Ще немає ретроспектив"
           subtitle="Проаналізуй свій прогрес за будь-який період"
+          features={[
+            { emoji: '✅', text: 'Що пройшло добре цього тижня' },
+            { emoji: '❌', text: 'Що не вийшло і чому' },
+            { emoji: '🔄', text: 'Почати / Зупинити / Продовжити' },
+            { emoji: '🧪', text: 'Гіпотеза для наступного спринту' },
+            { emoji: '💡', text: 'Найважливіший урок періоду' },
+          ]}
           ctaLabel="Створити першу ретроспективу"
           onCta={() => { play('OPEN'); setShowNewReport(true); }}
         />
