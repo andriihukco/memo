@@ -118,22 +118,19 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
     play('BUTTON');
     if (!accessToken) { finish(); return; }
 
+    // Check Telegram WebApp availability upfront
+    const tg = window.Telegram?.WebApp;
+    if (!tg?.openInvoice) { finish(); return; }
+
     setPaying(tier);
     try {
-      const profileRes = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (!profileRes.ok) throw new Error('no profile');
-      const { profile } = await profileRes.json();
-
       const res = await fetch('/api/stars/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ userId: profile.id, tier, billingPeriod }),
+        body: JSON.stringify({ tier, billingPeriod }),
       });
       const data = await res.json();
       if (!data.ok || !data.invoiceLink) throw new Error('no invoice');
-
-      const tg = window.Telegram?.WebApp;
-      if (!tg?.openInvoice) throw new Error('no tg');
 
       tg.openInvoice(data.invoiceLink, (status) => {
         setPaying(null);

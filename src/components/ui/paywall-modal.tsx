@@ -149,16 +149,10 @@ export function PaywallModal({
 
     setPaying(true);
     try {
-      const profileRes = await fetch('/api/profile', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (!profileRes.ok) throw new Error('Не вдалося завантажити профіль');
-      const { profile } = await profileRes.json();
-
       const res = await fetch('/api/stars/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ userId: profile.id, tier: selectedTier, billingPeriod }),
+        body: JSON.stringify({ tier: selectedTier, billingPeriod }),
       });
       const data = await res.json();
       if (!data.ok || !data.invoiceLink) {

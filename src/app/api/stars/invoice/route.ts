@@ -24,14 +24,19 @@ export async function POST(req: Request): Promise<Response> {
       ? (body.billingPeriod as BillingPeriod)
       : "monthly";
 
-    if (!userId || !tier || !TIER_INFO[tier] || tier === "free") {
+    if (!tier || !TIER_INFO[tier] || tier === "free") {
       return new Response(JSON.stringify({ error: "Missing or invalid required fields" }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
 
-    // Verify user via token
+    // Verify user via token — derive userId from token if not provided
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user || user.id !== userId) {
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    }
+    // If userId was provided, verify it matches; otherwise use the token's user id
+    const resolvedUserId = userId || user.id;
+    if (userId && user.id !== userId) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
     }
 
@@ -50,7 +55,7 @@ export async function POST(req: Request): Promise<Response> {
     };
 
     // Keep payload compact — Telegram limit is 128 bytes
-    const invoicePayload = JSON.stringify({ userId, tier, billingPeriod, days: periodInfo.days });
+    const invoicePayload = JSON.stringify({ userId: resolvedUserId, tier, billingPeriod, days: periodInfo.days });
 
     const invoiceTitle = `${tierInfo.icon} ${tierInfo.name} · ${periodLabel[billingPeriod]}`;
     const invoiceDescription = tierInfo.features

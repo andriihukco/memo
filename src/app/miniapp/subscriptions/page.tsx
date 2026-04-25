@@ -295,7 +295,7 @@ export default function SubscriptionsPage() {
       const res = await fetch('/api/stars/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ userId: profile.id, tier, billingPeriod }),
+        body: JSON.stringify({ tier, billingPeriod }),
       });
       const data = await res.json();
       if (!data.ok || !data.invoiceLink) {
