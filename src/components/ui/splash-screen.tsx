@@ -272,51 +272,18 @@ export function SplashScreen() {
       />
 
       <div className="relative z-10 flex flex-col items-center">
-        {/* Logo with shimmer overlay */}
-        <div className="relative" style={{ width: 96 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="Memo"
-            className="block"
-            style={{
-              width: 96,
-              height: 'auto',
-              filter: 'drop-shadow(0 0 28px rgba(80,170,255,0.45))',
-            }}
-          />
-          {/* Shimmer — sweeps left→right over the logo, fades to transparent on both edges */}
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: 4,
-              overflow: 'hidden',
-              pointerEvents: 'none',
-            }}
-          >
-            <div style={{ animation: 'splashShimmer 1.8s ease-in-out infinite', width: '100%', height: '100%', position: 'relative' }}>
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                bottom: 0,
-                width: '60%',
-                background: 'linear-gradient(90deg, transparent 0%, rgba(180,230,255,0.55) 40%, rgba(220,245,255,0.75) 50%, rgba(180,230,255,0.55) 60%, transparent 100%)',
-                transform: 'skewX(-12deg)',
-                animation: 'splashShimmerBar 1.8s ease-in-out infinite',
-              }} />
-            </div>
-          </div>
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt="Memo"
+          className="block"
+          style={{
+            width: 96,
+            height: 'auto',
+            filter: 'drop-shadow(0 0 28px rgba(80,170,255,0.45))',
+          }}
+        />
       </div>
-
-      <style>{`
-        @keyframes splashShimmerBar {
-          0%   { left: -80%; }
-          100% { left: 140%; }
-        }
-      `}</style>
     </div>
   );
 }
