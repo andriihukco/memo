@@ -12,7 +12,6 @@ import type { DashboardMetric } from '@/lib/classifier';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
 import { useSound } from '@/lib/sound/use-sound';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
-import { Chip } from '@/components/ui/chip';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { SkeletonMetricCard } from '@/components/ui/skeleton';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
@@ -20,6 +19,122 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
+
+// ── Full emoji library (10 categories × ~10 each) ────────────────────────────
+const EMOJI_LIBRARY = [
+  // Health & Body
+  '💪','🏃','🧘','🚴','🏋️','🤸','🧗','🏊','⚽','🎾',
+  // Food & Drink
+  '🍎','🥗','🍕','☕','🧃','🍷','🥤','🍜','🥑','🍳',
+  // Mind & Mood
+  '🧠','💭','😊','😴','🎯','⚡','🔥','💡','✨','🌟',
+  // Nature
+  '🌿','🌸','🌊','☀️','🌙','🍀','🌺','🦋','🌈','❄️',
+  // Finance
+  '💰','💳','📈','💸','🏦','🛒','🎁','💎','🪙','📊',
+  // Work & Learning
+  '💻','📚','✏️','🎓','🔬','📝','🗂️','🏆','🎨','🎵',
+  // Travel & Places
+  '✈️','🏠','🗺️','🚗','🚂','⛵','🏔️','🌍','🏖️','🗼',
+  // People & Social
+  '❤️','🤝','👶','🐾','👥','🙏','🎉','🥂','💌','🫂',
+  // Tracking & Metrics
+  '⏱️','📏','🔢','📉','🎲','🔐','🧪','⚗️','🔭','🧬',
+  // Misc
+  '⭐','🏅','🎖️','🔑','💫','🌀','🎭','🎪','🎬','🎤',
+];
+
+// ── Apple-inspired color palette (solid bg for icon circles) ─────────────────
+const ICON_COLORS = [
+  { id: 'blue',    bg: 'bg-blue-500',    hex: '#3b82f6', text: 'text-white' },
+  { id: 'indigo',  bg: 'bg-indigo-500',  hex: '#6366f1', text: 'text-white' },
+  { id: 'violet',  bg: 'bg-violet-500',  hex: '#8b5cf6', text: 'text-white' },
+  { id: 'purple',  bg: 'bg-purple-500',  hex: '#a855f7', text: 'text-white' },
+  { id: 'pink',    bg: 'bg-pink-500',    hex: '#ec4899', text: 'text-white' },
+  { id: 'rose',    bg: 'bg-rose-500',    hex: '#f43f5e', text: 'text-white' },
+  { id: 'red',     bg: 'bg-red-500',     hex: '#ef4444', text: 'text-white' },
+  { id: 'orange',  bg: 'bg-orange-500',  hex: '#f97316', text: 'text-white' },
+  { id: 'amber',   bg: 'bg-amber-500',   hex: '#f59e0b', text: 'text-white' },
+  { id: 'yellow',  bg: 'bg-yellow-400',  hex: '#facc15', text: 'text-gray-900' },
+  { id: 'lime',    bg: 'bg-lime-500',    hex: '#84cc16', text: 'text-white' },
+  { id: 'green',   bg: 'bg-green-500',   hex: '#22c55e', text: 'text-white' },
+  { id: 'emerald', bg: 'bg-emerald-500', hex: '#10b981', text: 'text-white' },
+  { id: 'teal',    bg: 'bg-teal-500',    hex: '#14b8a6', text: 'text-white' },
+  { id: 'cyan',    bg: 'bg-cyan-500',    hex: '#06b6d4', text: 'text-white' },
+  { id: 'sky',     bg: 'bg-sky-500',     hex: '#0ea5e9', text: 'text-white' },
+  { id: 'slate',   bg: 'bg-slate-500',   hex: '#64748b', text: 'text-white' },
+  { id: 'gray',    bg: 'bg-gray-600',    hex: '#4b5563', text: 'text-white' },
+] as const;
+
+type IconColorId = never; // reserved for future use
+
+function getIconColor(id?: string) {
+  return ICON_COLORS.find(c => c.id === id) ?? ICON_COLORS[0];
+}
+
+// ── Widget icon builder component ─────────────────────────────────────────────
+
+function IconBuilder({
+  emoji, colorId, onEmojiChange, onColorChange,
+}: {
+  emoji: string; colorId: string;
+  onEmojiChange: (e: string) => void; onColorChange: (c: string) => void;
+}) {
+  const color = getIconColor(colorId);
+
+  return (
+    <div>
+      {/* Preview */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className={cn('flex h-14 w-14 items-center justify-center rounded-2xl text-3xl shrink-0', color.bg)}>
+          {emoji}
+        </div>
+        <div>
+          <p className="text-sm font-medium text-foreground">Іконка віджету</p>
+          <p className="text-xs text-muted-foreground">Оберіть емодзі та колір</p>
+        </div>
+      </div>
+
+      {/* Color row */}
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Колір</p>
+      <div className="flex gap-2 flex-wrap mb-4">
+        {ICON_COLORS.map(c => (
+          <button
+            key={c.id}
+            onClick={() => onColorChange(c.id)}
+            className={cn(
+              'h-7 w-7 rounded-full transition-all',
+              colorId === c.id && 'ring-2 ring-offset-2 ring-white/60 scale-110'
+            )}
+            style={{ backgroundColor: c.hex }}
+            aria-label={c.id}
+          />
+        ))}
+      </div>
+
+      {/* Emoji grid */}
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Емодзі</p>
+      <div className="grid grid-cols-10 gap-1 max-h-40 overflow-y-auto">
+        {EMOJI_LIBRARY.map(e => (
+          <button
+            key={e}
+            onClick={() => onEmojiChange(e)}
+            className={cn(
+              'flex h-9 w-full items-center justify-center rounded-xl text-xl transition-all',
+              emoji === e
+                ? cn(color.bg, 'ring-2 ring-offset-1 ring-white/40')
+                : 'hover:bg-muted/60'
+            )}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Data types ────────────────────────────────────────────────────────────────
 
 interface Entry {
   id: string;
@@ -194,81 +309,58 @@ interface CustomWidget {
   metric_key: string;
   unit: string;
   icon?: string;
+  emoji?: string;
+  iconColor?: string;
   color?: string;
   aggregate: 'sum' | 'avg' | 'last';
   category?: string;
+  goal?: number;
   created_at: string;
 }
 
-// ── CreateWidgetSheet — 3-step chip-based widget creation ────────────────────
+// ── New 2-step CreateWidgetSheet ─────────────────────────────────────────────
+// Step 0: Choose what to measure (cards with emoji)
+// Step 1: Name, unit, goal (optional) + icon builder
 
-interface WidgetCategory {
+interface MeasureOption {
   id: string;
+  emoji: string;
   label: string;
-  icon: string;
+  sublabel: string;
+  defaultUnit: string;
+  defaultAggregate: 'sum' | 'avg' | 'last';
+  defaultEmoji: string;
+  defaultColor: string;
+  category: string;
+  metricKey: string;
+  directWidget?: Omit<CustomWidget, 'created_at'>;
 }
 
-const WIDGET_CATEGORIES: WidgetCategory[] = [
-  { id: 'food', label: 'Харчування', icon: 'restaurant' },
-  { id: 'activity', label: 'Активність', icon: 'fitness_center' },
-  { id: 'sleep', label: 'Сон', icon: 'bedtime' },
-  { id: 'water', label: 'Вода', icon: 'water_drop' },
-  { id: 'weight', label: 'Вага', icon: 'scale' },
-  { id: 'expenses', label: 'Витрати', icon: 'account_balance_wallet' },
-  { id: 'mood', label: 'Настрій', icon: 'sentiment_satisfied' },
-  { id: 'custom', label: 'Кастомний', icon: 'add_circle' },
+const MEASURE_OPTIONS: MeasureOption[] = [
+  { id: 'water',    emoji: '💧', label: 'Вода',        sublabel: 'мл, склянки',      defaultUnit: 'мл',    defaultAggregate: 'sum',  defaultEmoji: '💧', defaultColor: 'cyan',    category: 'health',    metricKey: 'water_ml',
+    directWidget: { id: 'water_ml', title: 'Вода', metric_key: 'water_ml', unit: 'мл', emoji: '💧', iconColor: 'cyan', aggregate: 'sum', category: 'health' } },
+  { id: 'calories', emoji: '🔥', label: 'Калорії',     sublabel: 'ккал, кДж',        defaultUnit: 'ккал',  defaultAggregate: 'sum',  defaultEmoji: '🔥', defaultColor: 'orange',  category: 'calories',  metricKey: 'kcal_intake',
+    directWidget: { id: 'kcal_intake', title: 'Калорії', metric_key: 'kcal_intake', unit: 'ккал', emoji: '🔥', iconColor: 'orange', aggregate: 'sum', category: 'calories' } },
+  { id: 'sleep',    emoji: '😴', label: 'Сон',         sublabel: 'год, якість',      defaultUnit: 'год',   defaultAggregate: 'avg',  defaultEmoji: '😴', defaultColor: 'indigo',  category: 'sleep',     metricKey: 'sleep_hours',
+    directWidget: { id: 'sleep_hours', title: 'Сон', metric_key: 'sleep_hours', unit: 'год', emoji: '😴', iconColor: 'indigo', aggregate: 'avg', category: 'sleep' } },
+  { id: 'steps',    emoji: '🏃', label: 'Кроки',       sublabel: 'кроків на день',   defaultUnit: 'кроків',defaultAggregate: 'sum',  defaultEmoji: '🏃', defaultColor: 'green',   category: 'workout',   metricKey: 'steps_count',
+    directWidget: { id: 'steps_count', title: 'Кроки', metric_key: 'steps_count', unit: 'кроків', emoji: '🏃', iconColor: 'green', aggregate: 'sum', category: 'workout' } },
+  { id: 'workout',  emoji: '💪', label: 'Тренування',  sublabel: 'хв, км, підходи',  defaultUnit: 'хв',    defaultAggregate: 'sum',  defaultEmoji: '💪', defaultColor: 'blue',    category: 'workout',   metricKey: 'active_min',
+    directWidget: { id: 'active_min', title: 'Тренування', metric_key: 'active_min', unit: 'хв', emoji: '💪', iconColor: 'blue', aggregate: 'sum', category: 'workout' } },
+  { id: 'weight',   emoji: '⚖️', label: 'Вага',        sublabel: 'кг, фунти',        defaultUnit: 'кг',    defaultAggregate: 'last', defaultEmoji: '⚖️', defaultColor: 'teal',    category: 'health',    metricKey: 'weight_kg',
+    directWidget: { id: 'weight_kg', title: 'Вага', metric_key: 'weight_kg', unit: 'кг', emoji: '⚖️', iconColor: 'teal', aggregate: 'last', category: 'health' } },
+  { id: 'mood',     emoji: '😊', label: 'Настрій',     sublabel: 'оцінка 1–10',      defaultUnit: '/10',   defaultAggregate: 'avg',  defaultEmoji: '😊', defaultColor: 'pink',    category: 'feelings',  metricKey: 'mood_score',
+    directWidget: { id: 'mood_score', title: 'Настрій', metric_key: 'mood_score', unit: '/10', emoji: '😊', iconColor: 'pink', aggregate: 'avg', category: 'feelings' } },
+  { id: 'expenses', emoji: '💸', label: 'Витрати',     sublabel: 'грн, $, €',        defaultUnit: 'грн',   defaultAggregate: 'sum',  defaultEmoji: '💸', defaultColor: 'emerald', category: 'expenses',  metricKey: 'expenses_day',
+    directWidget: { id: 'expenses_day', title: 'Витрати', metric_key: 'expenses_day', unit: 'грн', emoji: '💸', iconColor: 'emerald', aggregate: 'sum', category: 'expenses' } },
+  { id: 'protein',  emoji: '🥩', label: 'Білок',       sublabel: 'грам на день',     defaultUnit: 'г',     defaultAggregate: 'sum',  defaultEmoji: '🥩', defaultColor: 'red',     category: 'calories',  metricKey: 'protein_g',
+    directWidget: { id: 'protein_g', title: 'Білок', metric_key: 'protein_g', unit: 'г', emoji: '🥩', iconColor: 'red', aggregate: 'sum', category: 'calories' } },
+  { id: 'energy',   emoji: '⚡', label: 'Енергія',     sublabel: 'рівень 1–10',      defaultUnit: '/10',   defaultAggregate: 'avg',  defaultEmoji: '⚡', defaultColor: 'yellow',  category: 'feelings',  metricKey: 'energy_level',
+    directWidget: { id: 'energy_level', title: 'Енергія', metric_key: 'energy_level', unit: '/10', emoji: '⚡', iconColor: 'yellow', aggregate: 'avg', category: 'feelings' } },
+  { id: 'reading',  emoji: '📚', label: 'Читання',     sublabel: 'сторінок, хвилин', defaultUnit: 'стор',  defaultAggregate: 'sum',  defaultEmoji: '📚', defaultColor: 'amber',   category: 'books',     metricKey: 'pages_read',
+    directWidget: { id: 'pages_read', title: 'Читання', metric_key: 'pages_read', unit: 'стор', emoji: '📚', iconColor: 'amber', aggregate: 'sum', category: 'books' } },
+  { id: 'custom',   emoji: '✨', label: 'Своє',        sublabel: 'будь-яка метрика', defaultUnit: '',      defaultAggregate: 'sum',  defaultEmoji: '✨', defaultColor: 'violet',  category: 'health',    metricKey: 'custom' },
 ];
-
-const CATEGORY_QUESTIONS: Record<string, string[]> = {
-  food: ['Калорії за день', 'Білки / жири / вуглеводи', 'Конкретний продукт'],
-  activity: ['Кроки за день', 'Хвилини тренування', 'Дистанція (км)'],
-  sleep: ['Годин сну', 'Якість сну (1–10)', 'Час підйому'],
-  water: ['Мл води за день', 'Склянки води', 'Відсоток норми'],
-  weight: ['Поточна вага (кг)', 'Зміна ваги за тиждень', 'ІМТ'],
-  expenses: ['Витрати за день (грн)', 'Витрати за категорією', 'Залишок бюджету'],
-  mood: ['Оцінка настрою (1–10)', 'Рівень стресу (1–10)', 'Рівень енергії (1–10)'],
-  custom: [],
-};
-
-// Direct widget definitions — no AI needed for predefined questions
-type DirectWidget = Omit<CustomWidget, 'created_at'>;
-const DIRECT_WIDGETS: Record<string, Record<string, DirectWidget>> = {
-  food: {
-    'Калорії за день':            { id: 'kcal_intake',  title: 'Калорії',       metric_key: 'kcal_intake',  unit: 'ккал', icon: 'flame',    color: 'orange',  aggregate: 'sum', category: 'calories' },
-    'Білки / жири / вуглеводи':   { id: 'protein_g',   title: 'Білки',         metric_key: 'protein_g',    unit: 'г',    icon: 'utensils', color: 'red',     aggregate: 'sum', category: 'calories' },
-    'Конкретний продукт':         { id: 'food_custom',  title: 'Продукт',       metric_key: 'food_custom',  unit: 'г',    icon: 'utensils', color: 'amber',   aggregate: 'sum', category: 'calories' },
-  },
-  activity: {
-    'Кроки за день':              { id: 'steps_count',  title: 'Кроки',         metric_key: 'steps_count',  unit: 'кроків', icon: 'activity', color: 'green',  aggregate: 'sum', category: 'workout' },
-    'Хвилини тренування':         { id: 'active_min',   title: 'Тренування',    metric_key: 'active_min',   unit: 'хв',   icon: 'dumbbell', color: 'blue',    aggregate: 'sum', category: 'workout' },
-    'Дистанція (км)':             { id: 'distance_km',  title: 'Дистанція',     metric_key: 'distance_km',  unit: 'км',   icon: 'map-pin',  color: 'cyan',    aggregate: 'sum', category: 'workout' },
-  },
-  sleep: {
-    'Годин сну':                  { id: 'sleep_hours',  title: 'Сон',           metric_key: 'sleep_hours',  unit: 'год',  icon: 'moon',     color: 'indigo',  aggregate: 'avg', category: 'sleep' },
-    'Якість сну (1–10)':          { id: 'sleep_quality',title: 'Якість сну',    metric_key: 'sleep_quality',unit: '/10',  icon: 'moon',     color: 'violet',  aggregate: 'avg', category: 'sleep' },
-    'Час підйому':                { id: 'wake_time',    title: 'Підйом',        metric_key: 'wake_time',    unit: 'год',  icon: 'clock',    color: 'purple',  aggregate: 'last',category: 'sleep' },
-  },
-  water: {
-    'Мл води за день':            { id: 'water_ml',     title: 'Вода',          metric_key: 'water_ml',     unit: 'мл',   icon: 'droplets', color: 'cyan',    aggregate: 'sum', category: 'health' },
-    'Склянки води':               { id: 'water_glasses',title: 'Склянки',       metric_key: 'water_glasses',unit: 'скл',  icon: 'droplets', color: 'sky',     aggregate: 'sum', category: 'health' },
-    'Відсоток норми':             { id: 'water_pct',    title: 'Норма води',    metric_key: 'water_pct',    unit: '%',    icon: 'droplets', color: 'teal',    aggregate: 'last',category: 'health' },
-  },
-  weight: {
-    'Поточна вага (кг)':          { id: 'weight_kg',    title: 'Вага',          metric_key: 'weight_kg',    unit: 'кг',   icon: 'scale',    color: 'teal',    aggregate: 'last',category: 'health' },
-    'Зміна ваги за тиждень':      { id: 'weight_delta', title: 'Зміна ваги',    metric_key: 'weight_delta', unit: 'кг',   icon: 'trending-up','color': 'lime', aggregate: 'last',category: 'health' },
-    'ІМТ':                        { id: 'bmi',          title: 'ІМТ',           metric_key: 'bmi',          unit: '',     icon: 'scale',    color: 'green',   aggregate: 'last',category: 'health' },
-  },
-  expenses: {
-    'Витрати за день (грн)':      { id: 'expenses_day', title: 'Витрати',       metric_key: 'expenses_day', unit: 'грн',  icon: 'wallet',   color: 'emerald', aggregate: 'sum', category: 'expenses' },
-    'Витрати за категорією':      { id: 'expenses_cat', title: 'Витрати (кат)', metric_key: 'expenses_cat', unit: 'грн',  icon: 'wallet',   color: 'green',   aggregate: 'sum', category: 'expenses' },
-    'Залишок бюджету':            { id: 'budget_left',  title: 'Бюджет',        metric_key: 'budget_left',  unit: 'грн',  icon: 'wallet',   color: 'lime',    aggregate: 'last',category: 'expenses' },
-  },
-  mood: {
-    'Оцінка настрою (1–10)':      { id: 'mood_score',   title: 'Настрій',       metric_key: 'mood_score',   unit: '/10',  icon: 'smile',    color: 'pink',    aggregate: 'avg', category: 'feelings' },
-    'Рівень стресу (1–10)':       { id: 'stress_level', title: 'Стрес',         metric_key: 'stress_level', unit: '/10',  icon: 'zap',      color: 'rose',    aggregate: 'avg', category: 'feelings' },
-    'Рівень енергії (1–10)':      { id: 'energy_level', title: 'Енергія',       metric_key: 'energy_level', unit: '/10',  icon: 'zap',      color: 'yellow',  aggregate: 'avg', category: 'feelings' },
-  },
-};
 
 function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntries }: {
   onClose: () => void;
@@ -277,72 +369,54 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   accessToken?: string | null;
   hasEntries: boolean;
 }) {
-  const [step, setStep] = useState(0); // 0, 1, 2
-  const [selectedCategory, setSelectedCategory] = useState<WidgetCategory | null>(null);
-  const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null);
-  const [showCustomInput, setShowCustomInput] = useState(false);
-  const [customText, setCustomText] = useState('');
+  const [step, setStep] = useState(0); // 0 = choose, 1 = configure
+  const [selected, setSelected] = useState<MeasureOption | null>(null);
+  const [title, setTitle] = useState('');
+  const [unit, setUnit] = useState('');
+  const [goal, setGoal] = useState('');
+  const [emoji, setEmoji] = useState('✨');
+  const [iconColor, setIconColor] = useState('blue');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const customInputRef = useRef<HTMLInputElement>(null);
   const { play } = useSound();
 
-  // Auto-focus custom input when revealed
-  useEffect(() => {
-    if (showCustomInput) {
-      setTimeout(() => customInputRef.current?.focus(), 50);
-    }
-  }, [showCustomInput]);
-
-  const handleCategorySelect = (cat: WidgetCategory) => {
+  const handleSelect = (opt: MeasureOption) => {
     play('SELECT');
-    setSelectedCategory(cat);
-    setSelectedQuestion(null);
-    setShowCustomInput(cat.id === 'custom');
-    setCustomText('');
+    setSelected(opt);
+    setTitle(opt.label);
+    setUnit(opt.defaultUnit);
+    setEmoji(opt.defaultEmoji);
+    setIconColor(opt.defaultColor);
+    setGoal('');
     setError(null);
     setStep(1);
   };
 
-  const handleQuestionSelect = (q: string) => {
-    play('SELECT');
-    setSelectedQuestion(q);
-    setShowCustomInput(false);
-    setCustomText('');
-  };
-
-  const handleCustomChipTap = () => {
-    play('OPEN');
-    setSelectedQuestion(null);
-    setShowCustomInput(true);
-    setTimeout(() => customInputRef.current?.focus(), 50);
-  };
-
-  const canProceedStep1 = selectedQuestion !== null || (showCustomInput && customText.trim().length > 0);
-
-  const handleNextFromStep1 = () => {
-    if (!canProceedStep1) return;
-    play('SLIDE');
-    setError(null);
-    setStep(2);
-  };
-
   const handleCreate = async () => {
-    if (!accessToken || !selectedCategory) return;
-    const prompt = selectedQuestion ?? customText.trim();
-    if (!prompt) return;
-
+    if (!accessToken || !selected || !title.trim()) return;
     setCreating(true);
     setError(null);
     try {
-      // Use direct widget definition for predefined questions (no AI, instant)
-      const directDef = selectedCategory.id !== 'custom'
-        ? DIRECT_WIDGETS[selectedCategory.id]?.[prompt]
+      const goalNum = goal.trim() ? parseFloat(goal.replace(',', '.')) : undefined;
+      const directDef = selected.directWidget
+        ? {
+            ...selected.directWidget,
+            title: title.trim(),
+            unit: unit.trim() || selected.defaultUnit,
+            emoji,
+            iconColor,
+            ...(goalNum ? { goal: goalNum } : {}),
+          }
         : null;
 
       const body = directDef
-        ? { prompt: `${selectedCategory.label}: ${prompt}`, direct: directDef }
-        : { prompt: `${selectedCategory.label}: ${prompt}`, answers: { question: prompt } };
+        ? { prompt: `${selected.label}: ${title}`, direct: directDef }
+        : {
+            prompt: `${selected.label}: ${title.trim()}`,
+            answers: { question: title.trim(), unit: unit.trim(), goal: goalNum },
+            emoji,
+            iconColor,
+          };
 
       const res = await fetch('/api/widgets', {
         method: 'POST',
@@ -352,18 +426,13 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
       const data = await res.json();
       if (res.status === 402) {
         onClose();
-        onPaywall(
-          data.feature ?? 'widgets',
-          data.current,
-          data.limit,
-          (data.required_tier as SubscriptionTier) ?? 'stars_basic',
-        );
+        onPaywall(data.feature ?? 'widgets', data.current, data.limit, (data.required_tier as SubscriptionTier) ?? 'stars_basic');
       } else if (!res.ok) {
         setError('Не вдалося створити віджет. Спробуй ще раз.');
       } else {
         onCreated(data.widget);
         play('CELEBRATION');
-        setTimeout(onClose, 800);
+        setTimeout(onClose, 600);
       }
     } catch {
       setError('Не вдалося створити віджет. Спробуй ще раз.');
@@ -372,122 +441,104 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
     }
   };
 
-  const questions = selectedCategory ? CATEGORY_QUESTIONS[selectedCategory.id] ?? [] : [];
-  const displayQuestion = selectedQuestion ?? (showCustomInput && customText.trim() ? customText.trim() : null);
+  const color = getIconColor(iconColor);
 
   return (
-    <BottomSheet open onClose={onClose} className="px-4 pt-4 pb-6 max-h-[85vh] overflow-y-auto">
-      {/* Step indicator — pill style */}
-      <div className="flex gap-1.5 justify-center mb-5">
-        {[0, 1, 2].map(i => (
-          <div
-            key={i}
-            className={cn(
-              'h-1.5 rounded-full transition-all duration-200',
-              i === step ? 'w-5 bg-primary' : i < step ? 'w-1.5 bg-primary/40' : 'w-1.5 bg-muted'
-            )}
-          />
-        ))}
-      </div>
-
-      {/* ── Step 0: Category selection ── */}
+    <BottomSheet open onClose={onClose} className="px-4 pt-2 pb-6 max-h-[90vh] overflow-y-auto">
+      {/* Step 0 — choose what to measure */}
       {step === 0 && (
         <div>
-          <h3 className="text-[17px] font-semibold mb-4">Що хочеш відстежувати?</h3>
-          <div className="flex flex-wrap gap-2 pb-2">
-            {WIDGET_CATEGORIES.map(cat => (
-              <Chip
-                key={cat.id}
-                label={cat.label}
-                icon={cat.icon}
-                selected={selectedCategory?.id === cat.id}
-                onClick={() => handleCategorySelect(cat)}
-              />
+          <h3 className="text-[19px] font-bold mb-1">Що відстежувати?</h3>
+          <p className="text-sm text-muted-foreground mb-5">Оберіть метрику або створіть свою</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {MEASURE_OPTIONS.map(opt => (
+              <button
+                key={opt.id}
+                onClick={() => handleSelect(opt)}
+                className="flex items-center gap-3 rounded-2xl bg-muted/40 border border-border/40 px-4 py-3.5 text-left transition-all active:scale-95 hover:bg-muted/60"
+              >
+                <span className="text-2xl shrink-0">{opt.emoji}</span>
+                <div className="min-w-0">
+                  <p className="text-[15px] font-semibold leading-tight">{opt.label}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{opt.sublabel}</p>
+                </div>
+              </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Step 1: Question selection ── */}
-      {step === 1 && (
+      {/* Step 1 — configure */}
+      {step === 1 && selected && (
         <div>
+          {/* Back */}
           <button
             onClick={() => { play('SLIDE'); setStep(0); setError(null); }}
-            className="text-[13px] text-muted-foreground min-h-[44px] flex items-center mb-1"
+            className="text-[13px] text-muted-foreground flex items-center gap-1 mb-4 min-h-[36px]"
           >
-            ← Назад
-          </button>
-          <h3 className="text-[17px] font-semibold mb-4">{selectedCategory?.label ?? ''}</h3>
-
-          {selectedCategory?.id !== 'custom' && (
-            <div className="flex flex-wrap gap-2 mb-3">
-              {questions.map(q => (
-                <Chip
-                  key={q}
-                  label={q}
-                  selected={selectedQuestion === q}
-                  onClick={() => handleQuestionSelect(q)}
-                />
-              ))}
-              <Chip
-                label="Свій варіант"
-                icon="add_circle"
-                selected={showCustomInput}
-                onClick={handleCustomChipTap}
-              />
-            </div>
-          )}
-
-          {showCustomInput && (
-            <input
-              ref={customInputRef}
-              type="text"
-              value={customText}
-              onChange={e => setCustomText(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && canProceedStep1) handleNextFromStep1(); }}
-              placeholder="Введи свій варіант..."
-              className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring mb-3"
-            />
-          )}
-
-          <Button
-            className="w-full min-h-[44px]"
-            disabled={!canProceedStep1}
-            onClick={handleNextFromStep1}
-          >
-            Далі
-          </Button>
-        </div>
-      )}
-
-      {/* ── Step 2: Confirmation ── */}
-      {step === 2 && (
-        <div>
-          <button
-            onClick={() => { play('SLIDE'); setStep(1); setError(null); }}
-            className="text-[13px] text-muted-foreground min-h-[44px] flex items-center mb-1"
-          >
-            ← Змінити
+            <Icon name="arrow_back_ios" size={13} /> Назад
           </button>
 
-          {selectedCategory && (
-            <div className="bg-muted/40 rounded-2xl p-4 flex items-center gap-3 mb-4">
-              <Icon name={selectedCategory.icon} size={32} className="text-primary shrink-0" />
-              <div className="min-w-0">
-                <p className="font-semibold truncate">{selectedCategory.label}</p>
-                {displayQuestion && (
-                  <p className="text-sm text-muted-foreground truncate">{displayQuestion}</p>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Icon builder */}
+          <IconBuilder
+            emoji={emoji}
+            colorId={iconColor}
+            onEmojiChange={setEmoji}
+            onColorChange={setIconColor}
+          />
 
-          {/* Warn if this is an AI widget and user has no entries yet */}
-          {!hasEntries && selectedCategory && !DIRECT_WIDGETS[selectedCategory.id]?.[displayQuestion ?? ''] && (
+          <div className="h-px bg-border/40 my-4" />
+
+          {/* Name */}
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Назва</p>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Назва віджету"
+            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] font-medium focus:outline-none focus:ring-1 focus:ring-ring mb-3"
+          />
+
+          {/* Unit */}
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Одиниця виміру</p>
+          <input
+            type="text"
+            value={unit}
+            onChange={e => setUnit(e.target.value)}
+            placeholder={selected.defaultUnit || 'мл, кг, хв...'}
+            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-ring mb-3"
+          />
+
+          {/* Goal (optional) */}
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
+            Ціль <span className="normal-case font-normal text-muted-foreground/60">(необов&apos;язково)</span>
+          </p>
+          <input
+            type="number"
+            inputMode="decimal"
+            value={goal}
+            onChange={e => setGoal(e.target.value)}
+            placeholder={`напр. ${selected.id === 'water' ? '2000' : selected.id === 'steps' ? '10000' : '100'}`}
+            className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-ring mb-4"
+          />
+
+          {/* Preview card */}
+          <div className="rounded-2xl bg-muted/30 border border-border/40 p-4 flex items-center gap-3 mb-4">
+            <div className={cn('flex h-12 w-12 items-center justify-center rounded-2xl text-2xl shrink-0', color.bg)}>
+              {emoji}
+            </div>
+            <div>
+              <p className="font-semibold">{title || selected.label}</p>
+              <p className="text-sm text-muted-foreground">{unit || selected.defaultUnit}{goal ? ` · ціль ${goal}` : ''}</p>
+            </div>
+          </div>
+
+          {/* AI warning */}
+          {!hasEntries && !selected.directWidget && (
             <div className="mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 flex items-start gap-2.5">
               <span className="text-base shrink-0 mt-0.5">⚠️</span>
               <p className="text-[13px] text-amber-300 leading-snug">
-                AI-віджет потребує записів у боті. Спочатку зроби кілька записів — тоді AI зможе аналізувати твої дані.
+                AI-віджет потребує записів у боті. Спочатку зроби кілька записів.
               </p>
             </div>
           )}
@@ -499,14 +550,14 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
           )}
 
           <Button
-            className="w-full min-h-[44px]"
-            disabled={creating || (!hasEntries && selectedCategory !== null && !DIRECT_WIDGETS[selectedCategory?.id ?? '']?.[displayQuestion ?? ''])}
+            className="w-full min-h-[48px] rounded-full text-[15px] font-semibold"
+            disabled={creating || !title.trim()}
             onClick={handleCreate}
           >
             {creating ? (
               <span className="flex items-center gap-2">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-                {DIRECT_WIDGETS[selectedCategory?.id ?? '']?.[displayQuestion ?? ''] ? 'Створюємо...' : 'AI створює...'}
+                {selected.directWidget ? 'Створюємо...' : 'AI створює...'}
               </span>
             ) : (
               'Створити віджет'
@@ -749,9 +800,20 @@ function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete
         >
           <Icon name="delete" size={16} />
         </button>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-[17px] font-semibold truncate">{widget.title}</h2>
-          <p className="text-[13px] text-muted-foreground">{widget.unit}</p>
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          {widget.emoji ? (
+            <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl text-xl shrink-0', getIconColor(widget.iconColor ?? widget.color).bg)}>
+              {widget.emoji}
+            </div>
+          ) : (
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 shrink-0">
+              <Icon name="tag" size={18} className="text-primary" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <h2 className="text-[17px] font-semibold truncate">{widget.title}</h2>
+            <p className="text-[13px] text-muted-foreground">{widget.unit}</p>
+          </div>
         </div>
       </div>
 
@@ -1465,55 +1527,70 @@ export default function DashboardPage() {
               <Section title="Мої віджети" count={customWidgets.length}>
                 <div className="grid grid-cols-2 gap-3">
                   {customWidgets.map(w => {
-                    const colorObj = { text: 'text-primary' };
                     const matchedMetric = metricByKey.get(w.metric_key);
                     const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
-                    if (matchedMetric) {
-                      return (
-                        <Card
-                          key={w.id}
-                          className="flex flex-col gap-1 p-4 cursor-pointer active:opacity-70 select-none"
-                          onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
-                        >
-                          {(() => { const { text } = metricColor(matchedMetric.key); return (
-                            <MetricIcon name={w.icon ?? matchedMetric.icon} size={20} className={cn('mb-1', text)} />
-                          ); })()}
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-bold tracking-tight">{matchedMetric.value.toLocaleString()}</span>
-                            <span className="text-sm text-muted-foreground">{matchedMetric.unit}</span>
-                          </div>
-                          <p className="text-xs font-medium">{w.title}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {matchedMetric.aggregate === 'avg' ? `середнє · ${matchedMetric.count}` : matchedMetric.aggregate === 'last' ? 'останнє' : `${matchedMetric.count} записів`}
-                          </p>
-                        </Card>
-                      );
-                    }
+                    const wColor = getIconColor(w.iconColor ?? w.color);
+                    const wEmoji = w.emoji ?? '📊';
+                    const aggLabel = matchedMetric
+                      ? matchedMetric.aggregate === 'avg'
+                        ? `середнє · ${matchedMetric.count}`
+                        : matchedMetric.aggregate === 'last'
+                          ? 'останнє'
+                          : `${matchedMetric.count} записів`
+                      : 'Немає даних';
+                    const goalPct = (w.goal && matchedMetric)
+                      ? Math.min(100, Math.round((matchedMetric.value / w.goal) * 100))
+                      : null;
+
                     return (
                       <Card
                         key={w.id}
-                        className="flex flex-col gap-1 p-4 cursor-pointer active:opacity-70"
-                        onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
+                        className="flex flex-col gap-0 p-4 cursor-pointer active:opacity-70 select-none overflow-hidden"
+                        onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
                       >
-                        <MetricIcon name={w.icon} size={20} className={cn('mb-1', colorObj.text)} />
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
-                          <span className="text-sm text-muted-foreground">{w.unit}</span>
+                        {/* Icon circle + title row */}
+                        <div className="flex items-center gap-2.5 mb-3">
+                          <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl text-xl shrink-0', wColor.bg)}>
+                            {wEmoji}
+                          </div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2">{w.title}</p>
                         </div>
-                        <p className="text-xs font-medium">{w.title}</p>
-                        <p className="text-[10px] text-muted-foreground">Немає даних</p>
+
+                        {/* Value */}
+                        <div className="flex items-baseline gap-1 mb-0.5">
+                          <span className="text-[26px] font-bold tracking-tight leading-none">
+                            {matchedMetric ? matchedMetric.value.toLocaleString() : '—'}
+                          </span>
+                          <span className="text-[13px] text-muted-foreground">{w.unit}</span>
+                        </div>
+
+                        {/* Sub-label */}
+                        <p className="text-[11px] text-muted-foreground">{aggLabel}</p>
+
+                        {/* Goal progress bar */}
+                        {goalPct !== null && (
+                          <div className="mt-2">
+                            <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
+                              <div
+                                className={cn('h-full rounded-full transition-all', goalPct >= 100 ? 'bg-green-400' : wColor.bg)}
+                                style={{ width: `${goalPct}%` }}
+                              />
+                            </div>
+                            <p className="mt-0.5 text-right text-[10px] text-muted-foreground">{goalPct}%</p>
+                          </div>
+                        )}
                       </Card>
                     );
                   })}
                   {/* Add widget button */}
                   <button
                     onClick={handleAddWidgetTap}
-                    className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20 min-h-[80px]"
+                    className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20 min-h-[120px]"
                   >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                      <Icon name="add" size={18} className="text-primary" />
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                      <Icon name="add" size={20} className="text-primary" />
                     </div>
-                    <span className="text-xs font-medium">Новий</span>
+                    <span className="text-xs font-medium">Додати</span>
                   </button>
                 </div>
               </Section>

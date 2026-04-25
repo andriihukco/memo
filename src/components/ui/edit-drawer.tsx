@@ -219,12 +219,30 @@ export const categoryBadge = getCategoryColor;
 // ── Emoji picker for new category ────────────────────────────────────────────
 
 const EMOJI_OPTIONS = [
-  '💭', '💡', '❤️', '💸', '🔥', '💪', '🎯', '😴',
-  '🏃', '📖', '✈️', '🙏', '🎵', '😊', '⚡', '💧',
-  '🥗', '☕', '🧘', '🎨', '📝', '⭐', '🌙', '🌿',
-  '🏠', '🚗', '🛒', '💊', '👶', '🐾', '🎮', '💻',
-  '🎤', '🎧', '🌍', '📈', '🕐', '🏆', '📚', '🧠',
-  '🌸', '🍎', '🏋️', '🧪', '🔐', '📊', '🎉', '🌊',
+  // Health & Body
+  '💪','🏃','🧘','🚴','🏋️','🤸','🧗','🏊','⚽','🎾',
+  // Food & Drink
+  '🍎','🥗','🍕','☕','🧃','🍷','🥤','🍜','🥑','🍳',
+  // Mind & Mood
+  '🧠','💭','😊','😴','🎯','⚡','🔥','💡','✨','🌟',
+  // Nature
+  '🌿','🌸','🌊','☀️','🌙','🍀','🌺','🦋','🌈','❄️',
+  // Finance
+  '💰','💳','📈','💸','🏦','🛒','🎁','💎','🪙','📊',
+  // Work & Learning
+  '💻','📚','✏️','🎓','🔬','📝','🗂️','🏆','🎨','🎵',
+  // Travel & Places
+  '✈️','🏠','🗺️','🚗','🚂','⛵','🏔️','🌍','🏖️','🗼',
+  // People & Social
+  '❤️','🤝','👶','🐾','👥','🙏','🎉','🥂','💌','🫂',
+  // Tracking & Metrics
+  '⏱️','📏','🔢','📉','🎲','🔐','🧪','⚗️','🔭','🧬',
+  // Misc
+  '⭐','🏅','🎖️','🔑','💫','🌀','🎭','🎪','🎬','🎤',
+  // Extra
+  '🏷️','🔥','💎','🎸','🎹','🌻','🍁','🐉','🦄','🦅',
+  '🍔','🍣','🍰','🧁','🍩','🏡','🏰','📱','📷','🎥',
+  '🎮','🕹️','🎲','🎯','🥇','🏆','🎊','🎀','🎁','🎉',
 ];
 
 interface DbCategory {
@@ -295,13 +313,13 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
 
         {/* Emoji picker */}
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Емодзі</p>
-        <div className="mb-5 grid grid-cols-8 gap-2">
+        <div className="mb-5 grid grid-cols-10 gap-1.5 max-h-48 overflow-y-auto">
           {EMOJI_OPTIONS.map(emoji => (
             <button
               key={emoji}
               onClick={() => setSelectedEmoji(emoji)}
               className={cn(
-                'flex h-10 w-full items-center justify-center rounded-xl border text-xl transition-all',
+                'flex h-9 w-full items-center justify-center rounded-xl border text-xl transition-all',
                 selectedEmoji === emoji
                   ? cn(color.bg, color.border, 'ring-1 ring-offset-1')
                   : 'border-border/40 bg-muted/30 hover:bg-muted/60'

@@ -49,19 +49,33 @@ const DEFAULT_CATEGORIES: { name: string; label_ua: string; emoji: string }[] = 
 const DEFAULT_NAMES = new Set(DEFAULT_CATEGORIES.map(c => c.name));
 DEFAULT_NAMES.add('uncategorized');
 
-// ── Emoji picker options ──────────────────────────────────────────────────────
+// ── Full emoji library ────────────────────────────────────────────────────────
 
 const EMOJI_OPTIONS = [
-  '🏷️','⭐','🔥','💎','🌟','🎨','🎭','🎪','🎬','🎤',
-  '🏆','🥇','🎯','🎲','🎮','🕹️','🎸','🎹','🎺','🎻',
-  '🌈','🌊','🌸','🌺','🌻','🍀','🌿','🍁','🌙','☀️',
-  '🦋','🐉','🦄','🐺','🦊','🐻','🐼','🦁','🐯','🦅',
-  '🍕','🍔','🍜','🍣','🍰','🧁','🍩','☕','🧃','🍷',
-  '🏠','🏡','🏰','🗼','🗺️','🧭','🚀','✈️','🚂','⛵',
-  '💻','📱','📷','🎥','📺','🎙️','🔬','🔭','⚗️','🧪',
-  '💰','💳','📈','📊','🏦','💹','🛒','🎁','🎀','🎊',
-  '📝','📖','📚','✏️','🖊️','📌','📎','🗂️','📋','🗒️',
-  '❤️','🧡','💛','💚','💙','💜','🖤','🤍','💗','💖',
+  // Health & Body
+  '💪','🏃','🧘','🚴','🏋️','🤸','🧗','🏊','⚽','🎾',
+  // Food & Drink
+  '🍎','🥗','🍕','☕','🧃','🍷','🥤','🍜','🥑','🍳',
+  // Mind & Mood
+  '🧠','💭','😊','😴','🎯','⚡','🔥','💡','✨','🌟',
+  // Nature
+  '🌿','🌸','🌊','☀️','🌙','🍀','🌺','🦋','🌈','❄️',
+  // Finance
+  '💰','💳','📈','💸','🏦','🛒','🎁','💎','🪙','📊',
+  // Work & Learning
+  '💻','📚','✏️','🎓','🔬','📝','🗂️','🏆','🎨','🎵',
+  // Travel & Places
+  '✈️','🏠','🗺️','🚗','🚂','⛵','🏔️','🌍','🏖️','🗼',
+  // People & Social
+  '❤️','🤝','👶','🐾','👥','🙏','🎉','🥂','💌','🫂',
+  // Tracking & Metrics
+  '⏱️','📏','🔢','📉','🎲','🔐','🧪','⚗️','🔭','🧬',
+  // Misc
+  '⭐','🏅','🎖️','🔑','💫','🌀','🎭','🎪','🎬','🎤',
+  // Extra
+  '🏷️','🔥','💎','🎸','🎹','🌻','🍁','🐉','🦄','🦅',
+  '🍔','🍣','🍰','🧁','🍩','🏡','🏰','📱','📷','🎥',
+  '🎮','🕹️','🎲','🎯','🥇','🏆','🎊','🎀','🎁','🎉',
 ];
 
 interface DbCategory { name: string; label_ua: string; color: string; }
@@ -124,14 +138,14 @@ function InlineSheet({ open, onClose, children }: { open: boolean; onClose: () =
 
 function EmojiPicker({ selected, onSelect }: { selected: string; onSelect: (emoji: string) => void }) {
   return (
-    <div className="grid grid-cols-10 gap-1 max-h-36 overflow-y-auto py-1">
+    <div className="grid grid-cols-10 gap-1 max-h-48 overflow-y-auto py-1">
       {EMOJI_OPTIONS.map(emoji => (
         <button
           key={emoji}
           type="button"
           onClick={() => onSelect(emoji)}
           className={cn(
-            'flex h-8 w-8 items-center justify-center rounded-lg text-lg transition-colors',
+            'flex h-9 w-full items-center justify-center rounded-xl text-xl transition-colors',
             selected === emoji ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted/60'
           )}
         >
