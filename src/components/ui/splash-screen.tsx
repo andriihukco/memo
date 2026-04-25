@@ -2,80 +2,95 @@
 
 import { useEffect, useRef } from 'react';
 
-// ── Star particle types ───────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-interface Star {
+interface GlowStar {
   x: number;
   y: number;
   r: number;
   opacity: number;
-  speed: number;       // twinkle speed
-  phase: number;       // twinkle phase offset
-  type: 'dot' | 'cross' | 'spark';
-  vx: number;          // drift velocity
-  vy: number;
-}
-
-interface Spark {
-  x: number;
-  y: number;
+  speed: number;
+  phase: number;
   vx: number;
   vy: number;
-  life: number;        // 0–1
-  decay: number;
-  r: number;
-  hue: number;
+  type: 'glow' | 'sparkle' | 'tiny';
 }
 
-// ── Canvas star field ─────────────────────────────────────────────────────────
+// ── Drawing helpers ───────────────────────────────────────────────────────────
 
-function drawCross(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha: number) {
+// Glowing circle — matches the constellation nodes in the logo
+function drawGlowStar(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha: number) {
   ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = r * 0.35;
-  ctx.lineCap = 'round';
-  // Main cross
+  // Outer halo
+  const halo = ctx.createRadialGradient(x, y, 0, x, y, r * 3.5);
+  halo.addColorStop(0, `rgba(140,210,255,${alpha * 0.25})`);
+  halo.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = halo;
   ctx.beginPath();
-  ctx.moveTo(x - r, y); ctx.lineTo(x + r, y);
-  ctx.moveTo(x, y - r); ctx.lineTo(x, y + r);
-  ctx.stroke();
-  // Diagonal arms (shorter)
-  ctx.lineWidth = r * 0.2;
-  const d = r * 0.55;
-  ctx.beginPath();
-  ctx.moveTo(x - d, y - d); ctx.lineTo(x + d, y + d);
-  ctx.moveTo(x + d, y - d); ctx.lineTo(x - d, y + d);
-  ctx.stroke();
-  ctx.restore();
-}
+  ctx.arc(x, y, r * 3.5, 0, Math.PI * 2);
+  ctx.fill();
 
-function drawDot(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha: number) {
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-  grad.addColorStop(0, 'rgba(255,255,255,1)');
-  grad.addColorStop(0.4, 'rgba(180,200,255,0.8)');
-  grad.addColorStop(1, 'rgba(100,140,255,0)');
-  ctx.fillStyle = grad;
+  // Core glow
+  const core = ctx.createRadialGradient(x, y, 0, x, y, r);
+  core.addColorStop(0, `rgba(220,240,255,${alpha})`);
+  core.addColorStop(0.45, `rgba(100,190,255,${alpha * 0.85})`);
+  core.addColorStop(1, `rgba(40,120,220,${alpha * 0.3})`);
+  ctx.fillStyle = core;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
 
-function drawSparkParticle(ctx: CanvasRenderingContext2D, s: Spark) {
+// 4-point sparkle — matches the decorative stars in the logo
+function drawSparkle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha: number) {
   ctx.save();
-  ctx.globalAlpha = s.life * 0.9;
-  const grad = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.r);
-  grad.addColorStop(0, `hsla(${s.hue},100%,90%,1)`);
-  grad.addColorStop(1, `hsla(${s.hue},100%,60%,0)`);
-  ctx.fillStyle = grad;
+  ctx.globalAlpha = alpha;
+
+  // Outer glow
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, r * 2.5);
+  glow.addColorStop(0, 'rgba(160,220,255,0.3)');
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = glow;
   ctx.beginPath();
-  ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+  ctx.arc(x, y, r * 2.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4-point star shape — thin elongated diamond arms
+  ctx.fillStyle = 'rgba(200,235,255,1)';
+  ctx.beginPath();
+  // Top arm
+  ctx.moveTo(x, y - r);
+  ctx.quadraticCurveTo(x + r * 0.12, y - r * 0.12, x + r * 0.18, y);
+  ctx.quadraticCurveTo(x + r * 0.12, y + r * 0.12, x, y + r);
+  ctx.quadraticCurveTo(x - r * 0.12, y + r * 0.12, x - r * 0.18, y);
+  ctx.quadraticCurveTo(x - r * 0.12, y - r * 0.12, x, y - r);
+  ctx.fill();
+
+  // Horizontal arm (shorter)
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.7, y);
+  ctx.quadraticCurveTo(x - r * 0.08, y - r * 0.08, x, y - r * 0.14);
+  ctx.quadraticCurveTo(x + r * 0.08, y - r * 0.08, x + r * 0.7, y);
+  ctx.quadraticCurveTo(x + r * 0.08, y + r * 0.08, x, y + r * 0.14);
+  ctx.quadraticCurveTo(x - r * 0.08, y + r * 0.08, x - r * 0.7, y);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// Tiny dot — background fill
+function drawTiny(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, alpha: number) {
+  ctx.save();
+  ctx.globalAlpha = alpha * 0.6;
+  ctx.fillStyle = `rgba(${140 + Math.random() * 60 | 0},${200 + Math.random() * 40 | 0},255,1)`;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function SplashScreen() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -97,48 +112,24 @@ export function SplashScreen() {
     const W = () => canvas.width;
     const H = () => canvas.height;
 
-    // Generate stars
-    const COUNT = 120;
-    const stars: Star[] = Array.from({ length: COUNT }, () => {
-      const type = Math.random() < 0.15 ? 'cross' : Math.random() < 0.08 ? 'spark' : 'dot';
+    // Generate stars — logo-style blue glowing circles + sparkles + tiny dots
+    const stars: GlowStar[] = Array.from({ length: 110 }, () => {
+      const roll = Math.random();
+      const type: GlowStar['type'] = roll < 0.06 ? 'sparkle' : roll < 0.28 ? 'glow' : 'tiny';
       return {
         x: Math.random() * W(),
         y: Math.random() * H(),
-        r: type === 'cross' ? 3 + Math.random() * 5 : type === 'spark' ? 1.5 + Math.random() * 2.5 : 0.5 + Math.random() * 2.5,
-        opacity: 0.3 + Math.random() * 0.7,
-        speed: 0.3 + Math.random() * 1.2,
+        r: type === 'sparkle' ? 4 + Math.random() * 5
+          : type === 'glow' ? 2 + Math.random() * 4
+          : 0.6 + Math.random() * 1.4,
+        opacity: type === 'tiny' ? 0.2 + Math.random() * 0.5 : 0.4 + Math.random() * 0.6,
+        speed: 0.25 + Math.random() * 1.0,
         phase: Math.random() * Math.PI * 2,
+        vx: (Math.random() - 0.5) * 0.06,
+        vy: (Math.random() - 0.5) * 0.06,
         type,
-        vx: (Math.random() - 0.5) * 0.08,
-        vy: (Math.random() - 0.5) * 0.08,
       };
     });
-
-    const sparks: Spark[] = [];
-
-    // Periodically emit spark bursts
-    const emitBurst = () => {
-      const x = Math.random() * W();
-      const y = Math.random() * H();
-      const n = 6 + Math.floor(Math.random() * 8);
-      const hue = Math.random() < 0.5 ? 220 + Math.random() * 40 : 40 + Math.random() * 30;
-      for (let i = 0; i < n; i++) {
-        const angle = (Math.PI * 2 * i) / n + Math.random() * 0.5;
-        const speed = 0.4 + Math.random() * 1.2;
-        sparks.push({
-          x, y,
-          vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed,
-          life: 1,
-          decay: 0.012 + Math.random() * 0.018,
-          r: 1.5 + Math.random() * 2.5,
-          hue,
-        });
-      }
-    };
-
-    const burstInterval = setInterval(emitBurst, 1200);
-    emitBurst(); // immediate first burst
 
     let t = 0;
 
@@ -146,47 +137,36 @@ export function SplashScreen() {
       t += 0.016;
       ctx.clearRect(0, 0, W(), H());
 
-      // Background — deep dark
+      // Background
       ctx.fillStyle = '#080c14';
       ctx.fillRect(0, 0, W(), H());
 
-      // Subtle nebula glow in center
-      const nebula = ctx.createRadialGradient(W() / 2, H() / 2, 0, W() / 2, H() / 2, W() * 0.6);
-      nebula.addColorStop(0, 'rgba(30,50,120,0.18)');
-      nebula.addColorStop(0.5, 'rgba(10,20,60,0.08)');
+      // Nebula — blue tint matching logo background
+      const nebula = ctx.createRadialGradient(W() * 0.55, H() * 0.45, 0, W() * 0.55, H() * 0.45, W() * 0.7);
+      nebula.addColorStop(0, 'rgba(10,40,100,0.22)');
+      nebula.addColorStop(0.4, 'rgba(5,20,60,0.12)');
       nebula.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = nebula;
       ctx.fillRect(0, 0, W(), H());
 
       // Draw stars
       for (const s of stars) {
-        // Drift
         s.x += s.vx;
         s.y += s.vy;
-        if (s.x < -20) s.x = W() + 20;
-        if (s.x > W() + 20) s.x = -20;
-        if (s.y < -20) s.y = H() + 20;
-        if (s.y > H() + 20) s.y = -20;
+        if (s.x < -30) s.x = W() + 30;
+        if (s.x > W() + 30) s.x = -30;
+        if (s.y < -30) s.y = H() + 30;
+        if (s.y > H() + 30) s.y = -30;
 
-        // Twinkle
-        const twinkle = s.opacity * (0.6 + 0.4 * Math.sin(t * s.speed + s.phase));
+        const twinkle = s.opacity * (0.55 + 0.45 * Math.sin(t * s.speed + s.phase));
 
-        if (s.type === 'cross') {
-          drawCross(ctx, s.x, s.y, s.r, twinkle);
+        if (s.type === 'sparkle') {
+          drawSparkle(ctx, s.x, s.y, s.r, twinkle);
+        } else if (s.type === 'glow') {
+          drawGlowStar(ctx, s.x, s.y, s.r, twinkle);
         } else {
-          drawDot(ctx, s.x, s.y, s.r, twinkle);
+          drawTiny(ctx, s.x, s.y, s.r, twinkle);
         }
-      }
-
-      // Draw spark particles
-      for (let i = sparks.length - 1; i >= 0; i--) {
-        const sp = sparks[i];
-        sp.x += sp.vx;
-        sp.y += sp.vy;
-        sp.vy += 0.015; // gentle gravity
-        sp.life -= sp.decay;
-        if (sp.life <= 0) { sparks.splice(i, 1); continue; }
-        drawSparkParticle(ctx, sp);
       }
 
       rafRef.current = requestAnimationFrame(draw);
@@ -196,48 +176,41 @@ export function SplashScreen() {
 
     return () => {
       cancelAnimationFrame(rafRef.current);
-      clearInterval(burstInterval);
       window.removeEventListener('resize', resize);
     };
   }, []);
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#080c14]">
-      {/* Star canvas */}
       <canvas
         ref={canvasRef}
         className="absolute inset-0 pointer-events-none"
         style={{ width: '100%', height: '100%' }}
       />
 
-      {/* Logo + shimmer */}
       <div className="relative z-10 flex flex-col items-center gap-6">
-        {/* Logo with shimmer skeleton effect */}
+        {/* Logo with shimmer + vignette */}
         <div className="relative">
-          {/* Radial vignette — fades corners into the dark background */}
+          {/* Radial vignette — fades corners into dark bg */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               zIndex: 2,
               borderRadius: 24,
-              background: 'radial-gradient(ellipse at center, transparent 45%, #080c14 100%)',
+              background: 'radial-gradient(ellipse at center, transparent 42%, #080c14 100%)',
             }}
           />
-          {/* Shimmer overlay */}
-          <div
-            className="absolute inset-0 rounded-3xl overflow-hidden"
-            style={{ zIndex: 1 }}
-          >
+          {/* Shimmer sweep */}
+          <div className="absolute inset-0 rounded-3xl overflow-hidden" style={{ zIndex: 1 }}>
             <div
               className="absolute inset-0"
               style={{
-                background: 'linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%)',
+                background: 'linear-gradient(105deg, transparent 30%, rgba(140,210,255,0.15) 50%, transparent 70%)',
                 backgroundSize: '200% 100%',
-                animation: 'shimmer 2s ease-in-out infinite',
+                animation: 'shimmer 2.2s ease-in-out infinite',
               }}
             />
           </div>
-          {/* Logo image */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
@@ -247,38 +220,26 @@ export function SplashScreen() {
               width: 96,
               height: 'auto',
               borderRadius: 24,
-              filter: 'drop-shadow(0 0 24px rgba(71,151,255,0.35))',
+              filter: 'drop-shadow(0 0 28px rgba(80,170,255,0.45))',
             }}
           />
         </div>
 
         {/* Skeleton text lines */}
         <div className="flex flex-col items-center gap-2">
-          <div
-            className="h-2.5 rounded-full bg-white/10 overflow-hidden"
-            style={{ width: 80 }}
-          >
-            <div
-              className="h-full w-full"
-              style={{
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent)',
-                backgroundSize: '200% 100%',
-                animation: 'shimmer 1.8s ease-in-out infinite 0.2s',
-              }}
-            />
+          <div className="h-2.5 rounded-full bg-white/8 overflow-hidden" style={{ width: 80 }}>
+            <div className="h-full w-full" style={{
+              background: 'linear-gradient(90deg, transparent, rgba(140,210,255,0.2), transparent)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.8s ease-in-out infinite 0.2s',
+            }} />
           </div>
-          <div
-            className="h-2 rounded-full bg-white/6 overflow-hidden"
-            style={{ width: 52 }}
-          >
-            <div
-              className="h-full w-full"
-              style={{
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent)',
-                backgroundSize: '200% 100%',
-                animation: 'shimmer 1.8s ease-in-out infinite 0.5s',
-              }}
-            />
+          <div className="h-2 rounded-full bg-white/5 overflow-hidden" style={{ width: 52 }}>
+            <div className="h-full w-full" style={{
+              background: 'linear-gradient(90deg, transparent, rgba(140,210,255,0.12), transparent)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.8s ease-in-out infinite 0.5s',
+            }} />
           </div>
         </div>
       </div>

@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { Icon } from '@/components/ui/icon';
 import { X } from 'lucide-react';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
 import { PaywallModal } from '@/components/ui/paywall-modal';
@@ -79,10 +81,6 @@ const CATEGORY_HEX: Record<string, string> = {
 
 function categoryHex(cat: string): string {
   return CATEGORY_HEX[cat] ?? '#94a3b8';
-}
-
-function nodeRadius(edgeCount: number): number {
-  return Math.min(7 + edgeCount * 2, 22);
 }
 
 function formatDate(iso: string): string {
@@ -236,6 +234,87 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
 
 // ── GraphPage ─────────────────────────────────────────────────────────────────
 
+// ── DateFilterSheet ───────────────────────────────────────────────────────────
+
+function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+function startOfDay(d: Date) { const r = new Date(d); r.setHours(0,0,0,0); return r; }
+function endOfDay(d: Date)   { const r = new Date(d); r.setHours(23,59,59,999); return r; }
+
+const DATE_PRESETS = [
+  { label: 'Сьогодні',   icon: 'today',          fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
+  { label: '7 днів',     icon: 'date_range',     fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { label: '30 днів',    icon: 'calendar_month', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-29); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { label: 'Весь час',   icon: 'all_inclusive',  fn: () => null },
+  { label: 'Свій',       icon: 'tune',           fn: null },
+] as const;
+
+interface DateRange { from: Date; to: Date; }
+
+function DateFilterSheet({ open, onClose, value, onChange }: {
+  open: boolean; onClose: () => void;
+  value: DateRange | null;
+  onChange: (r: DateRange | null) => void;
+}) {
+  const [fromStr, setFromStr] = useState(isoDate(startOfDay(new Date())));
+  const [toStr, setToStr] = useState(isoDate(new Date()));
+  const [selected, setSelected] = useState<string | null>(null);
+  const { play } = useSound();
+
+  const handlePreset = (p: typeof DATE_PRESETS[number]) => {
+    play('SELECT');
+    if (p.fn === null) {
+      setSelected('custom');
+      return;
+    }
+    const r = p.fn();
+    setSelected(p.label);
+    onChange(r);
+    if (r !== null) onClose();
+  };
+
+  const applyCustom = () => {
+    const from = startOfDay(new Date(fromStr)), to = endOfDay(new Date(toStr));
+    if (isNaN(from.getTime()) || isNaN(to.getTime()) || from > to) return;
+    onChange({ from, to });
+    onClose();
+  };
+
+  return (
+    <BottomSheet open={open} onClose={onClose}>
+      <div className="px-4 pt-3 pb-2">
+        <h3 className="text-[17px] font-semibold">Оберіть період</h3>
+      </div>
+      <div className="px-4">
+        {DATE_PRESETS.map((p) => {
+          const isSelected = selected === p.label || (p.label === 'Весь час' && value === null && selected === null);
+          return (
+            <button key={p.label} onClick={() => handlePreset(p)} className="min-h-[44px] flex items-center gap-3 px-0 w-full">
+              <Icon name={p.icon} size={20} className="text-primary/60 shrink-0" />
+              <span className="flex-1 text-left text-[15px]">{p.label}</span>
+              {isSelected
+                ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+      <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' ? 'max-h-40' : 'max-h-0')}>
+        <div className="mx-4 h-px bg-border/40" />
+        <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+          <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
+            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+          <span className="text-muted-foreground">–</span>
+          <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
+            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+        </div>
+        <div className="px-4 pt-2 pb-1">
+          <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
+        </div>
+      </div>
+    </BottomSheet>
+  );
+}
+
 export default function GraphPage() {
   const { accessToken } = useAuth();
   const { play } = useSound();
@@ -247,6 +326,11 @@ export default function GraphPage() {
   const [graphData, setGraphData] = useState<GraphPayload | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [linkedNodes, setLinkedNodes] = useState<GraphNode[]>([]);
+
+  // ── Filters ────────────────────────────────────────────────────────────────
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [showDateSheet, setShowDateSheet] = useState(false);
 
   // ── User tier ──────────────────────────────────────────────────────────────
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
@@ -321,7 +405,30 @@ export default function GraphPage() {
   useEffect(() => {
     if (status !== 'ready' || !graphData || !svgRef.current || !containerRef.current) return;
 
-    const { nodes: rawNodes, edges: rawEdges } = graphData;
+    const allNodes = graphData.nodes;
+    const allEdges = graphData.edges;
+
+    // Apply filters
+    const filteredNodes = allNodes.filter(n => {
+      if (selectedCategory && n.category !== selectedCategory) return false;
+      if (dateRange) {
+        const t = new Date(n.created_at).getTime();
+        if (t < dateRange.from.getTime() || t > dateRange.to.getTime()) return false;
+      }
+      return true;
+    });
+
+    // Limit to 200 most-connected nodes to avoid visual overload
+    const nodeSet = new Set(
+      [...filteredNodes]
+        .sort((a, b) => b.edge_count - a.edge_count)
+        .slice(0, 200)
+        .map(n => n.id)
+    );
+
+    const rawNodes = filteredNodes.filter(n => nodeSet.has(n.id));
+    const rawEdges = allEdges.filter(e => nodeSet.has(e.source) && nodeSet.has(e.target));
+
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
@@ -345,37 +452,34 @@ export default function GraphPage() {
 
     svg.call(
       d3.zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.2, 4])
+        .scaleExtent([0.15, 5])
         .on('zoom', (event) => g.attr('transform', event.transform)),
     );
 
-    // Edges — three visual styles - optimized for dark mode
+    // Edges
     const linkSel = g.append('g').attr('class', 'links')
       .selectAll('line').data(links).join('line')
       .attr('stroke', (d) => {
-        if (d.type === 'branch') return '#818cf8';        // brighter indigo for dark bg
-        if (d.type === 'cross_category') return '#fbbf24'; // brighter amber for dark bg
-        return '#64748b';                                  // slate-500 for similarity
+        if (d.type === 'branch') return '#818cf8';
+        if (d.type === 'cross_category') return '#fbbf24';
+        return '#334155';
       })
-      .attr('stroke-width', (d) => {
-        if (d.type === 'branch') return 2;
-        if (d.type === 'cross_category') return 2;
-        return 1.5;
-      })
+      .attr('stroke-width', (d) => d.type === 'similarity' ? 1 : 1.5)
       .attr('stroke-opacity', (d) => {
-        if (d.type === 'branch') return 0.8;
-        if (d.type === 'cross_category') return 0.7;
-        return 0.5;
+        if (d.type === 'branch') return 0.7;
+        if (d.type === 'cross_category') return 0.5;
+        return 0.25;
       })
-      .attr('stroke-dasharray', (d) => d.type === 'similarity' ? '4 3' : null);
+      .attr('stroke-dasharray', (d) => d.type === 'similarity' ? '3 4' : null);
 
-    // Nodes - dark mode optimized with contrasting stroke
+    // Nodes — smaller base radius, more breathing room
     const nodeSel = g.append('g').attr('class', 'nodes')
       .selectAll('circle').data(nodes).join('circle')
-      .attr('r', (d) => nodeRadius(d.edge_count))
+      .attr('r', (d) => Math.min(5 + d.edge_count * 1.5, 16))
       .attr('fill', (d) => categoryHex(d.category))
-      .attr('stroke', '#0f172a')  // dark slate for contrast on dark bg
-      .attr('stroke-width', 2)
+      .attr('fill-opacity', 0.9)
+      .attr('stroke', '#080c14')
+      .attr('stroke-width', 1.5)
       .style('cursor', 'pointer')
       .on('click', (_event, d) => {
         play('OPEN');
@@ -392,7 +496,7 @@ export default function GraphPage() {
         setSelectedNode(d);
       });
 
-    // Cluster labels — one label per connected component with >1 node
+    // Cluster labels
     const parent = new Map<string, string>(nodes.map((n) => [n.id, n.id]));
     function find(id: string): string {
       if (parent.get(id) !== id) parent.set(id, find(parent.get(id)!));
@@ -410,11 +514,10 @@ export default function GraphPage() {
     }
     const clusterLabels: Array<{ nodes: SimNode[]; label: string }> = [];
     for (const group of components.values()) {
-      if (group.length < 2) continue;
+      if (group.length < 3) continue;
       const freq = new Map<string, number>();
       for (const n of group) freq.set(n.category, (freq.get(n.category) ?? 0) + 1);
       const topCat = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
-      // Use Ukrainian label from getCategoryLabel equivalent mapping
       const UA: Record<string, string> = {
         thoughts: 'Думки', ideas: 'Ідеї', feelings: 'Почуття', expenses: 'Витрати',
         calories: 'Калорії', workout: 'Тренування', dreams: 'Сни', relationships: 'Стосунки',
@@ -427,51 +530,45 @@ export default function GraphPage() {
       .selectAll('text').data(clusterLabels).join('text')
       .text((d) => d.label)
       .attr('text-anchor', 'middle')
-      .attr('font-size', 12)
+      .attr('font-size', 11)
       .attr('font-family', 'system-ui, sans-serif')
-      .attr('font-weight', '600')
-      .attr('fill', '#94a3b8')  // lighter slate for dark mode visibility
+      .attr('font-weight', '500')
+      .attr('fill', '#475569')
       .attr('pointer-events', 'none');
 
     // Drag
-    const dragBehavior = d3.drag<SVGCircleElement, SimNode>().on('start', (event, d) => {
-      if (!event.active) simulation.alphaTarget(0.3).restart();
-      d.fx = d.x; d.fy = d.y;
-    })
+    const dragBehavior = d3.drag<SVGCircleElement, SimNode>()
+      .on('start', (event, d) => { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
       .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
-      .on('end', (event, d) => {
-        if (!event.active) simulation.alphaTarget(0);
-        d.fx = null; d.fy = null;
-      });
-
+      .on('end', (event, d) => { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     nodeSel.call(dragBehavior as any);
 
-    // Force simulation
+    // Force simulation — much stronger repulsion for breathing room
+    const nodeCount = nodes.length;
+    const repulsion = nodeCount > 100 ? -600 : nodeCount > 50 ? -450 : -320;
+
     const simulation = d3.forceSimulation<SimNode>(nodes)
       .force('link',
         d3.forceLink<SimNode, SimLink>(links)
           .id((d) => d.id)
           .distance((d) => {
-            if (d.type === 'branch') return 90;
-            if (d.type === 'cross_category') return 70; // shorter = pulls clusters together
-            return 150;
+            if (d.type === 'branch') return 120;
+            if (d.type === 'cross_category') return 100;
+            return 200;
           })
           .strength((d) => {
-            if (d.type === 'branch') return 1.0;
-            if (d.type === 'cross_category') return 0.6; // meaningful pull, not rigid
-            return 0.15;
+            if (d.type === 'branch') return 0.8;
+            if (d.type === 'cross_category') return 0.4;
+            return 0.08;
           }),
       )
-      // Weak repulsion — nodes spread out but don't fly apart
-      .force('charge', d3.forceManyBody().strength(-200).distanceMax(300))
-      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.05))
-      // Prevent overlap
-      .force('collision', d3.forceCollide<SimNode>().radius((d) => nodeRadius(d.edge_count) + 8))
-      // Gentle x/y pull toward center to avoid pentagram-like spread
-      .force('x', d3.forceX(width / 2).strength(0.04))
-      .force('y', d3.forceY(height / 2).strength(0.04))
-      .alphaDecay(0.03)
+      .force('charge', d3.forceManyBody().strength(repulsion).distanceMax(500))
+      .force('center', d3.forceCenter(width / 2, height / 2).strength(0.03))
+      .force('collision', d3.forceCollide<SimNode>().radius((d) => Math.min(5 + d.edge_count * 1.5, 16) + 14))
+      .force('x', d3.forceX(width / 2).strength(0.02))
+      .force('y', d3.forceY(height / 2).strength(0.02))
+      .alphaDecay(0.025)
       .on('tick', () => {
         linkSel
           .attr('x1', (d) => (d.source as SimNode).x ?? 0)
@@ -481,22 +578,87 @@ export default function GraphPage() {
         nodeSel.attr('cx', (d) => d.x ?? 0).attr('cy', (d) => d.y ?? 0);
         clusterLabelSel
           .attr('x', (d) => d.nodes.reduce((s, n) => s + (n.x ?? 0), 0) / d.nodes.length)
-          .attr('y', (d) => Math.min(...d.nodes.map((n) => n.y ?? 0)) - 12);
+          .attr('y', (d) => Math.min(...d.nodes.map((n) => n.y ?? 0)) - 16);
       });
 
     return () => { simulation.stop(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, graphData]);
+  }, [status, graphData, selectedCategory, dateRange]);
+
+  // Collect unique categories from graph data for filter chips
+  const allCategories = graphData
+    ? [...new Set(graphData.nodes.map(n => n.category))].sort()
+    : [];
+
+  const dateLabel = dateRange
+    ? `${dateRange.from.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })} – ${dateRange.to.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })}`
+    : null;
 
   return (
     <div className="flex h-full flex-col">
+      {/* Header with filters */}
       <motion.div
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="px-4 pt-5 pb-3"
+        className="flex flex-col gap-2 px-4 pt-5 pb-2"
       >
-        <h1 className="text-lg font-semibold">Граф</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-semibold">Граф</h1>
+          {/* Date filter button */}
+          <button
+            onClick={() => { play('OPEN'); setShowDateSheet(true); }}
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors',
+              dateRange
+                ? 'bg-primary/15 text-primary border border-primary/30'
+                : 'bg-muted/50 text-muted-foreground border border-border/30'
+            )}
+          >
+            <Icon name="calendar_month" size={14} />
+            {dateLabel ?? 'Весь час'}
+            {dateRange && (
+              <button
+                onClick={e => { e.stopPropagation(); setDateRange(null); }}
+                className="ml-0.5 text-primary/60 hover:text-primary"
+              >
+                <Icon name="close" size={12} />
+              </button>
+            )}
+          </button>
+        </div>
+
+        {/* Category filter chips */}
+        {allCategories.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              onClick={() => { play('SELECT'); setSelectedCategory(null); }}
+              className={cn(
+                'shrink-0 rounded-full px-3 py-1 text-[12px] font-medium transition-colors border',
+                selectedCategory === null
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-muted/40 text-muted-foreground border-border/30'
+              )}
+            >
+              Всі
+            </button>
+            {allCategories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => { play('SELECT'); setSelectedCategory(selectedCategory === cat ? null : cat); }}
+                className={cn(
+                  'shrink-0 rounded-full px-3 py-1 text-[12px] font-medium transition-all border',
+                  selectedCategory === cat
+                    ? 'ring-2 ring-offset-1 ring-primary/50 scale-105'
+                    : 'opacity-70 hover:opacity-90',
+                  getCategoryColor(cat)
+                )}
+              >
+                {getCategoryLabel(cat)}
+              </button>
+            ))}
+          </div>
+        )}
       </motion.div>
 
       <div ref={containerRef} className="relative flex-1 overflow-hidden">
@@ -660,6 +822,14 @@ export default function GraphPage() {
         open={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         {...paywallProps}
+      />
+
+      {/* Date filter sheet */}
+      <DateFilterSheet
+        open={showDateSheet}
+        onClose={() => setShowDateSheet(false)}
+        value={dateRange}
+        onChange={setDateRange}
       />
     </div>
   );
