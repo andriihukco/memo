@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
@@ -312,7 +312,7 @@ export default function ReportsPage() {
   const { counts } = useUsageCounts(accessToken);
 
   // Use shared generation context — survives tab switches
-  const { generating, pendingLabel: ctxPendingLabel, startGeneration, setOnComplete } = useReportGeneration();
+  const { generating, startGeneration, setOnComplete } = useReportGeneration();
 
   const fetchUserTier = useCallback(async () => {
     if (!accessToken) return;
@@ -425,30 +425,7 @@ export default function ReportsPage() {
         />
       )}
 
-      {/* In-progress skeleton row — shown immediately when generation starts */}
-      <AnimatePresence>
-        {generating && ctxPendingLabel && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden"
-          >
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary shrink-0" />
-                  <span className="text-[15px] font-semibold text-muted-foreground">{ctxPendingLabel}</span>
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Генерується</span>
-                </div>
-                <div className="h-2.5 w-3/4 rounded-full bg-muted/50 animate-pulse" />
-                <div className="h-2 w-1/2 rounded-full bg-muted/30 animate-pulse mt-1.5" />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* In-progress state is shown in the global toast above the tab bar */}
 
       {/* Month-grouped report list */}
       {!loading && monthGroups.length > 0 && (
