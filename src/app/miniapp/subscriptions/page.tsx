@@ -269,6 +269,14 @@ export default function SubscriptionsPage() {
     setPaying(tier);
     setError(null);
 
+    // Check Telegram WebApp availability upfront
+    const tg = window.Telegram?.WebApp;
+    if (!tg?.openInvoice) {
+      setError('Відкрий у Telegram для оплати');
+      setPaying(null);
+      return;
+    }
+
     // If user already has an active subscription, show stacking info before proceeding
     const currentEndsAt = profile.subscription_ends_at ? new Date(profile.subscription_ends_at) : null;
     const isCurrentlyActive = currentEndsAt && currentEndsAt > new Date() && profile.subscription_tier !== 'free';
@@ -290,10 +298,11 @@ export default function SubscriptionsPage() {
         body: JSON.stringify({ userId: profile.id, tier, billingPeriod }),
       });
       const data = await res.json();
-      if (!data.ok || !data.invoiceLink) { setError(data.error ?? 'Помилка'); setPaying(null); return; }
-
-      const tg = window.Telegram?.WebApp;
-      if (!tg?.openInvoice) { setError('Відкрий у Telegram'); setPaying(null); return; }
+      if (!data.ok || !data.invoiceLink) {
+        setError(data.error ?? 'Не вдалося створити рахунок');
+        setPaying(null);
+        return;
+      }
 
       tg.openInvoice(data.invoiceLink, async (status) => {
         setPaying(null);
@@ -309,8 +318,8 @@ export default function SubscriptionsPage() {
           // user closed the payment sheet — no error needed, just reset
         }
       });
-    } catch {
-      setError('Щось пішло не так');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Щось пішло не так. Спробуй ще раз.');
       setPaying(null);
     }
   }

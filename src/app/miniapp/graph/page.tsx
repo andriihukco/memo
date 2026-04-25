@@ -614,31 +614,33 @@ export default function GraphPage() {
       >
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold">Граф</h1>
-          {/* Date filter button */}
-          <button
-            onClick={() => { play('OPEN'); setShowDateSheet(true); }}
-            className={cn(
-              'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors',
-              dateRange
-                ? 'bg-primary/15 text-primary border border-primary/30'
-                : 'bg-muted/50 text-muted-foreground border border-border/30'
-            )}
-          >
-            <Icon name="calendar_month" size={14} />
-            {dateLabel ?? 'Весь час'}
-            {dateRange && (
-              <button
-                onClick={e => { e.stopPropagation(); setDateRange(null); }}
-                className="ml-0.5 text-primary/60 hover:text-primary"
-              >
-                <Icon name="close" size={12} />
-              </button>
-            )}
-          </button>
+          {/* Date filter button — hidden for free tier */}
+          {!(tierLoaded && userTier === 'free') && (
+            <button
+              onClick={() => { play('OPEN'); setShowDateSheet(true); }}
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors',
+                dateRange
+                  ? 'bg-primary/15 text-primary border border-primary/30'
+                  : 'bg-muted/50 text-muted-foreground border border-border/30'
+              )}
+            >
+              <Icon name="calendar_month" size={14} />
+              {dateLabel ?? 'Весь час'}
+              {dateRange && (
+                <button
+                  onClick={e => { e.stopPropagation(); setDateRange(null); }}
+                  className="ml-0.5 text-primary/60 hover:text-primary"
+                >
+                  <Icon name="close" size={12} />
+                </button>
+              )}
+            </button>
+          )}
         </div>
 
-        {/* Category filter chips */}
-        {allCategories.length > 0 && (
+        {/* Category filter chips — hidden for free tier */}
+        {!(tierLoaded && userTier === 'free') && allCategories.length > 0 && (
           <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
             <button
               onClick={() => { play('SELECT'); setSelectedCategory(null); }}

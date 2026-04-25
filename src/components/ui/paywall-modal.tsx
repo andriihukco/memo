@@ -139,12 +139,20 @@ export function PaywallModal({
       return;
     }
 
+    // Check Telegram WebApp availability before making any network calls
+    const tg = window.Telegram?.WebApp;
+    if (!tg?.openInvoice) {
+      router.push('/miniapp/subscriptions');
+      onClose();
+      return;
+    }
+
     setPaying(true);
     try {
       const profileRes = await fetch('/api/profile', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (!profileRes.ok) throw new Error('no profile');
+      if (!profileRes.ok) throw new Error('Не вдалося завантажити профіль');
       const { profile } = await profileRes.json();
 
       const res = await fetch('/api/stars/invoice', {
@@ -153,13 +161,8 @@ export function PaywallModal({
         body: JSON.stringify({ userId: profile.id, tier: selectedTier, billingPeriod }),
       });
       const data = await res.json();
-      if (!data.ok || !data.invoiceLink) throw new Error(data.error ?? 'no invoice');
-
-      const tg = window.Telegram?.WebApp;
-      if (!tg?.openInvoice) {
-        router.push('/miniapp/subscriptions');
-        onClose();
-        return;
+      if (!data.ok || !data.invoiceLink) {
+        throw new Error(data.error ?? 'Не вдалося створити рахунок');
       }
 
       tg.openInvoice(data.invoiceLink, (status) => {
@@ -172,9 +175,10 @@ export function PaywallModal({
         }
         // cancelled — user closed the sheet, stay on paywall
       });
-    } catch {
+    } catch (err) {
       setPaying(false);
-      setError('Щось пішло не так. Спробуй ще раз.');
+      const msg = err instanceof Error ? err.message : 'Щось пішло не так. Спробуй ще раз.';
+      setError(msg);
     }
   };
 
