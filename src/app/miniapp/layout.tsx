@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/icon';
 import { SoundProvider } from '@/lib/sound/sound-context';
 import { useSound } from '@/lib/sound/use-sound';
 import { PasscodeScreen } from '@/components/ui/passcode-screen';
-import { getPasscodeHash, shouldLock, touchLastActive } from '@/lib/passcode';
+import { getPasscodeHash, shouldLock, touchLastActive, removePasscode } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
 
 declare global {
@@ -502,6 +502,12 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
+          // User was removed from DB — clear all local state so they get a clean slate
+          if (res.status === 401 || res.status === 403 || res.status === 404) {
+            removePasscode();
+            localStorage.removeItem('memo_onboarding_done');
+            localStorage.removeItem('memo_renewal_banner_shown_date');
+          }
           throw new Error(data.error ?? `Auth failed (${res.status})`);
         }
 

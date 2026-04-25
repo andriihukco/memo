@@ -90,6 +90,7 @@ export default function SettingsPage() {
   interface Category { name: string; label_ua: string; color: string; }
   const [categories, setCategories] = useState<Category[]>([]);
   const [catError, setCatError] = useState<string | null>(null);
+  const [catLoading, setCatLoading] = useState(false);
 
   // Category rename state
   const [renameTarget, setRenameTarget] = useState<Category | null>(null);
@@ -110,10 +111,13 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!accessToken) return;
+    setCatLoading(true);
+    setCatError(null);
     fetch('/api/categories', { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.json())
       .then(d => setCategories(d.categories ?? []))
-      .catch(() => setCatError('Не вдалося завантажити категорії'));
+      .catch(() => setCatError('Не вдалося завантажити категорії'))
+      .finally(() => setCatLoading(false));
   }, [accessToken]);
 
   // ── Passcode handlers ─────────────────────────────────────────────────────
@@ -296,53 +300,105 @@ export default function SettingsPage() {
         {catError && <p className="mb-2 text-xs text-destructive">{catError}</p>}
         <Card>
           <CardContent className="p-0">
-            {categories.map((cat, i) => {
-              const isLocked = cat.name === 'uncategorized';
-              return (
-                <div key={cat.name}>
-                  {i > 0 && <Separator />}
-                  <div className="flex items-center gap-3 px-4 py-3.5">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{cat.label_ua}</p>
-                      {isLocked && <p className="text-xs text-muted-foreground">Системна категорія — не можна змінити</p>}
-                    </div>
-                    {isLocked ? (
-                      <Icon name="lock" size={16} className="text-muted-foreground/50" />
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); }}
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
-                          aria-label={`Перейменувати ${cat.label_ua}`}
-                        >
-                          <Icon name="edit" size={15} aria-label={`Перейменувати ${cat.label_ua}`} />
-                        </button>
-                        <button
-                          onClick={() => { play('OPEN'); setMergeSource(cat); }}
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
-                          aria-label={`Об'єднати ${cat.label_ua}`}
-                        >
-                          <Icon name="merge" size={15} aria-label={`Об'єднати ${cat.label_ua}`} />
-                        </button>
-                        <button
-                          onClick={() => { play('OPEN'); setRemoveTarget(cat); }}
-                          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                          aria-label={`Видалити ${cat.label_ua}`}
-                        >
-                          <Icon name="delete" size={15} aria-label={`Видалити ${cat.label_ua}`} />
-                        </button>
+            {catLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
+              </div>
+            ) : categories.length === 0 ? (
+              <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                Категорії ще не створені
+              </div>
+            ) : (
+              categories.map((cat, i) => {
+                const isLocked = cat.name === 'uncategorized';
+                return (
+                  <div key={cat.name}>
+                    {i > 0 && <Separator />}
+                    <div className="flex items-center gap-3 px-4 py-3.5">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{cat.label_ua}</p>
+                        {isLocked && <p className="text-xs text-muted-foreground">Системна категорія — не можна змінити</p>}
                       </div>
-                    )}
+                      {isLocked ? (
+                        <Icon name="lock" size={16} className="text-muted-foreground/50" />
+                      ) : (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); }}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
+                            aria-label={`Перейменувати ${cat.label_ua}`}
+                          >
+                            <Icon name="edit" size={15} />
+                          </button>
+                          <button
+                            onClick={() => { play('OPEN'); setMergeSource(cat); }}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
+                            aria-label={`Об'єднати ${cat.label_ua}`}
+                          >
+                            <Icon name="merge" size={15} />
+                          </button>
+                          <button
+                            onClick={() => { play('OPEN'); setRemoveTarget(cat); }}
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            aria-label={`Видалити ${cat.label_ua}`}
+                          >
+                            <Icon name="delete" size={15} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </CardContent>
         </Card>
       </section>
 
       {/* ── Sound ───────────────────────────────────────────────────────── */}
       <SoundSection />
+
+      {/* ── Support ─────────────────────────────────────────────────────── */}
+      <section>
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підтримка</p>
+        <Card>
+          <CardContent className="p-0">
+            <a
+              href="https://t.me/memo_support_bot"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => play('OPEN')}
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="support_agent" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Написати в підтримку</p>
+                <p className="text-xs text-muted-foreground">@memo_support_bot</p>
+              </div>
+              <Icon name="open_in_new" size={16} className="text-muted-foreground" />
+            </a>
+            <Separator />
+            <a
+              href="https://t.me/memo_app_channel"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => play('OPEN')}
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="campaign" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Канал оновлень</p>
+                <p className="text-xs text-muted-foreground">Новини та зміни</p>
+              </div>
+              <Icon name="open_in_new" size={16} className="text-muted-foreground" />
+            </a>
+          </CardContent>
+        </Card>
+      </section>
 
       {/* Rename bottom sheet */}
       {renameTarget && (
