@@ -4,6 +4,49 @@ import { env } from "@/lib/env";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type SubscriptionTier = "free" | "stars_basic" | "stars_pro";
+export type BillingPeriod = "monthly" | "quarterly" | "annual";
+
+export interface BillingPeriodInfo {
+  period: BillingPeriod;
+  label: string;
+  months: number;
+  days: number;
+  discountPct: number; // 0 = no discount
+  badge?: string;
+}
+
+export const BILLING_PERIODS: Record<BillingPeriod, BillingPeriodInfo> = {
+  monthly: {
+    period: "monthly",
+    label: "Місяць",
+    months: 1,
+    days: 30,
+    discountPct: 0,
+  },
+  quarterly: {
+    period: "quarterly",
+    label: "3 місяці",
+    months: 3,
+    days: 90,
+    discountPct: 15,
+    badge: "−15%",
+  },
+  annual: {
+    period: "annual",
+    label: "Рік",
+    months: 12,
+    days: 365,
+    discountPct: 30,
+    badge: "−30%",
+  },
+};
+
+/** Calculate Stars price for a tier + billing period, applying discount */
+export function calcPrice(baseMonthlyStars: number, period: BillingPeriod): number {
+  const { months, discountPct } = BILLING_PERIODS[period];
+  const total = baseMonthlyStars * months;
+  return Math.round(total * (1 - discountPct / 100));
+}
 
 export interface Subscription {
   id: string;
@@ -90,7 +133,8 @@ export async function createSubscription(
   userId: string,
   tier: SubscriptionTier,
   telegramPaymentChargeId: string,
-  providerPaymentChargeId: string
+  providerPaymentChargeId: string,
+  days = 30
 ): Promise<string | null> {
   const supabase = getServiceClient();
 
@@ -104,6 +148,21 @@ export async function createSubscription(
   if (error) {
     console.error("[paywall] createSubscription error:", error.message);
     return null;
+  }
+
+  // Set correct expiry based on billing period
+  const endsAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  await supabase
+    .from("profiles")
+    .update({ subscription_ends_at: endsAt })
+    .eq("id", userId);
+
+  // Also update the subscription row's end_date
+  if (data) {
+    await supabase
+      .from("subscriptions")
+      .update({ end_date: endsAt })
+      .eq("id", data);
   }
 
   return data;

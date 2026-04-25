@@ -3,19 +3,63 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
+import { TIER_INFO, BILLING_PERIODS, calcPrice, type SubscriptionTier, type BillingPeriod } from '@/lib/stars/paywall';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { Separator } from '@/components/ui/separator';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
 import { Confetti } from '@/components/ui/confetti';
+import { Icon } from '@/components/ui/icon';
 
 interface ProfileData {
   id: string;
   subscription_tier: SubscriptionTier;
   subscription_status: string;
   subscription_ends_at: string | null;
+  subscription_start_date?: string | null;
+}
+
+// ── BillingPeriodSwitcher ─────────────────────────────────────────────────────
+
+function BillingPeriodSwitcher({
+  selected,
+  onChange,
+}: {
+  selected: BillingPeriod;
+  onChange: (p: BillingPeriod) => void;
+}) {
+  const { play } = useSound();
+  const periods: BillingPeriod[] = ['monthly', 'quarterly', 'annual'];
+
+  return (
+    <div className="flex rounded-2xl bg-muted/40 p-1 gap-1">
+      {periods.map((p) => {
+        const info = BILLING_PERIODS[p];
+        const isSelected = selected === p;
+        return (
+          <button
+            key={p}
+            onClick={() => { play('SELECT'); onChange(p); }}
+            className={cn(
+              'relative flex-1 flex flex-col items-center justify-center rounded-xl py-2 px-1 transition-all',
+              isSelected ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'
+            )}
+          >
+            {info.badge && (
+              <span className={cn(
+                'absolute -top-2 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap',
+                isSelected ? 'bg-green-500 text-white' : 'bg-green-500/20 text-green-400'
+              )}>
+                {info.badge}
+              </span>
+            )}
+            <span className="text-[13px] font-medium">{info.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 // ── UsageSection ──────────────────────────────────────────────────────────────
@@ -68,9 +112,10 @@ function UsageSection({ accessToken, currentTier }: { accessToken: string | null
 // ── PlanCard ──────────────────────────────────────────────────────────────────
 
 function PlanCard({
-  tier, isCurrent, isUpgrade, isExpiredRenewal, isLoading, anyPaying, onSubscribe,
+  tier, billingPeriod, isCurrent, isUpgrade, isExpiredRenewal, isLoading, anyPaying, onSubscribe,
 }: {
   tier: SubscriptionTier;
+  billingPeriod: BillingPeriod;
   isCurrent: boolean;
   isUpgrade: boolean;
   isExpiredRenewal: boolean;
@@ -84,13 +129,17 @@ function PlanCard({
   const isPro = tier === 'stars_pro';
   const showCTA = isUpgrade || isExpiredRenewal;
 
+  const starsPrice = tier === 'free' ? 0 : calcPrice(info.priceStars, billingPeriod);
+  const monthlyEquiv = billingPeriod !== 'monthly' && tier !== 'free'
+    ? Math.round(starsPrice / BILLING_PERIODS[billingPeriod].months)
+    : null;
+
   return (
     <div
       className={cn(
         'relative rounded-2xl border',
         isCurrent ? 'border-primary/40 bg-primary/5' : 'border-border/40 bg-card/60',
-        isBasic && !isCurrent && 'border-primary/30',
-        isBasic && !isCurrent && 'mt-4'
+        isBasic && !isCurrent && 'border-primary/30 mt-4'
       )}
     >
       {isBasic && !isCurrent && (
@@ -122,8 +171,13 @@ function PlanCard({
             <p className="text-[14px] font-semibold text-muted-foreground">Безкоштовно</p>
           ) : (
             <>
-              <p className="text-[18px] font-bold leading-tight">{info.priceStars} ⭐</p>
-              <p className="text-[10px] text-muted-foreground">/ місяць</p>
+              <p className="text-[18px] font-bold leading-tight">{starsPrice} ⭐</p>
+              <p className="text-[10px] text-muted-foreground">
+                {billingPeriod === 'monthly' ? '/ місяць' : `/ ${BILLING_PERIODS[billingPeriod].label.toLowerCase()}`}
+              </p>
+              {monthlyEquiv && (
+                <p className="text-[10px] text-green-400">≈ {monthlyEquiv} ⭐/міс</p>
+              )}
             </>
           )}
         </div>
@@ -165,9 +219,9 @@ function PlanCard({
                 Відкриваємо...
               </span>
             ) : isExpiredRenewal ? (
-              `Поновити — ${info.priceStars} ⭐`
+              `Поновити — ${starsPrice} ⭐`
             ) : (
-              `Підписатися — ${info.priceStars} ⭐`
+              `Підписатися — ${starsPrice} ⭐`
             )}
           </button>
         </div>
@@ -190,6 +244,9 @@ export default function SubscriptionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [confetti, setConfetti] = useState(false);
   const [thankYouTier, setThankYouTier] = useState<SubscriptionTier | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
+  const [downgrading, setDowngrading] = useState(false);
+  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!accessToken) return;
@@ -215,7 +272,7 @@ export default function SubscriptionsPage() {
       const res = await fetch('/api/stars/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ userId: profile.id, tier }),
+        body: JSON.stringify({ userId: profile.id, tier, billingPeriod }),
       });
       const data = await res.json();
       if (!data.ok || !data.invoiceLink) { setError(data.error ?? 'Помилка'); setPaying(null); return; }
@@ -234,11 +291,30 @@ export default function SubscriptionsPage() {
         } else if (status === 'failed') {
           setError('Оплата не вдалася. Спробуй ще раз.');
         }
-        // cancelled — stay on page, do nothing
       });
     } catch {
       setError('Щось пішло не так');
       setPaying(null);
+    }
+  }
+
+  async function handleDowngrade() {
+    if (!accessToken || !profile) return;
+    setDowngrading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ downgrade: true }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      setShowDowngradeConfirm(false);
+      await loadProfile();
+    } catch {
+      setError('Не вдалося скасувати підписку. Спробуй ще раз.');
+    } finally {
+      setDowngrading(false);
     }
   }
 
@@ -247,13 +323,14 @@ export default function SubscriptionsPage() {
   const tiers = Object.keys(TIER_INFO) as SubscriptionTier[];
 
   const endsAt = profile?.subscription_ends_at ? new Date(profile.subscription_ends_at) : null;
+  const startsAt = profile?.subscription_start_date ? new Date(profile.subscription_start_date) : null;
   const isExpired = endsAt ? endsAt < new Date() : false;
   const daysRemaining = endsAt && !isExpired
     ? Math.ceil((endsAt.getTime() - Date.now()) / 86400000)
     : null;
-
-  // Effective tier — if expired, treat as free
   const effectiveTier: SubscriptionTier = (currentTier !== 'free' && isExpired) ? 'free' : currentTier;
+
+  const fmtDate = (d: Date) => d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
 
   if (loading) {
     return (
@@ -285,34 +362,17 @@ export default function SubscriptionsPage() {
             >
               {TIER_INFO[thankYouTier].icon}
             </motion.div>
-            <motion.h1
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.35 }}
-              className="mb-2 text-[26px] font-bold"
-            >
+            <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.35 }} className="mb-2 text-[26px] font-bold">
               Дякуємо! 🎉
             </motion.h1>
-            <motion.p
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.35 }}
-              className="mb-1 text-[17px] font-semibold text-primary"
-            >
+            <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.35 }} className="mb-1 text-[17px] font-semibold text-primary">
               {TIER_INFO[thankYouTier].name} активовано
             </motion.p>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.35 }}
-              className="text-[14px] text-muted-foreground"
-            >
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.35 }} className="text-[14px] text-muted-foreground">
               Твоя підтримка дуже важлива для нас ❤️
             </motion.p>
             <motion.button
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.55, duration: 0.3 }}
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.3 }}
               whileTap={{ scale: 0.96 }}
               onClick={() => setThankYouTier(null)}
               className="mt-8 rounded-full bg-primary px-8 py-3.5 text-[15px] font-semibold text-primary-foreground"
@@ -335,58 +395,86 @@ export default function SubscriptionsPage() {
           <p className="text-[13px] text-muted-foreground">Підтримай Memo та отримай більше</p>
         </div>
 
-        {/* Current plan banner */}
-        {profile && (
+        {/* Current plan details card */}
+        {profile && effectiveTier !== 'free' && (
           <div className={cn(
-            'flex items-center gap-3 rounded-2xl px-4 py-3',
-            isExpired ? 'bg-destructive/10 border border-destructive/20' : 'bg-muted/30'
+            'rounded-2xl border px-4 py-3.5 flex flex-col gap-2',
+            isExpired ? 'bg-destructive/10 border-destructive/20' : 'bg-primary/5 border-primary/20'
           )}>
-            <span className="text-2xl">{TIER_INFO[effectiveTier].icon}</span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="text-[14px] font-semibold">{TIER_INFO[effectiveTier].name}</p>
-                {isExpired && (
-                  <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive">
-                    Закінчилась
-                  </span>
-                )}
-                {!isExpired && effectiveTier !== 'free' && (
-                  <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">
-                    Активна
-                  </span>
-                )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{TIER_INFO[effectiveTier].icon}</span>
+                <p className="text-[15px] font-semibold">{TIER_INFO[effectiveTier].name}</p>
               </div>
-              {effectiveTier === 'free' && !isExpired && (
-                <p className="text-[12px] text-muted-foreground">Безкоштовно назавжди</p>
-              )}
-              {effectiveTier !== 'free' && endsAt && !isExpired && (
-                <p className="text-[12px] text-muted-foreground">
-                  До {endsAt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}
-                </p>
-              )}
-              {isExpired && endsAt && (
-                <p className="text-[12px] text-destructive/70">
-                  Закінчилась {endsAt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })} · Поновіть вручну
-                </p>
+              {isExpired ? (
+                <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive">Закінчилась</span>
+              ) : (
+                <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">Активна</span>
               )}
             </div>
-            {daysRemaining !== null && daysRemaining <= 7 && (
-              <span className="rounded-full bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 text-[11px] text-amber-300 shrink-0">
-                {daysRemaining === 1 ? '1 день' : `${daysRemaining} дні`}
-              </span>
+
+            <div className="grid grid-cols-2 gap-2 mt-1">
+              {startsAt && (
+                <div className="rounded-xl bg-muted/30 px-3 py-2">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Початок</p>
+                  <p className="text-[12px] font-medium">{fmtDate(startsAt)}</p>
+                </div>
+              )}
+              {endsAt && (
+                <div className={cn('rounded-xl px-3 py-2', isExpired ? 'bg-destructive/10' : daysRemaining !== null && daysRemaining <= 7 ? 'bg-amber-400/10' : 'bg-muted/30')}>
+                  <p className="text-[10px] text-muted-foreground mb-0.5">{isExpired ? 'Закінчилась' : 'Діє до'}</p>
+                  <p className={cn('text-[12px] font-medium', isExpired ? 'text-destructive' : daysRemaining !== null && daysRemaining <= 7 ? 'text-amber-300' : '')}>
+                    {fmtDate(endsAt)}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {daysRemaining !== null && (
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                  {startsAt && endsAt && (
+                    <div
+                      className={cn('h-full rounded-full', daysRemaining <= 7 ? 'bg-amber-400' : 'bg-primary')}
+                      style={{ width: `${Math.max(5, Math.min(100, (daysRemaining / Math.ceil((endsAt.getTime() - startsAt.getTime()) / 86400000)) * 100))}%` }}
+                    />
+                  )}
+                </div>
+                <span className={cn('text-[11px] font-medium shrink-0', daysRemaining <= 7 ? 'text-amber-300' : 'text-muted-foreground')}>
+                  {daysRemaining === 1 ? '1 день' : `${daysRemaining} дн.`}
+                </span>
+              </div>
+            )}
+
+            {isExpired && endsAt && (
+              <p className="text-[12px] text-destructive/70">
+                Закінчилась {fmtDate(endsAt)} · Поновіть вручну нижче
+              </p>
             )}
           </div>
         )}
 
-        {/* Billing note */}
-        {effectiveTier !== 'free' && !isExpired && (
-          <div className="flex items-start gap-2 rounded-xl bg-muted/20 px-3 py-2.5">
-            <span className="text-[13px] leading-none mt-0.5">ℹ️</span>
-            <p className="text-[12px] text-muted-foreground leading-relaxed">
-              Підписка на 30 днів. Telegram Stars не підтримує автоматичне поновлення — поновіть вручну до закінчення терміну.
-            </p>
+        {/* Free tier simple banner */}
+        {effectiveTier === 'free' && !isExpired && (
+          <div className="flex items-center gap-3 rounded-2xl bg-muted/30 px-4 py-3">
+            <span className="text-2xl">{TIER_INFO['free'].icon}</span>
+            <div>
+              <p className="text-[14px] font-semibold">{TIER_INFO['free'].name}</p>
+              <p className="text-[12px] text-muted-foreground">Безкоштовно назавжди</p>
+            </div>
           </div>
         )}
+
+        {/* Billing period switcher — shown above plan cards */}
+        <div className="flex flex-col gap-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-1">Період</p>
+          <BillingPeriodSwitcher selected={billingPeriod} onChange={setBillingPeriod} />
+          {billingPeriod !== 'monthly' && (
+            <p className="text-[11px] text-green-400 text-center">
+              Економія {BILLING_PERIODS[billingPeriod].discountPct}% порівняно з місячною оплатою
+            </p>
+          )}
+        </div>
 
         {/* Usage */}
         {effectiveTier !== 'stars_pro' && (
@@ -407,6 +495,7 @@ export default function SubscriptionsPage() {
             >
               <PlanCard
                 tier={tier}
+                billingPeriod={billingPeriod}
                 isCurrent={effectiveTier === tier}
                 isUpgrade={tierRank[tier] > tierRank[effectiveTier]}
                 isExpiredRenewal={isExpired && currentTier === tier}
@@ -418,8 +507,49 @@ export default function SubscriptionsPage() {
           ))}
         </div>
 
+        {/* Downgrade / cancel */}
+        {effectiveTier !== 'free' && !isExpired && (
+          <div className="pt-2">
+            {!showDowngradeConfirm ? (
+              <button
+                onClick={() => setShowDowngradeConfirm(true)}
+                className="w-full py-3 text-[13px] text-muted-foreground/60 hover:text-muted-foreground transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Icon name="arrow_downward" size={14} />
+                Перейти на безкоштовний план
+              </button>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-4 flex flex-col gap-3"
+              >
+                <p className="text-[13px] font-medium text-center">Скасувати підписку?</p>
+                <p className="text-[12px] text-muted-foreground text-center leading-relaxed">
+                  Доступ до платних функцій буде закрито одразу. Поновити можна в будь-який час.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowDowngradeConfirm(false)}
+                    className="flex-1 rounded-full border border-border py-2.5 text-[13px] font-medium"
+                  >
+                    Залишити
+                  </button>
+                  <button
+                    onClick={handleDowngrade}
+                    disabled={downgrading}
+                    className="flex-1 rounded-full bg-destructive/15 text-destructive py-2.5 text-[13px] font-medium disabled:opacity-50"
+                  >
+                    {downgrading ? 'Скасовуємо...' : 'Скасувати'}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </div>
+        )}
+
         <p className="text-center text-[11px] text-muted-foreground">
-          Telegram Stars · 30 днів · Поновлення вручну
+          Telegram Stars · Поновлення вручну · Без автосписання
         </p>
       </motion.div>
     </>

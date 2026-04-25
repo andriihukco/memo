@@ -92,39 +92,40 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
   const { accessToken } = useAuth();
   const [visible, setVisible] = useState(false);
   const [paying, setPaying] = useState<'stars_basic' | 'stars_pro' | null>(null);
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
 
-  // Trigger slide-up animation after mount
+  const BILLING = {
+    monthly:   { label: 'Місяць',   months: 1,  days: 30,  discount: 0,   badge: null },
+    quarterly: { label: '3 місяці', months: 3,  days: 90,  discount: 15,  badge: '−15%' },
+    annual:    { label: 'Рік',      months: 12, days: 365, discount: 30,  badge: '−30%' },
+  } as const;
+
+  const calcPrice = (base: number) => {
+    const { months, discount } = BILLING[billingPeriod];
+    return Math.round(base * months * (1 - discount / 100));
+  };
+
   useEffect(() => {
     const raf = requestAnimationFrame(() => setVisible(true));
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  const handleContinueFree = () => {
-    play('CLOSE');
-    finish();
-  };
+  const handleContinueFree = () => { play('CLOSE'); finish(); };
 
   const handleSubscribe = async (tier: 'stars_basic' | 'stars_pro') => {
     play('BUTTON');
-    if (!accessToken) {
-      // Auth not ready yet — finish onboarding and let them subscribe from settings
-      finish();
-      return;
-    }
+    if (!accessToken) { finish(); return; }
 
     setPaying(tier);
     try {
-      // Fetch profile id first
-      const profileRes = await fetch('/api/profile', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const profileRes = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!profileRes.ok) throw new Error('no profile');
       const { profile } = await profileRes.json();
 
       const res = await fetch('/api/stars/invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ userId: profile.id, tier }),
+        body: JSON.stringify({ userId: profile.id, tier, billingPeriod }),
       });
       const data = await res.json();
       if (!data.ok || !data.invoiceLink) throw new Error('no invoice');
@@ -134,10 +135,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
 
       tg.openInvoice(data.invoiceLink, (status) => {
         setPaying(null);
-        if (status === 'paid') {
-          finish(); // only finish onboarding after successful payment
-        }
-        // cancelled or failed — stay on paywall so user can try again or continue free
+        if (status === 'paid') finish();
       });
     } catch {
       setPaying(null);
@@ -150,7 +148,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       tier: 'stars_basic' as const,
       emoji: '🌟',
       name: 'Nova',
-      price: '250 ⭐ / міс',
+      basePrice: 250,
       features: ['До 2 000 записів', '15 AI-віджетів', 'AI ретроспективи', 'Граф зв\'язків'],
       recommended: true,
     },
@@ -158,30 +156,58 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       tier: 'stars_pro' as const,
       emoji: '💫',
       name: 'Supernova',
-      price: '500 ⭐ / міс',
+      basePrice: 500,
       features: ['Необмежені записи', 'Необмежені AI-віджети', 'Повна історія', 'Експорт даних'],
       recommended: false,
     },
   ];
 
+  const periods: Array<'monthly' | 'quarterly' | 'annual'> = ['monthly', 'quarterly', 'annual'];
+
   return (
     <div
       className="fixed inset-0 z-[101] flex flex-col bg-gradient-to-b from-yellow-950 to-slate-950"
-      style={{
-        transform: visible ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)',
-      }}
+      style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)' }}
     >
-      {/* Scrollable content */}
       <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-4 pt-12">
         <h1 className="mb-1 text-[26px] font-bold leading-tight text-white">Обери свій план</h1>
-        <p className="mb-5 text-[14px] text-white/50">Базові функції безкоштовні назавжди</p>
+        <p className="mb-4 text-[14px] text-white/50">Базові функції безкоштовні назавжди</p>
+
+        {/* Billing period switcher */}
+        <div className="mb-4 flex rounded-2xl bg-white/10 p-1 gap-1">
+          {periods.map((p) => {
+            const info = BILLING[p];
+            const isSelected = billingPeriod === p;
+            return (
+              <button
+                key={p}
+                onClick={() => { play('SELECT'); setBillingPeriod(p); }}
+                className={cn(
+                  'relative flex-1 flex flex-col items-center justify-center rounded-xl py-2 px-1 transition-all',
+                  isSelected ? 'bg-white/15 text-white' : 'text-white/50'
+                )}
+              >
+                {info.badge && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-green-500 px-1.5 py-0.5 text-[9px] font-bold text-white whitespace-nowrap">
+                    {info.badge}
+                  </span>
+                )}
+                <span className="text-[12px] font-medium">{info.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {billingPeriod !== 'monthly' && (
+          <p className="mb-3 text-center text-[11px] text-green-400">
+            Економія {BILLING[billingPeriod].discount}% порівняно з місячною оплатою
+          </p>
+        )}
 
         {/* Free tier row */}
         <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-          <span className="text-xl">⭐</span>
+          <span className="text-xl">✨</span>
           <div className="flex-1">
-            <p className="text-[14px] font-semibold text-white">✨ Memo Spark</p>
+            <p className="text-[14px] font-semibold text-white">Memo Spark</p>
             <p className="text-[12px] text-white/40">До 100 записів · 3 AI-віджети · 5 ретроспектив</p>
           </div>
           <span className="text-[13px] text-white/40">Безкоштовно</span>
@@ -189,66 +215,72 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
 
         {/* Paid plan cards */}
         <div className="flex flex-col gap-3">
-          {plans.map((plan) => (
-            <div
-              key={plan.tier}
-              className={cn(
-                'relative rounded-2xl border px-4 py-3.5',
-                plan.recommended
-                  ? 'border-yellow-400/50 bg-yellow-950/50'
-                  : 'border-white/10 bg-white/5'
-              )}
-            >
-              {plan.recommended && (
-                <span className="absolute -top-2.5 right-3 rounded-full bg-yellow-400 px-2.5 py-0.5 text-[10px] font-semibold text-slate-950">
-                  Рекомендовано
-                </span>
-              )}
-              <div className="mb-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl leading-none">{plan.emoji}</span>
-                  <span className="text-[15px] font-semibold text-white">{plan.name}</span>
-                </div>
-                <span className="text-[13px] text-white/60">{plan.price}</span>
-              </div>
-              <ul className="mb-3 space-y-1">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-1.5 text-[12px] text-white/50">
-                    <span className="text-[10px] text-yellow-400/80">✓</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <button
-                onClick={() => handleSubscribe(plan.tier)}
-                disabled={paying !== null}
+          {plans.map((plan) => {
+            const price = calcPrice(plan.basePrice);
+            const monthlyEquiv = billingPeriod !== 'monthly'
+              ? Math.round(price / BILLING[billingPeriod].months)
+              : null;
+            return (
+              <div
+                key={plan.tier}
                 className={cn(
-                  'w-full rounded-xl py-2.5 text-[14px] font-semibold transition-all active:scale-95 disabled:opacity-60',
-                  plan.recommended
-                    ? 'bg-yellow-400 text-slate-950'
-                    : 'bg-white/10 text-white'
+                  'relative rounded-2xl border px-4 py-3.5',
+                  plan.recommended ? 'border-yellow-400/50 bg-yellow-950/50' : 'border-white/10 bg-white/5'
                 )}
               >
-                {paying === plan.tier ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    Відкриваємо...
+                {plan.recommended && (
+                  <span className="absolute -top-2.5 right-3 rounded-full bg-yellow-400 px-2.5 py-0.5 text-[10px] font-semibold text-slate-950">
+                    Рекомендовано
                   </span>
-                ) : (
-                  `Підписатися — ${plan.price}`
                 )}
-              </button>
-            </div>
-          ))}
+                <div className="mb-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl leading-none">{plan.emoji}</span>
+                    <span className="text-[15px] font-semibold text-white">{plan.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[15px] font-bold text-white">{price} ⭐</p>
+                    <p className="text-[10px] text-white/40">
+                      {billingPeriod === 'monthly' ? '/ міс' : `/ ${BILLING[billingPeriod].label.toLowerCase()}`}
+                    </p>
+                    {monthlyEquiv && (
+                      <p className="text-[10px] text-green-400">≈ {monthlyEquiv} ⭐/міс</p>
+                    )}
+                  </div>
+                </div>
+                <ul className="mb-3 space-y-1">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex items-center gap-1.5 text-[12px] text-white/50">
+                      <span className="text-[10px] text-yellow-400/80">✓</span>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => handleSubscribe(plan.tier)}
+                  disabled={paying !== null}
+                  className={cn(
+                    'w-full rounded-xl py-2.5 text-[14px] font-semibold transition-all active:scale-95 disabled:opacity-60',
+                    plan.recommended ? 'bg-yellow-400 text-slate-950' : 'bg-white/10 text-white'
+                  )}
+                >
+                  {paying === plan.tier ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      Відкриваємо...
+                    </span>
+                  ) : (
+                    `Підписатися — ${price} ⭐`
+                  )}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* Continue free CTA */}
       <div className="px-5 pb-10 pt-2">
-        <button
-          onClick={handleContinueFree}
-          className="w-full py-3 text-[14px] text-white/40 active:text-white/60"
-        >
+        <button onClick={handleContinueFree} className="w-full py-3 text-[14px] text-white/40 active:text-white/60">
           Продовжити безкоштовно →
         </button>
       </div>

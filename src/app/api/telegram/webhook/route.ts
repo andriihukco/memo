@@ -68,7 +68,7 @@ function getHandler(): (req: Request) => Promise<Response> {
       if (!profile) return;
 
       // Parse payload
-      let payload: { userId: string; tier: string };
+      let payload: { userId: string; tier: string; billingPeriod?: string; days?: number };
       try {
         payload = JSON.parse(payment.invoice_payload);
       } catch {
@@ -77,6 +77,7 @@ function getHandler(): (req: Request) => Promise<Response> {
       }
 
       const tier = payload.tier as "stars_basic" | "stars_pro";
+      const days = payload.days ?? 30; // default 30 days if not specified
       const chargeId = payment.telegram_payment_charge_id;
       const providerChargeId = payment.provider_payment_charge_id;
 
@@ -85,7 +86,8 @@ function getHandler(): (req: Request) => Promise<Response> {
         profile.id,
         tier,
         chargeId,
-        providerChargeId
+        providerChargeId,
+        days
       );
 
       if (subscriptionId) {
@@ -104,8 +106,14 @@ function getHandler(): (req: Request) => Promise<Response> {
         stars_basic: "Memo Nova 🌟",
         stars_pro: "Memo Supernova 💫",
       };
+      const periodLabels: Record<string, string> = {
+        monthly: "1 місяць",
+        quarterly: "3 місяці",
+        annual: "1 рік",
+      };
+      const periodStr = payload.billingPeriod ? ` · ${periodLabels[payload.billingPeriod] ?? ""}` : "";
       await ctx.reply(
-        `✅ Оплата пройшла! Підписка *${tierNames[tier] ?? tier}* активована.\n\nДякуємо за підтримку — це дуже важливо для нас 🙏\n\nВідкрий міні-додаток щоб побачити всі нові функції.`,
+        `✅ Оплата пройшла! Підписка *${tierNames[tier] ?? tier}*${periodStr} активована.\n\nДякуємо за підтримку — це дуже важливо для нас 🙏\n\nВідкрий міні-додаток щоб побачити всі нові функції.`,
         {
           parse_mode: "Markdown",
           reply_markup: new InlineKeyboard().webApp("📱 Відкрити Memo", env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp"),
