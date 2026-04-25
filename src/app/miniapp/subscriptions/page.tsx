@@ -9,6 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
+import { Confetti } from '@/components/ui/confetti';
 
 interface ProfileData {
   id: string;
@@ -67,11 +68,12 @@ function UsageSection({ accessToken, currentTier }: { accessToken: string | null
 // ── PlanCard ──────────────────────────────────────────────────────────────────
 
 function PlanCard({
-  tier, isCurrent, isUpgrade, isLoading, anyPaying, onSubscribe,
+  tier, isCurrent, isUpgrade, isExpiredRenewal, isLoading, anyPaying, onSubscribe,
 }: {
   tier: SubscriptionTier;
   isCurrent: boolean;
   isUpgrade: boolean;
+  isExpiredRenewal: boolean;
   isLoading: boolean;
   anyPaying: boolean;
   onSubscribe: (tier: SubscriptionTier) => void;
@@ -80,6 +82,7 @@ function PlanCard({
   const { play } = useSound();
   const isBasic = tier === 'stars_basic';
   const isPro = tier === 'stars_pro';
+  const showCTA = isUpgrade || isExpiredRenewal;
 
   return (
     <div
@@ -140,8 +143,8 @@ function PlanCard({
         ))}
       </div>
 
-      {/* CTA — outside the card content, full width */}
-      {isUpgrade && (
+      {/* CTA */}
+      {showCTA && (
         <div className="px-4 pb-4">
           <button
             onClick={() => { play('BUTTON'); onSubscribe(tier); }}
@@ -150,7 +153,9 @@ function PlanCard({
               'w-full rounded-xl py-3 text-[14px] font-semibold transition-all active:scale-[0.98] min-h-[44px]',
               isPro
                 ? 'bg-gradient-to-r from-yellow-400 to-amber-400 text-slate-950'
-                : 'bg-primary text-primary-foreground',
+                : isExpiredRenewal
+                  ? 'bg-amber-400 text-slate-950'
+                  : 'bg-primary text-primary-foreground',
               (isLoading || anyPaying) && 'opacity-60'
             )}
           >
@@ -159,6 +164,8 @@ function PlanCard({
                 <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 Відкриваємо...
               </span>
+            ) : isExpiredRenewal ? (
+              `Поновити — ${info.priceStars} ⭐`
             ) : (
               `Підписатися — ${info.priceStars} ⭐`
             )}
@@ -181,7 +188,8 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState<SubscriptionTier | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [confetti, setConfetti] = useState(false);
+  const [thankYouTier, setThankYouTier] = useState<SubscriptionTier | null>(null);
 
   const loadProfile = useCallback(async () => {
     if (!accessToken) return;
@@ -219,7 +227,9 @@ export default function SubscriptionsPage() {
         setPaying(null);
         if (status === 'paid') {
           play('CELEBRATION');
-          setSuccessMsg(`✅ ${TIER_INFO[tier].name} активовано!`);
+          setConfetti(true);
+          setThankYouTier(tier);
+          setTimeout(() => setConfetti(false), 3500);
           await loadProfile();
         } else if (status === 'failed') {
           setError('Оплата не вдалася. Спробуй ще раз.');
@@ -236,9 +246,14 @@ export default function SubscriptionsPage() {
   const tierRank: Record<SubscriptionTier, number> = { free: 0, stars_basic: 1, stars_pro: 2 };
   const tiers = Object.keys(TIER_INFO) as SubscriptionTier[];
 
-  const daysRemaining = profile?.subscription_ends_at
-    ? Math.ceil((new Date(profile.subscription_ends_at).getTime() - Date.now()) / 86400000)
+  const endsAt = profile?.subscription_ends_at ? new Date(profile.subscription_ends_at) : null;
+  const isExpired = endsAt ? endsAt < new Date() : false;
+  const daysRemaining = endsAt && !isExpired
+    ? Math.ceil((endsAt.getTime() - Date.now()) / 86400000)
     : null;
+
+  // Effective tier — if expired, treat as free
+  const effectiveTier: SubscriptionTier = (currentTier !== 'free' && isExpired) ? 'free' : currentTier;
 
   if (loading) {
     return (
@@ -249,86 +264,164 @@ export default function SubscriptionsPage() {
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      className="flex flex-col gap-4 px-4 pt-5 pb-10"
-    >
-      {/* Header — centered, layout back button is on the left */}
-      <div className="text-center">
-        <h1 className="text-[28px] font-bold leading-tight">Підписка</h1>
-        <p className="text-[13px] text-muted-foreground">Підтримай Memo та отримай більше</p>
-      </div>
+    <>
+      <Confetti active={confetti} />
 
-      {/* Current plan banner */}
-      {profile && (
-        <div className="flex items-center gap-3 rounded-2xl bg-muted/30 px-4 py-3">
-          <span className="text-2xl">{TIER_INFO[currentTier].icon}</span>
-          <div className="flex-1">
-            <p className="text-[14px] font-semibold">{TIER_INFO[currentTier].name}</p>
-            {currentTier === 'free' && <p className="text-[12px] text-muted-foreground">Безкоштовно назавжди</p>}
-            {currentTier !== 'free' && profile.subscription_ends_at && (
-              <p className="text-[12px] text-muted-foreground">
-                До {new Date(profile.subscription_ends_at).toLocaleDateString('uk-UA')}
-              </p>
-            )}
-          </div>
-          {daysRemaining !== null && daysRemaining > 0 && daysRemaining <= 7 && (
-            <span className="rounded-full bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 text-[11px] text-amber-300">
-              {daysRemaining} {daysRemaining === 1 ? 'день' : 'дні'}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Usage */}
-      {currentTier !== 'stars_pro' && (
-        <UsageSection accessToken={accessToken} currentTier={currentTier} />
-      )}
-
-      {/* Success */}
+      {/* Thank-you overlay */}
       <AnimatePresence>
-        {successMsg && (
+        {thankYouTier && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -8 }}
+            initial={{ opacity: 0, scale: 0.92, y: 24 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-            className="rounded-xl bg-green-500/10 border border-green-500/20 px-4 py-3 text-[14px] text-green-500"
+            exit={{ opacity: 0, scale: 0.92, y: 24 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+            className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm px-8 text-center"
           >
-            {successMsg}
+            <motion.div
+              initial={{ scale: 0, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.1 }}
+              className="mb-6 text-7xl leading-none select-none"
+            >
+              {TIER_INFO[thankYouTier].icon}
+            </motion.div>
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.35 }}
+              className="mb-2 text-[26px] font-bold"
+            >
+              Дякуємо! 🎉
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.35 }}
+              className="mb-1 text-[17px] font-semibold text-primary"
+            >
+              {TIER_INFO[thankYouTier].name} активовано
+            </motion.p>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.35 }}
+              className="text-[14px] text-muted-foreground"
+            >
+              Твоя підтримка дуже важлива для нас ❤️
+            </motion.p>
+            <motion.button
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55, duration: 0.3 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setThankYouTier(null)}
+              className="mt-8 rounded-full bg-primary px-8 py-3.5 text-[15px] font-semibold text-primary-foreground"
+            >
+              Чудово →
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Error */}
-      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+        className="flex flex-col gap-4 px-4 pt-5 pb-10"
+      >
+        {/* Header */}
+        <div className="text-center">
+          <h1 className="text-[28px] font-bold leading-tight">Підписка</h1>
+          <p className="text-[13px] text-muted-foreground">Підтримай Memo та отримай більше</p>
+        </div>
 
-      {/* Plan cards */}
-      <div className="flex flex-col gap-4 pt-2">
-        {tiers.map((tier, i) => (
-          <motion.div
-            key={tier}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, delay: 0.1 + i * 0.07, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <PlanCard
-              tier={tier}
-              isCurrent={currentTier === tier}
-              isUpgrade={tierRank[tier] > tierRank[currentTier]}
-              isLoading={paying === tier}
-              anyPaying={paying !== null}
-              onSubscribe={handleSubscribe}
-            />
-          </motion.div>
-        ))}
-      </div>
+        {/* Current plan banner */}
+        {profile && (
+          <div className={cn(
+            'flex items-center gap-3 rounded-2xl px-4 py-3',
+            isExpired ? 'bg-destructive/10 border border-destructive/20' : 'bg-muted/30'
+          )}>
+            <span className="text-2xl">{TIER_INFO[effectiveTier].icon}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-[14px] font-semibold">{TIER_INFO[effectiveTier].name}</p>
+                {isExpired && (
+                  <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive">
+                    Закінчилась
+                  </span>
+                )}
+                {!isExpired && effectiveTier !== 'free' && (
+                  <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">
+                    Активна
+                  </span>
+                )}
+              </div>
+              {effectiveTier === 'free' && !isExpired && (
+                <p className="text-[12px] text-muted-foreground">Безкоштовно назавжди</p>
+              )}
+              {effectiveTier !== 'free' && endsAt && !isExpired && (
+                <p className="text-[12px] text-muted-foreground">
+                  До {endsAt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              )}
+              {isExpired && endsAt && (
+                <p className="text-[12px] text-destructive/70">
+                  Закінчилась {endsAt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' })} · Поновіть вручну
+                </p>
+              )}
+            </div>
+            {daysRemaining !== null && daysRemaining <= 7 && (
+              <span className="rounded-full bg-amber-400/15 border border-amber-400/30 px-2 py-0.5 text-[11px] text-amber-300 shrink-0">
+                {daysRemaining === 1 ? '1 день' : `${daysRemaining} дні`}
+              </span>
+            )}
+          </div>
+        )}
 
-      <p className="text-center text-[11px] text-muted-foreground">
-        Telegram Stars · 30 днів · Поновлення вручну
-      </p>
-    </motion.div>
+        {/* Billing note */}
+        {effectiveTier !== 'free' && !isExpired && (
+          <div className="flex items-start gap-2 rounded-xl bg-muted/20 px-3 py-2.5">
+            <span className="text-[13px] leading-none mt-0.5">ℹ️</span>
+            <p className="text-[12px] text-muted-foreground leading-relaxed">
+              Підписка на 30 днів. Telegram Stars не підтримує автоматичне поновлення — поновіть вручну до закінчення терміну.
+            </p>
+          </div>
+        )}
+
+        {/* Usage */}
+        {effectiveTier !== 'stars_pro' && (
+          <UsageSection accessToken={accessToken} currentTier={effectiveTier} />
+        )}
+
+        {/* Error */}
+        {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+        {/* Plan cards */}
+        <div className="flex flex-col gap-4 pt-2">
+          {tiers.map((tier, i) => (
+            <motion.div
+              key={tier}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, delay: 0.1 + i * 0.07, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <PlanCard
+                tier={tier}
+                isCurrent={effectiveTier === tier}
+                isUpgrade={tierRank[tier] > tierRank[effectiveTier]}
+                isExpiredRenewal={isExpired && currentTier === tier}
+                isLoading={paying === tier}
+                anyPaying={paying !== null}
+                onSubscribe={handleSubscribe}
+              />
+            </motion.div>
+          ))}
+        </div>
+
+        <p className="text-center text-[11px] text-muted-foreground">
+          Telegram Stars · 30 днів · Поновлення вручну
+        </p>
+      </motion.div>
+    </>
   );
 }

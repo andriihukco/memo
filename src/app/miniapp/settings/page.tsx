@@ -14,8 +14,138 @@ import {
   getLockTimer, setLockTimer, type LockTimer, LOCK_TIMER_LABELS,
 } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
+import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
 
 type SetupStep = 'idle' | 'enter_current' | 'enter_current_to_disable' | 'set_new' | 'confirm_new' | 'success';
+
+// ── OnboardingReplay — view-only onboarding slides ────────────────────────────
+
+const ONBOARDING_SLIDES = [
+  { emoji: '📓', title: 'Твій особистий щоденник', body: 'Просто пиши або говори — Memo сам розбере що зберегти. Їжа, тренування, витрати, думки.', bg: 'from-indigo-950 to-slate-950' },
+  { emoji: '🤖', title: 'AI, що тебе розуміє', body: 'Memo аналізує твої записи, рахує калорії та макроси, трекає активність і відповідає на питання про твоє минуле.', bg: 'from-violet-950 to-slate-950' },
+  { emoji: '📊', title: 'Дашборд і графіки', body: 'Всі твої метрики в одному місці. Бачиш прогрес, патерни і тренди — без зайвих зусиль.', bg: 'from-blue-950 to-slate-950' },
+  { emoji: '💡', title: 'Розумні рекомендації', body: 'Memo помічає якщо ти мало спиш, п\'єш забагато алкоголю або не вистачає білка — і підказує що змінити.', bg: 'from-amber-950 to-slate-950' },
+  { emoji: '🔐', title: 'Твої дані захищені', body: 'Всі записи шифруються на твоєму пристрої перед збереженням. Навіть ми не можемо їх прочитати.', bg: 'from-emerald-950 to-slate-950' },
+  { emoji: '⭐', title: 'Підтримай проект', body: 'Базові функції безкоштовні назавжди. Stars Pro відкриває розширену аналітику, рекомендації та пріоритетну обробку.', bg: 'from-yellow-950 to-slate-950', isFinal: true },
+];
+
+function OnboardingReplay({ onClose }: { onClose: () => void }) {
+  const [index, setIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const { play } = useSound();
+
+  const slideVariants = {
+    enter: (d: number) => ({ x: d > 0 ? 80 : -80, opacity: 0, scale: 0.94 }),
+    center: { x: 0, opacity: 1, scale: 1 },
+    exit: (d: number) => ({ x: d > 0 ? -80 : 80, opacity: 0, scale: 0.94 }),
+  };
+
+  const goNext = () => {
+    if (index < ONBOARDING_SLIDES.length - 1) { play('SLIDE'); setDirection(1); setIndex(i => i + 1); }
+    else { play('CELEBRATION'); onClose(); }
+  };
+  const goPrev = () => {
+    if (index > 0) { play('SLIDE'); setDirection(-1); setIndex(i => i - 1); }
+  };
+
+  const slide = ONBOARDING_SLIDES[index];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
+      className={cn(
+        'fixed inset-0 z-[200] flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-16',
+        slide.bg,
+      )}
+    >
+      {/* Close */}
+      <button
+        onClick={() => { play('CLOSE'); onClose(); }}
+        className="absolute left-5 top-5 flex h-[44px] w-[44px] items-center justify-center rounded-full bg-white/10 text-white/60"
+        aria-label="Закрити"
+      >
+        <Icon name="close" size={18} />
+      </button>
+
+      {/* Content */}
+      <div className="relative flex flex-1 flex-col items-center justify-center text-center overflow-hidden w-full">
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={index}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
+            className="flex flex-col items-center"
+          >
+            <motion.div
+              className="mb-8 text-8xl leading-none select-none"
+              initial={{ scale: 0, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.05 }}
+            >
+              {slide.emoji}
+            </motion.div>
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.12, duration: 0.35 }}
+              className="mb-4 text-[28px] font-bold leading-tight text-white"
+            >
+              {slide.title}
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22, duration: 0.35 }}
+              className="max-w-xs text-[15px] leading-relaxed text-white/60"
+            >
+              {slide.body}
+            </motion.p>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Dots */}
+      <div className="mb-8 flex gap-1.5 items-center">
+        {ONBOARDING_SLIDES.map((_, i) => (
+          <motion.button
+            key={i}
+            onClick={() => { setDirection(i > index ? 1 : -1); play('SELECT'); setIndex(i); }}
+            animate={{ width: i === index ? 16 : 6 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+            style={{ height: 6, minWidth: 0, minHeight: 0 }}
+            className={cn('rounded-full', i === index ? 'bg-white' : 'bg-white/25')}
+          />
+        ))}
+      </div>
+
+      {/* CTA */}
+      <div className="w-full max-w-xs space-y-3">
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={goNext}
+          className={cn(
+            'w-full rounded-2xl py-4 text-base font-semibold text-slate-950',
+            (slide as { isFinal?: boolean }).isFinal ? 'bg-yellow-400' : 'bg-white'
+          )}
+        >
+          {(slide as { isFinal?: boolean }).isFinal ? 'Зрозуміло →' : 'Далі →'}
+        </motion.button>
+        {index > 0 && (
+          <button onClick={goPrev} className="w-full py-2 text-sm text-white/40">
+            ← Назад
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 // Fix: robust body attribute management for tab bar hiding
 function useSheetBodyAttr(open: boolean) {
@@ -131,7 +261,9 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [userTier, setUserTier] = useState<string | null>(null);
+  const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const router = useRouter();
 
   // Fetch subscription tier for delete warning
@@ -139,7 +271,10 @@ export default function SettingsPage() {
     if (!accessToken) return;
     fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.json())
-      .then(d => setUserTier(d.profile?.subscription_tier ?? 'free'))
+      .then(d => {
+        setUserTier(d.profile?.subscription_tier ?? 'free');
+        setSubscriptionEndsAt(d.profile?.subscription_ends_at ?? null);
+      })
       .catch(() => {});
   }, [accessToken]);
 
@@ -295,13 +430,43 @@ export default function SettingsPage() {
               onClick={() => play('OPEN')}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/15">
-                <span className="text-base leading-none">⭐</span>
+                <span className="text-base leading-none">
+                  {userTier ? TIER_INFO[userTier as SubscriptionTier]?.icon ?? '⭐' : '⭐'}
+                </span>
               </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Підписка Memo</p>
-                <p className="text-xs text-muted-foreground">Розблокуй AI-функції та більше лімітів</p>
+              <div className="flex-1 text-left min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium">
+                    {userTier ? TIER_INFO[userTier as SubscriptionTier]?.name ?? 'Підписка' : 'Підписка'}
+                  </p>
+                  {userTier && userTier !== 'free' && (() => {
+                    const isExpired = subscriptionEndsAt ? new Date(subscriptionEndsAt) < new Date() : false;
+                    const daysLeft = subscriptionEndsAt && !isExpired
+                      ? Math.ceil((new Date(subscriptionEndsAt).getTime() - Date.now()) / 86400000)
+                      : null;
+                    return (
+                      <>
+                        {isExpired ? (
+                          <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium text-destructive">Закінчилась</span>
+                        ) : (
+                          <span className="rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-400">Активна</span>
+                        )}
+                        {daysLeft !== null && daysLeft <= 7 && (
+                          <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">{daysLeft}д</span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+                <p className="text-xs text-muted-foreground truncate">
+                  {userTier === 'free' || !userTier
+                    ? 'Розблокуй AI-функції та більше лімітів'
+                    : subscriptionEndsAt
+                      ? `До ${new Date(subscriptionEndsAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })}`
+                      : 'Керувати підпискою'}
+                </p>
               </div>
-              <Icon name="chevron_right" size={16} className="text-muted-foreground" />
+              <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
             </a>
           </CardContent>
         </Card>
@@ -492,6 +657,33 @@ export default function SettingsPage() {
         </Card>
       </motion.section>
 
+      {/* ── About ───────────────────────────────────────────────────────── */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Про додаток</p>
+        <Card>
+          <CardContent className="p-0">
+            <motion.button
+              whileTap={{ scale: 0.99 }}
+              onClick={() => { play('OPEN'); setShowOnboarding(true); }}
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="auto_stories" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Як користуватись Memo</p>
+                <p className="text-xs text-muted-foreground">Переглянути онбординг ще раз</p>
+              </div>
+              <Icon name="chevron_right" size={16} className="text-muted-foreground" />
+            </motion.button>
+          </CardContent>
+        </Card>
+      </motion.section>
+
       {/* ── Danger zone ─────────────────────────────────────────────────── */}
       <motion.section
         initial={{ opacity: 0, y: 16 }}
@@ -517,6 +709,13 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </motion.section>
+
+      {/* Onboarding replay */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <OnboardingReplay onClose={() => setShowOnboarding(false)} />
+        )}
+      </AnimatePresence>
 
       {/* Delete account confirmation sheet */}
       <AnimatePresence>
