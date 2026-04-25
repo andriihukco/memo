@@ -66,7 +66,6 @@ const ICON_COLORS = [
   { id: 'gray',    bg: 'bg-gray-600',    hex: '#4b5563', text: 'text-white' },
 ] as const;
 
-type IconColorId = never; // reserved for future use
 
 function getIconColor(id?: string) {
   return ICON_COLORS.find(c => c.id === id) ?? ICON_COLORS[0];
