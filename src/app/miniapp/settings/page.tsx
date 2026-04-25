@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { useSound } from '@/lib/sound/use-sound';
@@ -10,8 +11,7 @@ import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
 import {
   getPasscodeHash, setPasscodeHash, removePasscode,
   getLockTimer, setLockTimer, type LockTimer, LOCK_TIMER_LABELS,
-} from '@/lib/passcode';
-import { cn } from '@/lib/utils';
+} from '@/lib/passcode';import { cn } from '@/lib/utils';
 
 type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
@@ -109,6 +109,12 @@ export default function SettingsPage() {
   const [mergeLoading, setMergeLoading] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
 
+  // Delete account state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const router = useRouter();
+
   useEffect(() => {
     if (!accessToken) return;
     setCatLoading(true);
@@ -200,7 +206,35 @@ export default function SettingsPage() {
     }
   };
 
-  // ── Passcode screens ──────────────────────────────────────────────────────
+  // ── Delete account handler ────────────────────────────────────────────────
+  const handleDeleteAccount = async () => {
+    if (!accessToken) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch('/api/profile/delete', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
+      // Clear all local state
+      removePasscode();
+      localStorage.removeItem('memo_onboarding_done');
+      localStorage.removeItem('memo_renewal_banner_shown_date');
+      localStorage.removeItem('memo_sound_enabled');
+      localStorage.removeItem('memo_sound_kit');
+      // Reload to trigger onboarding
+      router.push('/miniapp');
+      window.location.reload();
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Не вдалося видалити акаунт. Спробуйте ще раз.');
+      play('CAUTION');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // ── Passcode screens ───────────────────────────────────────────────────────
   if (step === 'enter_current') return <PasscodeScreen key="enter_current" mode="enter" title="Поточний код" subtitle="Введіть поточний код доступу" expectedHash={getPasscodeHash() ?? undefined} onSuccess={handleCurrentVerified} onCancel={() => setStep('idle')} />;
   if (step === 'set_new') return <PasscodeScreen key="set_new" mode="set" title="Новий код" subtitle="Введіть новий 4-значний код" onSuccess={handleNewPin} onCancel={() => setStep('idle')} />;
   if (step === 'confirm_new') return <PasscodeScreen key="confirm_new" mode="confirm" title="Підтвердіть код" subtitle="Введіть код ще раз" onSuccess={handleConfirmPin} onCancel={() => setStep('idle')} />;
@@ -399,6 +433,60 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </section>
+
+      {/* ── Danger zone ─────────────────────────────────────────────────── */}
+      <section>
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Акаунт</p>
+        <Card>
+          <CardContent className="p-0">
+            <button
+              onClick={() => { play('CAUTION'); setShowDeleteConfirm(true); }}
+              className="flex w-full items-center gap-3 px-4 py-3.5 text-destructive transition-colors hover:bg-destructive/5"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
+                <Icon name="delete_forever" size={16} className="text-destructive" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Видалити акаунт</p>
+                <p className="text-xs text-destructive/70">Всі дані будуть видалені назавжди</p>
+              </div>
+            </button>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Delete account confirmation sheet */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-end">
+          <div className="absolute inset-0 bg-black/50" onClick={() => { play('CLOSE'); setShowDeleteConfirm(false); setDeleteError(null); }} />
+          <div className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-8 shadow-2xl">
+            <div className="mb-4 flex justify-center"><div className="h-1 w-10 rounded-full bg-muted" /></div>
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 mx-auto">
+              <Icon name="delete_forever" size={24} className="text-destructive" />
+            </div>
+            <h3 className="mb-1 text-center text-base font-semibold">Видалити акаунт?</h3>
+            <p className="mb-5 text-center text-sm text-muted-foreground">
+              Всі твої записи, категорії та налаштування будуть видалені назавжди. Це дію неможливо скасувати.
+            </p>
+            {deleteError && <p className="mb-3 text-center text-xs text-destructive">{deleteError}</p>}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => { play('BUTTON'); handleDeleteAccount(); }}
+                disabled={deleteLoading}
+                className="w-full rounded-full bg-destructive py-3.5 text-sm font-semibold text-destructive-foreground disabled:opacity-50"
+              >
+                {deleteLoading ? 'Видалення...' : 'Так, видалити все'}
+              </button>
+              <button
+                onClick={() => { play('CLOSE'); setShowDeleteConfirm(false); setDeleteError(null); }}
+                className="w-full py-3 text-sm text-muted-foreground"
+              >
+                Скасувати
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Rename bottom sheet */}
       {renameTarget && (

@@ -68,17 +68,21 @@ export const SoundContext = createContext<SoundContextValue>({
 // ---------------------------------------------------------------------------
 
 export function SoundProvider({ children }: { children: ReactNode }) {
-  // Read persisted preferences from localStorage (SSR-safe)
-  const [enabled, setEnabledState] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return true;
-    const stored = localStorage.getItem(LS_ENABLED);
-    return stored === null ? true : stored === 'true';
-  });
+  // Start with defaults; sync from localStorage after hydration to avoid mismatch
+  const [enabled, setEnabledState] = useState<boolean>(true);
+  const [kit, setKitState] = useState<string>(DEFAULT_KIT);
 
-  const [kit, setKitState] = useState<string>(() => {
-    if (typeof window === 'undefined') return DEFAULT_KIT;
-    return localStorage.getItem(LS_KIT) ?? DEFAULT_KIT;
-  });
+  // Sync persisted preferences from localStorage after mount (client-only)
+  useEffect(() => {
+    const storedEnabled = localStorage.getItem(LS_ENABLED);
+    if (storedEnabled !== null) {
+      setEnabledState(storedEnabled === 'true');
+    }
+    const storedKit = localStorage.getItem(LS_KIT);
+    if (storedKit !== null) {
+      setKitState(storedKit);
+    }
+  }, []);
 
   // Holds the lazily-loaded Snd instance and the Snd class itself
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
