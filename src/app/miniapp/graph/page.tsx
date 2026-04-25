@@ -5,7 +5,6 @@ import * as d3 from 'd3';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Icon } from '@/components/ui/icon';
 import { X } from 'lucide-react';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
 import { PaywallModal } from '@/components/ui/paywall-modal';
@@ -486,12 +485,49 @@ export default function GraphPage() {
         )}
         {/* Free tier overlay — shown when userTier is known and is 'free' */}
         {userTier === 'free' && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-background/80 backdrop-blur-sm rounded-xl">
-            <Icon name="lock" size={48} className="text-muted-foreground/40" />
-            <p className="text-[17px] font-semibold text-muted-foreground">Доступно з Basic</p>
-            <Button onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }} className="min-h-[44px]">
-              Розблокувати
-            </Button>
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md px-6">
+            <div className="w-full max-w-xs flex flex-col items-center text-center">
+              {/* Icon */}
+              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-4xl">
+                🕸️
+              </div>
+
+              {/* Title */}
+              <p className="text-[22px] font-bold leading-tight mb-1">Граф зв&apos;язків</p>
+              <p className="text-[14px] text-muted-foreground mb-5">
+                Візуалізуй, як твої думки та записи пов&apos;язані між собою
+              </p>
+
+              {/* Feature list */}
+              <div className="w-full rounded-2xl bg-muted/30 border border-border/30 px-4 py-3 mb-5 flex flex-col gap-2.5 text-left">
+                {[
+                  { emoji: '🔗', text: 'Зв\'язки між записами' },
+                  { emoji: '🎨', text: 'Кольорові кластери по категоріях' },
+                  { emoji: '🔍', text: 'Пошук патернів у думках' },
+                  { emoji: '✏️', text: 'Редагування записів прямо з графу' },
+                  { emoji: '🌐', text: 'Інтерактивна навігація' },
+                ].map(({ emoji, text }) => (
+                  <div key={text} className="flex items-center gap-3">
+                    <span className="text-[18px] leading-none shrink-0">{emoji}</span>
+                    <span className="text-[14px] text-foreground/80">{text}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tier badge */}
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-lg">🌟</span>
+                <span className="text-[13px] text-muted-foreground">Доступно з плану <span className="font-semibold text-foreground">Memo Basic</span></span>
+              </div>
+
+              {/* CTA */}
+              <Button
+                className="w-full min-h-[48px] text-[15px] font-semibold"
+                onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }}
+              >
+                Перейти на Basic — 250 ⭐
+              </Button>
+            </div>
           </div>
         )}
       </div>
