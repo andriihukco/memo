@@ -12,7 +12,7 @@ import { SkeletonReportCard } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
-import { ErrorBanner } from '@/components/ui/error-banner';
+import { ErrorBanner as _ErrorBanner } from '@/components/ui/error-banner';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
@@ -54,7 +54,7 @@ const PROGRESS_LABELS = [
   'Шукаю інсайти...', 'Формую ретроспективу...', 'Майже готово...',
 ];
 
-function useProgressLabel(active: boolean) {
+function _useProgressLabel(active: boolean) {
   const [idx, setIdx] = useState(0);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   useEffect(() => {
@@ -325,11 +325,11 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [showNewReport, setShowNewReport] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportSummary | null>(null);
-  const lastGenParams = useRef<{ periodType: string; from?: Date; to?: Date } | null>(null);
+  const _lastGenParams = useRef<{ periodType: string; from?: Date; to?: Date } | null>(null);
   const { play } = useSound();
 
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const [paywallProps, setPaywallProps] = useState<{ feature: string; current?: number; limit?: number; requiredTier: SubscriptionTier }>({ feature: 'ai_reports', requiredTier: 'stars_basic' });
+  const [paywallProps, _setPaywallProps] = useState<{ feature: string; current?: number; limit?: number; requiredTier: SubscriptionTier }>({ feature: 'ai_reports', requiredTier: 'stars_basic' });
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
   const { counts } = useUsageCounts(accessToken);
 
