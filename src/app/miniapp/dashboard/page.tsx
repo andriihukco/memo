@@ -892,7 +892,7 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
   };
 
   return (
-    <BottomSheet open onClose={onClose} style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
+    <BottomSheet open onClose={onClose}>
       {/* Header */}
       <div className="px-4 pt-3 pb-2">
         <h3 className="text-[17px] font-semibold">Оберіть період</h3>

@@ -453,7 +453,8 @@ export async function synthesiseAnswer(
   const prompt = `Записи користувача:\n\n${entriesText}\n\nПитання: ${question}\n\nВАЖЛИВО: Відповідай ТІЛЬКИ на питання. Якщо записи не стосуються питання — скажи що таких записів немає.${confidenceInstruction}`;
 
   const result = await model.generateContent(prompt);
-  return result.response.text().trim();
+  const answer = result.response.text().trim();
+  return answer + '\n\n_AI може помилятись. Якщо потрібна допомога — @get\\_memo\\_help_';
 }
 
 // ── QA orchestrator ───────────────────────────────────────────────────────────
