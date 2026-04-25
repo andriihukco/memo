@@ -1411,6 +1411,21 @@ export default function DashboardPage() {
     new Map(customWidgets.map(w => [w.category ?? 'other', w.category ?? 'other'])).entries()
   ).map(([cat]) => cat);
 
+  // ── Section filter chips ───────────────────────────────────────────────────
+  // One chip per section that has data; controls which sections are visible
+  type SectionKey = 'widgets' | 'metrics' | 'finance' | 'mood' | 'ideas';
+  const [sectionFilter, setSectionFilter] = useState<SectionKey | null>(null);
+
+  const availableSections: { key: SectionKey; label: string; emoji: string }[] = [
+    ...(customWidgets.length > 0 ? [{ key: 'widgets' as SectionKey, label: 'Мої', emoji: '📊' }] : []),
+    ...(metrics.length > 0 ? [{ key: 'metrics' as SectionKey, label: 'Метрики', emoji: '📈' }] : []),
+    ...(expEntries.length > 0 ? [{ key: 'finance' as SectionKey, label: 'Фінанси', emoji: '💸' }] : []),
+    ...(feelEntries.length > 0 ? [{ key: 'mood' as SectionKey, label: 'Настрій', emoji: '😊' }] : []),
+    ...(ideaEntries.length > 0 ? [{ key: 'ideas' as SectionKey, label: 'Ідеї', emoji: '💡' }] : []),
+  ];
+
+  const showSection = (key: SectionKey) => sectionFilter === null || sectionFilter === key;
+
   const openPaywall = (feature: string, current: number | undefined, limit: number | undefined, requiredTier: SubscriptionTier) => {
     setPaywallProps({ feature, current, limit, requiredTier });
     setPaywallOpen(true);
@@ -1464,32 +1479,33 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Category filter bar — only shown when there are widgets */}
-      {customWidgets.length > 0 && (
+      {/* Unified section filter bar */}
+      {availableSections.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none -mx-4 px-4">
           <button
-            onClick={() => { setWidgetCatFilter(null); }}
+            onClick={() => setSectionFilter(null)}
             className={cn(
               'shrink-0 rounded-full border px-4 py-1.5 text-[14px] font-medium transition-all',
-              widgetCatFilter === null
+              sectionFilter === null
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'bg-muted/40 border-border/50 text-foreground/70'
             )}
           >
             Всі
           </button>
-          {widgetCategories.map(cat => (
+          {availableSections.map(s => (
             <button
-              key={cat}
-              onClick={() => setWidgetCatFilter(widgetCatFilter === cat ? null : cat)}
+              key={s.key}
+              onClick={() => setSectionFilter(sectionFilter === s.key ? null : s.key)}
               className={cn(
-                'shrink-0 rounded-full border px-4 py-1.5 text-[14px] font-medium transition-all whitespace-nowrap',
-                widgetCatFilter === cat
+                'shrink-0 flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-[14px] font-medium transition-all whitespace-nowrap',
+                sectionFilter === s.key
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'bg-muted/40 border-border/50 text-foreground/70'
               )}
             >
-              {getCategoryLabel(cat)}
+              <span className="text-base leading-none">{s.emoji}</span>
+              {s.label}
             </button>
           ))}
         </div>
@@ -1547,107 +1563,87 @@ export default function DashboardPage() {
             />
           )}
 
-          {/* Custom widgets — always visible when ready, regardless of date filter */}
-          {status === 'ready' && customWidgets.length > 0 && (
-            <div className="flex flex-col gap-6 mt-4">
-              <Section title="Мої віджети" count={customWidgets.length}>
-                <div className="grid grid-cols-2 gap-3">
-                  {filteredWidgets.map(w => {
-                    const matchedMetric = metricByKey.get(w.metric_key);
-                    const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
-                    const wColor = getIconColor(w.iconColor ?? w.color);
-                    const wEmoji = w.emoji ?? '📊';
-                    const aggLabel = matchedMetric
-                      ? matchedMetric.aggregate === 'avg'
-                        ? `середнє · ${matchedMetric.count}`
-                        : matchedMetric.aggregate === 'last'
-                          ? 'останнє'
-                          : `${matchedMetric.count} записів`
-                      : 'Немає даних';
-                    const goalPct = (w.goal && matchedMetric)
-                      ? Math.min(100, Math.round((matchedMetric.value / w.goal) * 100))
-                      : null;
+          <div className="flex flex-col gap-6 mt-4">
 
-                    return (
-                      <Card
-                        key={w.id}
-                        className="flex flex-col gap-0 p-4 cursor-pointer active:opacity-70 select-none overflow-hidden"
-                        onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
-                      >
-                        {/* Icon circle + title row */}
-                        <div className="flex items-center gap-2.5 mb-3">
-                          <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl text-xl shrink-0', wColor.bg)}>
-                            {wEmoji}
-                          </div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2">{w.title}</p>
+            {/* ── My widgets ─────────────────────────────────────────────── */}
+            {status === 'ready' && customWidgets.length > 0 && showSection('widgets') && (
+              <div className="grid grid-cols-2 gap-3">
+                {filteredWidgets.map(w => {
+                  const matchedMetric = metricByKey.get(w.metric_key);
+                  const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
+                  const wColor = getIconColor(w.iconColor ?? w.color);
+                  const wEmoji = w.emoji ?? '📊';
+                  const aggLabel = matchedMetric
+                    ? matchedMetric.aggregate === 'avg'
+                      ? `середнє · ${matchedMetric.count}`
+                      : matchedMetric.aggregate === 'last'
+                        ? 'останнє'
+                        : `${matchedMetric.count} записів`
+                    : 'Немає даних';
+                  const goalPct = (w.goal && matchedMetric)
+                    ? Math.min(100, Math.round((matchedMetric.value / w.goal) * 100))
+                    : null;
+                  return (
+                    <Card
+                      key={w.id}
+                      className="flex flex-col gap-0 p-4 cursor-pointer active:opacity-70 select-none overflow-hidden"
+                      onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
+                    >
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl text-xl shrink-0', wColor.bg)}>
+                          {wEmoji}
                         </div>
-
-                        {/* Value */}
-                        <div className="flex items-baseline gap-1 mb-0.5">
-                          <span className="text-[26px] font-bold tracking-tight leading-none">
-                            {matchedMetric ? matchedMetric.value.toLocaleString() : '—'}
-                          </span>
-                          <span className="text-[13px] text-muted-foreground">{w.unit}</span>
-                        </div>
-
-                        {/* Sub-label */}
-                        <p className="text-[11px] text-muted-foreground">{aggLabel}</p>
-
-                        {/* Goal progress bar */}
-                        {goalPct !== null && (
-                          <div className="mt-2">
-                            <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
-                              <div
-                                className={cn('h-full rounded-full transition-all', goalPct >= 100 ? 'bg-green-400' : wColor.bg)}
-                                style={{ width: `${goalPct}%` }}
-                              />
-                            </div>
-                            <p className="mt-0.5 text-right text-[10px] text-muted-foreground">{goalPct}%</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2">{w.title}</p>
+                      </div>
+                      <div className="flex items-baseline gap-1 mb-0.5">
+                        <span className="text-[26px] font-bold tracking-tight leading-none">
+                          {matchedMetric ? matchedMetric.value.toLocaleString() : '—'}
+                        </span>
+                        <span className="text-[13px] text-muted-foreground">{w.unit}</span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">{aggLabel}</p>
+                      {goalPct !== null && (
+                        <div className="mt-2">
+                          <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
+                            <div className={cn('h-full rounded-full transition-all', goalPct >= 100 ? 'bg-green-400' : wColor.bg)} style={{ width: `${goalPct}%` }} />
                           </div>
-                        )}
-                      </Card>
-                    );
-                  })}
-                  {/* Add widget button */}
-                  <button
-                    onClick={handleAddWidgetTap}
-                    className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20 min-h-[120px]"
-                  >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
-                      <Icon name="add" size={20} className="text-primary" />
-                    </div>
-                    <span className="text-xs font-medium">Додати</span>
-                  </button>
-                </div>
-              </Section>
-            </div>
-          )}
+                          <p className="mt-0.5 text-right text-[10px] text-muted-foreground">{goalPct}%</p>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+                <button
+                  onClick={handleAddWidgetTap}
+                  className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20 min-h-[120px]"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+                    <Icon name="add" size={20} className="text-primary" />
+                  </div>
+                  <span className="text-xs font-medium">Додати</span>
+                </button>
+              </div>
+            )}
 
-          {status === 'ready' && entries.length > 0 && (
-            <div className="flex flex-col gap-6">
-
-              {/* ── Dynamic metrics grid ──────────────────────────────────────── */}
-              {metrics.length > 0 && (
-                <Section title="Метрики" count={metrics.length}>
+            {status === 'ready' && entries.length > 0 && (
+              <>
+                {/* ── Metrics grid ──────────────────────────────────────── */}
+                {metrics.length > 0 && showSection('metrics') && (
                   <div className="grid grid-cols-2 gap-3">
-                    {showEnergyBalance && (
-                      <EnergyBalanceCard intake={intakeMetric!.value} burned={burnedMetric!.value} />
-                    )}
+                    {showEnergyBalance && <EnergyBalanceCard intake={intakeMetric!.value} burned={burnedMetric!.value} />}
                     {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }} />}
                     {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }} />}
                     {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} onLongPress={(metric, src) => { play('OPEN'); setMetricEdit({ metric, sourceEntries: src }); }} />)}
                   </div>
-                </Section>
-              )}
+                )}
 
-              {/* ── Finance ──────────────────────────────────────────────────── */}
-              {expEntries.length > 0 && (
-                <Section title="Фінанси" count={expEntries.length}>
+                {/* ── Finance ───────────────────────────────────────────── */}
+                {expEntries.length > 0 && showSection('finance') && (
                   <Card className="cursor-pointer p-4 transition-colors hover:bg-muted/30" onClick={() => openDrillDown(expEntries, 'Фінанси')}>
                     <div className="mb-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
-                          <Icon name="account_balance_wallet" size={16} className="text-emerald-600" />
+                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15">
+                          <Icon name="account_balance_wallet" size={16} className="text-emerald-400" />
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Всього витрат</p>
@@ -1664,12 +1660,10 @@ export default function DashboardPage() {
                       </div>
                     )}
                   </Card>
-                </Section>
-              )}
+                )}
 
-              {/* ── Mood ─────────────────────────────────────────────────────── */}
-              {feelEntries.length > 0 && (
-                <Section title="Настрій" count={feelEntries.length}>
+                {/* ── Mood ──────────────────────────────────────────────── */}
+                {feelEntries.length > 0 && showSection('mood') && (
                   <Card className="cursor-pointer p-4 transition-colors hover:bg-muted/30" onClick={() => openDrillDown(feelEntries, 'Настрій')}>
                     <div className="mb-3 flex items-center gap-3">
                       <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', moodColor)}>
@@ -1690,32 +1684,30 @@ export default function DashboardPage() {
                     )}
                     {feelEntries[0] && <p className="mt-3 border-l-2 border-pink-200 pl-2 text-xs text-muted-foreground line-clamp-2">{feelEntries[0].content}</p>}
                   </Card>
-                </Section>
-              )}
+                )}
 
-              {/* ── Ideas ────────────────────────────────────────────────────── */}
-              {ideaEntries.length > 0 && (
-                <Section title="Ідеї" count={ideaEntries.length} defaultOpen={false}>
+                {/* ── Ideas ─────────────────────────────────────────────── */}
+                {ideaEntries.length > 0 && showSection('ideas') && (
                   <div className="flex flex-col gap-2">
                     {ideaEntries.slice(0, 5).map((e) => (
                       <Card key={e.id} className="flex items-start gap-3 p-3">
-                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-100">
-                          <Icon name="lightbulb" size={13} className="text-amber-600" />
+                        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-500/15">
+                          <Icon name="lightbulb" size={13} className="text-amber-400" />
                         </div>
                         <p className="text-sm leading-relaxed line-clamp-2">{e.content}</p>
                       </Card>
                     ))}
                     {ideaEntries.length > 5 && (
-                      <button className="flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground">
+                      <button className="flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground" onClick={() => openDrillDown(ideaEntries, 'Ідеї')}>
                         <Icon name="chevron_right" size={13} /> Ще {ideaEntries.length - 5} ідей
                       </button>
                     )}
                   </div>
-                </Section>
-              )}
+                )}
+              </>
+            )}
 
-            </div>
-          )}
+          </div>
         </TabsContent>
       </Tabs>
       {/* Metric edit sheet (long-press) */}
