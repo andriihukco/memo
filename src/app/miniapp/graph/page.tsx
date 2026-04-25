@@ -517,7 +517,7 @@ export default function GraphPage() {
               {/* Tier badge */}
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-lg">🌟</span>
-                <span className="text-[13px] text-muted-foreground">Доступно з плану <span className="font-semibold text-foreground">Memo Basic</span></span>
+                <span className="text-[13px] text-muted-foreground">Доступно з плану <span className="font-semibold text-foreground">Memo Nova</span></span>
               </div>
 
               {/* CTA */}
@@ -525,7 +525,7 @@ export default function GraphPage() {
                 className="w-full min-h-[48px] text-[15px] font-semibold"
                 onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }}
               >
-                Перейти на Basic — 250 ⭐
+                Перейти на Nova — 250 ⭐
               </Button>
             </div>
           </div>

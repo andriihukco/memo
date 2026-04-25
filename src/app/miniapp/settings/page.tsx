@@ -473,7 +473,7 @@ export default function SettingsPage() {
               <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-3">
                 <span className="text-lg leading-none shrink-0">⚠️</span>
                 <p className="text-[13px] text-amber-300 leading-snug">
-                  У тебе активна підписка <span className="font-semibold">{userTier === 'stars_pro' ? 'Memo Pro' : 'Memo Basic'}</span>. Після видалення акаунту вона буде втрачена без відшкодування.
+                  У тебе активна підписка <span className="font-semibold">{userTier === 'stars_pro' ? 'Memo Supernova' : 'Memo Nova'}</span>. Після видалення акаунту вона буде втрачена без відшкодування.
                 </p>
               </div>
             )}

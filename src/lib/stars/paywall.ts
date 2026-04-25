@@ -280,10 +280,10 @@ export interface TierInfo {
 export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
   free: {
     tier: "free",
-    name: "Memo Free",
+    name: "Memo Spark",
     priceStars: 0,
-    description: "Основні функції для початку",
-    icon: "⭐",
+    description: "Починай безкоштовно, назавжди",
+    icon: "✨",
     limits: {
       entries: 100,
       ai_widgets: 3,
@@ -310,9 +310,9 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
   },
   stars_basic: {
     tier: "stars_basic",
-    name: "Memo Basic",
+    name: "Memo Nova",
     priceStars: 250,
-    description: "Розширені аналітичні можливості",
+    description: "Розкрий повну силу AI-щоденника",
     icon: "🌟",
     limits: {
       entries: 2000,
@@ -340,10 +340,10 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
   },
   stars_pro: {
     tier: "stars_pro",
-    name: "Memo Pro",
+    name: "Memo Supernova",
     priceStars: 500,
-    description: "Повний доступ до всіх функцій",
-    icon: "💎",
+    description: "Безмежний AI-щоденник без обмежень",
+    icon: "💫",
     limits: {
       entries: Infinity,
       ai_widgets: Infinity,

@@ -64,7 +64,7 @@
 
   body {
     @apply text-foreground antialiased;
-    background: linear-gradient(180deg, #1E1B4A 0%, #04081A 100%);
+    background: hsl(var(--background));
     min-height: 100vh;
     /* iOS SF Pro font stack with system fallbacks */
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;

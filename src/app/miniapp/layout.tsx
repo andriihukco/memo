@@ -148,15 +148,15 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
     {
       tier: 'stars_basic' as const,
       emoji: '🌟',
-      name: 'Basic',
+      name: 'Nova',
       price: '250 ⭐ / міс',
       features: ['До 2 000 записів', '15 AI-віджетів', 'AI ретроспективи', 'Граф зв\'язків'],
       recommended: true,
     },
     {
       tier: 'stars_pro' as const,
-      emoji: '💎',
-      name: 'Pro',
+      emoji: '💫',
+      name: 'Supernova',
       price: '500 ⭐ / міс',
       features: ['Необмежені записи', 'Необмежені AI-віджети', 'Повна історія', 'Експорт даних'],
       recommended: false,
@@ -180,7 +180,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
         <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
           <span className="text-xl">⭐</span>
           <div className="flex-1">
-            <p className="text-[14px] font-semibold text-white">Безкоштовний</p>
+            <p className="text-[14px] font-semibold text-white">✨ Memo Spark</p>
             <p className="text-[12px] text-white/40">До 100 записів · 3 AI-віджети · 5 ретроспектив</p>
           </div>
           <span className="text-[13px] text-white/40">Безкоштовно</span>
@@ -504,70 +504,84 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
   if (sheetsOpen) return null;
 
   return (
-    <nav
-      role="navigation"
-      aria-label="Головна навігація"
-      style={{
-        position: 'fixed',
-        bottom: bottomInset + 10,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        borderRadius: 48,
-        background: '#1F2234',
-        width: 'min(calc(100vw - 16px), 380px)',
-        height: 64,
-        zIndex: 50,
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'space-around',
-        alignItems: 'center',
-        padding: '0 16px',
-        boxSizing: 'border-box',
-      }}
-    >
-      {tabs.map(({ label, href, icon }) => {
-        const isActive = pathname === href;
-        return (
-          <Link
-            key={href}
-            href={href}
-            aria-current={isActive ? 'page' : undefined}
-            onClick={() => play(isActive ? 'SELECT' : 'SLIDE')}
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: 2,
-              minWidth: 44,
-              minHeight: 44,
-              textDecoration: 'none',
-              flex: 1,
-            }}
-          >
-            <Icon
-              name={icon}
-              size={24}
-              filled={isActive}
-              style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
-            />
-            <span
+    <>
+      <nav
+        role="navigation"
+        aria-label="Головна навігація"
+        style={{
+          position: 'fixed',
+          bottom: bottomInset + 10,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          borderRadius: 48,
+          background: '#1F2234',
+          width: 'min(calc(100vw - 16px), 380px)',
+          height: 64,
+          zIndex: 50,
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          padding: '0 16px',
+          boxSizing: 'border-box',
+        }}
+      >
+        {tabs.map(({ label, href, icon }) => {
+          const isActive = pathname === href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              aria-current={isActive ? 'page' : undefined}
+              onClick={() => play(isActive ? 'SELECT' : 'SLIDE')}
               style={{
-                fontFamily: "'Mulish', sans-serif",
-                fontWeight: 500,
-                fontSize: 11,
-                lineHeight: '14px',
-                textAlign: 'center',
-                color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR,
-                whiteSpace: 'nowrap',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: 2,
+                minWidth: 44,
+                minHeight: 44,
+                textDecoration: 'none',
+                flex: 1,
               }}
             >
-              {label}
-            </span>
-          </Link>
-        );
-      })}
-    </nav>
+              <Icon
+                name={icon}
+                size={24}
+                filled={isActive}
+                style={{ color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR }}
+              />
+              <span
+                style={{
+                  fontFamily: "'Mulish', sans-serif",
+                  fontWeight: 500,
+                  fontSize: 11,
+                  lineHeight: '14px',
+                  textAlign: 'center',
+                  color: isActive ? ACTIVE_COLOR : INACTIVE_COLOR,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {label}
+              </span>
+            </Link>
+          );
+        })}
+      </nav>
+      {/* Fill the gap below the pill tab bar so body background doesn't show */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: bottomInset + 10,
+          background: 'hsl(var(--background))',
+          zIndex: 49,
+        }}
+      />
+    </>
   );
 }
 
@@ -738,8 +752,8 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Top spacer */}
-      <div style={{ height: topInset }} />
+      {/* Top spacer — ensures content doesn't sit under Telegram's header */}
+      <div style={{ height: Math.max(topInset, 0) }} />
 
       {isSubPage && (
         <button

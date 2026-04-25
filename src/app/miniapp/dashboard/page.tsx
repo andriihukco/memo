@@ -1454,37 +1454,51 @@ export default function DashboardPage() {
                 <Section title="Мої віджети" count={customWidgets.length}>
                   <div className="grid grid-cols-2 gap-3">
                     {customWidgets.map(w => {
-                      const colorObj = colorFromId(w.color ?? 'indigo');
-                      const matchedMetric = metricByKey.get(w.metric_key);
-                      const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
+                      const deleteBtn = "absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-muted-foreground/60 hover:text-destructive transition-colors";
                       if (matchedMetric) {
                         return (
-                          <MetricCard
-                            key={w.id}
-                            metric={matchedMetric}
-                            sourceEntries={srcEntries}
-                            onEntryClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
-                            onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }}
-                          />
+                          <div key={w.id} className="relative">
+                            <MetricCard
+                              metric={matchedMetric}
+                              sourceEntries={srcEntries}
+                              onEntryClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
+                              onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }}
+                            />
+                            <button
+                              onClick={e => { e.stopPropagation(); play('CAUTION'); setWidgetToDelete(w.id); }}
+                              className={deleteBtn}
+                              aria-label="Видалити віджет"
+                            >
+                              <Icon name="close" size={12} />
+                            </button>
+                          </div>
                         );
                       }
                       // Widget defined but no data yet — show empty placeholder
                       return (
-                        <Card
-                          key={w.id}
-                          className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50"
-                          onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
-                        >
-                          <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
-                            <MetricIcon name={w.icon} size={16} className={colorObj.text} />
-                          </div>
-                          <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
-                            <span className="text-sm text-muted-foreground">{w.unit}</span>
-                          </div>
-                          <p className="text-xs font-medium">{w.title}</p>
-                          <p className="text-[10px] text-muted-foreground">Немає даних</p>
-                        </Card>
+                        <div key={w.id} className="relative">
+                          <Card
+                            className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50"
+                            onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
+                          >
+                            <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
+                              <MetricIcon name={w.icon} size={16} className={colorObj.text} />
+                            </div>
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
+                              <span className="text-sm text-muted-foreground">{w.unit}</span>
+                            </div>
+                            <p className="text-xs font-medium">{w.title}</p>
+                            <p className="text-[10px] text-muted-foreground">Немає даних</p>
+                          </Card>
+                          <button
+                            onClick={e => { e.stopPropagation(); play('CAUTION'); setWidgetToDelete(w.id); }}
+                            className={deleteBtn}
+                            aria-label="Видалити віджет"
+                          >
+                            <Icon name="close" size={12} />
+                          </button>
+                        </div>
                       );
                     })}
                     {/* Add widget button — matches retro circle style */}
@@ -1496,7 +1510,8 @@ export default function DashboardPage() {
                         <Icon name="add" size={18} className="text-primary" />
                       </div>
                       <span className="text-xs font-medium">Новий</span>
-                    </button>                  </div>
+                    </button>
+                  </div>
                 </Section>
               )}
 
