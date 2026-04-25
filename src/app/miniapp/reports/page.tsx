@@ -47,17 +47,24 @@ const PERIOD_LABELS: Record<string, string> = {
 };
 
 // ── Strip AI-generated section header from content ───────────────────────────
-// The AI sometimes starts section text with "✅ ЩО ПРОЙШЛО ДОБРЕ?" — strip it
+// The AI often starts section text with a repeated heading like "🧪 ОДИН ЕКСПЕРИМЕНТ"
+// Strip ALL leading lines that look like headings before the real content starts.
 
 function stripSectionHeader(text: string): string {
-  // Remove first line if it looks like a heading (emoji + caps, or # heading, or all-caps short line)
   const lines = text.split('\n');
-  const first = lines[0].trim();
-  // Matches: emoji at start, or all-caps line under 60 chars, or markdown heading
-  if (/^[#\s]*[^\w\s\u0400-\u04FF]/.test(first) || /^#{1,3}\s/.test(first) || (first === first.toUpperCase() && first.length < 60 && first.length > 3)) {
-    return lines.slice(1).join('\n').trimStart();
+  let start = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    if (!t) { start = i + 1; continue; } // skip blank lines at top
+    // Stop stripping once we hit real content (longer sentence, starts with lowercase, etc.)
+    const isHeading =
+      /^#{1,3}\s/.test(t) ||                          // markdown heading
+      /^\p{Emoji}/u.test(t) ||                         // starts with emoji
+      (t === t.toUpperCase() && /[А-ЯІЇЄҐA-Z]/.test(t)); // all-caps with letters
+    if (isHeading) { start = i + 1; continue; }
+    break;
   }
-  return text;
+  return lines.slice(start).join('\n').trimStart();
 }
 
 // ── Markdown renderer ─────────────────────────────────────────────────────────
