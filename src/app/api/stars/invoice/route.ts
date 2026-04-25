@@ -8,6 +8,8 @@ interface RequestBody {
   billingPeriod?: BillingPeriod;
 }
 
+const VALID_BILLING_PERIODS: BillingPeriod[] = ["monthly", "quarterly", "annual"];
+
 export async function POST(req: Request): Promise<Response> {
   try {
     const authHeader = req.headers.get("authorization");
@@ -17,10 +19,13 @@ export async function POST(req: Request): Promise<Response> {
     const token = authHeader.slice(7);
 
     const body = await req.json() as RequestBody;
-    const { userId, tier, billingPeriod = "monthly" } = body;
+    const { userId, tier } = body;
+    const billingPeriod: BillingPeriod = VALID_BILLING_PERIODS.includes(body.billingPeriod as BillingPeriod)
+      ? (body.billingPeriod as BillingPeriod)
+      : "monthly";
 
-    if (!userId || !tier || !TIER_INFO[tier]) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { "Content-Type": "application/json" } });
+    if (!userId || !tier || !TIER_INFO[tier] || tier === "free") {
+      return new Response(JSON.stringify({ error: "Missing or invalid required fields" }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
 
     // Verify user via token
@@ -32,7 +37,11 @@ export async function POST(req: Request): Promise<Response> {
 
     const tierInfo = TIER_INFO[tier];
     const periodInfo = BILLING_PERIODS[billingPeriod];
-    const starsAmount = tier === "free" ? 0 : calcPrice(tierInfo.priceStars, billingPeriod);
+    const starsAmount = calcPrice(tierInfo.priceStars, billingPeriod);
+
+    if (starsAmount < 1) {
+      return new Response(JSON.stringify({ error: "Invalid price" }), { status: 400, headers: { "Content-Type": "application/json" } });
+    }
 
     const periodLabel: Record<BillingPeriod, string> = {
       monthly: "1 місяць",
@@ -40,14 +49,22 @@ export async function POST(req: Request): Promise<Response> {
       annual: "1 рік",
     };
 
-    const invoicePayload = JSON.stringify({ userId, tier, billingPeriod, days: periodInfo.days, ts: Date.now() });
+    // Keep payload compact — Telegram limit is 128 bytes
+    const invoicePayload = JSON.stringify({ userId, tier, billingPeriod, days: periodInfo.days });
+
+    const invoiceTitle = `${tierInfo.icon} ${tierInfo.name} · ${periodLabel[billingPeriod]}`;
+    const invoiceDescription = tierInfo.features
+      .filter(f => f.included)
+      .slice(0, 3)
+      .map(f => f.label)
+      .join(" · ") || tierInfo.description;
 
     const tgRes = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/createInvoiceLink`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: `${tierInfo.icon} ${tierInfo.name} · ${periodLabel[billingPeriod]}`,
-        description: tierInfo.features.filter(f => f.included).slice(0, 3).map(f => f.label).join(" · "),
+        title: invoiceTitle,
+        description: invoiceDescription,
         payload: invoicePayload,
         provider_token: "",
         currency: "XTR",
@@ -58,8 +75,8 @@ export async function POST(req: Request): Promise<Response> {
     const tgData = await tgRes.json();
 
     if (!tgData.ok) {
-      console.error("[stars/invoice] Telegram API error:", tgData);
-      return new Response(JSON.stringify({ error: tgData.description ?? "Failed to create invoice" }), { status: 500, headers: { "Content-Type": "application/json" } });
+      console.error("[stars/invoice] Telegram API error:", JSON.stringify(tgData));
+      return new Response(JSON.stringify({ error: tgData.description ?? "Failed to create invoice", tgError: tgData }), { status: 500, headers: { "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ ok: true, invoiceLink: tgData.result, starsAmount, days: periodInfo.days }), {
@@ -68,6 +85,6 @@ export async function POST(req: Request): Promise<Response> {
     });
   } catch (err) {
     console.error("[stars/invoice] Error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Internal server error" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 }

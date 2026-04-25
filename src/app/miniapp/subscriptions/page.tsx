@@ -305,6 +305,8 @@ export default function SubscriptionsPage() {
           await loadProfile();
         } else if (status === 'failed') {
           setError('Оплата не вдалася. Спробуй ще раз.');
+        } else if (status === 'cancelled') {
+          // user closed the payment sheet — no error needed, just reset
         }
       });
     } catch {

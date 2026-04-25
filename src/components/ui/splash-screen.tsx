@@ -189,7 +189,7 @@ export function SplashScreen() {
       />
 
       <div className="relative z-10 flex flex-col items-center gap-6">
-        {/* Logo with shimmer + vignette */}
+        {/* Logo with vignette */}
         <div className="relative">
           {/* Radial vignette — fades corners into dark bg */}
           <div
@@ -200,17 +200,6 @@ export function SplashScreen() {
               background: 'radial-gradient(ellipse at center, transparent 42%, #080c14 100%)',
             }}
           />
-          {/* Shimmer sweep */}
-          <div className="absolute inset-0 rounded-3xl overflow-hidden" style={{ zIndex: 1 }}>
-            <div
-              className="absolute inset-0"
-              style={{
-                background: 'linear-gradient(105deg, transparent 30%, rgba(140,210,255,0.15) 50%, transparent 70%)',
-                backgroundSize: '200% 100%',
-                animation: 'shimmer 2.2s ease-in-out infinite',
-              }}
-            />
-          </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
@@ -227,29 +216,10 @@ export function SplashScreen() {
 
         {/* Skeleton text lines */}
         <div className="flex flex-col items-center gap-2">
-          <div className="h-2.5 rounded-full bg-white/8 overflow-hidden" style={{ width: 80 }}>
-            <div className="h-full w-full" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(140,210,255,0.2), transparent)',
-              backgroundSize: '200% 100%',
-              animation: 'shimmer 1.8s ease-in-out infinite 0.2s',
-            }} />
-          </div>
-          <div className="h-2 rounded-full bg-white/5 overflow-hidden" style={{ width: 52 }}>
-            <div className="h-full w-full" style={{
-              background: 'linear-gradient(90deg, transparent, rgba(140,210,255,0.12), transparent)',
-              backgroundSize: '200% 100%',
-              animation: 'shimmer 1.8s ease-in-out infinite 0.5s',
-            }} />
-          </div>
+          <div className="h-2.5 rounded-full bg-white/8" style={{ width: 80 }} />
+          <div className="h-2 rounded-full bg-white/5" style={{ width: 52 }} />
         </div>
       </div>
-
-      <style>{`
-        @keyframes shimmer {
-          0%   { background-position: -200% 0; }
-          100% { background-position:  200% 0; }
-        }
-      `}</style>
     </div>
   );
 }

@@ -454,7 +454,7 @@ export async function synthesiseAnswer(
 
   const result = await model.generateContent(prompt);
   const answer = result.response.text().trim();
-  return answer + '\n\n_AI може помилятись. Якщо потрібна допомога — @get\\_memo\\_help_';
+  return answer + '\n\n_AI може помилятись. Якщо потрібна допомога — @get\\_memo\\_updates_';
 }
 
 // ── QA orchestrator ───────────────────────────────────────────────────────────
@@ -494,11 +494,14 @@ export async function answerQuestion(ctx: QAContext): Promise<string> {
     return await synthesiseAnswer(question, entries);
   } catch (err) {
     console.error("[qa] answerQuestion failed:", err instanceof Error ? err.message : err);
-    // Absolute last resort — answer from general knowledge
+    // Absolute last resort — answer as a conversational response
     try {
       const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
-      const model = genAI.getGenerativeModel({ model: QA_MODEL, systemInstruction: QA_SYSTEM_PROMPT });
-      const result = await model.generateContent(`Питання: ${ctx.question}\n(Записів щоденника не знайдено)`);
+      const model = genAI.getGenerativeModel({
+        model: QA_MODEL,
+        systemInstruction: `Ти — Memo, особистий AI-асистент. Відповідай як уважний друг. Відповідай мовою користувача.`,
+      });
+      const result = await model.generateContent(ctx.question);
       return result.response.text().trim();
     } catch {
       return "Не вдалося знайти відповідь. Спробуй ще раз.";

@@ -115,9 +115,18 @@ const CLASSIFY_PROMPT = `You are a personal diary assistant. Classify the user m
 INTENT RULES — read carefully:
 - save_entry → user logs/records something about themselves NOW (food eaten, activity done, mood felt, event happened). Also use save_entry when user says "порахуй/calculate X" meaning they want to LOG it.
 - question   → user asks about PAST diary data they already logged ("скільки я з'їв", "що я робив вчора", "покажи мої витрати"). Also: "insight about me", "what do you know about me", "my habits", "my patterns", "recent activity", "what have I been doing", "show me my stats", "how much did I eat", "what did I eat most", "tell me about myself", "my recent entries", "що ти знаєш про мене", "що ти знаєш про мене від мене", "що тобі відомо про мене", "що тобі від мене", "розкажи про мене", "що ти про мене знаєш", "що ти можеш сказати про мене", "які мої звички", "мої патерни", "моя активність", "що я робив", "що я їв", "мої записи", "покажи мої дані", "що в моєму щоденнику", "що ти пам'ятаєш про мене", "що ти знаєш"
-- converse   → user shares feelings, vents, reflects — save + empathetic reply
-- smalltalk  → greetings, thanks, "ok", "👍", bye — do NOT save
+- converse   → user shares feelings, vents, reflects, asks for personal advice, shares worries or concerns — save + empathetic reply
+- smalltalk  → greetings, thanks, "ok", "👍", bye, general advice/life questions not about diary data, personal conversations, asking for recommendations/tips on life topics — do NOT save
 - action     → command to the bot: delete records, edit records, configure settings, create widgets
+
+CRITICAL: Personal advice requests and life conversations are smalltalk, NOT questions:
+- "ти можеш мені щось порадити" → smalltalk (asking for advice/conversation)
+- "що мені робити з..." → smalltalk (life advice)
+- "як мені покращити..." → smalltalk (general advice)
+- "порадь мені щось" → smalltalk
+- "що думаєш про..." → smalltalk
+- Any message asking the bot for its opinion, advice, or to have a conversation → smalltalk
+- Only use question when user explicitly asks about their OWN LOGGED DATA in the diary
 
 CRITICAL DISTINCTION — save_entry vs question:
 - "я пив каву" → save_entry (logging current consumption)

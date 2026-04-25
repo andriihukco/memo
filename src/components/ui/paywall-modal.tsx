@@ -170,7 +170,7 @@ export function PaywallModal({
         } else if (status === 'failed') {
           setError('Оплата не вдалася. Спробуй ще раз.');
         }
-        // cancelled — stay on paywall
+        // cancelled — user closed the sheet, stay on paywall
       });
     } catch {
       setPaying(false);
