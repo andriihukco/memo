@@ -186,7 +186,7 @@ const tabs = [
   { label: 'Віджети',  href: '/miniapp/dashboard',   icon: 'dashboard' },
   { label: 'Графік',   href: '/miniapp/graph',        icon: 'hub' },
   { label: 'Інсайти',  href: '/miniapp/reports',      icon: 'wb_incandescent' },
-  { label: 'Профіль',  href: '/miniapp/settings',     icon: 'manage_accounts' },
+  { label: 'Меню',    href: '/miniapp/settings',     icon: 'manage_accounts' },
 ];
 
 const ACTIVE_COLOR = '#4797FF';

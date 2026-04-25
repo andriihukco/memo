@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Delete } from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
+import { useSound } from '@/lib/sound/use-sound';
 
 interface PasscodeScreenProps {
   mode: 'enter' | 'set' | 'confirm';
@@ -10,11 +11,9 @@ interface PasscodeScreenProps {
   subtitle?: string;
   onSuccess: (pin: string) => void;
   onCancel?: () => void;
-  /** If provided, validates the entered PIN against this value (for 'enter' mode) */
   expectedHash?: string;
 }
 
-// Simple hash — not crypto-secure, just obfuscation for local storage
 async function hashPin(pin: string): Promise<string> {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pin + 'memo-salt'));
   return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -34,10 +33,12 @@ export function PasscodeScreen({ mode, title, subtitle, onSuccess, onCancel, exp
   const [digits, setDigits] = useState<string[]>([]);
   const [shake, setShake] = useState(false);
   const [error, setError] = useState('');
+  const { play } = useSound();
   const PIN_LENGTH = 4;
 
   const handleDigit = async (d: string) => {
     if (d === '⌫') {
+      play('CLOSE');
       setDigits((prev) => prev.slice(0, -1));
       setError('');
       return;
@@ -45,24 +46,28 @@ export function PasscodeScreen({ mode, title, subtitle, onSuccess, onCancel, exp
     if (d === '') return;
     if (digits.length >= PIN_LENGTH) return;
 
+    play('SELECT');
     const next = [...digits, d];
     setDigits(next);
 
     if (next.length === PIN_LENGTH) {
       const pin = next.join('');
-      await new Promise((r) => setTimeout(r, 80)); // brief visual feedback
+      await new Promise((r) => setTimeout(r, 80));
 
       if (mode === 'enter' && expectedHash) {
         const ok = await verifyPin(pin, expectedHash);
         if (ok) {
+          play('CELEBRATION');
           setDigits([]);
           onSuccess(pin);
         } else {
+          play('CAUTION');
           setShake(true);
           setError('Невірний код');
           setTimeout(() => { setShake(false); setDigits([]); setError(''); }, 600);
         }
       } else {
+        play('BUTTON');
         setDigits([]);
         onSuccess(pin);
       }
@@ -103,13 +108,13 @@ export function PasscodeScreen({ mode, title, subtitle, onSuccess, onCancel, exp
               d === '⌫' && 'bg-transparent text-muted-foreground hover:bg-muted'
             )}
           >
-            {d === '⌫' ? <Delete size={22} /> : d}
+            {d === '⌫' ? <Icon name="backspace" size={22} /> : d}
           </button>
         ))}
       </div>
 
       {onCancel && (
-        <button onClick={onCancel} className="mt-8 text-sm text-muted-foreground underline-offset-2 hover:underline">
+        <button onClick={() => { play('CLOSE'); onCancel(); }} className="mt-8 text-sm text-muted-foreground underline-offset-2 hover:underline">
           Скасувати
         </button>
       )}

@@ -213,6 +213,7 @@ export default function SettingsPage() {
         <Card>
           <CardContent className="p-0">
             <a href="/miniapp/subscriptions"
+              onClick={() => play('OPEN')}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                 <Icon name="lock_open" size={16} className="text-primary" />
@@ -233,7 +234,8 @@ export default function SettingsPage() {
         <Card>
           <CardContent className="p-0">
             <button onClick={hasPasscode ? handleChangePasscode : handleEnablePasscode}
-              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+              onClickCapture={() => play('OPEN')}>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                 {hasPasscode ? <Icon name="password" size={16} className="text-primary" /> : <Icon name="lock" size={16} className="text-primary" />}
               </div>
@@ -248,7 +250,7 @@ export default function SettingsPage() {
 
             {hasPasscode && (
               <div>
-                <button onClick={() => setShowTimerPicker(v => !v)}
+                <button onClick={() => { play('SELECT'); setShowTimerPicker(v => !v); }}
                   className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                     <Icon name="timer" size={16} className="text-primary" />

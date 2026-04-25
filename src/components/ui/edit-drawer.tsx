@@ -1,75 +1,67 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  Trash2, X, Tag, Brain, Lightbulb, Heart, Wallet, Flame, Dumbbell,
-  Target, Moon, Sparkles, BookOpen, Briefcase, Users, MapPin, Music,
-  Smile, Zap, Activity, Droplets, Scale, Wind, Coffee, Utensils,
-  Camera, Pen, Star, Sun, Cloud, Leaf, Home, Car, Plane, ShoppingBag,
-  Pill, Baby, Dog, Gamepad2, Code, Palette, Mic, Headphones, Globe,
-  TrendingUp, Clock, Award, Layers, Eye, Feather, Anchor, Compass,
-} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
 
-// ── Icon library ──────────────────────────────────────────────────────────────
+// ── Icon library (Material Symbols names for categories) ──────────────────────
 
-export const ICON_LIBRARY: { name: string; Icon: React.ElementType }[] = [
-  { name: 'tag', Icon: Tag },
-  { name: 'brain', Icon: Brain },
-  { name: 'lightbulb', Icon: Lightbulb },
-  { name: 'heart', Icon: Heart },
-  { name: 'wallet', Icon: Wallet },
-  { name: 'flame', Icon: Flame },
-  { name: 'dumbbell', Icon: Dumbbell },
-  { name: 'target', Icon: Target },
-  { name: 'moon', Icon: Moon },
-  { name: 'sparkles', Icon: Sparkles },
-  { name: 'book-open', Icon: BookOpen },
-  { name: 'briefcase', Icon: Briefcase },
-  { name: 'users', Icon: Users },
-  { name: 'map-pin', Icon: MapPin },
-  { name: 'music', Icon: Music },
-  { name: 'smile', Icon: Smile },
-  { name: 'zap', Icon: Zap },
-  { name: 'activity', Icon: Activity },
-  { name: 'droplets', Icon: Droplets },
-  { name: 'scale', Icon: Scale },
-  { name: 'wind', Icon: Wind },
-  { name: 'coffee', Icon: Coffee },
-  { name: 'utensils', Icon: Utensils },
-  { name: 'camera', Icon: Camera },
-  { name: 'pen', Icon: Pen },
-  { name: 'star', Icon: Star },
-  { name: 'sun', Icon: Sun },
-  { name: 'cloud', Icon: Cloud },
-  { name: 'leaf', Icon: Leaf },
-  { name: 'home', Icon: Home },
-  { name: 'car', Icon: Car },
-  { name: 'plane', Icon: Plane },
-  { name: 'shopping-bag', Icon: ShoppingBag },
-  { name: 'pill', Icon: Pill },
-  { name: 'baby', Icon: Baby },
-  { name: 'dog', Icon: Dog },
-  { name: 'gamepad-2', Icon: Gamepad2 },
-  { name: 'code', Icon: Code },
-  { name: 'palette', Icon: Palette },
-  { name: 'mic', Icon: Mic },
-  { name: 'headphones', Icon: Headphones },
-  { name: 'globe', Icon: Globe },
-  { name: 'trending-up', Icon: TrendingUp },
-  { name: 'clock', Icon: Clock },
-  { name: 'award', Icon: Award },
-  { name: 'layers', Icon: Layers },
-  { name: 'eye', Icon: Eye },
-  { name: 'feather', Icon: Feather },
-  { name: 'anchor', Icon: Anchor },
-  { name: 'compass', Icon: Compass },
+export const ICON_LIBRARY: { name: string; label: string }[] = [
+  { name: 'tag', label: 'tag' },
+  { name: 'neurology', label: 'brain' },
+  { name: 'lightbulb', label: 'lightbulb' },
+  { name: 'favorite', label: 'heart' },
+  { name: 'account_balance_wallet', label: 'wallet' },
+  { name: 'local_fire_department', label: 'flame' },
+  { name: 'fitness_center', label: 'dumbbell' },
+  { name: 'my_location', label: 'target' },
+  { name: 'bedtime', label: 'moon' },
+  { name: 'auto_awesome', label: 'sparkles' },
+  { name: 'menu_book', label: 'book' },
+  { name: 'work', label: 'briefcase' },
+  { name: 'group', label: 'users' },
+  { name: 'location_on', label: 'map-pin' },
+  { name: 'music_note', label: 'music' },
+  { name: 'sentiment_satisfied', label: 'smile' },
+  { name: 'bolt', label: 'zap' },
+  { name: 'monitor_heart', label: 'activity' },
+  { name: 'water_drop', label: 'droplets' },
+  { name: 'scale', label: 'scale' },
+  { name: 'air', label: 'wind' },
+  { name: 'coffee', label: 'coffee' },
+  { name: 'restaurant', label: 'utensils' },
+  { name: 'photo_camera', label: 'camera' },
+  { name: 'edit', label: 'pen' },
+  { name: 'star', label: 'star' },
+  { name: 'wb_sunny', label: 'sun' },
+  { name: 'cloud', label: 'cloud' },
+  { name: 'eco', label: 'leaf' },
+  { name: 'home', label: 'home' },
+  { name: 'directions_car', label: 'car' },
+  { name: 'flight', label: 'plane' },
+  { name: 'shopping_bag', label: 'shopping-bag' },
+  { name: 'medication', label: 'pill' },
+  { name: 'child_care', label: 'baby' },
+  { name: 'pets', label: 'dog' },
+  { name: 'sports_esports', label: 'gamepad' },
+  { name: 'code', label: 'code' },
+  { name: 'palette', label: 'palette' },
+  { name: 'mic', label: 'mic' },
+  { name: 'headphones', label: 'headphones' },
+  { name: 'language', label: 'globe' },
+  { name: 'trending_up', label: 'trending-up' },
+  { name: 'schedule', label: 'clock' },
+  { name: 'emoji_events', label: 'award' },
+  { name: 'layers', label: 'layers' },
+  { name: 'visibility', label: 'eye' },
+  { name: 'anchor', label: 'anchor' },
+  { name: 'explore', label: 'compass' },
 ];
 
-export function getIconComponent(name?: string): React.ElementType {
-  return ICON_LIBRARY.find(i => i.name === name)?.Icon ?? Tag;
+export function getIconName(label?: string): string {
+  return ICON_LIBRARY.find(i => i.label === label)?.name ?? 'tag';
 }
 
 // ── 36-color palette ──────────────────────────────────────────────────────────
@@ -248,7 +240,6 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
   const totalPages = Math.ceil(ICON_LIBRARY.length / ICONS_PER_PAGE);
   const visibleIcons = ICON_LIBRARY.slice(iconPage * ICONS_PER_PAGE, (iconPage + 1) * ICONS_PER_PAGE);
   const color = colorFromId(selectedColor);
-  const IconComp = getIconComponent(selectedIcon);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end">
@@ -265,7 +256,7 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
         {/* Preview */}
         <div className="mb-5 flex items-center gap-3">
           <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border', color.bg, color.border)}>
-            <IconComp size={20} className={color.text} />
+            <Icon name={getIconName(selectedIcon)} size={20} className={color.text} />
           </div>
           <input
             type="text"
@@ -299,58 +290,38 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Іконка</p>
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIconPage(p => Math.max(0, p - 1))}
-                disabled={iconPage === 0}
-                className="text-xs text-muted-foreground disabled:opacity-30"
-              >
-                ←
-              </button>
+              <button onClick={() => setIconPage(p => Math.max(0, p - 1))} disabled={iconPage === 0} className="text-xs text-muted-foreground disabled:opacity-30">←</button>
               <span className="text-[10px] text-muted-foreground">{iconPage + 1}/{totalPages}</span>
-              <button
-                onClick={() => setIconPage(p => Math.min(totalPages - 1, p + 1))}
-                disabled={iconPage === totalPages - 1}
-                className="text-xs text-muted-foreground disabled:opacity-30"
-              >
-                →
-              </button>
+              <button onClick={() => setIconPage(p => Math.min(totalPages - 1, p + 1))} disabled={iconPage === totalPages - 1} className="text-xs text-muted-foreground disabled:opacity-30">→</button>
             </div>
           )}
         </div>
         <div className="mb-5 grid grid-cols-5 gap-2">
-          {visibleIcons.map(({ name, Icon }) => (
+          {visibleIcons.map(({ name: iconLabel, name: materialName }) => (
             <button
-              key={name}
-              onClick={() => setSelectedIcon(name)}
+              key={iconLabel}
+              onClick={() => setSelectedIcon(iconLabel)}
               className={cn(
                 'flex h-12 w-full items-center justify-center rounded-xl border transition-all',
-                selectedIcon === name
+                selectedIcon === iconLabel
                   ? cn(color.bg, color.border, 'ring-1 ring-offset-1', color.text)
                   : 'border-border/40 bg-muted/30 text-muted-foreground hover:bg-muted/60'
               )}
             >
-              <Icon size={18} />
+              <Icon name={getIconName(materialName)} size={18} />
             </button>
           ))}
         </div>
 
         <div className="flex gap-2">
-          <button
-            onClick={onCancel}
-            className="flex-1 rounded-full border border-border py-3 text-sm font-medium text-muted-foreground"
-          >
-            Скасувати
-          </button>
+          <button onClick={onCancel} className="flex-1 rounded-full border border-border py-3 text-sm font-medium text-muted-foreground">Скасувати</button>
           <button
             onClick={() => {
               const name = initialName.toLowerCase().replace(/\s+/g, '_');
               onConfirm(name, label.trim() || name, selectedColor, selectedIcon);
             }}
             disabled={!label.trim()}
-            className={cn(
-              'flex-1 rounded-full py-3 text-sm font-semibold transition-all disabled:opacity-40',
-              color.bg, color.text, 'border', color.border
-            )}
+            className={cn('flex-1 rounded-full py-3 text-sm font-semibold transition-all disabled:opacity-40', color.bg, color.text, 'border', color.border)}
           >
             Додати
           </button>
@@ -551,7 +522,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
             className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70"
             aria-label="Закрити"
           >
-            <X size={14} />
+            <Icon name="close" size={16} />
           </button>
 
           {/* Delete */}
@@ -561,16 +532,16 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
               className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
               aria-label="Видалити"
             >
-              <Trash2 size={14} />
+              <Icon name="delete" size={16} />
             </button>
           )}
 
           {confirmDelete && (
-            <div className="mb-3 flex items-center gap-2 rounded-2xl bg-red-50 px-3 py-2.5">
-              <Trash2 size={14} className="shrink-0 text-red-500" />
-              <span className="flex-1 text-xs text-red-700">Видалити запис?</span>
+            <div className="mb-3 flex items-center gap-2 rounded-2xl bg-destructive/10 px-3 py-2.5">
+              <Icon name="delete" size={14} className="shrink-0 text-destructive" />
+              <span className="flex-1 text-xs text-destructive">Видалити запис?</span>
               <button onClick={() => setConfirmDelete(false)} className="rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted">Ні</button>
-              <button onClick={handleDelete} disabled={deleting} className="rounded-full bg-red-500 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60">
+              <button onClick={handleDelete} disabled={deleting} className="rounded-full bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground disabled:opacity-60">
                 {deleting ? '...' : 'Так'}
               </button>
             </div>
@@ -584,7 +555,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
             {!loadingCats && dbCats.map((cat) => {
               const color = getCategoryColor(cat.name);
               const isSelected = selectedCats.has(cat.name);
-              const IconComp = getIconComponent(cat.icon);
+              const iconName = getIconName(cat.icon);
               return (
                 <button
                   key={cat.name}
@@ -595,7 +566,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
                     isSelected ? 'ring-2 ring-offset-1 ring-primary/50 scale-105' : 'opacity-55 hover:opacity-80'
                   )}
                 >
-                  <IconComp size={10} />
+                  <Icon name={iconName} size={11} />
                   {cat.label_ua || getCategoryLabel(cat.name)}
                 </button>
               );

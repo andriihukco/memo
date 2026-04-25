@@ -1,11 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
 import { Badge } from '@/components/ui/badge';
+import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { useSound } from '@/lib/sound/use-sound';
 
 interface ProfileData {
   id: string;
@@ -16,6 +19,8 @@ interface ProfileData {
 
 export default function SubscriptionsPage() {
   const { accessToken } = useAuth();
+  const router = useRouter();
+  const { play } = useSound();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState<SubscriptionTier | null>(null);
@@ -103,10 +108,18 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="flex flex-col gap-5 px-4 pt-5 pb-8">
-      <div>
+      {/* Back header */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => { play('CLOSE'); router.back(); }}
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-muted/50 text-muted-foreground active:bg-muted"
+          aria-label="Назад"
+        >
+          <Icon name="arrow_back" size={20} />
+        </button>
         <h1 className="text-xl font-bold">Підписка</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">Підтримай Memo та отримай більше можливостей</p>
       </div>
+      <p className="text-sm text-muted-foreground -mt-3">Підтримай Memo та отримай більше можливостей</p>
 
       {/* Current plan badge */}
       <div className="flex items-center gap-3 rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
@@ -187,7 +200,7 @@ export default function SubscriptionsPage() {
               {/* CTA */}
               {isUpgrade && (
                 <button
-                  onClick={() => handleSubscribe(tier)}
+                  onClick={() => { play('BUTTON'); handleSubscribe(tier); }}
                   disabled={isLoading || paying !== null}
                   className={cn(
                     'w-full rounded-xl py-3 text-sm font-semibold transition-all active:scale-95',
