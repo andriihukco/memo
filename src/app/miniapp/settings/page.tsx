@@ -14,7 +14,7 @@ import {
 } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
 
-type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
+type SetupStep = 'idle' | 'enter_current' | 'enter_current_to_disable' | 'set_new' | 'confirm_new' | 'success';
 
 // Fix: robust body attribute management for tab bar hiding
 function useSheetBodyAttr(open: boolean) {
@@ -98,6 +98,7 @@ export default function SettingsPage() {
   const [lockTimer, setLockTimerState] = useState<LockTimer>(0);
   const [step, setStep] = useState<SetupStep>('idle');
   const [pendingPin, setPendingPin] = useState('');
+  const [confirmMismatch, setConfirmMismatch] = useState(false);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
 
   useEffect(() => {
@@ -145,19 +146,44 @@ export default function SettingsPage() {
   useSheetBodyAttr(showDeleteConfirm);
 
   // ── Passcode handlers ─────────────────────────────────────────────────────
-  const handleEnablePasscode = () => setStep('set_new');
-  const handleChangePasscode = () => { if (hasPasscode) setStep('enter_current'); else setStep('set_new'); };
-  const handleDisablePasscode = () => { removePasscode(); setHasPasscode(false); setStep('idle'); };
+  const handleEnablePasscode = () => { play('OPEN'); setStep('set_new'); };
+  const handleChangePasscode = () => { play('OPEN'); if (hasPasscode) setStep('enter_current'); else setStep('set_new'); };
+  // Disable: require current PIN first
+  const handleDisablePasscode = () => { play('OPEN'); setStep('enter_current_to_disable'); };
   const handleTimerChange = (t: LockTimer) => { setLockTimer(t); setLockTimerState(t); setShowTimerPicker(false); };
+
   const handleCurrentVerified = () => setStep('set_new');
-  const handleNewPin = (pin: string) => { setPendingPin(pin); setStep('confirm_new'); };
+  const handleCurrentVerifiedForDisable = () => {
+    removePasscode();
+    setHasPasscode(false);
+    setStep('idle');
+    play('CELEBRATION');
+  };
+
+  const handleNewPin = (pin: string) => {
+    setPendingPin(pin);
+    setConfirmMismatch(false);
+    setStep('confirm_new');
+  };
+
   const handleConfirmPin = async (pin: string) => {
-    if (pin !== pendingPin) { setStep('set_new'); setPendingPin(''); return; }
+    if (pin !== pendingPin) {
+      // Mismatch — show error on confirm screen then go back to set_new
+      setConfirmMismatch(true);
+      setTimeout(() => {
+        setConfirmMismatch(false);
+        setPendingPin('');
+        setStep('set_new');
+      }, 800);
+      return;
+    }
     const hash = await createPinHash(pin);
     setPasscodeHash(hash);
     setHasPasscode(true);
-    setStep('idle');
     setPendingPin('');
+    setStep('success');
+    play('CELEBRATION');
+    setTimeout(() => setStep('idle'), 1800);
   };
 
   // ── Delete account handler ────────────────────────────────────────────────
@@ -189,9 +215,61 @@ export default function SettingsPage() {
   };
 
   // ── Passcode screens ───────────────────────────────────────────────────────
-  if (step === 'enter_current') return <PasscodeScreen key="enter_current" mode="enter" title="Поточний код" subtitle="Введіть поточний код доступу" expectedHash={getPasscodeHash() ?? undefined} onSuccess={handleCurrentVerified} onCancel={() => setStep('idle')} />;
-  if (step === 'set_new') return <PasscodeScreen key="set_new" mode="set" title="Новий код" subtitle="Введіть новий 4-значний код" onSuccess={handleNewPin} onCancel={() => setStep('idle')} />;
-  if (step === 'confirm_new') return <PasscodeScreen key="confirm_new" mode="confirm" title="Підтвердіть код" subtitle="Введіть код ще раз" onSuccess={handleConfirmPin} onCancel={() => setStep('idle')} />;
+  if (step === 'enter_current') return (
+    <PasscodeScreen
+      key="enter_current"
+      mode="enter"
+      title="Поточний код"
+      subtitle="Введіть поточний код для продовження"
+      stepCurrent={1} stepTotal={3}
+      expectedHash={getPasscodeHash() ?? undefined}
+      onSuccess={handleCurrentVerified}
+      onCancel={() => setStep('idle')}
+    />
+  );
+  if (step === 'enter_current_to_disable') return (
+    <PasscodeScreen
+      key="enter_current_to_disable"
+      mode="enter"
+      title="Підтвердіть код"
+      subtitle="Введіть поточний код, щоб вимкнути захист"
+      expectedHash={getPasscodeHash() ?? undefined}
+      onSuccess={handleCurrentVerifiedForDisable}
+      onCancel={() => setStep('idle')}
+    />
+  );
+  if (step === 'set_new') return (
+    <PasscodeScreen
+      key="set_new"
+      mode="set"
+      title="Новий код"
+      subtitle="Введіть 4-значний код"
+      stepCurrent={hasPasscode ? 2 : 1} stepTotal={hasPasscode ? 3 : 2}
+      onSuccess={handleNewPin}
+      onCancel={() => setStep('idle')}
+    />
+  );
+  if (step === 'confirm_new') return (
+    <PasscodeScreen
+      key="confirm_new"
+      mode="confirm"
+      title="Підтвердіть код"
+      subtitle="Введіть код ще раз"
+      stepCurrent={hasPasscode ? 3 : 2} stepTotal={hasPasscode ? 3 : 2}
+      mismatch={confirmMismatch}
+      onSuccess={handleConfirmPin}
+      onCancel={() => { setStep('idle'); setPendingPin(''); }}
+    />
+  );
+  if (step === 'success') return (
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background gap-4">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-400/15">
+        <span className="text-5xl">🔐</span>
+      </div>
+      <p className="text-[22px] font-bold text-green-400">Код встановлено!</p>
+      <p className="text-[14px] text-muted-foreground">Додаток тепер захищено</p>
+    </div>
+  );
 
   const TIMERS: LockTimer[] = [0, 1, 5, 15, 60];
 
@@ -274,7 +352,10 @@ export default function SettingsPage() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">
                   <Icon name="lock_open" size={16} className="text-destructive" />
                 </div>
-                <p className="text-sm font-medium">Вимкнути код</p>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium">Вимкнути код</p>
+                  <p className="text-xs text-destructive/60">Потрібно підтвердити поточний код</p>
+                </div>
               </button>
             )}
           </CardContent>

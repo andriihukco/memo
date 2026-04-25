@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
@@ -9,9 +9,14 @@ interface PasscodeScreenProps {
   mode: 'enter' | 'set' | 'confirm';
   title?: string;
   subtitle?: string;
+  /** Step context shown as small dots above title (e.g. current step 2 of 3) */
+  stepCurrent?: number;
+  stepTotal?: number;
   onSuccess: (pin: string) => void;
   onCancel?: () => void;
   expectedHash?: string;
+  /** If true, shows a mismatch error immediately (controlled from parent) */
+  mismatch?: boolean;
 }
 
 async function hashPin(pin: string): Promise<string> {
@@ -28,13 +33,39 @@ export async function createPinHash(pin: string): Promise<string> {
 }
 
 const DIGITS = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+const PIN_LENGTH = 4;
 
-export function PasscodeScreen({ mode, title, subtitle, onSuccess, onCancel, expectedHash }: PasscodeScreenProps) {
+export function PasscodeScreen({
+  mode,
+  title,
+  subtitle,
+  stepCurrent,
+  stepTotal,
+  onSuccess,
+  onCancel,
+  expectedHash,
+  mismatch,
+}: PasscodeScreenProps) {
   const [digits, setDigits] = useState<string[]>([]);
   const [shake, setShake] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const { play } = useSound();
-  const PIN_LENGTH = 4;
+  const didMount = useRef(false);
+
+  // Show mismatch error from parent (confirm step)
+  useEffect(() => {
+    if (mismatch && !didMount.current) return;
+    if (mismatch) {
+      play('CAUTION');
+      setError('Коди не збігаються. Спробуй ще раз.');
+      setShake(true);
+      setTimeout(() => { setShake(false); setDigits([]); setError(''); }, 700);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mismatch]);
+
+  useEffect(() => { didMount.current = true; }, []);
 
   const handleDigit = async (d: string) => {
     if (d === '⌫') {
@@ -58,13 +89,14 @@ export function PasscodeScreen({ mode, title, subtitle, onSuccess, onCancel, exp
         const ok = await verifyPin(pin, expectedHash);
         if (ok) {
           play('CELEBRATION');
-          setDigits([]);
-          onSuccess(pin);
+          setSuccess(true);
+          setDigits(Array(PIN_LENGTH).fill('✓'));
+          setTimeout(() => { setDigits([]); setSuccess(false); onSuccess(pin); }, 350);
         } else {
           play('CAUTION');
           setShake(true);
-          setError('Невірний код');
-          setTimeout(() => { setShake(false); setDigits([]); setError(''); }, 600);
+          setError('Невірний код. Спробуй ще раз.');
+          setTimeout(() => { setShake(false); setDigits([]); setError(''); }, 700);
         }
       } else {
         play('BUTTON');
@@ -74,50 +106,91 @@ export function PasscodeScreen({ mode, title, subtitle, onSuccess, onCancel, exp
     }
   };
 
+  const dotColor = success
+    ? 'border-green-400 bg-green-400'
+    : 'border-primary bg-primary';
+
   return (
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background px-8">
+
+      {/* Step indicator */}
+      {stepTotal && stepTotal > 1 && (
+        <div className="absolute top-8 flex gap-1.5 items-center">
+          {Array.from({ length: stepTotal }).map((_, i) => (
+            <div
+              key={i}
+              className={cn(
+                'rounded-full transition-all duration-300',
+                i < (stepCurrent ?? 1)
+                  ? 'w-5 h-1.5 bg-primary'
+                  : 'w-1.5 h-1.5 bg-muted-foreground/30'
+              )}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Cancel */}
+      {onCancel && (
+        <button
+          onClick={() => { play('CLOSE'); onCancel(); }}
+          className="absolute left-5 top-5 flex h-[44px] w-[44px] items-center justify-center rounded-full bg-muted/60 text-muted-foreground"
+          aria-label="Скасувати"
+        >
+          <Icon name="close" size={18} />
+        </button>
+      )}
+
+      {/* Header */}
       <div className="mb-8 text-center">
-        <h1 className="text-xl font-semibold">{title ?? 'Введіть код'}</h1>
-        {subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}
-        {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+        <h1 className={cn(
+          'text-[22px] font-bold transition-colors duration-300',
+          success ? 'text-green-400' : 'text-foreground'
+        )}>
+          {success ? '✓ ' : ''}{title ?? 'Введіть код'}
+        </h1>
+        {subtitle && !error && (
+          <p className="mt-1.5 text-[14px] text-muted-foreground">{subtitle}</p>
+        )}
+        {error && (
+          <p className="mt-1.5 text-[14px] text-destructive animate-in fade-in duration-200">{error}</p>
+        )}
       </div>
 
       {/* Dots */}
-      <div className={cn('mb-10 flex gap-4', shake && 'animate-[shake_0.5s_ease-in-out]')}>
+      <div className={cn('mb-12 flex gap-5', shake && 'animate-[shake_0.6s_ease-in-out]')}>
         {Array.from({ length: PIN_LENGTH }).map((_, i) => (
           <div
             key={i}
             className={cn(
-              'h-4 w-4 rounded-full border-2 transition-all duration-150',
-              i < digits.length ? 'border-primary bg-primary scale-110' : 'border-muted-foreground/40 bg-transparent'
+              'h-[18px] w-[18px] rounded-full border-2 transition-all duration-150',
+              i < digits.length
+                ? cn('scale-110', dotColor)
+                : 'border-muted-foreground/30 bg-transparent'
             )}
           />
         ))}
       </div>
 
       {/* Keypad */}
-      <div className="grid w-full max-w-[280px] grid-cols-3 gap-3">
+      <div className="grid w-full max-w-[280px] grid-cols-3 gap-y-2 gap-x-3">
         {DIGITS.map((d, i) => (
           <button
             key={i}
             onClick={() => handleDigit(d)}
-            disabled={d === ''}
+            disabled={d === '' || success}
             className={cn(
-              'flex h-16 w-16 items-center justify-center rounded-full text-xl font-medium transition-all mx-auto',
-              d === '' ? 'pointer-events-none' : 'bg-secondary hover:bg-secondary/70 active:scale-95',
-              d === '⌫' && 'bg-transparent text-muted-foreground hover:bg-muted'
+              'flex h-[72px] w-full items-center justify-center rounded-2xl text-[26px] font-medium transition-all mx-auto',
+              d === '' ? 'pointer-events-none opacity-0' :
+              d === '⌫' ? 'bg-transparent text-muted-foreground active:bg-muted/50 active:scale-95' :
+              'bg-secondary/80 hover:bg-secondary active:scale-95 active:bg-secondary/60'
             )}
+            aria-label={d === '⌫' ? 'Видалити' : d === '' ? '' : d}
           >
             {d === '⌫' ? <Icon name="backspace" size={22} /> : d}
           </button>
         ))}
       </div>
-
-      {onCancel && (
-        <button onClick={() => { play('CLOSE'); onCancel(); }} className="mt-8 text-sm text-muted-foreground underline-offset-2 hover:underline">
-          Скасувати
-        </button>
-      )}
     </div>
   );
 }
