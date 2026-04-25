@@ -319,6 +319,8 @@ export default function ReportsPage() {
   const [paywallProps, setPaywallProps] = useState<{ feature: string; current?: number; limit?: number; requiredTier: SubscriptionTier }>({ feature: 'ai_reports', requiredTier: 'stars_basic' });
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
   const { counts } = useUsageCounts(accessToken);
+
+  const fetchUserTier = useCallback(async () => {
     if (!accessToken) return;
     try {
       const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
