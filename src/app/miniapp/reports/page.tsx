@@ -456,7 +456,7 @@ function MetricHighlights({ metrics }: { metrics: { label: string; value: number
 }
 
 // Mood sparkline — bar chart of daily mood
-function MoodSparkline({ moodTrend, dailyVolume }: { moodTrend: number[]; dailyVolume: { date: string; count: number }[] }) {
+function MoodSparkline({ moodTrend }: { moodTrend: number[]; dailyVolume: { date: string; count: number }[] }) {
   const hasData = moodTrend.some(v => v !== 0);
   if (!hasData) return null;
   const avg = moodTrend.filter(v => v !== 0).reduce((a, b) => a + b, 0) / (moodTrend.filter(v => v !== 0).length || 1);
