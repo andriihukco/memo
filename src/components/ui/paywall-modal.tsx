@@ -196,7 +196,7 @@ export function PaywallModal({
           onClose();
         }
       });
-    } catch (err) {
+    } catch {
       setPaying(false);
       setError('Щось пішло не так. Спробуй ще раз.');
     }

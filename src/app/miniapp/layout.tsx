@@ -131,7 +131,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       const tg = window.Telegram?.WebApp;
       if (!tg?.openInvoice) throw new Error('no tg');
 
-      tg.openInvoice(data.invoiceLink, (status) => {
+      tg.openInvoice(data.invoiceLink, (_status) => {
         setPaying(null);
         finish(); // always finish onboarding after payment attempt
       });
