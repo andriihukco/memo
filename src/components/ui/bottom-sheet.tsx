@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, type PanInfo } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -14,6 +15,10 @@ interface BottomSheetProps {
 
 export function BottomSheet({ open, onClose, children, className, style }: BottomSheetProps) {
   const [sheetHeight, setSheetHeight] = useState(0);
+  const [mounted, setMounted] = useState(false);
+
+  // Mount guard — portals need the DOM to be ready
+  useEffect(() => { setMounted(true); }, []);
 
   // Track data-sheets-open on body for tab bar hiding
   useEffect(() => {
@@ -37,7 +42,7 @@ export function BottomSheet({ open, onClose, children, className, style }: Botto
     }
   };
 
-  return (
+  const sheet = (
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-[60] flex items-end">
@@ -68,7 +73,6 @@ export function BottomSheet({ open, onClose, children, className, style }: Botto
             dragElastic={0.2}
             onDragEnd={handleDragEnd}
             onAnimationComplete={() => {
-              // Measure height after open animation
               const el = document.querySelector('[data-bottom-sheet-panel]');
               if (el) setSheetHeight(el.clientHeight);
             }}
@@ -97,4 +101,9 @@ export function BottomSheet({ open, onClose, children, className, style }: Botto
       )}
     </AnimatePresence>
   );
+
+  // Render into document.body via portal so fixed positioning is never
+  // clipped by overflow:auto/scroll ancestors (e.g. the main scroll container)
+  if (!mounted) return null;
+  return createPortal(sheet, document.body);
 }

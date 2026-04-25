@@ -465,7 +465,12 @@ export default function SubscriptionsPage() {
           </div>
         )}
 
-        {/* Billing period switcher — shown above plan cards */}
+        {/* Usage */}
+        {effectiveTier !== 'stars_pro' && (
+          <UsageSection accessToken={accessToken} currentTier={effectiveTier} />
+        )}
+
+        {/* Billing period switcher — shown below usage stats */}
         <div className="flex flex-col gap-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-1">Період</p>
           <BillingPeriodSwitcher selected={billingPeriod} onChange={setBillingPeriod} />
@@ -475,11 +480,6 @@ export default function SubscriptionsPage() {
             </p>
           )}
         </div>
-
-        {/* Usage */}
-        {effectiveTier !== 'stars_pro' && (
-          <UsageSection accessToken={accessToken} currentTier={effectiveTier} />
-        )}
 
         {/* Error */}
         {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
