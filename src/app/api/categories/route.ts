@@ -48,3 +48,21 @@ export async function POST(req: Request): Promise<Response> {
 
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
 }
+
+export async function PATCH(req: Request): Promise<Response> {
+  const jwt = getUserJwt(req);
+  if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+
+  const { name, label_ua } = await req.json().catch(() => ({}));
+  if (!name) return new Response(JSON.stringify({ error: "name required" }), { status: 400, headers: { "Content-Type": "application/json" } });
+  if (name === 'uncategorized') return new Response(JSON.stringify({ error: "Cannot modify system category" }), { status: 400, headers: { "Content-Type": "application/json" } });
+
+  const supabase = makeSupabase(jwt);
+  const { error } = await supabase
+    .from("categories")
+    .update({ label_ua })
+    .eq("name", name);
+
+  if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
+}

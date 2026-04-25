@@ -2,19 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/supabase/auth-context';
-import {
-  Flame, Wallet, Dumbbell, Lightbulb, Brain, TrendingUp, TrendingDown, Minus,
-  ChevronDown, ChevronRight, Droplets, Moon, BookOpen, Scale, Smile, Zap,
-  Wind, MapPin, Utensils, Tag, Heart, Activity, X, Calendar, Trash2, Plus,
-  Coffee, Leaf, Pill, Award, Star, Target, Clock,
-} from 'lucide-react';
+import { Icon } from '@/components/ui/icon';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { DashboardMetric } from '@/lib/classifier';
-import { EditDrawer, getCategoryLabel, getCategoryColor, colorFromId, getIconComponent } from '@/components/ui/edit-drawer';
+import { EditDrawer, getCategoryLabel, getCategoryColor, colorFromId } from '@/components/ui/edit-drawer';
+import { useSound } from '@/lib/sound/use-sound';
 
 interface Entry {
   id: string;
@@ -145,20 +141,39 @@ function aggregateGoals(entries: Entry[]): GoalMetricAgg[] {
 
 // ── Icon resolver ─────────────────────────────────────────────────────────────
 
-const ICON_MAP: Record<string, React.ElementType> = {
-  flame: Flame, wallet: Wallet, dumbbell: Dumbbell, lightbulb: Lightbulb,
-  brain: Brain, droplets: Droplets, moon: Moon, 'book-open': BookOpen,
-  scale: Scale, smile: Smile, zap: Zap, wind: Wind, 'map-pin': MapPin,
-  utensils: Utensils, heart: Heart, activity: Activity,
-  'trending-up': TrendingUp, 'trending-down': TrendingDown,
-  coffee: Coffee, leaf: Leaf, pill: Pill, award: Award,
-  star: Star, target: Target, clock: Clock, tag: Tag,
+// Lucide icon name → Material Symbols name mapping for metric icons
+const METRIC_ICON_MAP: Record<string, string> = {
+  flame: 'local_fire_department',
+  wallet: 'account_balance_wallet',
+  dumbbell: 'fitness_center',
+  lightbulb: 'lightbulb',
+  brain: 'neurology',
+  droplets: 'water_drop',
+  moon: 'bedtime',
+  'book-open': 'menu_book',
+  scale: 'scale',
+  smile: 'sentiment_satisfied',
+  zap: 'bolt',
+  wind: 'air',
+  'map-pin': 'location_on',
+  utensils: 'restaurant',
+  heart: 'favorite',
+  activity: 'monitor_heart',
+  'trending-up': 'trending_up',
+  'trending-down': 'trending_down',
+  coffee: 'coffee',
+  leaf: 'eco',
+  pill: 'medication',
+  award: 'emoji_events',
+  star: 'star',
+  target: 'my_location',
+  clock: 'schedule',
+  tag: 'tag',
 };
 
 function MetricIcon({ name, size = 16, className }: { name?: string; size?: number; className?: string }) {
-  // Try ICON_MAP first, then fall back to the full ICON_LIBRARY from edit-drawer
-  const Icon = (name && ICON_MAP[name]) ? ICON_MAP[name] : (name ? getIconComponent(name) : Tag);
-  return <Icon size={size} className={className} />;
+  const iconName = (name && METRIC_ICON_MAP[name]) ? METRIC_ICON_MAP[name] : 'tag';
+  return <Icon name={iconName} size={size} className={className} />;
 }
 
 // ── Custom widget type ────────────────────────────────────────────────────────
@@ -191,6 +206,7 @@ function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const { play } = useSound();
 
   useEffect(() => {
     setTimeout(() => inputRef.current?.focus(), 100);
@@ -232,6 +248,7 @@ function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
       const data = await res.json();
       onCreated(data.widget);
       setStep('done');
+      play('CELEBRATION');
       setTimeout(onClose, 1200);
     } catch {
       setError('Не вдалося створити віджет.');
@@ -258,7 +275,7 @@ function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
             <p className="text-xs text-muted-foreground">AI допоможе налаштувати трекінг</p>
           </div>
           <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <X size={14} />
+            <Icon name="close" size={14} />
           </button>
         </div>
 
@@ -274,7 +291,7 @@ function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
               ref={inputRef}
               type="text"
               value={prompt}
-              onChange={e => setPrompt(e.target.value)}
+              onChange={e => { play('TYPE'); setPrompt(e.target.value); }}
               onKeyDown={e => { if (e.key === 'Enter') handlePromptSubmit(); }}
               placeholder="Я хочу відстежувати..."
               className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
@@ -283,7 +300,7 @@ function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
             <Button
               className="w-full rounded-full"
               disabled={!prompt.trim() || loading}
-              onClick={handlePromptSubmit}
+              onClick={() => { play('BUTTON'); handlePromptSubmit(); }}
             >
               {loading
                 ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
@@ -304,7 +321,7 @@ function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
                 <input
                   type="text"
                   value={answers[q] ?? ''}
-                  onChange={e => setAnswers(prev => ({ ...prev, [q]: e.target.value }))}
+                  onChange={e => { play('TYPE'); setAnswers(prev => ({ ...prev, [q]: e.target.value })); }}
                   placeholder="Ваша відповідь..."
                   className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 />
@@ -321,7 +338,7 @@ function CreateWidgetSheet({ onClose, onCreated, accessToken }: {
               <Button
                 className="flex-1 rounded-full"
                 disabled={questions.some(q => !answers[q]?.trim())}
-                onClick={handleCreate}
+                onClick={() => { play('BUTTON'); handleCreate(); }}
               >
                 Створити
               </Button>
@@ -455,11 +472,11 @@ function MetricEditSheet({ metric, sourceEntries, onSave, onDelete, onClose }: {
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
               aria-label="Видалити"
             >
-              <Trash2 size={16} />
+              <Icon name="delete" size={16} />
             </button>
           ) : (
             <div className="flex flex-1 items-center gap-2 rounded-2xl bg-red-50 px-3 py-2">
-              <Trash2 size={13} className="shrink-0 text-red-500" />
+              <Icon name="delete" size={13} className="shrink-0 text-red-500" />
               <span className="flex-1 text-xs text-red-700">
                 Видалити {sourceEntries.length} {sourceEntries.length === 1 ? 'запис' : 'записів'}?
               </span>
@@ -497,7 +514,7 @@ function MetricEditSheet({ metric, sourceEntries, onSave, onDelete, onClose }: {
             onClick={onClose}
             className="ml-auto flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
           >
-            <X size={14} />
+            <Icon name="close" size={14} />
           </button>
         </div>
 
@@ -555,7 +572,7 @@ function DrillDownDrawer({ title, entries, onClose, onUpdate, onDelete, accessTo
         <div className="flex-shrink-0 flex items-center justify-between px-5 pb-3">
           <h3 className="font-semibold">{title}</h3>
           <button onClick={onClose} className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <X size={14} />
+            <Icon name="close" size={14} />
           </button>
         </div>
 
@@ -768,7 +785,7 @@ function EnergyBalanceCard({ intake, burned }: { intake: number; burned: number 
     <Card className="col-span-2 p-4">
       <div className="mb-3 flex items-center gap-2">
         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-orange-100">
-          <Activity size={16} className="text-orange-600" />
+          <Icon name="monitor_heart" size={16} className="text-orange-600" />
         </div>
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Енергетичний баланс</p>
       </div>
@@ -810,7 +827,7 @@ function Section({ title, count, children, defaultOpen = true }: { title: string
           <h2 className="text-sm font-semibold">{title}</h2>
           {count !== undefined && <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{count}</span>}
         </div>
-        <ChevronDown size={15} className={cn('text-muted-foreground transition-transform duration-200', !open && '-rotate-90')} />
+        <Icon name="expand_more" size={15} className={cn('text-muted-foreground transition-transform duration-200', !open && '-rotate-90')} />
       </button>
       {open && children}
     </div>
@@ -852,6 +869,8 @@ export default function DashboardPage() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showCreateWidget, setShowCreateWidget] = useState(false);
   const [customWidgets, setCustomWidgets] = useState<CustomWidget[]>([]);
+
+  const { play } = useSound();
 
   const fetchEntries = useCallback(async (from: Date, to: Date) => {
     if (!accessToken) return;
@@ -904,6 +923,7 @@ export default function DashboardPage() {
   };
 
   const openDrillDown = (sourceEntries: Entry[], title: string) => {
+    play('OPEN');
     setDrillDown({ title, entries: sourceEntries });
   };
 
@@ -961,7 +981,6 @@ export default function DashboardPage() {
 
   const moodScores = feelEntries.map(e => scoreMood(e.content));
   const moodAvg = moodScores.length ? moodScores.reduce((a, b) => a + b, 0) / moodScores.length : null;
-  const MoodIcon = moodAvg === null ? Minus : moodAvg > 0.5 ? TrendingUp : moodAvg < -0.5 ? TrendingDown : Minus;
   const moodLabel = moodAvg === null ? '—' : moodAvg > 0.5 ? 'Позитивний' : moodAvg < -0.5 ? 'Негативний' : 'Нейтральний';
   const moodColor = moodAvg === null ? 'bg-muted text-muted-foreground' : moodAvg > 0.5 ? 'bg-green-100 text-green-700' : moodAvg < -0.5 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700';
   const recentMood = feelEntries.slice(0, 7).reverse().map(e => scoreMood(e.content));
@@ -990,20 +1009,20 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4 px-4 pt-5 pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Дашборд</h1>
+        <h1 className="text-lg font-semibold">Віджети</h1>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowCreateWidget(true)}
+            onClick={() => { play('OPEN'); setShowCreateWidget(true); }}
             className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary"
           >
-            <Plus size={12} />
+            <Icon name="add" size={12} />
             Віджет
           </button>
           <button
-            onClick={() => setShowCalendar(true)}
+            onClick={() => { play('OPEN'); setShowCalendar(true); }}
             className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground"
           >
-            <Calendar size={13} />
+            <Icon name="calendar_today" size={13} />
             {filter.range === 'custom' ? `${fmtDate(filter.from)} – ${fmtDate(filter.to)}` : RANGE_LABELS[filter.range]}
           </button>
         </div>
@@ -1029,8 +1048,10 @@ export default function DashboardPage() {
             </div>
           )}
           {status === 'ready' && entries.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <p className="text-sm text-muted-foreground">Немає записів за цей період</p>
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+              <Icon name="widgets" size={32} className="text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Немає даних за цей період</p>
+              <p className="text-xs text-muted-foreground/60">Додай записи через бота, щоб побачити метрики</p>
             </div>
           )}
 
@@ -1044,9 +1065,9 @@ export default function DashboardPage() {
                     {showEnergyBalance && (
                       <EnergyBalanceCard intake={intakeMetric!.value} burned={burnedMetric!.value} />
                     )}
-                    {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => setMetricEdit({ metric: m, sourceEntries: s })} />}
-                    {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => setMetricEdit({ metric: m, sourceEntries: s })} />}
-                    {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} onLongPress={(metric, src) => setMetricEdit({ metric, sourceEntries: src })} />)}
+                    {intakeMetric && !burnedMetric && <MetricCard metric={intakeMetric} sourceEntries={metricSourceEntries.get('kcal_intake') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }} />}
+                    {burnedMetric && !intakeMetric && <MetricCard metric={burnedMetric} sourceEntries={metricSourceEntries.get('kcal_burned') ?? []} onEntryClick={openDrillDown} onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }} />}
+                    {genericMetrics.map(m => <MetricCard key={m.key} metric={m} sourceEntries={metricSourceEntries.get(m.key) ?? []} onEntryClick={openDrillDown} onLongPress={(metric, src) => { play('OPEN'); setMetricEdit({ metric, sourceEntries: src }); }} />)}
                   </div>
                 </Section>
               )}
@@ -1066,7 +1087,7 @@ export default function DashboardPage() {
                             metric={matchedMetric}
                             sourceEntries={srcEntries}
                             onEntryClick={openDrillDown}
-                            onLongPress={(m, s) => setMetricEdit({ metric: m, sourceEntries: s })}
+                            onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }}
                           />
                         );
                       }
@@ -1087,10 +1108,10 @@ export default function DashboardPage() {
                     })}
                     {/* Add widget button */}
                     <button
-                      onClick={() => setShowCreateWidget(true)}
+                      onClick={() => { play('OPEN'); setShowCreateWidget(true); }}
                       className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20"
                     >
-                      <Plus size={20} />
+                      <Icon name="add" size={20} />
                       <span className="text-xs font-medium">Додати</span>
                     </button>
                   </div>
@@ -1104,7 +1125,7 @@ export default function DashboardPage() {
                     <div className="mb-4 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-100">
-                          <Wallet size={16} className="text-emerald-600" />
+                          <Icon name="account_balance_wallet" size={16} className="text-emerald-600" />
                         </div>
                         <div>
                           <p className="text-xs text-muted-foreground">Всього витрат</p>
@@ -1130,7 +1151,7 @@ export default function DashboardPage() {
                   <Card className="cursor-pointer p-4 transition-colors hover:bg-muted/30" onClick={() => openDrillDown(feelEntries, 'Настрій')}>
                     <div className="mb-3 flex items-center gap-3">
                       <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', moodColor)}>
-                        <MoodIcon size={20} />
+                        <Icon name={moodAvg === null ? 'remove' : moodAvg > 0.5 ? 'trending_up' : moodAvg < -0.5 ? 'trending_down' : 'remove'} size={20} />
                       </div>
                       <div>
                         <p className="font-semibold">{moodLabel}</p>
@@ -1157,14 +1178,14 @@ export default function DashboardPage() {
                     {ideaEntries.slice(0, 5).map((e) => (
                       <Card key={e.id} className="flex items-start gap-3 p-3">
                         <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-amber-100">
-                          <Lightbulb size={13} className="text-amber-600" />
+                          <Icon name="lightbulb" size={13} className="text-amber-600" />
                         </div>
                         <p className="text-sm leading-relaxed line-clamp-2">{e.content}</p>
                       </Card>
                     ))}
                     {ideaEntries.length > 5 && (
                       <button className="flex items-center gap-1 self-start text-xs text-muted-foreground hover:text-foreground">
-                        <ChevronRight size={13} /> Ще {ideaEntries.length - 5} ідей
+                        <Icon name="chevron_right" size={13} /> Ще {ideaEntries.length - 5} ідей
                       </button>
                     )}
                   </div>
@@ -1182,7 +1203,7 @@ export default function DashboardPage() {
           sourceEntries={metricEdit.sourceEntries}
           onSave={handleMetricOverride}
           onDelete={handleDelete}
-          onClose={() => setMetricEdit(null)}
+          onClose={() => { play('CLOSE'); setMetricEdit(null); }}
         />
       )}
 
@@ -1191,7 +1212,7 @@ export default function DashboardPage() {
         <DrillDownDrawer
           title={drillDown.title}
           entries={drillDown.entries}
-          onClose={() => setDrillDown(null)}
+          onClose={() => { play('CLOSE'); setDrillDown(null); }}
           onUpdate={handleUpdate}
           onDelete={handleDelete}
           accessToken={accessToken}
@@ -1200,13 +1221,13 @@ export default function DashboardPage() {
 
       {/* Calendar sheet */}
       {showCalendar && (
-        <CalendarSheet filter={filter} onChange={setFilter} onClose={() => setShowCalendar(false)} />
+        <CalendarSheet filter={filter} onChange={setFilter} onClose={() => { play('CLOSE'); setShowCalendar(false); }} />
       )}
 
       {/* Create widget sheet */}
       {showCreateWidget && (
         <CreateWidgetSheet
-          onClose={() => setShowCreateWidget(false)}
+          onClose={() => { play('CLOSE'); setShowCreateWidget(false); }}
           onCreated={(widget) => setCustomWidgets(prev => [...prev.filter(w => w.id !== widget.id), widget])}
           accessToken={accessToken}
         />

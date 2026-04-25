@@ -1,82 +1,65 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
-import { generatePaymentInvoice } from "@/lib/stars/paywall";
+import { TIER_INFO, type SubscriptionTier } from "@/lib/stars/paywall";
 
 interface RequestBody {
   userId: string;
-  tier: "stars_basic" | "stars_pro";
-  telegramId: number;
+  tier: SubscriptionTier;
 }
 
 export async function POST(req: Request): Promise<Response> {
   try {
-    const body = await req.json() as RequestBody;
-    const { userId, tier, telegramId } = body;
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    }
+    const token = authHeader.slice(7);
 
-    if (!userId || !tier || !telegramId) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    const body = await req.json() as RequestBody;
+    const { userId, tier } = body;
+
+    if (!userId || !tier || !TIER_INFO[tier]) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: { "Content-Type": "application/json" } });
     }
 
-    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false },
+    // Verify user via token
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user || user.id !== userId) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+    }
+
+    const tierInfo = TIER_INFO[tier];
+
+    // Call Telegram Bot API to create invoice link
+    const invoicePayload = JSON.stringify({ userId, tier, ts: Date.now() });
+
+    const tgRes = await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/createInvoiceLink`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: `${tierInfo.icon} ${tierInfo.name}`,
+        description: tierInfo.features.slice(0, 3).join(" · "),
+        payload: invoicePayload,
+        provider_token: "",          // empty = Telegram Stars
+        currency: "XTR",
+        prices: [{ label: tierInfo.name, amount: tierInfo.priceStars }],
+      }),
     });
 
-    // Verify user exists
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id, telegram_id, username")
-      .eq("id", userId)
-      .single();
+    const tgData = await tgRes.json();
 
-    if (!profile) {
-      return new Response(JSON.stringify({ error: "User not found" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
+    if (!tgData.ok) {
+      console.error("[stars/invoice] Telegram API error:", tgData);
+      return new Response(JSON.stringify({ error: tgData.description ?? "Failed to create invoice" }), { status: 500, headers: { "Content-Type": "application/json" } });
     }
 
-    // Generate payment invoice
-    const invoice = generatePaymentInvoice(
-      profile.id,
-      tier
-    );
-
-    // Store invoice data for verification
-    const { error: insertError } = await supabase
-      .from("subscription_invoices")
-      .insert({
-        user_id: profile.id,
-        tier,
-        invoice_payload: invoice.payload,
-        amount: invoice.prices[0].amount,
-        currency: invoice.currency,
-        status: "pending",
-      })
-      .select();
-
-    if (insertError) {
-      console.error("[stars/invoice] Failed to store invoice:", insertError.message);
-      // Continue anyway - the invoice is still valid
-    }
-
-    // Return invoice URL for Telegram
-    // In production, this would be handled by Telegram's invoice API
-    // For now, return the invoice data for the frontend to use
-    return new Response(JSON.stringify({
-      success: true,
-      invoice,
-    }), {
+    return new Response(JSON.stringify({ ok: true, invoiceLink: tgData.result }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("[stars/invoice] Error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500, headers: { "Content-Type": "application/json" } });
   }
 }
