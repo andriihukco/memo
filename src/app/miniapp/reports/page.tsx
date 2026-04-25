@@ -274,16 +274,275 @@ function NewReportSheet({ open, onClose, onGenerate, generating }: {
   );
 }
 
+// ── Stats types ───────────────────────────────────────────────────────────────
+
+interface EntryStats {
+  totalEntries: number;
+  daysActive: number;
+  totalDays: number;
+  categoryBreakdown: { name: string; count: number; pct: number }[];
+  metricHighlights: { label: string; value: number; unit: string; icon: string }[];
+  dailyVolume: { date: string; count: number }[];
+  moodTrend: number[]; // -2..+2 per day
+  topCategory: string;
+}
+
+const MOOD_KW: Record<string, number> = {
+  радіс: 2, щасл: 2, чудов: 2, добр: 1, спокій: 1, задоволен: 1, енергій: 1,
+  сумн: -1, втомл: -1, погано: -2, жахл: -2, злий: -2, тривог: -2, стрес: -2, паршив: -2,
+};
+function scoreMoodText(t: string) {
+  const l = t.toLowerCase();
+  let s = 0;
+  for (const [k, v] of Object.entries(MOOD_KW)) if (l.includes(k)) s += v;
+  return Math.max(-2, Math.min(2, s));
+}
+
+const CAT_LABELS: Record<string, string> = {
+  thoughts: 'Думки', ideas: 'Ідеї', feelings: 'Почуття', expenses: 'Витрати',
+  calories: 'Калорії', workout: 'Тренування', goals: 'Цілі', sleep: 'Сон',
+  health: "Здоров'я", dreams: 'Сни', books: 'Книги', work: 'Робота',
+  relationships: 'Стосунки', travel: 'Подорожі', gratitude: 'Вдячність',
+  music: 'Музика', social: 'Соціальне',
+};
+
+function computeStats(entries: Array<{ content: string; category: string; metadata: Record<string, unknown>; created_at: string }>, from: Date, to: Date): EntryStats {
+  const totalDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000));
+
+  // Daily volume
+  const dayMap = new Map<string, number>();
+  for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+    dayMap.set(d.toISOString().slice(0, 10), 0);
+  }
+  for (const e of entries) {
+    const day = new Date(e.created_at).toISOString().slice(0, 10);
+    dayMap.set(day, (dayMap.get(day) ?? 0) + 1);
+  }
+  const dailyVolume = [...dayMap.entries()].map(([date, count]) => ({ date, count }));
+  const daysActive = dailyVolume.filter(d => d.count > 0).length;
+
+  // Category breakdown
+  const catCount = new Map<string, number>();
+  for (const e of entries) {
+    const cats = e.category.split(',').map(c => c.trim()).filter(Boolean);
+    for (const c of cats) catCount.set(c, (catCount.get(c) ?? 0) + 1);
+  }
+  const total = entries.length || 1;
+  const categoryBreakdown = [...catCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, count]) => ({ name, count, pct: Math.round((count / total) * 100) }));
+  const topCategory = categoryBreakdown[0]?.name ?? '';
+
+  // Metric highlights
+  const metricMap = new Map<string, { label: string; values: number[]; unit: string; icon: string; aggregate: string }>();
+  for (const e of entries) {
+    const metrics = e.metadata?.dashboard_metrics as Array<{ key: string; label: string; value: number; unit: string; icon?: string; aggregate?: string }> | undefined;
+    if (!Array.isArray(metrics)) continue;
+    for (const m of metrics) {
+      if (!metricMap.has(m.key)) metricMap.set(m.key, { label: m.label, values: [], unit: m.unit, icon: m.icon ?? 'tag', aggregate: m.aggregate ?? 'sum' });
+      metricMap.get(m.key)!.values.push(m.value);
+    }
+  }
+  const metricHighlights = [...metricMap.entries()].slice(0, 4).map(([, m]) => {
+    const val = m.aggregate === 'avg'
+      ? m.values.reduce((a, b) => a + b, 0) / m.values.length
+      : m.values.reduce((a, b) => a + b, 0);
+    return { label: m.label, value: Math.round(val * 10) / 10, unit: m.unit, icon: m.icon };
+  });
+
+  // Mood trend (per day, feelings category)
+  const moodByDay = new Map<string, number[]>();
+  for (const e of entries) {
+    if (!e.category.includes('feelings')) continue;
+    const day = new Date(e.created_at).toISOString().slice(0, 10);
+    if (!moodByDay.has(day)) moodByDay.set(day, []);
+    moodByDay.get(day)!.push(scoreMoodText(e.content));
+  }
+  const moodTrend = dailyVolume.map(({ date }) => {
+    const scores = moodByDay.get(date);
+    if (!scores || scores.length === 0) return 0;
+    return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+  });
+
+  return { totalEntries: entries.length, daysActive, totalDays, categoryBreakdown, metricHighlights, dailyVolume, moodTrend, topCategory };
+}
+
+// ── Stat visualisation components ─────────────────────────────────────────────
+
+function StatCard({ title, children, accent = '#4797FF' }: { title: string; children: React.ReactNode; accent?: string }) {
+  return (
+    <div className="rounded-2xl px-4 py-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: accent }}>{title}</p>
+      {children}
+    </div>
+  );
+}
+
+// Activity heatmap — daily entry count as colored squares
+function ActivityHeatmap({ dailyVolume }: { dailyVolume: { date: string; count: number }[] }) {
+  const max = Math.max(1, ...dailyVolume.map(d => d.count));
+  const weeks: { date: string; count: number }[][] = [];
+  let week: { date: string; count: number }[] = [];
+  for (const d of dailyVolume) {
+    week.push(d);
+    if (week.length === 7) { weeks.push(week); week = []; }
+  }
+  if (week.length > 0) weeks.push(week);
+
+  return (
+    <StatCard title="Активність" accent="#34d399">
+      <div className="flex gap-1 flex-wrap">
+        {dailyVolume.map(({ date, count }) => {
+          const intensity = count === 0 ? 0 : Math.max(0.15, count / max);
+          return (
+            <div
+              key={date}
+              className="rounded-sm"
+              style={{ width: 10, height: 10, backgroundColor: count === 0 ? 'rgba(255,255,255,0.05)' : `rgba(52,211,153,${intensity})` }}
+              title={`${date}: ${count}`}
+            />
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-2">
+        {dailyVolume.filter(d => d.count > 0).length} з {dailyVolume.length} днів активних
+      </p>
+    </StatCard>
+  );
+}
+
+// Category breakdown — horizontal bars
+function CategoryBreakdown({ breakdown }: { breakdown: { name: string; count: number; pct: number }[] }) {
+  const COLORS = ['#4797FF', '#34d399', '#a78bfa', '#fbbf24', '#f87171', '#60a5fa'];
+  return (
+    <StatCard title="Категорії" accent="#a78bfa">
+      <div className="flex flex-col gap-2">
+        {breakdown.map(({ name, count, pct }, i) => (
+          <div key={name}>
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-[12px] text-foreground/80">{CAT_LABELS[name] ?? name}</span>
+              <span className="text-[11px] text-muted-foreground">{count}</span>
+            </div>
+            <div className="h-1.5 w-full rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: COLORS[i % COLORS.length] }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </StatCard>
+  );
+}
+
+// Metric highlights — 2×2 grid of big numbers
+function MetricHighlights({ metrics }: { metrics: { label: string; value: number; unit: string; icon: string }[] }) {
+  if (metrics.length === 0) return null;
+  const COLORS = ['#4797FF', '#34d399', '#fbbf24', '#f87171'];
+  return (
+    <StatCard title="Метрики" accent="#fbbf24">
+      <div className="grid grid-cols-2 gap-2">
+        {metrics.map((m, i) => (
+          <div key={m.label} className="rounded-xl px-3 py-2.5" style={{ background: `${COLORS[i % COLORS.length]}12`, border: `1px solid ${COLORS[i % COLORS.length]}25` }}>
+            <p className="text-[10px] text-muted-foreground mb-1 truncate">{m.label}</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-[20px] font-bold" style={{ color: COLORS[i % COLORS.length] }}>{m.value.toLocaleString()}</span>
+              <span className="text-[11px] text-muted-foreground">{m.unit}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </StatCard>
+  );
+}
+
+// Mood sparkline — bar chart of daily mood
+function MoodSparkline({ moodTrend, dailyVolume }: { moodTrend: number[]; dailyVolume: { date: string; count: number }[] }) {
+  const hasData = moodTrend.some(v => v !== 0);
+  if (!hasData) return null;
+  const avg = moodTrend.filter(v => v !== 0).reduce((a, b) => a + b, 0) / (moodTrend.filter(v => v !== 0).length || 1);
+  const label = avg > 0.5 ? 'Позитивний' : avg < -0.5 ? 'Негативний' : 'Нейтральний';
+  const labelColor = avg > 0.5 ? '#34d399' : avg < -0.5 ? '#f87171' : '#fbbf24';
+
+  return (
+    <StatCard title="Настрій" accent={labelColor}>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-[22px] font-bold" style={{ color: labelColor }}>{label}</span>
+      </div>
+      <div className="flex items-end gap-0.5" style={{ height: 40 }}>
+        {moodTrend.map((v, i) => {
+          const h = v === 0 ? 3 : Math.max(4, Math.abs(v) / 2 * 36);
+          const color = v > 0 ? '#34d399' : v < 0 ? '#f87171' : 'rgba(255,255,255,0.1)';
+          return <div key={i} className="flex-1 rounded-sm" style={{ height: h, backgroundColor: color }} />;
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-1.5">Динаміка настрою за період</p>
+    </StatCard>
+  );
+}
+
+// Volume bar chart — entries per day
+function VolumeChart({ dailyVolume }: { dailyVolume: { date: string; count: number }[] }) {
+  const max = Math.max(1, ...dailyVolume.map(d => d.count));
+  const totalEntries = dailyVolume.reduce((a, b) => a + b.count, 0);
+  // Show only last 14 days if longer
+  const slice = dailyVolume.length > 14 ? dailyVolume.slice(-14) : dailyVolume;
+
+  return (
+    <StatCard title="Записи по днях" accent="#60a5fa">
+      <div className="flex items-end gap-0.5 mb-2" style={{ height: 48 }}>
+        {slice.map(({ date, count }) => {
+          const h = count === 0 ? 2 : Math.max(4, (count / max) * 44);
+          return (
+            <div key={date} className="flex-1 rounded-sm" style={{ height: h, backgroundColor: count === 0 ? 'rgba(255,255,255,0.06)' : `rgba(96,165,250,${0.3 + (count / max) * 0.7})` }} />
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground">{totalEntries} записів за період</p>
+    </StatCard>
+  );
+}
+
+// Overview stat row
+function OverviewStats({ stats }: { stats: EntryStats }) {
+  const items = [
+    { label: 'Записів', value: stats.totalEntries, color: '#4797FF' },
+    { label: 'Активних днів', value: stats.daysActive, color: '#34d399' },
+    { label: 'Всього днів', value: stats.totalDays, color: '#a78bfa' },
+  ];
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {items.map(({ label, value, color }) => (
+        <div key={label} className="rounded-2xl px-3 py-3 text-center" style={{ background: `${color}10`, border: `1px solid ${color}20` }}>
+          <p className="text-[22px] font-bold" style={{ color }}>{value}</p>
+          <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Report Detail View ────────────────────────────────────────────────────────
 
-function ReportDetail({ report, onClose }: {
+function ReportDetail({ report, onClose, accessToken }: {
   report: ReportSummary;
   onClose: () => void;
+  accessToken?: string | null;
 }) {
   const { play } = useSound();
+  const [stats, setStats] = useState<EntryStats | null>(null);
 
   const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
   const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Fetch entries for the report period to compute visual stats
+  useEffect(() => {
+    if (!accessToken) return;
+    const params = new URLSearchParams({ limit: '500', from: report.period_from, to: report.period_to });
+    fetch(`/api/entries?${params}`, { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => r.ok ? r.json() : { entries: [] })
+      .then(d => setStats(computeStats(d.entries ?? [], new Date(report.period_from), new Date(report.period_to))))
+      .catch(() => {});
+  }, [accessToken, report.period_from, report.period_to]);
 
   const hasRetroSections = !!(report.went_well || report.didnt_go_well || report.start_stop_continue || report.experiment || report.lesson);
   const filledSections = RETRO_SECTIONS.filter(s => !!report[s.key]);
@@ -318,6 +577,18 @@ function ReportDetail({ report, onClose }: {
             <MarkdownText text={report.summary} />
           </div>
         </div>
+
+        {/* Stats visualizations */}
+        {stats && (
+          <div className="px-4 flex flex-col gap-3 pb-2">
+            <OverviewStats stats={stats} />
+            <VolumeChart dailyVolume={stats.dailyVolume} />
+            {stats.categoryBreakdown.length > 0 && <CategoryBreakdown breakdown={stats.categoryBreakdown} />}
+            {stats.metricHighlights.length > 0 && <MetricHighlights metrics={stats.metricHighlights} />}
+            {stats.moodTrend.some(v => v !== 0) && <MoodSparkline moodTrend={stats.moodTrend} dailyVolume={stats.dailyVolume} />}
+            {stats.dailyVolume.length > 7 && <ActivityHeatmap dailyVolume={stats.dailyVolume} />}
+          </div>
+        )}
 
         {/* Retro sections */}
         {hasRetroSections && (
@@ -451,6 +722,7 @@ export default function ReportsPage() {
       <ReportDetail
         report={selectedReport}
         onClose={() => setSelectedReport(null)}
+        accessToken={accessToken}
       />
     );
   }
