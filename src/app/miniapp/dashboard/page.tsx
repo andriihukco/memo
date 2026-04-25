@@ -231,6 +231,46 @@ const CATEGORY_QUESTIONS: Record<string, string[]> = {
   custom: [],
 };
 
+// Direct widget definitions — no AI needed for predefined questions
+type DirectWidget = Omit<CustomWidget, 'created_at'>;
+const DIRECT_WIDGETS: Record<string, Record<string, DirectWidget>> = {
+  food: {
+    'Калорії за день':            { id: 'kcal_intake',  title: 'Калорії',       metric_key: 'kcal_intake',  unit: 'ккал', icon: 'flame',    color: 'orange',  aggregate: 'sum', category: 'calories' },
+    'Білки / жири / вуглеводи':   { id: 'protein_g',   title: 'Білки',         metric_key: 'protein_g',    unit: 'г',    icon: 'utensils', color: 'red',     aggregate: 'sum', category: 'calories' },
+    'Конкретний продукт':         { id: 'food_custom',  title: 'Продукт',       metric_key: 'food_custom',  unit: 'г',    icon: 'utensils', color: 'amber',   aggregate: 'sum', category: 'calories' },
+  },
+  activity: {
+    'Кроки за день':              { id: 'steps_count',  title: 'Кроки',         metric_key: 'steps_count',  unit: 'кроків', icon: 'activity', color: 'green',  aggregate: 'sum', category: 'workout' },
+    'Хвилини тренування':         { id: 'active_min',   title: 'Тренування',    metric_key: 'active_min',   unit: 'хв',   icon: 'dumbbell', color: 'blue',    aggregate: 'sum', category: 'workout' },
+    'Дистанція (км)':             { id: 'distance_km',  title: 'Дистанція',     metric_key: 'distance_km',  unit: 'км',   icon: 'map-pin',  color: 'cyan',    aggregate: 'sum', category: 'workout' },
+  },
+  sleep: {
+    'Годин сну':                  { id: 'sleep_hours',  title: 'Сон',           metric_key: 'sleep_hours',  unit: 'год',  icon: 'moon',     color: 'indigo',  aggregate: 'avg', category: 'sleep' },
+    'Якість сну (1–10)':          { id: 'sleep_quality',title: 'Якість сну',    metric_key: 'sleep_quality',unit: '/10',  icon: 'moon',     color: 'violet',  aggregate: 'avg', category: 'sleep' },
+    'Час підйому':                { id: 'wake_time',    title: 'Підйом',        metric_key: 'wake_time',    unit: 'год',  icon: 'clock',    color: 'purple',  aggregate: 'last',category: 'sleep' },
+  },
+  water: {
+    'Мл води за день':            { id: 'water_ml',     title: 'Вода',          metric_key: 'water_ml',     unit: 'мл',   icon: 'droplets', color: 'cyan',    aggregate: 'sum', category: 'health' },
+    'Склянки води':               { id: 'water_glasses',title: 'Склянки',       metric_key: 'water_glasses',unit: 'скл',  icon: 'droplets', color: 'sky',     aggregate: 'sum', category: 'health' },
+    'Відсоток норми':             { id: 'water_pct',    title: 'Норма води',    metric_key: 'water_pct',    unit: '%',    icon: 'droplets', color: 'teal',    aggregate: 'last',category: 'health' },
+  },
+  weight: {
+    'Поточна вага (кг)':          { id: 'weight_kg',    title: 'Вага',          metric_key: 'weight_kg',    unit: 'кг',   icon: 'scale',    color: 'teal',    aggregate: 'last',category: 'health' },
+    'Зміна ваги за тиждень':      { id: 'weight_delta', title: 'Зміна ваги',    metric_key: 'weight_delta', unit: 'кг',   icon: 'trending-up','color': 'lime', aggregate: 'last',category: 'health' },
+    'ІМТ':                        { id: 'bmi',          title: 'ІМТ',           metric_key: 'bmi',          unit: '',     icon: 'scale',    color: 'green',   aggregate: 'last',category: 'health' },
+  },
+  expenses: {
+    'Витрати за день (грн)':      { id: 'expenses_day', title: 'Витрати',       metric_key: 'expenses_day', unit: 'грн',  icon: 'wallet',   color: 'emerald', aggregate: 'sum', category: 'expenses' },
+    'Витрати за категорією':      { id: 'expenses_cat', title: 'Витрати (кат)', metric_key: 'expenses_cat', unit: 'грн',  icon: 'wallet',   color: 'green',   aggregate: 'sum', category: 'expenses' },
+    'Залишок бюджету':            { id: 'budget_left',  title: 'Бюджет',        metric_key: 'budget_left',  unit: 'грн',  icon: 'wallet',   color: 'lime',    aggregate: 'last',category: 'expenses' },
+  },
+  mood: {
+    'Оцінка настрою (1–10)':      { id: 'mood_score',   title: 'Настрій',       metric_key: 'mood_score',   unit: '/10',  icon: 'smile',    color: 'pink',    aggregate: 'avg', category: 'feelings' },
+    'Рівень стресу (1–10)':       { id: 'stress_level', title: 'Стрес',         metric_key: 'stress_level', unit: '/10',  icon: 'zap',      color: 'rose',    aggregate: 'avg', category: 'feelings' },
+    'Рівень енергії (1–10)':      { id: 'energy_level', title: 'Енергія',       metric_key: 'energy_level', unit: '/10',  icon: 'zap',      color: 'yellow',  aggregate: 'avg', category: 'feelings' },
+  },
+};
+
 function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
   onClose: () => void;
   onCreated: (widget: CustomWidget) => void;
@@ -255,21 +295,17 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
   }, [showCustomInput]);
 
   const handleCategorySelect = (cat: WidgetCategory) => {
+    play('SELECT');
     setSelectedCategory(cat);
     setSelectedQuestion(null);
-    setShowCustomInput(false);
+    setShowCustomInput(cat.id === 'custom');
     setCustomText('');
     setError(null);
-    if (cat.id === 'custom') {
-      // Skip step 2 pre-built chips — go to step 1 but show text input immediately
-      setShowCustomInput(true);
-      setStep(1);
-    } else {
-      setStep(1);
-    }
+    setStep(1);
   };
 
   const handleQuestionSelect = (q: string) => {
+    play('SELECT');
     setSelectedQuestion(q);
     setShowCustomInput(false);
     setCustomText('');
@@ -286,6 +322,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
 
   const handleNextFromStep1 = () => {
     if (!canProceedStep1) return;
+    play('SLIDE');
     setError(null);
     setStep(2);
   };
@@ -298,17 +335,22 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
     setCreating(true);
     setError(null);
     try {
+      // Use direct widget definition for predefined questions (no AI, instant)
+      const directDef = selectedCategory.id !== 'custom'
+        ? DIRECT_WIDGETS[selectedCategory.id]?.[prompt]
+        : null;
+
+      const body = directDef
+        ? { prompt: `${selectedCategory.label}: ${prompt}`, direct: directDef }
+        : { prompt: `${selectedCategory.label}: ${prompt}`, answers: { question: prompt } };
+
       const res = await fetch('/api/widgets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({
-          prompt: `${selectedCategory.label}: ${prompt}`,
-          answers: { question: prompt }, // bypass clarifying questions — sheet already handles selection
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (res.status === 402) {
-        // Limit exceeded — close sheet and open paywall
         onClose();
         onPaywall(
           data.feature ?? 'widgets',
@@ -321,7 +363,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
       } else {
         onCreated(data.widget);
         play('CELEBRATION');
-        setTimeout(onClose, 1200);
+        setTimeout(onClose, 800);
       }
     } catch {
       setError('Не вдалося створити віджет. Спробуй ще раз.');
@@ -334,149 +376,134 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
   const displayQuestion = selectedQuestion ?? (showCustomInput && customText.trim() ? customText.trim() : null);
 
   return (
-    <BottomSheet open onClose={onClose} className="px-4 pt-4 max-h-[85vh] overflow-y-auto">
-      {/* Step indicator */}
-      <div className="flex gap-1.5 justify-center mb-4">
+    <BottomSheet open onClose={onClose} className="px-4 pt-4 pb-6 max-h-[85vh] overflow-y-auto">
+      {/* Step indicator — pill style */}
+      <div className="flex gap-1.5 justify-center mb-5">
         {[0, 1, 2].map(i => (
           <div
             key={i}
             className={cn(
-              'w-2 h-2 rounded-full transition-colors',
-              i === step ? 'bg-primary' : 'bg-muted'
+              'h-1.5 rounded-full transition-all duration-200',
+              i === step ? 'w-5 bg-primary' : i < step ? 'w-1.5 bg-primary/40' : 'w-1.5 bg-muted'
             )}
           />
         ))}
       </div>
 
-      {/* Sliding steps container */}
-      <div className="overflow-hidden">
-        <div
-          className="flex transition-transform duration-300 ease-out"
-          style={{ transform: `translateX(-${step * 100}%)` }}
-        >
-          {/* ── Step 0: Category selection ── */}
-          <div className="min-w-full">
-            <h3 className="text-[17px] font-semibold mb-4">Що хочеш відстежувати?</h3>
-            <div className="flex flex-wrap gap-2 pb-2">
-              {WIDGET_CATEGORIES.map(cat => (
-                <Chip
-                  key={cat.id}
-                  label={cat.label}
-                  icon={cat.icon}
-                  selected={selectedCategory?.id === cat.id}
-                  onClick={() => handleCategorySelect(cat)}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* ── Step 1: Question selection ── */}
-          <div className="min-w-full">
-            <button
-              onClick={() => { setStep(0); setError(null); }}
-              className="text-[13px] text-muted-foreground min-h-[44px] flex items-center mb-1"
-            >
-              ← Назад
-            </button>
-            <h3 className="text-[17px] font-semibold mb-4">{selectedCategory?.label ?? ''}</h3>
-
-            {/* Pre-built question chips (not shown for custom category) */}
-            {selectedCategory?.id !== 'custom' && (
-              <div className="flex flex-wrap gap-2 mb-3">
-                {questions.map(q => (
-                  <Chip
-                    key={q}
-                    label={q}
-                    selected={selectedQuestion === q}
-                    onClick={() => handleQuestionSelect(q)}
-                  />
-                ))}
-                {/* "Свій варіант" chip */}
-                <Chip
-                  label="Свій варіант"
-                  icon="add_circle"
-                  selected={showCustomInput}
-                  onClick={handleCustomChipTap}
-                />
-              </div>
-            )}
-
-            {/* Custom text input */}
-            {showCustomInput && (
-              <input
-                ref={customInputRef}
-                type="text"
-                value={customText}
-                onChange={e => setCustomText(e.target.value)}
-                placeholder="Введи свій варіант..."
-                className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring mb-3"
+      {/* ── Step 0: Category selection ── */}
+      {step === 0 && (
+        <div>
+          <h3 className="text-[17px] font-semibold mb-4">Що хочеш відстежувати?</h3>
+          <div className="flex flex-wrap gap-2 pb-2">
+            {WIDGET_CATEGORIES.map(cat => (
+              <Chip
+                key={cat.id}
+                label={cat.label}
+                icon={cat.icon}
+                selected={selectedCategory?.id === cat.id}
+                onClick={() => handleCategorySelect(cat)}
               />
-            )}
-
-            <Button
-              className="w-full min-h-[44px]"
-              disabled={!canProceedStep1}
-              onClick={handleNextFromStep1}
-            >
-              Далі
-            </Button>
-          </div>
-
-          {/* ── Step 2: Confirmation ── */}
-          <div className="min-w-full">
-            <button
-              onClick={() => { setStep(0); setError(null); }}
-              className="text-[13px] text-muted-foreground min-h-[44px] flex items-center mb-1"
-            >
-              ← Змінити
-            </button>
-
-            {/* Summary card */}
-            {selectedCategory && (
-              <div className="bg-muted/40 rounded-2xl p-4 flex items-center gap-3 mb-4">
-                <Icon
-                  name={selectedCategory.icon}
-                  size={32}
-                  className="text-primary shrink-0"
-                />
-                <div className="min-w-0">
-                  <p className="font-semibold truncate">{selectedCategory.label}</p>
-                  {displayQuestion && (
-                    <p className="text-sm text-muted-foreground truncate">{displayQuestion}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Error banner */}
-            {error && (
-              <div className="mb-4">
-                <ErrorBanner
-                  message={error}
-                  onRetry={handleCreate}
-                  onDismiss={() => setError(null)}
-                />
-              </div>
-            )}
-
-            {/* CTA */}
-            <Button
-              className="w-full min-h-[44px]"
-              disabled={creating}
-              onClick={handleCreate}
-            >
-              {creating ? (
-                <span className="flex items-center gap-2">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-                  AI створює твій віджет...
-                </span>
-              ) : (
-                'Створити віджет'
-              )}
-            </Button>
+            ))}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* ── Step 1: Question selection ── */}
+      {step === 1 && (
+        <div>
+          <button
+            onClick={() => { play('SLIDE'); setStep(0); setError(null); }}
+            className="text-[13px] text-muted-foreground min-h-[44px] flex items-center mb-1"
+          >
+            ← Назад
+          </button>
+          <h3 className="text-[17px] font-semibold mb-4">{selectedCategory?.label ?? ''}</h3>
+
+          {selectedCategory?.id !== 'custom' && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {questions.map(q => (
+                <Chip
+                  key={q}
+                  label={q}
+                  selected={selectedQuestion === q}
+                  onClick={() => handleQuestionSelect(q)}
+                />
+              ))}
+              <Chip
+                label="Свій варіант"
+                icon="add_circle"
+                selected={showCustomInput}
+                onClick={handleCustomChipTap}
+              />
+            </div>
+          )}
+
+          {showCustomInput && (
+            <input
+              ref={customInputRef}
+              type="text"
+              value={customText}
+              onChange={e => setCustomText(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && canProceedStep1) handleNextFromStep1(); }}
+              placeholder="Введи свій варіант..."
+              className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring mb-3"
+            />
+          )}
+
+          <Button
+            className="w-full min-h-[44px]"
+            disabled={!canProceedStep1}
+            onClick={handleNextFromStep1}
+          >
+            Далі
+          </Button>
+        </div>
+      )}
+
+      {/* ── Step 2: Confirmation ── */}
+      {step === 2 && (
+        <div>
+          <button
+            onClick={() => { play('SLIDE'); setStep(1); setError(null); }}
+            className="text-[13px] text-muted-foreground min-h-[44px] flex items-center mb-1"
+          >
+            ← Змінити
+          </button>
+
+          {selectedCategory && (
+            <div className="bg-muted/40 rounded-2xl p-4 flex items-center gap-3 mb-4">
+              <Icon name={selectedCategory.icon} size={32} className="text-primary shrink-0" />
+              <div className="min-w-0">
+                <p className="font-semibold truncate">{selectedCategory.label}</p>
+                {displayQuestion && (
+                  <p className="text-sm text-muted-foreground truncate">{displayQuestion}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4">
+              <ErrorBanner message={error} onRetry={handleCreate} onDismiss={() => setError(null)} />
+            </div>
+          )}
+
+          <Button
+            className="w-full min-h-[44px]"
+            disabled={creating}
+            onClick={handleCreate}
+          >
+            {creating ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+                {DIRECT_WIDGETS[selectedCategory?.id ?? '']?.[displayQuestion ?? ''] ? 'Створюємо...' : 'AI створює...'}
+              </span>
+            ) : (
+              'Створити віджет'
+            )}
+          </Button>
+        </div>
+      )}
     </BottomSheet>
   );
 }

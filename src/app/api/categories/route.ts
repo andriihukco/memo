@@ -38,8 +38,14 @@ export async function POST(req: Request): Promise<Response> {
   const resolvedLabel = label_ua ?? label ?? name;
 
   const supabase = makeSupabase(jwt);
+
+  // Must include user_id explicitly for RLS WITH CHECK to pass
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
+
   const { data, error } = await supabase.from("categories").upsert(
     {
+      user_id: user.id,
       name,
       label_ua: resolvedLabel,
       color: color ?? "bg-gray-100 text-gray-700",

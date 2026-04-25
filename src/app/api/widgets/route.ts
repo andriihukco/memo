@@ -22,8 +22,8 @@ export async function POST(req: Request): Promise<Response> {
   const jwt = getUserJwt(req);
   if (!jwt) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
 
-  const { prompt, answers } = await req.json().catch(() => ({}));
-  if (!prompt) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400 });
+  const { prompt, answers, direct } = await req.json().catch(() => ({}));
+  if (!prompt && !direct) return new Response(JSON.stringify({ error: 'prompt required' }), { status: 400 });
 
   // Resolve user id for tier check
   const supabase = makeSupabase(jwt);
@@ -51,6 +51,17 @@ export async function POST(req: Request): Promise<Response> {
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+  // Direct widget creation — client provides full definition, skip AI
+  if (direct && typeof direct === 'object' && direct.id) {
+    const widget = { ...direct, created_at: new Date().toISOString() };
+    const filtered = (customWidgets as Array<{ id: string }>).filter((w: { id: string }) => w.id !== widget.id);
+    filtered.push(widget as { id: string });
+    await supabase.from('profiles').update({
+      settings: { ...settings, custom_widgets: filtered },
+    }).eq('id', userId);
+    return new Response(JSON.stringify({ widget }), { headers: { 'Content-Type': 'application/json' } });
+  }
 
   // If no answers yet — generate clarifying questions
   if (!answers) {
