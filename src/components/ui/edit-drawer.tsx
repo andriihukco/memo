@@ -504,7 +504,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
 
   return (
     <>
-      <BottomSheet open onClose={onClose} className="px-4 pt-4">
+      <BottomSheet open onClose={onClose} className="px-4 pt-4 max-h-[90vh] overflow-y-auto">
         {/* Close */}
         <button
           onClick={onClose}
@@ -596,7 +596,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
           className="mb-4 w-full resize-none rounded-2xl border border-input bg-background px-4 py-3 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-ring"
         />
 
-        <Button className="w-full min-h-[44px] rounded-full" disabled={saving || !editContent.trim()} onClick={save}>
+        <Button className="w-full min-h-[44px] rounded-full mb-2" disabled={saving || !editContent.trim()} onClick={save}>
           {saving
             ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
             : 'Зберегти'}
