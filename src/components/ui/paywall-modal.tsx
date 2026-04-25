@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { useSound } from '@/lib/sound/use-sound';
+import { useAuth } from '@/lib/supabase/auth-context';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
 import { TIER_INFO } from '@/lib/stars/paywall';
 
@@ -132,6 +133,9 @@ export function PaywallModal({
 }: PaywallModalProps) {
   const router = useRouter();
   const { play } = useSound();
+  const { accessToken } = useAuth();
+  const [paying, setPaying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const copy = PAYWALL_COPY[feature] ?? FALLBACK_COPY;
   const tierInfo = TIER_INFO[requiredTier];
@@ -140,12 +144,62 @@ export function PaywallModal({
   useEffect(() => {
     if (open) {
       play('CAUTION');
+      setError(null);
+      setPaying(false);
     }
   }, [open, play]);
 
-  const handleUpgrade = () => {
-    play('OPEN');
-    router.push('/miniapp/subscriptions');
+  const handleUpgrade = async () => {
+    play('BUTTON');
+    setError(null);
+
+    if (!accessToken) {
+      // Not authenticated yet — fall back to subscriptions page
+      router.push('/miniapp/subscriptions');
+      onClose();
+      return;
+    }
+
+    setPaying(true);
+    try {
+      const profileRes = await fetch('/api/profile', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!profileRes.ok) throw new Error('no profile');
+      const { profile } = await profileRes.json();
+
+      const res = await fetch('/api/stars/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ userId: profile.id, tier: requiredTier }),
+      });
+      const data = await res.json();
+      if (!data.ok || !data.invoiceLink) throw new Error(data.error ?? 'no invoice');
+
+      const tg = window.Telegram?.WebApp;
+      if (!tg?.openInvoice) {
+        // Not in Telegram — fall back to subscriptions page
+        router.push('/miniapp/subscriptions');
+        onClose();
+        return;
+      }
+
+      tg.openInvoice(data.invoiceLink, (status) => {
+        setPaying(false);
+        if (status === 'paid') {
+          play('CELEBRATION');
+          onClose();
+        } else if (status === 'failed') {
+          setError('Оплата не вдалася. Спробуй ще раз.');
+        } else {
+          // cancelled — just close
+          onClose();
+        }
+      });
+    } catch (err) {
+      setPaying(false);
+      setError('Щось пішло не так. Спробуй ще раз.');
+    }
   };
 
   const handleDismiss = () => {
@@ -155,8 +209,8 @@ export function PaywallModal({
 
   const ctaLabel =
     requiredTier === 'stars_pro'
-      ? `Перейти на Pro — ${tierInfo.priceStars} ⭐`
-      : `Перейти на Basic — ${tierInfo.priceStars} ⭐`;
+      ? `Підписатися — ${tierInfo.priceStars} ⭐`
+      : `Підписатися — ${tierInfo.priceStars} ⭐`;
 
   return (
     <BottomSheet open={open} onClose={handleDismiss}>
@@ -182,6 +236,11 @@ export function PaywallModal({
         <div className="w-full bg-muted/40 rounded-xl px-4 py-3">
           <p className="text-[13px] text-muted-foreground">{copy.comparisonText}</p>
         </div>
+
+        {/* Error */}
+        {error && (
+          <p className="text-[13px] text-destructive">{error}</p>
+        )}
       </div>
 
       {/* CTA area */}
@@ -189,9 +248,17 @@ export function PaywallModal({
         <Button
           variant="default"
           className="w-full min-h-[44px]"
+          disabled={paying}
           onClick={handleUpgrade}
         >
-          {ctaLabel}
+          {paying ? (
+            <span className="flex items-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
+              Відкриваємо оплату...
+            </span>
+          ) : (
+            ctaLabel
+          )}
         </Button>
 
         <Button

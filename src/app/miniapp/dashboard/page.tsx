@@ -1250,24 +1250,33 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4 px-4 pt-5 pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-3">
           <h1 className="text-[28px] font-bold leading-tight">Віджети</h1>
           {/* Usage counter chip — shown when Free tier and usage ≥ 2 (67% of 3) */}
           {userTier === 'free' && usageCounts !== null && usageCounts.widgets >= 2 && (
             <UsageCounterChip
-              label={`${usageCounts.widgets} / 3 віджетів`}
+              label={`${usageCounts.widgets} / 3`}
               onClick={() => openPaywall('widgets', usageCounts.widgets, 3, 'stars_basic')}
             />
           )}
         </div>
         <div className="flex items-center gap-2">
+          {/* Date picker */}
+          <button
+            onClick={() => { play('OPEN'); setShowCalendar(true); }}
+            className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground min-h-[44px]"
+          >
+            <Icon name="calendar_today" size={13} />
+            {filter.range === 'custom' ? `${fmtDate(filter.from)} – ${fmtDate(filter.to)}` : RANGE_LABELS[filter.range]}
+          </button>
+          {/* Add widget */}
           <div className="relative">
             <button
               onClick={handleAddWidgetTap}
-              className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary min-h-[44px]"
+              className="flex h-[44px] w-[44px] items-center justify-center rounded-full bg-primary text-primary-foreground transition-opacity active:opacity-80"
+              aria-label="Додати віджет"
             >
-              <Icon name="add" size={12} />
-              Віджет
+              <Icon name="add" size={20} />
             </button>
             {/* Lock badge for Free tier when widget count >= 3 */}
             {userTier === 'free' && (usageCounts?.widgets ?? 0) >= 3 && (
@@ -1276,13 +1285,6 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-          <button
-            onClick={() => { play('OPEN'); setShowCalendar(true); }}
-            className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground min-h-[44px]"
-          >
-            <Icon name="calendar_today" size={13} />
-            {filter.range === 'custom' ? `${fmtDate(filter.from)} – ${fmtDate(filter.to)}` : RANGE_LABELS[filter.range]}
-          </button>
         </div>
       </div>
 
@@ -1326,6 +1328,8 @@ export default function DashboardPage() {
               icon="dashboard"
               title="Немає даних за цей період"
               subtitle="Запиши активність, їжу або сон у боті"
+              ctaLabel="+ Новий віджет"
+              onCta={handleAddWidgetTap}
             />
           )}
 
@@ -1384,13 +1388,15 @@ export default function DashboardPage() {
                         </Card>
                       );
                     })}
-                    {/* Add widget button */}
+                    {/* Add widget button — matches retro circle style */}
                     <button
                       onClick={handleAddWidgetTap}
-                      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20"
+                      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20 min-h-[80px]"
                     >
-                      <Icon name="add" size={20} />
-                      <span className="text-xs font-medium">Додати</span>
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                        <Icon name="add" size={18} className="text-primary" />
+                      </div>
+                      <span className="text-xs font-medium">Новий</span>
                     </button>
                   </div>
                 </Section>

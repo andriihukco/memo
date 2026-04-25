@@ -80,79 +80,6 @@ const SLIDES: Slide[] = [
   },
 ];
 
-// ── Plan data for OnboardingPaywall ──────────────────────────────────────────
-
-const PAYWALL_PLANS = [
-  {
-    tier: 'free' as const,
-    emoji: '⭐',
-    name: 'Безкоштовний',
-    price: 'Безкоштовно',
-    features: ['До 100 записів', '3 активних віджети', 'Базові функції'],
-    recommended: false,
-  },
-  {
-    tier: 'stars_basic' as const,
-    emoji: '🌟',
-    name: 'Basic',
-    price: '250 ⭐/міс',
-    features: ['До 2 000 записів', 'AI ретроспективи', 'Трекінг цілей'],
-    recommended: true,
-  },
-  {
-    tier: 'stars_pro' as const,
-    emoji: '💎',
-    name: 'Pro',
-    price: '500 ⭐/міс',
-    features: ['Необмежені записи', 'Пріоритетна обробка', 'Експорт даних'],
-    recommended: false,
-  },
-];
-
-// ── PlanCard ──────────────────────────────────────────────────────────────────
-
-interface PlanCardProps {
-  emoji: string;
-  name: string;
-  price: string;
-  features: string[];
-  recommended: boolean;
-}
-
-function PlanCard({ emoji, name, price, features, recommended }: PlanCardProps) {
-  return (
-    <div
-      className={cn(
-        'relative rounded-2xl border px-4 py-3',
-        recommended
-          ? 'border-yellow-400/60 bg-yellow-950/40'
-          : 'border-white/10 bg-white/5'
-      )}
-    >
-      {recommended && (
-        <span className="absolute -top-2.5 right-3 rounded-full bg-yellow-400 px-2 py-0.5 text-[10px] font-semibold text-slate-950">
-          Рекомендовано
-        </span>
-      )}
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl leading-none">{emoji}</span>
-          <span className="text-[15px] font-semibold text-white">{name}</span>
-        </div>
-        <span className="text-[13px] text-white/60">{price}</span>
-      </div>
-      <ul className="space-y-1">
-        {features.map((f) => (
-          <li key={f} className="flex items-center gap-1.5 text-[12px] text-white/50">
-            <span className="text-[10px] text-yellow-400/80">✓</span>
-            {f}
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 // ── OnboardingPaywall ─────────────────────────────────────────────────────────
 
 interface OnboardingPaywallProps {
@@ -161,8 +88,9 @@ interface OnboardingPaywallProps {
 }
 
 function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
-  const router = useRouter();
+  const { accessToken } = useAuth();
   const [visible, setVisible] = useState(false);
+  const [paying, setPaying] = useState<'stars_basic' | 'stars_pro' | null>(null);
 
   // Trigger slide-up animation after mount
   useEffect(() => {
@@ -175,51 +103,147 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
     finish();
   };
 
-  const handleSubscribe = () => {
+  const handleSubscribe = async (tier: 'stars_basic' | 'stars_pro') => {
     play('BUTTON');
-    // Navigate to subscriptions page and finish onboarding
-    // (auth is not yet available in OnboardingOverlay, so we navigate instead of opening invoice directly)
-    finish();
-    router.push('/miniapp/subscriptions');
+    if (!accessToken) {
+      // Auth not ready yet — finish onboarding and let them subscribe from settings
+      finish();
+      return;
+    }
+
+    setPaying(tier);
+    try {
+      // Fetch profile id first
+      const profileRes = await fetch('/api/profile', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!profileRes.ok) throw new Error('no profile');
+      const { profile } = await profileRes.json();
+
+      const res = await fetch('/api/stars/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ userId: profile.id, tier }),
+      });
+      const data = await res.json();
+      if (!data.ok || !data.invoiceLink) throw new Error('no invoice');
+
+      const tg = window.Telegram?.WebApp;
+      if (!tg?.openInvoice) throw new Error('no tg');
+
+      tg.openInvoice(data.invoiceLink, (status) => {
+        setPaying(null);
+        finish(); // always finish onboarding after payment attempt
+      });
+    } catch {
+      setPaying(null);
+      finish();
+    }
   };
+
+  const plans = [
+    {
+      tier: 'stars_basic' as const,
+      emoji: '🌟',
+      name: 'Basic',
+      price: '250 ⭐ / міс',
+      features: ['До 2 000 записів', 'AI ретроспективи', 'Трекінг цілей', '15 кастомних віджетів'],
+      recommended: true,
+    },
+    {
+      tier: 'stars_pro' as const,
+      emoji: '💎',
+      name: 'Pro',
+      price: '500 ⭐ / міс',
+      features: ['Необмежені записи', 'Пріоритетна обробка', 'Експорт даних', 'Вся аналітика'],
+      recommended: false,
+    },
+  ];
 
   return (
     <div
       className="fixed inset-0 z-[101] flex flex-col bg-gradient-to-b from-yellow-950 to-slate-950"
       style={{
         transform: visible ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 300ms ease-out',
+        transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)',
       }}
     >
       {/* Scrollable content */}
-      <div className="flex flex-1 flex-col overflow-y-auto px-6 pb-6 pt-14">
-        {/* Title */}
-        <h1 className="mb-2 text-[28px] font-bold leading-tight text-white">
-          Обери свій план
-        </h1>
-        <p className="mb-6 text-[15px] text-white/50">
-          Базові функції безкоштовні назавжди
-        </p>
+      <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-4 pt-12">
+        <h1 className="mb-1 text-[26px] font-bold leading-tight text-white">Обери свій план</h1>
+        <p className="mb-5 text-[14px] text-white/50">Базові функції безкоштовні назавжди</p>
 
-        {/* Plan cards */}
+        {/* Free tier row */}
+        <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+          <span className="text-xl">⭐</span>
+          <div className="flex-1">
+            <p className="text-[14px] font-semibold text-white">Безкоштовний</p>
+            <p className="text-[12px] text-white/40">До 100 записів · 3 віджети · Базові функції</p>
+          </div>
+          <span className="text-[13px] text-white/40">Безкоштовно</span>
+        </div>
+
+        {/* Paid plan cards */}
         <div className="flex flex-col gap-3">
-          {PAYWALL_PLANS.map((plan) => (
-            <PlanCard key={plan.tier} {...plan} />
+          {plans.map((plan) => (
+            <div
+              key={plan.tier}
+              className={cn(
+                'relative rounded-2xl border px-4 py-3.5',
+                plan.recommended
+                  ? 'border-yellow-400/50 bg-yellow-950/50'
+                  : 'border-white/10 bg-white/5'
+              )}
+            >
+              {plan.recommended && (
+                <span className="absolute -top-2.5 right-3 rounded-full bg-yellow-400 px-2.5 py-0.5 text-[10px] font-semibold text-slate-950">
+                  Рекомендовано
+                </span>
+              )}
+              <div className="mb-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl leading-none">{plan.emoji}</span>
+                  <span className="text-[15px] font-semibold text-white">{plan.name}</span>
+                </div>
+                <span className="text-[13px] text-white/60">{plan.price}</span>
+              </div>
+              <ul className="mb-3 space-y-1">
+                {plan.features.map((f) => (
+                  <li key={f} className="flex items-center gap-1.5 text-[12px] text-white/50">
+                    <span className="text-[10px] text-yellow-400/80">✓</span>
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <button
+                onClick={() => handleSubscribe(plan.tier)}
+                disabled={paying !== null}
+                className={cn(
+                  'w-full rounded-xl py-2.5 text-[14px] font-semibold transition-all active:scale-95 disabled:opacity-60',
+                  plan.recommended
+                    ? 'bg-yellow-400 text-slate-950'
+                    : 'bg-white/10 text-white'
+                )}
+              >
+                {paying === plan.tier ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    Відкриваємо...
+                  </span>
+                ) : (
+                  `Підписатися — ${plan.price}`
+                )}
+              </button>
+            </div>
           ))}
         </div>
       </div>
 
-      {/* CTAs — fixed at bottom */}
-      <div className="px-6 pb-12 pt-4 space-y-3">
-        <button
-          onClick={handleSubscribe}
-          className="w-full rounded-2xl bg-yellow-400 py-4 text-base font-semibold text-slate-950 shadow-lg shadow-yellow-400/30 transition-all active:scale-95"
-        >
-          Перейти на Basic — 250 ⭐
-        </button>
+      {/* Continue free CTA */}
+      <div className="px-5 pb-10 pt-2">
         <button
           onClick={handleContinueFree}
-          className="w-full py-3 text-[15px] text-white/40 active:text-white/60"
+          className="w-full py-3 text-[14px] text-white/40 active:text-white/60"
         >
           Продовжити безкоштовно →
         </button>
@@ -315,8 +339,8 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
         <div
           className="relative flex flex-1 flex-col items-center justify-center text-center"
           style={{
-            transform: `translateX(${dragging ? dragOffset * 0.25 : 0}px)`,
-            transition: dragging ? 'none' : 'transform 0.3s ease',
+            transform: `translateX(${dragging ? dragOffset * 0.2 : 0}px)`,
+            transition: dragging ? 'none' : 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)',
           }}
         >
           <div className="mb-8 text-8xl leading-none select-none">{slide.emoji}</div>
@@ -333,10 +357,10 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
         </div>
 
         {/* Dots */}
-        <div className="mb-8 flex gap-2">
+        <div className="mb-8 flex gap-1.5">
           {SLIDES.map((_, i) => (
             <button key={i} onClick={() => { play('SELECT'); setIndex(i); }}
-              className={cn('h-1.5 rounded-full transition-all duration-300', i === index ? 'w-6 bg-white' : 'w-1.5 bg-white/25')}
+              className={cn('h-1.5 rounded-full transition-all duration-300', i === index ? 'w-5 bg-white' : 'w-1.5 bg-white/30')}
             />
           ))}
         </div>
@@ -375,7 +399,7 @@ const tabs = [
   { label: 'Віджети',  href: '/miniapp/dashboard',   icon: 'dashboard' },
   { label: 'Графік',   href: '/miniapp/graph',        icon: 'hub' },
   { label: 'Інсайти',  href: '/miniapp/reports',      icon: 'wb_incandescent' },
-  { label: 'Меню',    href: '/miniapp/settings',     icon: 'manage_accounts' },
+  { label: 'Меню',    href: '/miniapp/settings',     icon: 'menu' },
 ];
 
 const ACTIVE_COLOR = '#4797FF';
@@ -563,7 +587,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="text-center animate-fadeIn">
-          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-[3px] border-muted border-t-primary shadow-glow" />
+          <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-[3px] border-muted border-t-primary" />
           <p className="text-[15px] text-muted-foreground font-medium">Loading...</p>
         </div>
       </div>

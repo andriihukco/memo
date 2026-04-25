@@ -21,6 +21,9 @@ type SetupStep = 'idle' | 'enter_current' | 'set_new' | 'confirm_new';
 
 function SoundSection() {
   const { enabled, setEnabled, play } = useSound();
+  // Guard against SSR hydration mismatch — don't render toggle until mounted
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   return (
     <section>
@@ -29,16 +32,16 @@ function SoundSection() {
         <CardContent className="p-0">
           <div className="flex items-center gap-3 px-4 py-3.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-              <Icon name={enabled ? 'volume_up' : 'volume_off'} size={16} className="text-primary" />
+              <Icon name={mounted && enabled ? 'volume_up' : 'volume_off'} size={16} className="text-primary" />
             </div>
             <div className="flex-1 text-left">
               <p className="text-sm font-medium">Звукові ефекти</p>
-              <p className="text-xs text-muted-foreground">{enabled ? 'Увімкнено' : 'Вимкнено'}</p>
+              <p className="text-xs text-muted-foreground">{mounted && enabled ? 'Увімкнено' : 'Вимкнено'}</p>
             </div>
             {/* Toggle switch — iOS style */}
             <button
               role="switch"
-              aria-checked={enabled}
+              aria-checked={mounted ? enabled : false}
               onClick={() => {
                 const next = !enabled;
                 setEnabled(next);
@@ -46,7 +49,7 @@ function SoundSection() {
               }}
               className={cn(
                 'relative flex-shrink-0 rounded-full transition-colors duration-200',
-                enabled ? 'bg-[#4797FF]' : 'bg-[#335B7E]'
+                mounted && enabled ? 'bg-[#4797FF]' : 'bg-[#335B7E]'
               )}
               style={{ width: 44, height: 26 }}
             >
@@ -55,7 +58,7 @@ function SoundSection() {
                 style={{
                   width: 20,
                   height: 20,
-                  left: enabled ? 21 : 3,
+                  left: mounted && enabled ? 21 : 3,
                 }}
               />
             </button>
@@ -398,7 +401,7 @@ export default function SettingsPage() {
         <Card>
           <CardContent className="p-0">
             <a
-              href="https://t.me/memo_support_bot"
+              href="https://t.me/get_memo_help"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => play('OPEN')}
@@ -409,13 +412,13 @@ export default function SettingsPage() {
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">Написати в підтримку</p>
-                <p className="text-xs text-muted-foreground">@memo_support_bot</p>
+                <p className="text-xs text-muted-foreground">@get_memo_help</p>
               </div>
               <Icon name="open_in_new" size={16} className="text-muted-foreground" />
             </a>
             <Separator />
             <a
-              href="https://t.me/memo_app_channel"
+              href="https://t.me/get_memo_updates"
               target="_blank"
               rel="noopener noreferrer"
               onClick={() => play('OPEN')}

@@ -162,11 +162,6 @@
     background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--surface-elevated)) 100%);
   }
 
-  /* Glow effect for interactive elements */
-  .glow-primary {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.15);
-  }
-
   /* Card hover lift effect */
   .card-lift {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
