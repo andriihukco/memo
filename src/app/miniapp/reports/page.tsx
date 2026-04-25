@@ -385,7 +385,7 @@ export default function ReportsPage() {
   const tierLimits = userTier ? TIER_INFO[userTier].limits : null;
   const reportsLimit = tierLimits?.reports ?? 5;
   const reportsUsed = counts?.reports ?? 0;
-  const reportsLeft = reportsLimit === Infinity ? null : Math.max(0, reportsLimit - reportsUsed);
+  const _reportsLeft = reportsLimit === Infinity ? null : Math.max(0, reportsLimit - reportsUsed);
 
   const monthGroups = groupReportsByMonth(reports);
 
