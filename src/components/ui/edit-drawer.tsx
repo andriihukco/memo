@@ -6,6 +6,7 @@ import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
+import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 
 // ── Icon library (Material Symbols names for categories) ──────────────────────
 
@@ -215,31 +216,37 @@ export function getCategoryColor(cat: string): string {
 
 export const categoryBadge = getCategoryColor;
 
-// ── DB category type ──────────────────────────────────────────────────────────
+// ── Emoji picker for new category ────────────────────────────────────────────
+
+const EMOJI_OPTIONS = [
+  '💭', '💡', '❤️', '💸', '🔥', '💪', '🎯', '😴',
+  '🏃', '📖', '✈️', '🙏', '🎵', '😊', '⚡', '💧',
+  '🥗', '☕', '🧘', '🎨', '📝', '⭐', '🌙', '🌿',
+  '🏠', '🚗', '🛒', '💊', '👶', '🐾', '🎮', '💻',
+  '🎤', '🎧', '🌍', '📈', '🕐', '🏆', '📚', '🧠',
+  '🌸', '🍎', '🏋️', '🧪', '🔐', '📊', '🎉', '🌊',
+];
 
 interface DbCategory {
   name: string;
   label_ua: string;
   color: string;
   icon?: string;
+  emoji?: string;
 }
 
-// ── NewCategorySheet — icon + color picker for custom categories ──────────────
+// ── NewCategorySheet — emoji + color picker for custom categories ─────────────
 
 interface NewCategorySheetProps {
   initialName: string;
-  onConfirm: (name: string, label: string, colorId: string, iconName: string) => void;
+  onConfirm: (name: string, label: string, colorId: string, emoji: string) => void;
   onCancel: () => void;
 }
 
 function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheetProps) {
   const [label, setLabel] = useState(initialName.replace(/^\w/, c => c.toUpperCase()));
   const [selectedColor, setSelectedColor] = useState<string>('indigo');
-  const [selectedIcon, setSelectedIcon] = useState<string>('tag');
-  const [iconPage, setIconPage] = useState(0);
-  const ICONS_PER_PAGE = 20;
-  const totalPages = Math.ceil(ICON_LIBRARY.length / ICONS_PER_PAGE);
-  const visibleIcons = ICON_LIBRARY.slice(iconPage * ICONS_PER_PAGE, (iconPage + 1) * ICONS_PER_PAGE);
+  const [selectedEmoji, setSelectedEmoji] = useState<string>('💡');
   const color = colorFromId(selectedColor);
 
   return (
@@ -256,8 +263,8 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
 
         {/* Preview */}
         <div className="mb-5 flex items-center gap-3">
-          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border', color.bg, color.border)}>
-            <Icon name={getIconName(selectedIcon)} size={20} className={color.text} />
+          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xl', color.bg, color.border)}>
+            {selectedEmoji}
           </div>
           <input
             type="text"
@@ -286,30 +293,21 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
           ))}
         </div>
 
-        {/* Icon picker */}
-        <div className="mb-2 flex items-center justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Іконка</p>
-          {totalPages > 1 && (
-            <div className="flex items-center gap-2">
-              <button onClick={() => setIconPage(p => Math.max(0, p - 1))} disabled={iconPage === 0} className="text-xs text-muted-foreground disabled:opacity-30">←</button>
-              <span className="text-[10px] text-muted-foreground">{iconPage + 1}/{totalPages}</span>
-              <button onClick={() => setIconPage(p => Math.min(totalPages - 1, p + 1))} disabled={iconPage === totalPages - 1} className="text-xs text-muted-foreground disabled:opacity-30">→</button>
-            </div>
-          )}
-        </div>
-        <div className="mb-5 grid grid-cols-5 gap-2">
-          {visibleIcons.map(({ name: iconLabel, name: materialName }) => (
+        {/* Emoji picker */}
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Емодзі</p>
+        <div className="mb-5 grid grid-cols-8 gap-2">
+          {EMOJI_OPTIONS.map(emoji => (
             <button
-              key={iconLabel}
-              onClick={() => setSelectedIcon(iconLabel)}
+              key={emoji}
+              onClick={() => setSelectedEmoji(emoji)}
               className={cn(
-                'flex h-12 w-full items-center justify-center rounded-xl border transition-all',
-                selectedIcon === iconLabel
-                  ? cn(color.bg, color.border, 'ring-1 ring-offset-1', color.text)
-                  : 'border-border/40 bg-muted/30 text-muted-foreground hover:bg-muted/60'
+                'flex h-10 w-full items-center justify-center rounded-xl border text-xl transition-all',
+                selectedEmoji === emoji
+                  ? cn(color.bg, color.border, 'ring-1 ring-offset-1')
+                  : 'border-border/40 bg-muted/30 hover:bg-muted/60'
               )}
             >
-              <Icon name={getIconName(materialName)} size={18} />
+              {emoji}
             </button>
           ))}
         </div>
@@ -319,7 +317,7 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
           <button
             onClick={() => {
               const name = initialName.toLowerCase().replace(/\s+/g, '_');
-              onConfirm(name, label.trim() || name, selectedColor, selectedIcon);
+              onConfirm(name, label.trim() || name, selectedColor, selectedEmoji);
             }}
             disabled={!label.trim()}
             className={cn('flex-1 rounded-full py-3 text-sm font-semibold transition-all disabled:opacity-40', color.bg, color.text, 'border', color.border)}
@@ -452,7 +450,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
     setShowNewCatSheet(true);
   };
 
-  const handleNewCatConfirm = async (name: string, label: string, colorId: string, iconName: string) => {
+  const handleNewCatConfirm = async (name: string, label: string, colorId: string, emoji: string) => {
     setShowNewCatSheet(false);
     setCustomInput('');
     const colorStr = colorStringFromId(colorId);
@@ -466,9 +464,9 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
         await fetch('/api/categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ name, label, color: colorStr, icon: iconName }),
+          body: JSON.stringify({ name, label, color: colorStr, emoji }),
         });
-        const newCat: DbCategory = { name, label_ua: label, color: colorStr, icon: iconName };
+        const newCat: DbCategory = { name, label_ua: label, color: colorStr, emoji };
         _runtimeLabels[name] = label;
         _runtimeColors[name] = colorStr;
         setDbCats(prev => prev.some(c => c.name === name) ? prev : [...prev, newCat]);
@@ -517,7 +515,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
         </button>
 
         {/* Delete */}
-        {onDelete && !confirmDelete && (
+        {onDelete && (
           <button
             onClick={() => setConfirmDelete(true)}
             className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
@@ -525,17 +523,6 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
           >
             <Icon name="delete" size={16} />
           </button>
-        )}
-
-        {confirmDelete && (
-          <div className="mb-3 mt-3 flex items-center gap-2 rounded-2xl bg-destructive/10 px-3 py-2.5">
-            <Icon name="delete" size={14} className="shrink-0 text-destructive" />
-            <span className="flex-1 text-xs text-destructive">Видалити запис?</span>
-            <button onClick={() => setConfirmDelete(false)} className="rounded-full px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted">Ні</button>
-            <button onClick={handleDelete} disabled={deleting} className="rounded-full bg-destructive px-2.5 py-1 text-xs font-medium text-destructive-foreground disabled:opacity-60">
-              {deleting ? '...' : 'Так'}
-            </button>
-          </div>
         )}
 
         {/* Category chips — sourced entirely from DB */}
@@ -546,7 +533,6 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
           {!loadingCats && dbCats.map((cat) => {
             const color = getCategoryColor(cat.name);
             const isSelected = selectedCats.has(cat.name);
-            const iconName = getIconName(cat.icon);
             return (
               <button
                 key={cat.name}
@@ -557,7 +543,10 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
                   isSelected ? 'ring-2 ring-offset-1 ring-primary/50 scale-105' : 'opacity-55 hover:opacity-80'
                 )}
               >
-                <Icon name={iconName} size={11} />
+                {cat.emoji
+                  ? <span className="text-[11px] leading-none">{cat.emoji}</span>
+                  : <Icon name={getIconName(cat.icon)} size={11} />
+                }
                 {cat.label_ua || getCategoryLabel(cat.name)}
               </button>
             );
@@ -622,6 +611,16 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
           onCancel={() => setShowNewCatSheet(false)}
         />
       )}
+
+      {/* Delete confirm */}
+      <ConfirmSheet
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="Видалити запис?"
+        subtitle="Цю дію не можна скасувати."
+        confirmLabel={deleting ? '...' : 'Видалити'}
+      />
     </>
   );
 }

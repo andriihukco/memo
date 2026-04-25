@@ -1160,7 +1160,6 @@ export default function DashboardPage() {
   const [showCreateWidget, setShowCreateWidget] = useState(false);
   const [customWidgets, setCustomWidgets] = useState<CustomWidget[]>([]);
   const [logEntry, setLogEntry] = useState<{ widget: CustomWidget; drillEntries: Entry[] } | null>(null);
-  const [widgetToDelete, setWidgetToDelete] = useState<string | null>(null);
 
   // ── Paywall state ──────────────────────────────────────────────────────────
   const [paywallOpen, setPaywallOpen] = useState(false);
@@ -1659,20 +1658,10 @@ export default function DashboardPage() {
           widget={logEntry.widget}
           onSaved={() => { fetchEntries(filter.from, filter.to); }}
           onViewEntries={() => { setLogEntry(null); openDrillDown(logEntry.drillEntries, logEntry.widget.title); }}
-          onDelete={(widgetId) => { setWidgetToDelete(widgetId); }}
+          onDelete={(widgetId) => { deleteWidget(widgetId); setLogEntry(null); }}
           accessToken={accessToken}
         />
       )}
-
-      {/* Widget delete confirmation */}
-      <ConfirmSheet
-        open={!!widgetToDelete}
-        onClose={() => setWidgetToDelete(null)}
-        onConfirm={() => { if (widgetToDelete) { deleteWidget(widgetToDelete); setWidgetToDelete(null); } }}
-        title="Видалити віджет?"
-        subtitle="Цю дію не можна скасувати."
-        confirmLabel="Видалити"
-      />
 
       {/* Paywall Modal */}
       <PaywallModal

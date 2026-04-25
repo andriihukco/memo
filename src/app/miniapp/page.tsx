@@ -283,8 +283,9 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const { play } = useSound();
 
-  // Category badge from first entry
-  const firstCat = entries[0]?.category ?? '';
+  // Category badges from first entry — split multi-category strings
+  const firstEntry = entries[0];
+  const firstCats = (firstEntry?.category ?? '').split(',').map(c => c.trim()).filter(Boolean);
 
   return (
     <>
@@ -294,10 +295,12 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
           <span className="text-[11px] text-muted-foreground/60">
             {entries.length} повідомлень
           </span>
-          <span className="ml-auto">
-            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-medium', getCategoryColor(firstCat))}>
-              {getCategoryLabel(firstCat, entries[0]?.category_label)}
-            </span>
+          <span className="ml-auto flex gap-1 flex-wrap justify-end">
+            {firstCats.map(cat => (
+              <span key={cat} className={cn('rounded-full border px-2 py-0.5 text-[10px] font-medium', getCategoryColor(cat))}>
+                {getCategoryLabel(cat, firstEntry?.category_label)}
+              </span>
+            ))}
           </span>
         </div>
 
@@ -495,7 +498,14 @@ function CategoryFilterBar({ entries, selected, onChange }: {
   onChange: (cat: string | null) => void;
 }) {
   const { play } = useSound();
-  const cats = Array.from(new Map(entries.map((e) => [e.category, e.category_label])).entries());
+  // Collect unique categories, splitting comma-separated values
+  const catMap = new Map<string, string | undefined>();
+  for (const e of entries) {
+    e.category.split(',').map(c => c.trim()).filter(Boolean).forEach(cat => {
+      if (!catMap.has(cat)) catMap.set(cat, e.category_label);
+    });
+  }
+  const cats = [...catMap.entries()];
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
