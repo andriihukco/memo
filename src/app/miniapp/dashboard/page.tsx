@@ -658,13 +658,15 @@ interface LogEntrySheetProps {
   widget: CustomWidget;
   onSaved: () => void;
   onViewEntries: () => void;
+  onDelete: (widgetId: string) => void;
   accessToken?: string | null;
 }
 
-function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, accessToken }: LogEntrySheetProps) {
+function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete, accessToken }: LogEntrySheetProps) {
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { play } = useSound();
 
   // Reset state when sheet opens
@@ -717,9 +719,15 @@ function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, accessTo
     <BottomSheet open={open} onClose={onClose} className="px-4 pt-4">
       {/* Widget header */}
       <div className="flex items-center gap-3 mb-4">
-        <MetricIcon name={widget.icon} size={24} className="text-primary" />
-        <div>
-          <h2 className="text-[17px] font-semibold">{widget.title}</h2>
+        <button
+          onClick={() => { play('CAUTION'); setConfirmDelete(true); }}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+          aria-label="Видалити віджет"
+        >
+          <Icon name="delete" size={16} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-[17px] font-semibold truncate">{widget.title}</h2>
           <p className="text-[13px] text-muted-foreground">{widget.unit}</p>
         </div>
       </div>
@@ -771,6 +779,14 @@ function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, accessTo
       >
         Переглянути записи
       </button>
+      <ConfirmSheet
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => { setConfirmDelete(false); onClose(); onDelete(widget.id); }}
+        title="Видалити віджет?"
+        subtitle="Цю дію не можна скасувати."
+        confirmLabel="Видалити"
+      />
     </BottomSheet>
   );
 }
@@ -1456,51 +1472,34 @@ export default function DashboardPage() {
                       const colorObj = { bg: 'bg-primary/10', text: 'text-primary' };
                       const matchedMetric = metricByKey.get(w.metric_key);
                       const srcEntries = metricSourceEntries.get(w.metric_key) ?? [];
-                      const deleteBtn = "absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-background/80 text-muted-foreground/60 hover:text-destructive transition-colors";
                       if (matchedMetric) {
                         return (
-                          <div key={w.id} className="relative">
-                            <MetricCard
-                              metric={matchedMetric}
-                              sourceEntries={srcEntries}
-                              onEntryClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
-                              onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }}
-                            />
-                            <button
-                              onClick={e => { e.stopPropagation(); play('CAUTION'); setWidgetToDelete(w.id); }}
-                              className={deleteBtn}
-                              aria-label="Видалити віджет"
-                            >
-                              <Icon name="close" size={12} />
-                            </button>
-                          </div>
+                          <MetricCard
+                            key={w.id}
+                            metric={matchedMetric}
+                            sourceEntries={srcEntries}
+                            onEntryClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
+                            onLongPress={(m, s) => { play('OPEN'); setMetricEdit({ metric: m, sourceEntries: s }); }}
+                          />
                         );
                       }
                       // Widget defined but no data yet — show empty placeholder
                       return (
-                        <div key={w.id} className="relative">
-                          <Card
-                            className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50"
-                            onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
-                          >
-                            <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
-                              <MetricIcon name={w.icon} size={16} className={colorObj.text} />
-                            </div>
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
-                              <span className="text-sm text-muted-foreground">{w.unit}</span>
-                            </div>
-                            <p className="text-xs font-medium">{w.title}</p>
-                            <p className="text-[10px] text-muted-foreground">Немає даних</p>
-                          </Card>
-                          <button
-                            onClick={e => { e.stopPropagation(); play('CAUTION'); setWidgetToDelete(w.id); }}
-                            className={deleteBtn}
-                            aria-label="Видалити віджет"
-                          >
-                            <Icon name="close" size={12} />
-                          </button>
-                        </div>
+                        <Card
+                          key={w.id}
+                          className="flex flex-col gap-1 p-4 cursor-pointer transition-colors hover:bg-muted/30 active:bg-muted/50"
+                          onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: [] }); }}
+                        >
+                          <div className={cn('mb-1 flex h-8 w-8 items-center justify-center rounded-xl', colorObj.bg)}>
+                            <MetricIcon name={w.icon} size={16} className={colorObj.text} />
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold tracking-tight text-muted-foreground">—</span>
+                            <span className="text-sm text-muted-foreground">{w.unit}</span>
+                          </div>
+                          <p className="text-xs font-medium">{w.title}</p>
+                          <p className="text-[10px] text-muted-foreground">Немає даних</p>
+                        </Card>
                       );
                     })}
                     {/* Add widget button — matches retro circle style */}
@@ -1644,6 +1643,7 @@ export default function DashboardPage() {
           widget={logEntry.widget}
           onSaved={() => { fetchEntries(filter.from, filter.to); }}
           onViewEntries={() => { setLogEntry(null); openDrillDown(logEntry.drillEntries, logEntry.widget.title); }}
+          onDelete={(widgetId) => { setWidgetToDelete(widgetId); }}
           accessToken={accessToken}
         />
       )}
