@@ -1362,13 +1362,12 @@ export default function DashboardPage() {
   };
 
   const handleAddWidgetTap = () => {
-    // Count only AI widgets against the limit — preset widgets are always free
-    const aiWidgetCount = customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length;
-    // Block if free tier and at or over the AI widget limit (3)
-    // Also block if tier hasn't loaded yet but we already have 3+ AI widgets (safe default)
+    // Count all custom widgets against the limit
+    const widgetCount = customWidgets.length;
+    // Treat null (still loading) as 'free' — safe default
     const effectiveTier = userTier ?? 'free';
-    if (effectiveTier === 'free' && aiWidgetCount >= 3) {
-      openPaywall('ai_widgets', aiWidgetCount, 3, 'stars_basic');
+    if (effectiveTier === 'free' && widgetCount >= 3) {
+      openPaywall('ai_widgets', widgetCount, 3, 'stars_basic');
       return;
     }
     play('OPEN');
@@ -1400,8 +1399,8 @@ export default function DashboardPage() {
             >
               <Icon name="add" size={20} />
             </button>
-            {/* Lock badge for Free tier when AI widget count >= 3 */}
-            {(userTier === 'free' || userTier === null) && customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length >= 3 && (
+            {/* Lock badge for Free tier when widget count >= 3 */}
+            {(userTier === 'free' || userTier === null) && customWidgets.length >= 3 && (
               <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center pointer-events-none">
                 <Icon name="lock" size={10} className="text-slate-900" />
               </div>

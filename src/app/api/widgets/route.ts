@@ -34,18 +34,18 @@ export async function POST(req: Request): Promise<Response> {
   const tier = await getEffectiveTier(userId);
   const limits = TIER_INFO[tier].limits;
 
-  // Only AI-generated widgets count against the limit (preset/direct widgets are free)
+  // All custom widgets count against the limit (both AI-generated and direct/preset)
   const settings = (profile.settings as Record<string, unknown>) ?? {};
   const customWidgets = (settings.custom_widgets as Array<{ id: string; is_ai?: boolean }>) ?? [];
-  const aiWidgetCount = direct ? 0 : customWidgets.filter(w => w.is_ai !== false).length;
+  const widgetCount = customWidgets.length;
   const aiLimit = limits.ai_widgets ?? limits.widgets;
 
-  if (!direct && aiLimit !== Infinity && aiWidgetCount >= aiLimit) {
+  if (aiLimit !== Infinity && widgetCount >= aiLimit) {
     return new Response(JSON.stringify({
       error: 'limit_exceeded',
       feature: 'ai_widgets',
       limit: aiLimit,
-      current: aiWidgetCount,
+      current: widgetCount,
       required_tier: tier === 'free' ? 'stars_basic' : 'stars_pro',
     }), { status: 402, headers: { 'Content-Type': 'application/json' } });
   }

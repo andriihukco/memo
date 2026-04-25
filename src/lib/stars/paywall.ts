@@ -293,9 +293,9 @@ export async function getUserUsageCounts(
   const reports = reportsResult.count ?? 0;
 
   const settings = (profileResult.data?.settings as Record<string, unknown>) ?? {};
-  const customWidgets = (settings.custom_widgets as Array<{ is_ai?: boolean }>) ?? [];
-  // Only count AI-generated widgets against the limit — preset/direct widgets are unlimited
-  const widgets = customWidgets.filter(w => w.is_ai !== false).length;
+  const customWidgets = (settings.custom_widgets as unknown[]) ?? [];
+  // Count all custom widgets (both AI and direct) against the limit
+  const widgets = customWidgets.length;
 
   return { entries, widgets, reports };
 }
