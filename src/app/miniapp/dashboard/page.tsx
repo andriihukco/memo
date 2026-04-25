@@ -270,11 +270,12 @@ const DIRECT_WIDGETS: Record<string, Record<string, DirectWidget>> = {
   },
 };
 
-function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
+function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntries }: {
   onClose: () => void;
   onCreated: (widget: CustomWidget) => void;
   onPaywall: (feature: string, current: number | undefined, limit: number | undefined, requiredTier: SubscriptionTier) => void;
   accessToken?: string | null;
+  hasEntries: boolean;
 }) {
   const [step, setStep] = useState(0); // 0, 1, 2
   const [selectedCategory, setSelectedCategory] = useState<WidgetCategory | null>(null);
@@ -481,6 +482,16 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
             </div>
           )}
 
+          {/* Warn if this is an AI widget and user has no entries yet */}
+          {!hasEntries && selectedCategory && !DIRECT_WIDGETS[selectedCategory.id]?.[displayQuestion ?? ''] && (
+            <div className="mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 px-4 py-3 flex items-start gap-2.5">
+              <span className="text-base shrink-0 mt-0.5">⚠️</span>
+              <p className="text-[13px] text-amber-300 leading-snug">
+                AI-віджет потребує записів у боті. Спочатку зроби кілька записів — тоді AI зможе аналізувати твої дані.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="mb-4">
               <ErrorBanner message={error} onRetry={handleCreate} onDismiss={() => setError(null)} />
@@ -489,7 +500,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken }: {
 
           <Button
             className="w-full min-h-[44px]"
-            disabled={creating}
+            disabled={creating || (!hasEntries && selectedCategory !== null && !DIRECT_WIDGETS[selectedCategory?.id ?? '']?.[displayQuestion ?? ''])}
             onClick={handleCreate}
           >
             {creating ? (
@@ -1353,7 +1364,10 @@ export default function DashboardPage() {
   const handleAddWidgetTap = () => {
     // Count only AI widgets against the limit — preset widgets are always free
     const aiWidgetCount = customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length;
-    if (userTier === 'free' && usageCounts !== null && aiWidgetCount >= 3) {
+    // Block if free tier and at or over the AI widget limit (3)
+    // Also block if tier hasn't loaded yet but we already have 3+ AI widgets (safe default)
+    const effectiveTier = userTier ?? 'free';
+    if (effectiveTier === 'free' && aiWidgetCount >= 3) {
       openPaywall('ai_widgets', aiWidgetCount, 3, 'stars_basic');
       return;
     }
@@ -1387,7 +1401,7 @@ export default function DashboardPage() {
               <Icon name="add" size={20} />
             </button>
             {/* Lock badge for Free tier when AI widget count >= 3 */}
-            {userTier === 'free' && customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length >= 3 && (
+            {(userTier === 'free' || userTier === null) && customWidgets.filter((w: CustomWidget & { is_ai?: boolean }) => w.is_ai !== false).length >= 3 && (
               <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center pointer-events-none">
                 <Icon name="lock" size={10} className="text-slate-900" />
               </div>
@@ -1646,6 +1660,7 @@ export default function DashboardPage() {
           }}
           onPaywall={openPaywall}
           accessToken={accessToken}
+          hasEntries={allEntries.length > 0}
         />
       )}
 

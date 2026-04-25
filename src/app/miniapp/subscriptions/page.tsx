@@ -265,7 +265,11 @@ export default function SubscriptionsPage() {
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
   async function handleSubscribe(tier: SubscriptionTier) {
-    if (!accessToken || !profile) return;
+    if (!accessToken) return;
+    if (!profile) {
+      setError('Профіль не завантажено. Спробуй ще раз.');
+      return;
+    }
     setPaying(tier);
     setError(null);
 
