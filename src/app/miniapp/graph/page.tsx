@@ -685,9 +685,32 @@ export default function GraphPage() {
     ? [...new Set(graphData.nodes.map(n => n.category))].sort()
     : [];
 
-  const dateLabel = dateRange
-    ? `${dateRange.from.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })} – ${dateRange.to.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })}`
-    : null;
+  // Match the active date range to a preset label (like the widget date picker)
+  // Only fall back to short date format for custom ranges
+  function getDateLabel(range: { from: Date; to: Date } | null): string {
+    if (!range) return 'Весь час';
+    const now = new Date();
+    const fromMs = range.from.getTime();
+    const toMs = range.to.getTime();
+    const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+    const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999);
+    const diff = Math.round((toMs - fromMs) / 86400000);
+    if (Math.abs(fromMs - todayStart.getTime()) < 60000 && Math.abs(toMs - todayEnd.getTime()) < 60000) return 'Сьогодні';
+    const yest = new Date(now); yest.setDate(now.getDate() - 1);
+    const yestStart = new Date(yest); yestStart.setHours(0,0,0,0);
+    const yestEnd = new Date(yest); yestEnd.setHours(23,59,59,999);
+    if (Math.abs(fromMs - yestStart.getTime()) < 60000 && Math.abs(toMs - yestEnd.getTime()) < 60000) return 'Вчора';
+    if (diff === 6) return '7 днів';
+    if (diff === 13) return '2 тижні';
+    if (diff >= 28 && diff <= 31) return '30 днів';
+    if (diff >= 88 && diff <= 93) return '3 місяці';
+    if (diff >= 363 && diff <= 368) return 'Рік';
+    // Custom — short format without year
+    const fmt = (d: Date) => d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+    return `${fmt(range.from)} – ${fmt(range.to)}`;
+  }
+
+  const dateLabel = getDateLabel(dateRange);
 
   return (
     <div className="flex h-full flex-col">
@@ -704,11 +727,10 @@ export default function GraphPage() {
           {!(tierLoaded && userTier === 'free') && (
             <button
               onClick={() => { play('OPEN'); setShowDateSheet(true); }}
-              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-muted px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted/80"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-muted-foreground"
             >
-              {dateRange && <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
               <Icon name="calendar_today" size={13} />
-              {dateLabel ?? 'Весь час'}
+              {dateLabel}
               {dateRange && (
                 <span
                   role="button"
