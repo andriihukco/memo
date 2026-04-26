@@ -138,20 +138,7 @@ export async function createSubscription(
 ): Promise<string | null> {
   const supabase = getServiceClient();
 
-  const { data, error } = await supabase.rpc("upgrade_subscription", {
-    p_user_id: userId,
-    p_tier: tier,
-    p_telegram_payment_charge_id: telegramPaymentChargeId,
-    p_provider_payment_charge_id: providerPaymentChargeId,
-  });
-
-  if (error) {
-    console.error("[paywall] createSubscription error:", error.message);
-    return null;
-  }
-
-  // Set correct expiry based on billing period
-  // Stack on top of existing subscription if still active
+  // Calculate expiry — stack on top of existing active subscription if same tier
   const { data: currentProfile } = await supabase
     .from("profiles")
     .select("subscription_ends_at, subscription_tier")
@@ -162,28 +149,50 @@ export async function createSubscription(
     ? new Date(currentProfile.subscription_ends_at)
     : null;
   const isCurrentlyActive = currentEndsAt && currentEndsAt > new Date();
-
-  // If upgrading to a higher tier while active, start from now
-  // If same tier while active, stack days on top of current expiry
   const baseDate = (isCurrentlyActive && currentProfile?.subscription_tier === tier)
     ? currentEndsAt!
     : new Date();
-
   const endsAt = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
-  await supabase
-    .from("profiles")
-    .update({ subscription_ends_at: endsAt })
-    .eq("id", userId);
 
-  // Also update the subscription row's end_date
-  if (data) {
-    await supabase
-      .from("subscriptions")
-      .update({ end_date: endsAt })
-      .eq("id", data);
+  // Upsert subscription row (idempotent — safe to retry)
+  const { data: subData, error: subError } = await supabase
+    .from("subscriptions")
+    .upsert(
+      {
+        user_id: userId,
+        tier,
+        status: "active",
+        start_date: new Date().toISOString(),
+        end_date: endsAt,
+        telegram_payment_charge_id: telegramPaymentChargeId,
+        provider_payment_charge_id: providerPaymentChargeId,
+      },
+      { onConflict: "telegram_payment_charge_id" }
+    )
+    .select("id")
+    .single();
+
+  if (subError) {
+    console.error("[paywall] createSubscription upsert error:", subError.message);
+    // Still update the profile even if subscription row failed
   }
 
-  return data;
+  // Always update the profile — this is the source of truth for the app
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      subscription_tier: tier,
+      subscription_status: "active",
+      subscription_ends_at: endsAt,
+    })
+    .eq("id", userId);
+
+  if (profileError) {
+    console.error("[paywall] createSubscription profile update error:", profileError.message);
+    return null;
+  }
+
+  return subData?.id ?? null;
 }
 
 export async function cancelSubscription(userId: string): Promise<boolean> {
