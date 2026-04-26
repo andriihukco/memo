@@ -33,7 +33,7 @@ function BillingPeriodSwitcher({
   const periods: BillingPeriod[] = ['monthly', 'quarterly', 'annual'];
 
   return (
-    <div className="flex rounded-2xl bg-[#1e2a3e] p-1 gap-1">
+    <div className="flex rounded-2xl bg-white/10 p-1 gap-1">
       {periods.map((p) => {
         const info = BILLING_PERIODS[p];
         const isSelected = selected === p;
@@ -42,14 +42,14 @@ function BillingPeriodSwitcher({
             key={p}
             onClick={() => { play('SELECT'); onChange(p); }}
             className={cn(
-              'relative flex-1 flex flex-col items-center justify-center rounded-xl py-2 px-1 transition-all duration-200',
-              isSelected ? 'bg-[#2d3a52] text-foreground shadow-sm' : 'text-muted-foreground/60 hover:text-muted-foreground'
+              'relative flex-1 flex flex-col items-center justify-center rounded-xl py-2 px-1 transition-all',
+              isSelected ? 'bg-white/15 text-foreground' : 'text-foreground/60'
             )}
           >
             {info.badge && (
               <span className={cn(
-                'absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-px text-[9px] font-bold whitespace-nowrap border',
-                isSelected ? 'bg-green-500/20 border-green-500/40 text-green-300' : 'bg-green-500/10 border-green-500/20 text-green-500/50'
+                'absolute -top-2 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap',
+                isSelected ? 'bg-green-500 text-white' : 'bg-green-500/40 text-green-300'
               )}>
                 {info.badge}
               </span>
@@ -138,14 +138,17 @@ function PlanCard({
     <div
       className={cn(
         'relative rounded-2xl border',
-        isCurrent ? 'border-primary/40 bg-[#1e2a3e]' : 'border-[#2d3a52]/60 bg-[#1a2234]',
-        isBasic && !isCurrent && 'border-primary/40 mt-4'
+        isCurrent
+          ? 'border-yellow-400/30 bg-yellow-950/30'
+          : isBasic
+            ? 'border-yellow-400/50 bg-yellow-950/40 mt-4'
+            : 'border-white/10 bg-white/5',
       )}
     >
       {isBasic && !isCurrent && (
-        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 z-10">
-          <span className="rounded-full bg-primary px-3 py-0.5 text-[10px] font-semibold text-primary-foreground whitespace-nowrap shadow-sm">
-            🔥 Найпопулярніший
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
+          <span className="rounded-full bg-yellow-400 px-3 py-0.5 text-[10px] font-semibold text-slate-950 whitespace-nowrap shadow-sm">
+            Рекомендовано
           </span>
         </div>
       )}
@@ -156,9 +159,9 @@ function PlanCard({
           <span className="text-2xl leading-none">{info.icon}</span>
           <div>
             <div className="flex items-center gap-2">
-              <p className="text-[16px] font-semibold">{info.name}</p>
+              <p className="text-[16px] font-semibold text-foreground">{info.name}</p>
               {isCurrent && (
-                <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-[10px] font-medium text-yellow-300">
                   Активний
                 </span>
               )}
@@ -171,9 +174,7 @@ function PlanCard({
             <p className="text-[14px] font-semibold text-muted-foreground">Безкоштовно</p>
           ) : (
             <>
-              <p className={cn('text-[18px] font-bold leading-tight', isPro ? 'text-amber-300' : 'text-primary')}>
-                {starsPrice} ⭐
-              </p>
+              <p className="text-[18px] font-bold leading-tight text-foreground">{starsPrice} ⭐</p>
               <p className="text-[10px] text-muted-foreground">
                 {billingPeriod === 'monthly' ? '/ місяць' : `/ ${BILLING_PERIODS[billingPeriod].label.toLowerCase()}`}
               </p>
@@ -190,13 +191,8 @@ function PlanCard({
       {/* Features */}
       <div className="px-4 py-3 flex flex-col gap-1.5">
         {info.features.map((f, i) => (
-          <div key={i} className={cn('flex items-center gap-2', !f.included && 'opacity-30')}>
-            <span className={cn(
-              'flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
-              f.included
-                ? isPro ? 'bg-amber-400/15 text-amber-300' : 'bg-primary/15 text-primary'
-                : 'text-muted-foreground'
-            )}>
+          <div key={i} className={cn('flex items-center gap-2', !f.included && 'opacity-35')}>
+            <span className={cn('text-[11px] font-bold w-3 shrink-0', f.included ? 'text-yellow-400/80' : 'text-muted-foreground')}>
               {f.included ? '✓' : '✗'}
             </span>
             <span className="text-[13px] text-foreground/80">{f.label}</span>
@@ -211,12 +207,12 @@ function PlanCard({
             onClick={() => { play('BUTTON'); onSubscribe(tier); }}
             disabled={isLoading || anyPaying}
             className={cn(
-              'w-full rounded-2xl py-3.5 text-[14px] font-bold transition-all active:scale-[0.98] min-h-[50px]',
-              isPro
-                ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-900 shadow-lg shadow-amber-400/20'
+              'w-full rounded-xl py-3 text-[14px] font-semibold transition-all active:scale-[0.98] min-h-[44px]',
+              isPro || isBasic
+                ? 'bg-yellow-400 text-slate-950'
                 : isExpiredRenewal
-                  ? 'bg-amber-400 text-slate-900 shadow-lg shadow-amber-400/20'
-                  : 'bg-primary text-primary-foreground shadow-lg shadow-primary/20',
+                  ? 'bg-yellow-400 text-slate-950'
+                  : 'bg-white/10 text-foreground',
               (isLoading || anyPaying) && 'opacity-60'
             )}
           >
@@ -428,7 +424,7 @@ export default function SubscriptionsPage() {
       >
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-[28px] font-bold leading-tight">Підписка</h1>
+          <h1 className="text-[28px] font-bold leading-tight text-foreground">Підписка</h1>
           <p className="text-[13px] text-muted-foreground">Підтримай Memo та отримай більше</p>
         </div>
 

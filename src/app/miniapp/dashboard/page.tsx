@@ -6,7 +6,6 @@ import { Icon } from '@/components/ui/icon';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { DashboardMetric } from '@/lib/classifier';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
@@ -81,7 +80,7 @@ interface Entry {
   created_at: string;
 }
 
-type DateRange = 'today' | 'week' | 'month' | 'custom';
+type DateRange = 'all' | 'today' | 'yesterday' | 'week' | 'month' | '2weeks' | '3months' | 'year' | 'ytd' | 'custom';
 interface DateFilter { range: DateRange; from: Date; to: Date; }
 
 // UTC+3 aware helpers — all boundaries computed in user's local timezone
@@ -99,15 +98,24 @@ function endOfDay(d: Date) {
 }
 function rangeFor(r: DateRange): { from: Date; to: Date } {
   const now = new Date();
+  if (r === 'all') return { from: new Date('2020-01-01'), to: endOfDay(now) };
   if (r === 'today') return { from: startOfDay(now), to: endOfDay(now) };
+  if (r === 'yesterday') { const y = new Date(now); y.setDate(now.getDate() - 1); return { from: startOfDay(y), to: endOfDay(y) }; }
   if (r === 'week') { const f = new Date(now); f.setDate(now.getDate() - 6); return { from: startOfDay(f), to: endOfDay(now) }; }
   if (r === 'month') { const f = new Date(now); f.setDate(now.getDate() - 29); return { from: startOfDay(f), to: endOfDay(now) }; }
+  if (r === '2weeks') { const f = new Date(now); f.setDate(now.getDate() - 13); return { from: startOfDay(f), to: endOfDay(now) }; }
+  if (r === '3months') { const f = new Date(now); f.setMonth(now.getMonth() - 3); return { from: startOfDay(f), to: endOfDay(now) }; }
+  if (r === 'year') { const f = new Date(now); f.setFullYear(now.getFullYear() - 1); return { from: startOfDay(f), to: endOfDay(now) }; }
+  if (r === 'ytd') { const f = new Date(now.getFullYear(), 0, 1); return { from: startOfDay(f), to: endOfDay(now) }; }
   return { from: startOfDay(now), to: endOfDay(now) };
 }
 function fmtDate(d: Date) { return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }); }
 function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
 
-const RANGE_LABELS: Record<DateRange, string> = { today: 'Сьогодні', week: '7 днів', month: '30 днів', custom: 'Свій' };
+const RANGE_LABELS: Record<DateRange, string> = {
+  all: 'Весь час', today: 'Сьогодні', yesterday: 'Вчора', week: '7 днів', month: '30 днів',
+  '2weeks': '2 тижні', '3months': '3 місяці', year: 'Рік', ytd: 'З початку року', custom: 'Свій',
+};
 
 // ── Metric aggregation ────────────────────────────────────────────────────────
 
@@ -925,32 +933,46 @@ function DrillDownDrawer({ title, entries, onClose, onUpdate, onDelete, accessTo
 
 // ── Calendar bottom sheet ─────────────────────────────────────────────────────
 
-function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onChange: (f: DateFilter) => void; onClose: () => void }) {
+function CalendarSheet({ filter, onChange, onClose, userTier }: {
+  filter: DateFilter;
+  onChange: (f: DateFilter) => void;
+  onClose: () => void;
+  userTier: SubscriptionTier | null;
+}) {
   const [fromStr, setFromStr] = useState(isoDate(filter.from));
   const [toStr, setToStr] = useState(isoDate(filter.to));
   const [selected, setSelected] = useState<DateRange>(filter.range);
+  const { play } = useSound();
+  const [paywallOpen, setPaywallOpen] = useState(false);
 
-  const PRESET_OPTIONS: { range: DateRange; label: string; icon: string }[] = [
-    { range: 'today', label: RANGE_LABELS.today, icon: 'today' },
-    { range: 'week',  label: RANGE_LABELS.week,  icon: 'date_range' },
-    { range: 'month', label: RANGE_LABELS.month, icon: 'calendar_month' },
-    { range: 'custom', label: RANGE_LABELS.custom, icon: 'tune' },
+  const isPaid = userTier === 'stars_basic' || userTier === 'stars_pro';
+
+  type PresetOption = { range: DateRange; label: string; icon: string; paid: boolean };
+  const PRESET_OPTIONS: PresetOption[] = [
+    { range: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: false },
+    { range: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false },
+    { range: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false },
+    { range: 'week',     label: '7 днів',          icon: 'date_range',     paid: false },
+    { range: 'month',    label: '30 днів',         icon: 'calendar_month', paid: true  },
+    { range: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: true  },
+    { range: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true  },
+    { range: 'year',     label: 'Рік',             icon: 'event_note',     paid: true  },
+    { range: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true  },
+    { range: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true  },
   ];
 
-  const handleSelectPreset = (r: DateRange) => {
-    setSelected(r);
-    if (r !== 'custom') {
-      onChange({ range: r, ...rangeFor(r) });
+  const handleSelectPreset = (opt: PresetOption) => {
+    if (opt.paid && !isPaid) {
+      play('CAUTION');
+      setPaywallOpen(true);
+      return;
+    }
+    play('SELECT');
+    setSelected(opt.range);
+    if (opt.range !== 'custom') {
+      onChange({ range: opt.range, ...rangeFor(opt.range) });
       onClose();
     }
-  };
-
-  const handleFromChange = (val: string) => {
-    setFromStr(val);
-  };
-
-  const handleToChange = (val: string) => {
-    setToStr(val);
   };
 
   const applyCustom = () => {
@@ -961,56 +983,95 @@ function CalendarSheet({ filter, onChange, onClose }: { filter: DateFilter; onCh
   };
 
   return (
-    <BottomSheet open onClose={onClose}>
-      {/* Header */}
-      <div className="px-4 pt-3 pb-2">
-        <h3 className="text-[17px] font-semibold">Оберіть період</h3>
-      </div>
-
-      {/* Preset rows */}
-      <div className="px-4">
-        {PRESET_OPTIONS.map(opt => {
-          const isSelected = selected === opt.range;
-          return (
-            <button
-              key={opt.range}
-              onClick={() => handleSelectPreset(opt.range)}
-              className="min-h-[44px] flex items-center gap-3 px-0 w-full"
-            >
-              <Icon name={opt.icon} size={20} className="text-primary/60 shrink-0" />
-              <span className="flex-1 text-left text-[15px]">{opt.label}</span>
-              {isSelected
-                ? <Icon name="check" size={18} className="text-primary shrink-0" />
-                : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />
-              }
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Inline custom date range */}
-      <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' ? 'max-h-56' : 'max-h-0')}>
-        <div className="mx-4 h-px bg-border/40" />
-        <div className="px-4 pt-3 pb-1 flex items-center gap-2">
-          <input
-            type="date"
-            value={fromStr}
-            onChange={e => handleFromChange(e.target.value)}
-            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          />
-          <span className="text-muted-foreground">–</span>
-          <input
-            type="date"
-            value={toStr}
-            onChange={e => handleToChange(e.target.value)}
-            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+    <>
+      <BottomSheet open onClose={onClose} style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
+        {/* Header */}
+        <div className="px-4 pt-3 pb-2">
+          <h3 className="text-[17px] font-semibold">Оберіть період</h3>
         </div>
-        <div className="px-4 pt-2 pb-1">
-          <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
+
+        {/* Free presets */}
+        <div className="px-4">
+          {PRESET_OPTIONS.filter(o => !o.paid).map(opt => {
+            const isSelected = selected === opt.range;
+            return (
+              <button
+                key={opt.range}
+                onClick={() => handleSelectPreset(opt)}
+                className="min-h-[44px] flex items-center gap-3 px-0 w-full"
+              >
+                <Icon name={opt.icon} size={20} className="text-primary/60 shrink-0" />
+                <span className="flex-1 text-left text-[15px]">{opt.label}</span>
+                {isSelected
+                  ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                  : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />
+                }
+              </button>
+            );
+          })}
         </div>
-      </div>
-    </BottomSheet>
+
+        {/* Paid presets section */}
+        <div className="mx-4 mt-2 mb-1 h-px bg-border/40" />
+        <div className="px-4 pb-1">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Icon name="star" size={12} className="text-yellow-400" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Розширені діапазони</span>
+            {!isPaid && <span className="ml-auto text-[10px] text-yellow-400 font-medium">Nova+</span>}
+          </div>
+          {PRESET_OPTIONS.filter(o => o.paid).map(opt => {
+            const isSelected = selected === opt.range;
+            const locked = !isPaid;
+            return (
+              <button
+                key={opt.range}
+                onClick={() => handleSelectPreset(opt)}
+                className={cn('min-h-[44px] flex items-center gap-3 px-0 w-full', locked && 'opacity-60')}
+              >
+                <Icon name={opt.icon} size={20} className={locked ? 'text-muted-foreground/50 shrink-0' : 'text-primary/60 shrink-0'} />
+                <span className="flex-1 text-left text-[15px]">{opt.label}</span>
+                {locked
+                  ? <Icon name="lock" size={16} className="text-yellow-400/70 shrink-0" />
+                  : isSelected
+                    ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                    : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />
+                }
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Inline custom date range */}
+        <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' && isPaid ? 'max-h-56' : 'max-h-0')}>
+          <div className="mx-4 h-px bg-border/40" />
+          <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+            <input
+              type="date"
+              value={fromStr}
+              onChange={e => setFromStr(e.target.value)}
+              className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <span className="text-muted-foreground">–</span>
+            <input
+              type="date"
+              value={toStr}
+              onChange={e => setToStr(e.target.value)}
+              className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+          </div>
+          <div className="px-4 pt-2 pb-1">
+            <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
+          </div>
+        </div>
+      </BottomSheet>
+
+      <PaywallModal
+        open={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        feature="date_range"
+        requiredTier="stars_basic"
+      />
+    </>
   );
 }
 
@@ -1420,18 +1481,25 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-4 px-4 pt-5 pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-[28px] font-bold leading-tight">Віджети</h1>
+        <div className="flex items-center gap-4">
+          <button onClick={() => setView('actual')} className="flex items-center">
+            <h1 className={cn('text-[28px] font-bold leading-tight transition-all duration-200', view === 'actual' ? 'text-foreground' : 'text-foreground/30')}>Віджети</h1>
+          </button>
+          <button onClick={() => setView('goals')} className="flex items-center">
+            <h1 className={cn('text-[28px] font-bold leading-tight transition-all duration-200', view === 'goals' ? 'text-foreground' : 'text-foreground/30')}>Цілі</h1>
+          </button>
         </div>
         <div className="flex items-center gap-2">
-          {/* Date picker */}
-          <button
-            onClick={() => { play('OPEN'); setShowCalendar(true); }}
-            className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground min-h-[44px]"
-          >
-            <Icon name="calendar_today" size={13} />
-            {filter.range === 'custom' ? `${fmtDate(filter.from)} – ${fmtDate(filter.to)}` : RANGE_LABELS[filter.range]}
-          </button>
+          {/* Date picker — hidden on goals view */}
+          {view === 'actual' && (
+            <button
+              onClick={() => { play('OPEN'); setShowCalendar(true); }}
+              className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground min-h-[44px]"
+            >
+              <Icon name="calendar_today" size={13} />
+              {filter.range === 'custom' ? `${fmtDate(filter.from)} – ${fmtDate(filter.to)}` : RANGE_LABELS[filter.range]}
+            </button>
+          )}
           {/* Add widget */}
           <div className="relative">
             <button
@@ -1451,8 +1519,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Unified section filter bar */}
-      {availableSections.length > 1 && (
+      {/* Unified section filter bar — only in widgets view */}
+      {view === 'actual' && availableSections.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-none -mx-4 px-4">
           <button
             onClick={() => setSectionFilter(null)}
@@ -1460,7 +1528,7 @@ export default function DashboardPage() {
               'shrink-0 rounded-full border px-4 py-1.5 text-[14px] font-medium transition-all',
               sectionFilter === null
                 ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-muted/40 border-border/50 text-foreground/70'
+                : 'bg-muted/40 border-border/50 text-foreground/85'
             )}
           >
             Всі
@@ -1470,39 +1538,38 @@ export default function DashboardPage() {
               key={s.key}
               onClick={() => setSectionFilter(sectionFilter === s.key ? null : s.key)}
               className={cn(
-                'shrink-0 flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-[14px] font-medium transition-all whitespace-nowrap',
+                'shrink-0 rounded-full border px-4 py-1.5 text-[14px] font-medium transition-all whitespace-nowrap',
                 sectionFilter === s.key
                   ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-muted/40 border-border/50 text-foreground/70'
+                  : 'bg-muted/40 border-border/50 text-foreground/85'
               )}
             >
-              <span className="text-base leading-none">{s.emoji}</span>
               {s.label}
             </button>
           ))}
         </div>
       )}
 
-      {/* View tabs */}
-      <Tabs value={view} onValueChange={setView}>
-        <TabsList className="w-full">
-          <TabsTrigger value="actual">Лог</TabsTrigger>
-          <TabsTrigger value="goals">Цілі</TabsTrigger>
-        </TabsList>
+      {/* View content */}
+      <div>
+        {/* Goals view */}
+        {view === 'goals' && (
+          <div className="mt-2">
+            {status === 'loading' && (
+              <div className="grid grid-cols-2 gap-3 mt-4" role="status" aria-label="Завантаження...">
+                <SkeletonMetricCard />
+                <SkeletonMetricCard />
+                <SkeletonMetricCard />
+                <SkeletonMetricCard />
+              </div>
+            )}
+            {status === 'ready' && <GoalsTab entries={allEntries} />}
+          </div>
+        )}
 
-        <TabsContent value="goals">
-          {status === 'loading' && (
-            <div className="grid grid-cols-2 gap-3 mt-4" role="status" aria-label="Завантаження...">
-              <SkeletonMetricCard />
-              <SkeletonMetricCard />
-              <SkeletonMetricCard />
-              <SkeletonMetricCard />
-            </div>
-          )}
-          {status === 'ready' && <GoalsTab entries={allEntries} />}
-        </TabsContent>
-
-        <TabsContent value="actual">
+        {/* Widgets / log view */}
+        {view === 'actual' && (
+          <div>
           {status === 'loading' && (
             <div className="grid grid-cols-2 gap-3 mt-4" role="status" aria-label="Завантаження...">
               <SkeletonMetricCard />
@@ -1685,8 +1752,9 @@ export default function DashboardPage() {
             )}
 
           </div>
-        </TabsContent>
-      </Tabs>
+        </div>
+      )}
+      </div>
       {/* Metric edit sheet (long-press) */}
       {metricEdit && (
         <MetricEditSheet
@@ -1712,7 +1780,7 @@ export default function DashboardPage() {
 
       {/* Calendar sheet */}
       {showCalendar && (
-        <CalendarSheet filter={filter} onChange={setFilter} onClose={() => { play('CLOSE'); setShowCalendar(false); }} />
+        <CalendarSheet filter={filter} onChange={setFilter} onClose={() => { play('CLOSE'); setShowCalendar(false); }} userTier={userTier} />
       )}
 
       {/* Create widget sheet */}

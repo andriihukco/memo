@@ -168,9 +168,23 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       className="fixed inset-0 z-[101] flex flex-col bg-gradient-to-b from-yellow-950 to-slate-950"
       style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)' }}
     >
-      <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-4 pt-12">
-        <h1 className="mb-1 text-[26px] font-bold leading-tight text-white">Обери свій план</h1>
-        <p className="mb-4 text-[14px] text-white/50">Базові функції безкоштовні назавжди</p>
+      <div className="flex flex-1 flex-col overflow-y-auto px-5 pb-10 pt-6">
+        {/* Header: close button + centered title */}
+        <div className="relative flex items-center justify-center mb-5">
+          <button
+            onClick={handleContinueFree}
+            className="absolute left-0 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70 active:bg-white/20 transition-colors"
+            aria-label="Закрити"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+          <div className="text-center">
+            <h1 className="text-[18px] font-bold text-white leading-tight">Обери свій план</h1>
+            <p className="text-[12px] text-white/50">Базові функції безкоштовні назавжди</p>
+          </div>
+        </div>
 
         {/* Billing period switcher */}
         <div className="mb-4 flex rounded-2xl bg-white/10 p-1 gap-1">
@@ -276,12 +290,6 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
             );
           })}
         </div>
-      </div>
-
-      <div className="px-5 pb-10 pt-2">
-        <button onClick={handleContinueFree} className="w-full py-3 text-[14px] text-white/40 active:text-white/60">
-          Продовжити безкоштовно →
-        </button>
       </div>
     </div>
   );
