@@ -499,6 +499,29 @@ export default function GraphPage() {
     svg.selectAll('*').remove();
     svg.attr('width', width).attr('height', height).attr('viewBox', `0 0 ${width} ${height}`);
 
+    // ── Glow filter defs ──────────────────────────────────────────────────
+    const defs = svg.append('defs');
+    // One filter per category color for colored glow
+    const glowColors = [...new Set(rawNodes.map(n => categoryHex(n.category)))];
+    glowColors.forEach((hex, i) => {
+      const filterId = `glow-${i}`;
+      const filter = defs.append('filter')
+        .attr('id', filterId)
+        .attr('x', '-60%').attr('y', '-60%')
+        .attr('width', '220%').attr('height', '220%');
+      filter.append('feColorMatrix')
+        .attr('type', 'matrix')
+        .attr('values', `0 0 0 0 ${parseInt(hex.slice(1,3),16)/255} 0 0 0 0 ${parseInt(hex.slice(3,5),16)/255} 0 0 0 0 ${parseInt(hex.slice(5,7),16)/255} 0 0 0 18 -7`);
+      filter.append('feGaussianBlur')
+        .attr('stdDeviation', '3')
+        .attr('result', 'coloredBlur');
+      const merge = filter.append('feMerge');
+      merge.append('feMergeNode').attr('in', 'coloredBlur');
+      merge.append('feMergeNode').attr('in', 'SourceGraphic');
+    });
+    // Map hex → filter id
+    const hexToFilter = new Map(glowColors.map((hex, i) => [hex, `glow-${i}`]));
+
     const g = svg.append('g');
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
@@ -531,6 +554,10 @@ export default function GraphPage() {
       .attr('fill-opacity', 0.9)
       .attr('stroke', '#080c14')
       .attr('stroke-width', 1.5)
+      .attr('filter', (d) => {
+        const f = hexToFilter.get(categoryHex(d.category));
+        return f ? `url(#${f})` : null;
+      })
       .style('cursor', 'pointer')
       .on('click', (_event, d) => {
         play('OPEN');

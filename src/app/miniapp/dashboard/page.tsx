@@ -358,6 +358,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   const [goal, setGoal] = useState('');
   const [emoji, setEmoji] = useState('✨');
   const [iconColor, setIconColor] = useState('blue');
+  const [iconTab, setIconTab] = useState<'color' | 'emoji'>('color');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -456,53 +457,91 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
 
   // ── Step 1: icon builder ──────────────────────────────────────────────────
   if (step === 1 && selected) return (
-    <BottomSheet open onClose={onClose} className="px-4 pb-6">
+    <BottomSheet open onClose={onClose} className="pb-6">
       <StepDots />
-      {/* Back */}
-      <button onClick={() => goTo(0)} className="flex items-center gap-1 text-[13px] text-muted-foreground mb-4 min-h-[36px]">
-        <Icon name="arrow_back_ios" size={12} /> Назад
-      </button>
 
-      <h3 className="text-[19px] font-bold mb-1">Іконка</h3>
-      <p className="text-[13px] text-muted-foreground mb-4">Оберіть емодзі та колір</p>
+      {/* Header: circle back btn + centered title */}
+      <div className="relative flex items-center justify-center px-4 py-1 mb-3">
+        <button
+          onClick={() => goTo(0)}
+          className="absolute left-4 flex h-8 w-8 items-center justify-center rounded-full bg-muted/70 text-muted-foreground hover:bg-muted transition-colors"
+          aria-label="Назад"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <div className="text-center">
+          <p className="text-[15px] font-semibold leading-tight">Іконка</p>
+          <p className="text-[12px] text-muted-foreground leading-tight">Оберіть емодзі та колір</p>
+        </div>
+      </div>
 
       {/* Big preview */}
-      <div className="flex justify-center mb-5">
+      <div className="flex justify-center mb-5 px-4">
         <div className={cn('flex h-20 w-20 items-center justify-center rounded-3xl text-4xl shadow-lg', color.bg)}>
           {emoji}
         </div>
       </div>
 
-      {/* Color swatches */}
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Колір</p>
-      <div className="flex gap-2 flex-wrap mb-4">
-        {ICON_COLORS.map(c => (
+      {/* Tabs */}
+      <div className="px-4 mb-3">
+        <div className="flex rounded-xl bg-muted/40 p-1 gap-1">
           <button
-            key={c.id}
-            onClick={() => setIconColor(c.id)}
-            className={cn('h-8 w-8 rounded-full transition-all', iconColor === c.id && 'ring-2 ring-offset-2 ring-white/70 scale-110')}
-            style={{ backgroundColor: c.hex }}
-          />
-        ))}
-      </div>
-
-      {/* Emoji grid */}
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Емодзі</p>
-      <div className="grid grid-cols-10 gap-1 max-h-36 overflow-y-auto mb-5">
-        {EMOJI_LIBRARY.map(e => (
-          <button
-            key={e}
-            onClick={() => setEmoji(e)}
-            className={cn('flex h-9 w-full items-center justify-center rounded-xl text-xl transition-all',
-              emoji === e ? cn(color.bg, 'ring-2 ring-offset-1 ring-white/40') : 'hover:bg-muted/60'
+            onClick={() => setIconTab('color')}
+            className={cn(
+              'flex-1 rounded-lg py-2 text-[13px] font-medium transition-all',
+              iconTab === 'color' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
             )}
-          >{e}</button>
-        ))}
+          >
+            🎨 Колір
+          </button>
+          <button
+            onClick={() => setIconTab('emoji')}
+            className={cn(
+              'flex-1 rounded-lg py-2 text-[13px] font-medium transition-all',
+              iconTab === 'emoji' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+            )}
+          >
+            😊 Емодзі
+          </button>
+        </div>
       </div>
 
-      <Button className="w-full min-h-[48px] rounded-full text-[15px] font-semibold" onClick={() => goTo(2)}>
-        Далі
-      </Button>
+      {/* Tab content */}
+      <div className="px-4 overflow-y-auto" style={{ maxHeight: '38vh' }}>
+        {iconTab === 'color' && (
+          <div className="grid grid-cols-9 gap-2 py-1 pb-4">
+            {ICON_COLORS.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setIconColor(c.id)}
+                className={cn('h-8 w-8 rounded-full transition-all active:scale-90', iconColor === c.id && 'ring-2 ring-offset-2 ring-white/70 scale-110')}
+                style={{ backgroundColor: c.hex }}
+              />
+            ))}
+          </div>
+        )}
+        {iconTab === 'emoji' && (
+          <div className="grid grid-cols-10 gap-1 pb-4">
+            {EMOJI_LIBRARY.map(e => (
+              <button
+                key={e}
+                onClick={() => setEmoji(e)}
+                className={cn('flex h-9 w-full items-center justify-center rounded-xl text-xl transition-all active:scale-90',
+                  emoji === e ? cn(color.bg, 'ring-2 ring-offset-1 ring-white/40') : 'hover:bg-muted/60'
+                )}
+              >{e}</button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="px-4 pt-2">
+        <Button className="w-full min-h-[48px] rounded-full text-[15px] font-semibold" onClick={() => goTo(2)}>
+          Далі
+        </Button>
+      </div>
     </BottomSheet>
   );
 
@@ -511,9 +550,17 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
     <BottomSheet open onClose={onClose} className="px-4 pb-6">
       <StepDots />
       {/* Back */}
-      <button onClick={() => goTo(1)} className="flex items-center gap-1 text-[13px] text-muted-foreground mb-4 min-h-[36px]">
-        <Icon name="arrow_back_ios" size={12} /> Назад
-      </button>
+      <div className="relative flex items-center justify-center py-1 mb-3">
+        <button
+          onClick={() => goTo(1)}
+          className="absolute left-0 flex h-8 w-8 items-center justify-center rounded-full bg-muted/70 text-muted-foreground hover:bg-muted transition-colors"
+          aria-label="Назад"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+      </div>
 
       {/* Preview pill */}
       <div className="flex items-center gap-3 rounded-2xl bg-muted/30 border border-border/40 px-4 py-3 mb-5">
