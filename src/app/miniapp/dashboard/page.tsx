@@ -208,6 +208,43 @@ function aggregateGoals(entries: Entry[]): GoalMetricAgg[] {
   return [...map.values()];
 }
 
+// ── Emoji map for metric keys ─────────────────────────────────────────────────
+
+const METRIC_EMOJI: Record<string, string> = {
+  kcal_intake:     '🔥',
+  kcal_burned:     '💪',
+  activity_kcal:   '💪',
+  water_ml:        '💧',
+  water_glasses:   '💧',
+  sleep_hours:     '😴',
+  sleep_quality:   '😴',
+  steps_count:     '🏃',
+  active_min:      '🏋️',
+  distance_km:     '📍',
+  distance_m:      '📍',
+  weight_kg:       '⚖️',
+  mood_score:      '😊',
+  stress_level:    '😤',
+  energy_level:    '⚡',
+  pages_read:      '📚',
+  reading_min:     '📚',
+  protein_g:       '🥩',
+  carbs_g:         '🍞',
+  fat_g:           '🧈',
+  meditation_min:  '🧘',
+  mindfulness_min: '🧘',
+  alcohol_units:   '🍷',
+  cold_shower_min: '🚿',
+  fasting_hours:   '⏱️',
+  squats_count:    '🏋️',
+  pushups_count:   '💪',
+  expenses_day:    '💸',
+};
+
+function metricEmoji(key: string, fallback?: string): string {
+  return METRIC_EMOJI[key] ?? fallback ?? '📊';
+}
+
 // ── Icon resolver ─────────────────────────────────────────────────────────────
 
 // Lucide icon name → Material Symbols name mapping for metric icons
@@ -1140,53 +1177,53 @@ function MetricCard({ metric, sourceEntries, onEntryClick, onLongPress, goal }: 
   onLongPress: (metric: AggregatedMetric, sourceEntries: Entry[]) => void;
   goal?: { target: number; period?: string };
 }) {
-  const { text } = metricColor(metric.key);
-  const aggLabel = metric.aggregate === 'avg' ? `середнє · ${metric.count}` : metric.aggregate === 'last' ? 'останнє' : `${metric.count} записів`;
+  const { bg, text } = metricColor(metric.key);
   const pct = goal ? Math.min(100, Math.round((metric.value / goal.target) * 100)) : null;
+  const emoji = metricEmoji(metric.key);
 
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const handlePointerDown = () => {
-    longPressTimer.current = setTimeout(() => {
-      onLongPress(metric, sourceEntries);
-    }, 500);
+    longPressTimer.current = setTimeout(() => { onLongPress(metric, sourceEntries); }, 500);
   };
-
   const cancelLongPress = () => {
     if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; }
   };
 
   return (
     <Card
-      className="flex cursor-pointer flex-col gap-1 p-4 active:opacity-70 select-none"
+      className="flex cursor-pointer flex-col p-4 active:opacity-70 select-none"
       onClick={() => onEntryClick(sourceEntries, metric.label)}
       onPointerDown={handlePointerDown}
       onPointerUp={cancelLongPress}
       onPointerLeave={cancelLongPress}
       onPointerCancel={cancelLongPress}
     >
-      <MetricIcon name={metric.icon} size={20} className={cn('mb-1', text)} />
-      <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-bold tracking-tight">{metric.value.toLocaleString()}</span>
-        {goal && <span className="text-sm text-muted-foreground">/ {goal.target}</span>}
-        <span className="text-sm text-muted-foreground">{metric.unit}</span>
+      {/* Emoji icon */}
+      <div className={cn('mb-3 flex h-10 w-10 items-center justify-center rounded-2xl text-xl', bg)}>
+        {emoji}
       </div>
-      <p className="text-xs font-medium">{metric.label}</p>
+      {/* Value */}
+      <div className="flex items-baseline gap-1 mb-0.5">
+        <span className="text-[28px] font-bold tracking-tight leading-none">{metric.value.toLocaleString()}</span>
+        <span className="text-[13px] text-muted-foreground">{metric.unit}</span>
+      </div>
+      {/* Label */}
+      <p className="text-[13px] font-medium text-foreground/80 mt-0.5">{metric.label}</p>
+      {/* Goal bar or count */}
       {pct !== null ? (
-        <div className="mt-1">
-          <div className="mb-0.5 flex justify-between text-[10px] text-muted-foreground">
-            <span>Ціль {goal?.period ? `(${goal.period})` : ''}</span>
-            <span>{pct}%</span>
-          </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className="mt-2.5">
+          <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
             <div
-              className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-green-400' : 'bg-primary/60')}
+              className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-green-400' : text.replace('text-', 'bg-'))}
               style={{ width: `${pct}%` }}
             />
           </div>
+          <p className="mt-1 text-right text-[10px] text-muted-foreground">{pct}%</p>
         </div>
       ) : (
-        <p className="text-[10px] text-muted-foreground">{aggLabel}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground/60">
+          {metric.aggregate === 'avg' ? `~${metric.count}` : metric.aggregate === 'last' ? 'останнє' : `${metric.count}×`}
+        </p>
       )}
     </Card>
   );
@@ -1624,29 +1661,32 @@ export default function DashboardPage() {
               return (
                 <Card
                   key={w.id}
-                  className="flex flex-col gap-0 p-4 cursor-pointer active:opacity-70 select-none overflow-hidden"
+                  className="flex flex-col p-4 cursor-pointer active:opacity-70 select-none overflow-hidden"
                   onClick={() => { play('OPEN'); setLogEntry({ widget: w, drillEntries: srcEntries }); }}
                 >
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <div className={cn('flex h-9 w-9 items-center justify-center rounded-xl text-xl shrink-0', wColor.bg)}>
-                      {wEmoji}
-                    </div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-tight line-clamp-2">{w.title}</p>
+                  {/* Emoji icon */}
+                  <div className={cn('mb-3 flex h-10 w-10 items-center justify-center rounded-2xl text-xl shrink-0', wColor.bg)}>
+                    {wEmoji}
                   </div>
+                  {/* Value */}
                   <div className="flex items-baseline gap-1 mb-0.5">
-                    <span className="text-[26px] font-bold tracking-tight leading-none">
+                    <span className="text-[28px] font-bold tracking-tight leading-none">
                       {matchedMetric ? matchedMetric.value.toLocaleString() : '—'}
                     </span>
                     <span className="text-[13px] text-muted-foreground">{w.unit}</span>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">{aggLabel}</p>
-                  {goalPct !== null && (
-                    <div className="mt-2">
+                  {/* Label */}
+                  <p className="text-[13px] font-medium text-foreground/80 mt-0.5">{w.title}</p>
+                  {/* Goal bar or count */}
+                  {goalPct !== null ? (
+                    <div className="mt-2.5">
                       <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
                         <div className={cn('h-full rounded-full transition-all', goalPct >= 100 ? 'bg-green-400' : wColor.bg)} style={{ width: `${goalPct}%` }} />
                       </div>
-                      <p className="mt-0.5 text-right text-[10px] text-muted-foreground">{goalPct}%</p>
+                      <p className="mt-1 text-right text-[10px] text-muted-foreground">{goalPct}%</p>
                     </div>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-muted-foreground/60">{aggLabel}</p>
                   )}
                 </Card>
               );
@@ -1673,7 +1713,7 @@ export default function DashboardPage() {
                   <div className="mb-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15">
-                        <Icon name="account_balance_wallet" size={16} className="text-emerald-400" />
+                        <span className="text-base leading-none">💸</span>
                       </div>
                       <div>
                         <p className="text-xs text-muted-foreground">Всього витрат</p>
@@ -1698,8 +1738,8 @@ export default function DashboardPage() {
               <div className="col-span-2">
                 <Card className="cursor-pointer p-4 transition-colors hover:bg-muted/30" onClick={() => openDrillDown(feelEntries, 'Настрій')}>
                   <div className="mb-3 flex items-center gap-3">
-                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', moodColor)}>
-                      <Icon name={moodAvg === null ? 'remove' : moodAvg > 0.5 ? 'trending_up' : moodAvg < -0.5 ? 'trending_down' : 'remove'} size={20} />
+                    <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl text-xl', moodColor)}>
+                      {moodAvg === null ? '😐' : moodAvg > 0.5 ? '😊' : moodAvg < -0.5 ? '😔' : '😐'}
                     </div>
                     <div>
                       <p className="font-semibold">{moodLabel}</p>
