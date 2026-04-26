@@ -34,6 +34,18 @@ function OnboardingReplay({ onClose }: { onClose: () => void }) {
   const [direction, setDirection] = useState(1);
   const { play } = useSound();
 
+  // Hide the tab bar while the overlay is open
+  useEffect(() => {
+    const prev = parseInt(document.body.getAttribute('data-sheets-open') ?? '0', 10);
+    document.body.setAttribute('data-sheets-open', String(prev + 1));
+    return () => {
+      const cur = parseInt(document.body.getAttribute('data-sheets-open') ?? '1', 10);
+      const next = Math.max(0, cur - 1);
+      if (next === 0) document.body.removeAttribute('data-sheets-open');
+      else document.body.setAttribute('data-sheets-open', String(next));
+    };
+  }, []);
+
   const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 80 : -80, opacity: 0, scale: 0.94 }),
     center: { x: 0, opacity: 1, scale: 1 },
@@ -52,19 +64,19 @@ function OnboardingReplay({ onClose }: { onClose: () => void }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.25 }}
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 40 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       className={cn(
-        'fixed inset-0 z-[200] flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-16',
+        'fixed inset-0 z-[200] flex flex-col items-center justify-between bg-gradient-to-b px-6 pb-12 pt-14',
         slide.bg,
       )}
     >
-      {/* Close */}
+      {/* Close — top right circle button */}
       <button
         onClick={() => { play('CLOSE'); onClose(); }}
-        className="absolute left-5 top-5 flex h-[44px] w-[44px] items-center justify-center rounded-full bg-white/10 text-white/60"
+        className="absolute right-5 top-5 flex h-[44px] w-[44px] items-center justify-center rounded-full bg-white/10 text-white/60 active:bg-white/20 transition-colors"
         aria-label="Закрити"
       >
         <Icon name="close" size={18} />
@@ -247,21 +259,6 @@ export default function SettingsPage() {
 
   // ── Categories state ──────────────────────────────────────────────────────
   const { accessToken } = useAuth();
-
-  const [categories, setCategories] = useState<{ name: string; label_ua: string; color: string }[]>([]);
-  const [catError, setCatError] = useState<string | null>(null);
-  const [catLoading, setCatLoading] = useState(false);
-
-  useEffect(() => {
-    if (!accessToken) return;
-    setCatLoading(true);
-    setCatError(null);
-    fetch('/api/categories', { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then(r => r.json())
-      .then(d => setCategories(d.categories ?? []))
-      .catch(() => setCatError('Не вдалося завантажити категорії'))
-      .finally(() => setCatLoading(false));
-  }, [accessToken]);
 
   // Delete account state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -582,7 +579,6 @@ export default function SettingsPage() {
         transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
       >
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Категорії</p>
-        {catError && <p className="mb-2 text-xs text-destructive">{catError}</p>}
         <Card>
           <CardContent className="p-0">
             <motion.a
@@ -596,9 +592,7 @@ export default function SettingsPage() {
               </div>
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">Категорії</p>
-                <p className="text-xs text-muted-foreground">
-                  {catLoading ? 'Завантаження...' : `${categories.length > 0 ? categories.length : 17} категорій`}
-                </p>
+                <p className="text-xs text-muted-foreground">Керуй та налаштовуй категорії</p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
             </motion.a>
