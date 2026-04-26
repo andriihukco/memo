@@ -11,6 +11,7 @@ import { useSound } from '@/lib/sound/use-sound';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
 import { getPasscodeHash, setPasscodeHash, shouldLock, touchLastActive, removePasscode } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
+import { SplashScreen } from '@/components/ui/splash-screen';
 import { ReportGenerationProvider } from '@/lib/report-generation-context';
 
 declare global {
@@ -838,6 +839,10 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   };
 
   if (status === 'loading') {
+    // First cold load → full splash with constellation animation
+    // Re-mount on tab navigation → instant blank (auth already done)
+    const isColdLoad = typeof window !== 'undefined' && !sessionStorage.getItem('memo_auth_done');
+    if (isColdLoad) return <SplashScreen />;
     return <div className="flex h-screen bg-background" />;
   }
 
