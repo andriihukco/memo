@@ -352,6 +352,7 @@ export default function SubscriptionsPage() {
   }
 
   const currentTier = profile?.subscription_tier ?? 'free';
+  const isCanceling = profile?.subscription_status === 'canceled' && currentTier !== 'free';
   const tierRank: Record<SubscriptionTier, number> = { free: 0, stars_basic: 1, stars_pro: 2 };
   const tiers = Object.keys(TIER_INFO) as SubscriptionTier[];
 
@@ -441,6 +442,8 @@ export default function SubscriptionsPage() {
               </div>
               {isExpired ? (
                 <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive">Закінчилась</span>
+              ) : isCanceling ? (
+                <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">Скасовується</span>
               ) : (
                 <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">Активна</span>
               )}
@@ -455,7 +458,7 @@ export default function SubscriptionsPage() {
               )}
               {endsAt && (
                 <div className={cn('rounded-xl px-3 py-2', isExpired ? 'bg-destructive/10' : daysRemaining !== null && daysRemaining <= 7 ? 'bg-amber-400/10' : 'bg-muted/30')}>
-                  <p className="text-[10px] text-muted-foreground mb-0.5">{isExpired ? 'Закінчилась' : 'Діє до'}</p>
+                  <p className="text-[10px] text-muted-foreground mb-0.5">{isExpired ? 'Закінчилась' : isCanceling ? 'Доступ до' : 'Діє до'}</p>
                   <p className={cn('text-[12px] font-medium', isExpired ? 'text-destructive' : daysRemaining !== null && daysRemaining <= 7 ? 'text-amber-300' : '')}>
                     {fmtDate(endsAt)}
                   </p>
@@ -482,6 +485,11 @@ export default function SubscriptionsPage() {
             {isExpired && endsAt && (
               <p className="text-[12px] text-destructive/70">
                 Закінчилась {fmtDate(endsAt)} · Поновіть вручну нижче
+              </p>
+            )}
+            {isCanceling && endsAt && !isExpired && (
+              <p className="text-[12px] text-amber-300/80">
+                Підписка скасована · Доступ діє до {fmtDate(endsAt)}
               </p>
             )}
           </div>
@@ -541,7 +549,7 @@ export default function SubscriptionsPage() {
         </div>
 
         {/* Downgrade / cancel */}
-        {effectiveTier !== 'free' && !isExpired && (
+        {effectiveTier !== 'free' && !isExpired && !isCanceling && (
           <div className="pt-2">
             {!showDowngradeConfirm ? (
               <button
@@ -559,7 +567,8 @@ export default function SubscriptionsPage() {
               >
                 <p className="text-[13px] font-medium text-center">Скасувати підписку?</p>
                 <p className="text-[12px] text-muted-foreground text-center leading-relaxed">
-                  Доступ до платних функцій буде закрито одразу. Поновити можна в будь-який час.
+                  Доступ до платних функцій збережеться до кінця оплаченого періоду
+                  {endsAt ? ` (${fmtDate(endsAt)})` : ''}. Поновити можна в будь-який час.
                 </p>
                 <div className="flex gap-2">
                   <button

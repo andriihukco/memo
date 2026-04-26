@@ -80,22 +80,20 @@ export async function PATCH(req: Request): Promise<Response> {
   const body = await req.json().catch(() => ({})) as { downgrade?: boolean };
 
   if (body.downgrade) {
-    // Immediately downgrade to free — cancel subscription
+    // Mark subscription as canceling — access continues until subscription_ends_at.
+    // The tier and ends_at are NOT changed here; the cron job (or natural expiry check)
+    // will drop the user to free once the period ends.
     const supabase = makeServiceClient();
 
     await supabase
       .from("subscriptions")
-      .update({ status: "canceled" })
+      .update({ status: "canceled", updated_at: new Date().toISOString() })
       .eq("user_id", user.id)
       .eq("status", "active");
 
     await supabase
       .from("profiles")
-      .update({
-        subscription_tier: "free",
-        subscription_status: "canceled",
-        subscription_ends_at: new Date().toISOString(),
-      })
+      .update({ subscription_status: "canceled" })
       .eq("id", user.id);
 
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } });
