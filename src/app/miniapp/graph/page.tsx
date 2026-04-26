@@ -389,6 +389,8 @@ export default function GraphPage() {
     requiredTier: SubscriptionTier;
   }>({ feature: 'graph_full', requiredTier: 'stars_basic' });
 
+  const [showInfo, setShowInfo] = useState(false);
+
   const openPaywall = (feature: string, current: number | undefined, limit: number | undefined, requiredTier: SubscriptionTier) => {
     setPaywallProps({ feature, current, limit, requiredTier });
     setPaywallOpen(true);
@@ -803,7 +805,16 @@ export default function GraphPage() {
         className="flex flex-col gap-2 px-4 pt-5 pb-3"
       >
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Графік</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold">Графік</h1>
+            <button
+              onClick={() => { play('OPEN'); setShowInfo(true); }}
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors"
+              aria-label="Як це працює"
+            >
+              <Icon name="info" size={14} />
+            </button>
+          </div>
           {/* Date filter button — hidden for free tier */}
           {!(tierLoaded && userTier === 'free') && (
             <button
@@ -1032,6 +1043,88 @@ export default function GraphPage() {
         onChange={setDateRange}
         userTier={userTier}
       />
+
+      {/* Info sheet */}
+      <AnimatePresence>
+        {showInfo && (
+          <div className="fixed inset-0 z-50 flex items-end">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => { play('CLOSE'); setShowInfo(false); }}
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
+              className="relative w-full rounded-t-2xl bg-background px-5 pt-4 shadow-2xl overflow-y-auto"
+              style={{ maxHeight: '80vh', paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)' }}
+            >
+              {/* Handle */}
+              <div className="mb-4 flex justify-center">
+                <div className="h-1 w-10 rounded-full bg-muted" />
+              </div>
+
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-xl shrink-0">
+                  🕸️
+                </div>
+                <div>
+                  <h3 className="text-[17px] font-bold leading-tight">Як працює граф</h3>
+                  <p className="text-[12px] text-muted-foreground">Візуалізація зв&apos;язків між записами</p>
+                </div>
+              </div>
+
+              {/* Sections */}
+              {[
+                {
+                  icon: '⚫',
+                  title: 'Вузли — твої записи',
+                  body: 'Кожна крапка — це один запис. Розмір крапки залежить від кількості зв\'язків: чим більше зв\'язків, тим більша крапка. Колір відповідає категорії запису.',
+                },
+                {
+                  icon: '🔗',
+                  title: 'Зв\'язки між записами',
+                  body: 'Лінії між крапками показують три типи зв\'язків:\n• Гілки (сині) — записи в одному діалозі з ботом\n• Схожість (пунктир) — AI знайшов семантичну схожість між текстами\n• Між категоріями (жовті) — записи з різних категорій, що пов\'язані за змістом',
+                },
+                {
+                  icon: '🧠',
+                  title: 'Як AI знаходить зв\'язки',
+                  body: 'Кожен запис перетворюється на числовий вектор (embedding) за допомогою AI. Записи з близькими векторами вважаються семантично схожими — навіть якщо написані різними словами.',
+                },
+                {
+                  icon: '🎨',
+                  title: 'Кольори та кластери',
+                  body: 'Записи однієї категорії мають однаковий колір. Кластери — групи записів, що часто зустрічаються разом. Назва кластера показує домінуючу категорію.',
+                },
+                {
+                  icon: '🔍',
+                  title: 'Фільтрація та навігація',
+                  body: 'Тап на категорію — виділяє її записи та наближає камеру до них. Інші записи стають напівпрозорими. Зводь/розводь пальці для зуму, тягни для переміщення.',
+                },
+                {
+                  icon: '✏️',
+                  title: 'Редагування',
+                  body: 'Тап на будь-яку крапку відкриває деталі запису та список пов\'язаних записів. Звідти можна редагувати або видалити запис.',
+                },
+              ].map(({ icon, title, body }) => (
+                <div key={title} className="mb-4 flex gap-3">
+                  <span className="text-[18px] leading-none shrink-0 mt-0.5">{icon}</span>
+                  <div>
+                    <p className="text-[14px] font-semibold mb-0.5">{title}</p>
+                    <p className="text-[13px] text-muted-foreground leading-relaxed whitespace-pre-line">{body}</p>
+                  </div>
+                </div>
+              ))}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
