@@ -90,11 +90,19 @@ export async function resolveOrCreateProfile(
     if (existing.id !== resolvedAuthId) {
       console.log(`[profile] Migrating profile ${existing.id} → ${resolvedAuthId} for telegram_id ${telegramIdStr}`);
 
+      // Read full existing profile to preserve subscription data
+      const { data: fullExisting } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", existing.id)
+        .single();
+
       // Migrate all entries to the correct user_id
       await supabase.from("entries").update({ user_id: resolvedAuthId }).eq("user_id", existing.id);
       await supabase.from("insights").update({ user_id: resolvedAuthId }).eq("user_id", existing.id);
+      await supabase.from("subscriptions").update({ user_id: resolvedAuthId }).eq("user_id", existing.id);
 
-      // Delete old profile and create new one with correct id
+      // Delete old profile and create new one with correct id — preserving subscription
       await supabase.from("profiles").delete().eq("id", existing.id);
       const { data: migrated, error: migrateError } = await supabase
         .from("profiles")
@@ -103,6 +111,9 @@ export async function resolveOrCreateProfile(
           telegram_id: telegramIdStr,
           username: username || null,
           settings: existing.settings ?? {},
+          subscription_tier:    fullExisting?.subscription_tier    ?? 'free',
+          subscription_status:  fullExisting?.subscription_status  ?? 'free',
+          subscription_ends_at: fullExisting?.subscription_ends_at ?? null,
         })
         .select("id, telegram_id, username, settings, created_at, updated_at")
         .single();
