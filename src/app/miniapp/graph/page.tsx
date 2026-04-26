@@ -669,29 +669,48 @@ export default function GraphPage() {
           .attr('y', (d) => Math.min(...d.nodes.map((n) => n.y ?? 0)) - 16);
       })
       .on('end', () => {
-        // Pan/zoom to the bounding box of selected category nodes
-        if (selectedCategory && nodes.length > 0 && svgRef.current && zoomRef.current) {
+        if (!svgRef.current || !zoomRef.current || nodes.length === 0) return;
+
+        const xs = nodes.map(n => n.x ?? 0);
+        const ys = nodes.map(n => n.y ?? 0);
+        const minX = Math.min(...xs), maxX = Math.max(...xs);
+        const minY = Math.min(...ys), maxY = Math.max(...ys);
+        const bboxW = Math.max(maxX - minX, 60);
+        const bboxH = Math.max(maxY - minY, 60);
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const padding = 48;
+
+        if (selectedCategory) {
+          // Zoom to selected category bounding box
           const catNodes = nodes.filter(n => n.category === selectedCategory);
           if (catNodes.length === 0) return;
-          const xs = catNodes.map(n => n.x ?? 0);
-          const ys = catNodes.map(n => n.y ?? 0);
-          const minX = Math.min(...xs), maxX = Math.max(...xs);
-          const minY = Math.min(...ys), maxY = Math.max(...ys);
-          const bboxW = Math.max(maxX - minX, 60);
-          const bboxH = Math.max(maxY - minY, 60);
-          const cx = (minX + maxX) / 2;
-          const cy = (minY + maxY) / 2;
-          const padding = 80;
+          const cxs = catNodes.map(n => n.x ?? 0);
+          const cys = catNodes.map(n => n.y ?? 0);
+          const cMinX = Math.min(...cxs), cMaxX = Math.max(...cxs);
+          const cMinY = Math.min(...cys), cMaxY = Math.max(...cys);
+          const cW = Math.max(cMaxX - cMinX, 60);
+          const cH = Math.max(cMaxY - cMinY, 60);
+          const cCx = (cMinX + cMaxX) / 2;
+          const cCy = (cMinY + cMaxY) / 2;
           const scale = Math.min(2.5, Math.max(0.4,
+            Math.min((width - padding * 2) / cW, (height - padding * 2) / cH)
+          ));
+          d3.select(svgRef.current)
+            .transition().duration(700).ease(d3.easeCubicOut)
+            .call(zoomRef.current.transform, d3.zoomIdentity
+              .translate(width / 2 - scale * cCx, height / 2 - scale * cCy)
+              .scale(scale));
+        } else {
+          // Fit all nodes to viewport
+          const scale = Math.min(3, Math.max(0.15,
             Math.min((width - padding * 2) / bboxW, (height - padding * 2) / bboxH)
           ));
-          const tx = width / 2 - scale * cx;
-          const ty = height / 2 - scale * cy;
           d3.select(svgRef.current)
-            .transition()
-            .duration(700)
-            .ease(d3.easeCubicOut)
-            .call(zoomRef.current.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+            .transition().duration(700).ease(d3.easeCubicOut)
+            .call(zoomRef.current.transform, d3.zoomIdentity
+              .translate(width / 2 - scale * cx, height / 2 - scale * cy)
+              .scale(scale));
         }
       });
 
