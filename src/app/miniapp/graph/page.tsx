@@ -361,6 +361,7 @@ export default function GraphPage() {
   const { play } = useSound();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
@@ -500,11 +501,11 @@ export default function GraphPage() {
 
     const g = svg.append('g');
 
-    svg.call(
-      d3.zoom<SVGSVGElement, unknown>()
-        .scaleExtent([0.15, 5])
-        .on('zoom', (event) => g.attr('transform', event.transform)),
-    );
+    const zoom = d3.zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.15, 5])
+      .on('zoom', (event) => g.attr('transform', event.transform));
+    svg.call(zoom);
+    zoomRef.current = zoom;
 
     // Edges
     const linkSel = g.append('g').attr('class', 'links')
@@ -629,6 +630,23 @@ export default function GraphPage() {
         clusterLabelSel
           .attr('x', (d) => d.nodes.reduce((s, n) => s + (n.x ?? 0), 0) / d.nodes.length)
           .attr('y', (d) => Math.min(...d.nodes.map((n) => n.y ?? 0)) - 16);
+      })
+      .on('end', () => {
+        // When a category filter is active, pan/zoom to the centroid of those nodes
+        if (selectedCategory && nodes.length > 0 && svgRef.current && zoomRef.current) {
+          const xs = nodes.map(n => n.x ?? 0);
+          const ys = nodes.map(n => n.y ?? 0);
+          const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
+          const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
+          const scale = Math.min(2.2, Math.max(0.6, 400 / (Math.max(...xs) - Math.min(...xs) + 1)));
+          const tx = width / 2 - scale * cx;
+          const ty = height / 2 - scale * cy;
+          d3.select(svgRef.current)
+            .transition()
+            .duration(600)
+            .ease(d3.easeCubicOut)
+            .call(zoomRef.current.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+        }
       });
 
     return () => { simulation.stop(); };
@@ -651,7 +669,7 @@ export default function GraphPage() {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="flex flex-col gap-2 px-4 pt-5 pb-2"
+        className="flex flex-col gap-2 px-4 pt-5 pb-3"
       >
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold">Граф</h1>
@@ -660,21 +678,22 @@ export default function GraphPage() {
             <button
               onClick={() => { play('OPEN'); setShowDateSheet(true); }}
               className={cn(
-                'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors',
+                'inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors',
                 dateRange
-                  ? 'bg-primary/15 text-primary border border-primary/30'
-                  : 'bg-muted/50 text-muted-foreground border border-border/30'
+                  ? 'bg-primary/15 border-primary text-primary'
+                  : 'bg-muted/40 border-border/50 text-muted-foreground'
               )}
             >
               <Icon name="calendar_month" size={14} />
               {dateLabel ?? 'Весь час'}
               {dateRange && (
-                <button
+                <span
+                  role="button"
                   onClick={e => { e.stopPropagation(); setDateRange(null); }}
-                  className="ml-0.5 text-primary/60 hover:text-primary"
+                  className="ml-0.5 flex items-center text-primary/60 hover:text-primary"
                 >
                   <Icon name="close" size={12} />
-                </button>
+                </span>
               )}
             </button>
           )}
@@ -682,14 +701,14 @@ export default function GraphPage() {
 
         {/* Category filter chips — hidden for free tier */}
         {!(tierLoaded && userTier === 'free') && allCategories.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          <div className="flex gap-1.5 overflow-x-auto py-1 -mx-4 px-4 scrollbar-none">
             <button
               onClick={() => { play('SELECT'); setSelectedCategory(null); }}
               className={cn(
-                'shrink-0 rounded-full px-3 py-1 text-[12px] font-medium transition-colors border',
+                'shrink-0 inline-flex min-h-[36px] items-center rounded-full border px-3 text-[13px] font-medium transition-colors',
                 selectedCategory === null
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'bg-muted/40 text-muted-foreground border-border/30'
+                  ? 'bg-primary/15 border-primary text-primary'
+                  : 'bg-muted/40 border-border/50 text-muted-foreground'
               )}
             >
               Всі
@@ -699,10 +718,10 @@ export default function GraphPage() {
                 key={cat}
                 onClick={() => { play('SELECT'); setSelectedCategory(selectedCategory === cat ? null : cat); }}
                 className={cn(
-                  'shrink-0 rounded-full px-3 py-1 text-[12px] font-medium transition-all border',
+                  'shrink-0 inline-flex min-h-[36px] items-center rounded-full border px-3 text-[13px] font-medium transition-all',
                   selectedCategory === cat
-                    ? 'ring-2 ring-offset-1 ring-primary/50 scale-105'
-                    : 'opacity-85 hover:opacity-100',
+                    ? 'ring-2 ring-offset-2 ring-primary/40 scale-105'
+                    : 'opacity-80 hover:opacity-100',
                   getCategoryColor(cat)
                 )}
               >

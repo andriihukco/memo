@@ -218,31 +218,47 @@ export const categoryBadge = getCategoryColor;
 
 // ── Emoji picker for new category ────────────────────────────────────────────
 
-const EMOJI_OPTIONS = [
-  // Health & Body
-  '💪','🏃','🧘','🚴','🏋️','🤸','🧗','🏊','⚽','🎾',
-  // Food & Drink
-  '🍎','🥗','🍕','☕','🧃','🍷','🥤','🍜','🥑','🍳',
-  // Mind & Mood
-  '🧠','💭','😊','😴','🎯','⚡','🔥','💡','✨','🌟',
-  // Nature
-  '🌿','🌸','🌊','☀️','🌙','🍀','🌺','🦋','🌈','❄️',
-  // Finance
-  '💰','💳','📈','💸','🏦','🛒','🎁','💎','🪙','📊',
-  // Work & Learning
-  '💻','📚','✏️','🎓','🔬','📝','🗂️','🏆','🎨','🎵',
-  // Travel & Places
-  '✈️','🏠','🗺️','🚗','🚂','⛵','🏔️','🌍','🏖️','🗼',
-  // People & Social
-  '❤️','🤝','👶','🐾','👥','🙏','🎉','🥂','💌','🫂',
-  // Tracking & Metrics
-  '⏱️','📏','🔢','📉','🎲','🔐','🧪','⚗️','🔭','🧬',
-  // Misc
-  '⭐','🏅','🎖️','🔑','💫','🌀','🎭','🎪','🎬','🎤',
-  // Extra
-  '🏷️','🔥','💎','🎸','🎹','🌻','🍁','🐉','🦄','🦅',
-  '🍔','🍣','🍰','🧁','🍩','🏡','🏰','📱','📷','🎥',
-  '🎮','🕹️','🎲','🎯','🥇','🏆','🎊','🎀','🎁','🎉',
+const EMOJI_GROUPS: { label: string; emojis: string[] }[] = [
+  {
+    label: 'Спорт',
+    emojis: ['💪','🏃','🧘','🚴','🏋️','🤸','🧗','🏊','⚽','🎾','🏀','🏈','⚾','🎱','🏓','🥊','🤼','🏇','🎿','🛹'],
+  },
+  {
+    label: 'Їжа',
+    emojis: ['🍎','🥗','🍕','☕','🧃','🍷','🥤','🍜','🥑','🍳','🍔','🍣','🍰','🧁','🍩','🥐','🥩','🥦','🍇','🍓'],
+  },
+  {
+    label: 'Розум',
+    emojis: ['🧠','💭','😊','😴','🎯','⚡','🔥','💡','✨','🌟','🤔','😌','😤','🥳','😎','🧐','🤩','😇','🥰','😤'],
+  },
+  {
+    label: 'Природа',
+    emojis: ['🌿','🌸','🌊','☀️','🌙','🍀','🌺','🦋','🌈','❄️','🌻','🍁','🐉','🦄','🦅','🌴','🌵','🍄','🐬','🦁'],
+  },
+  {
+    label: 'Фінанси',
+    emojis: ['💰','💳','📈','💸','🏦','🛒','🎁','💎','🪙','📊','📉','🏧','💹','🤑','🏷️','🛍️','🎰','🪄','🔑','🗝️'],
+  },
+  {
+    label: 'Робота',
+    emojis: ['💻','📚','✏️','🎓','🔬','📝','🗂️','🏆','🎨','🎵','📱','📷','🎥','🎮','🕹️','🎸','🎹','🎤','🎧','🖥️'],
+  },
+  {
+    label: 'Подорожі',
+    emojis: ['✈️','🏠','🗺️','🚗','🚂','⛵','🏔️','🌍','🏖️','🗼','🏡','🏰','🚀','🛸','🚁','🛺','🚢','🏕️','🗽','🎡'],
+  },
+  {
+    label: 'Люди',
+    emojis: ['❤️','🤝','👶','🐾','👥','🙏','🎉','🥂','💌','🫂','👨‍👩‍👧','💑','🤗','👏','🫶','💪','🙌','🤲','👐','🫵'],
+  },
+  {
+    label: 'Метрики',
+    emojis: ['⏱️','📏','🔢','📉','🎲','🔐','🧪','⚗️','🔭','🧬','⚖️','🌡️','🔋','💊','🩺','🩻','🧫','🔩','⚙️','🛠️'],
+  },
+  {
+    label: 'Інше',
+    emojis: ['⭐','🏅','🎖️','💫','🌀','🎭','🎪','🎬','🎊','🎀','🎁','🎉','🪅','🎠','🎡','🎢','🎯','🎳','🎲','🃏'],
+  },
 ];
 
 interface DbCategory {
@@ -265,82 +281,164 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
   const [label, setLabel] = useState(initialName.replace(/^\w/, c => c.toUpperCase()));
   const [selectedColor, setSelectedColor] = useState<string>('indigo');
   const [selectedEmoji, setSelectedEmoji] = useState<string>('💡');
+  const [activeTab, setActiveTab] = useState<'color' | 'emoji'>('color');
+  const [activeGroup, setActiveGroup] = useState(0);
   const color = colorFromId(selectedColor);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end">
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
       <div
-        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 shadow-2xl"
-        style={{ paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)', maxHeight: '85vh', overflowY: 'auto' }}
+        className="relative w-full rounded-t-2xl bg-background shadow-2xl flex flex-col"
+        style={{ maxHeight: '88vh', paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 0.5rem)' }}
       >
         {/* Handle */}
-        <div className="mb-4 flex justify-center">
+        <div className="pt-3 pb-1 flex justify-center shrink-0">
           <div className="h-1 w-10 rounded-full bg-muted" />
         </div>
 
-        {/* Preview */}
-        <div className="mb-5 flex items-center gap-3">
-          <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-xl', color.bg, color.border)}>
-            {selectedEmoji}
+        {/* Header row: back btn + centered title */}
+        <div className="relative flex items-center justify-center px-4 py-2 shrink-0">
+          <button
+            onClick={onCancel}
+            className="absolute left-4 flex h-8 w-8 items-center justify-center rounded-full bg-muted/70 text-muted-foreground hover:bg-muted transition-colors"
+            aria-label="Назад"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <div className="text-center">
+            <p className="text-[15px] font-semibold leading-tight">Іконка</p>
+            <p className="text-[12px] text-muted-foreground leading-tight">Оберіть емодзі та колір</p>
+          </div>
+        </div>
+
+        {/* Preview icon + name input */}
+        <div className="px-4 pt-3 pb-4 shrink-0">
+          {/* Big icon preview */}
+          <div className="flex justify-center mb-4">
+            <div
+              className={cn(
+                'flex h-20 w-20 items-center justify-center rounded-[22px] text-4xl shadow-lg border',
+                color.bg, color.border
+              )}
+            >
+              {selectedEmoji}
+            </div>
           </div>
           <input
             type="text"
             value={label}
             onChange={e => setLabel(e.target.value)}
             placeholder="Назва категорії"
-            className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm font-medium focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full rounded-xl border border-input bg-muted/30 px-4 py-2.5 text-sm font-medium text-center focus:outline-none focus:ring-1 focus:ring-ring"
             autoFocus
           />
         </div>
 
-        {/* Color picker */}
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Колір</p>
-        <div className="mb-5 grid grid-cols-9 gap-2">
-          {COLOR_PALETTE.map(c => (
+        {/* Tabs */}
+        <div className="px-4 mb-3 shrink-0">
+          <div className="flex rounded-xl bg-muted/40 p-1 gap-1">
             <button
-              key={c.id}
-              onClick={() => setSelectedColor(c.id)}
+              onClick={() => setActiveTab('color')}
               className={cn(
-                'h-7 w-7 rounded-full transition-all',
-                selectedColor === c.id && 'ring-2 ring-offset-2 ring-white/60 scale-110'
-              )}
-              style={{ backgroundColor: c.hex }}
-              aria-label={c.id}
-            />
-          ))}
-        </div>
-
-        {/* Emoji picker */}
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Емодзі</p>
-        <div className="mb-5 grid grid-cols-10 gap-1.5 max-h-48 overflow-y-auto">
-          {EMOJI_OPTIONS.map(emoji => (
-            <button
-              key={emoji}
-              onClick={() => setSelectedEmoji(emoji)}
-              className={cn(
-                'flex h-9 w-full items-center justify-center rounded-xl border text-xl transition-all',
-                selectedEmoji === emoji
-                  ? cn(color.bg, color.border, 'ring-1 ring-offset-1')
-                  : 'border-border/40 bg-muted/30 hover:bg-muted/60'
+                'flex-1 rounded-lg py-2 text-[13px] font-medium transition-all',
+                activeTab === 'color'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              {emoji}
+              🎨 Колір
             </button>
-          ))}
+            <button
+              onClick={() => setActiveTab('emoji')}
+              className={cn(
+                'flex-1 rounded-lg py-2 text-[13px] font-medium transition-all',
+                activeTab === 'emoji'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              😊 Емодзі
+            </button>
+          </div>
         </div>
 
-        <div className="flex gap-2">
-          <button onClick={onCancel} className="flex-1 rounded-full border border-border py-3 text-sm font-medium text-muted-foreground">Скасувати</button>
+        {/* Tab content — scrollable */}
+        <div className="flex-1 overflow-y-auto px-4 min-h-0">
+          {activeTab === 'color' && (
+            <div className="grid grid-cols-9 gap-2 py-1 pb-4">
+              {COLOR_PALETTE.map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setSelectedColor(c.id)}
+                  className={cn(
+                    'h-8 w-8 rounded-full transition-all active:scale-90',
+                    selectedColor === c.id && 'ring-2 ring-offset-2 ring-white/70 scale-110'
+                  )}
+                  style={{ backgroundColor: c.hex }}
+                  aria-label={c.id}
+                />
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'emoji' && (
+            <div className="pb-4">
+              {/* Group tabs — horizontal scroll */}
+              <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3 scrollbar-none" style={{ scrollbarWidth: 'none' }}>
+                {EMOJI_GROUPS.map((g, i) => (
+                  <button
+                    key={g.label}
+                    onClick={() => setActiveGroup(i)}
+                    className={cn(
+                      'shrink-0 rounded-full px-3 py-1 text-[12px] font-medium transition-all whitespace-nowrap',
+                      activeGroup === i
+                        ? cn(color.bg, color.text, 'border', color.border)
+                        : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'
+                    )}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Emoji grid for active group */}
+              <div className="grid grid-cols-10 gap-1.5">
+                {EMOJI_GROUPS[activeGroup].emojis.map(emoji => (
+                  <button
+                    key={emoji}
+                    onClick={() => setSelectedEmoji(emoji)}
+                    className={cn(
+                      'flex h-9 w-full items-center justify-center rounded-xl text-xl transition-all active:scale-90',
+                      selectedEmoji === emoji
+                        ? cn(color.bg, color.border, 'border ring-1 ring-offset-1 ring-white/30')
+                        : 'hover:bg-muted/60'
+                    )}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Action button */}
+        <div className="px-4 pt-2 shrink-0">
           <button
             onClick={() => {
               const name = initialName.toLowerCase().replace(/\s+/g, '_');
               onConfirm(name, label.trim() || name, selectedColor, selectedEmoji);
             }}
             disabled={!label.trim()}
-            className={cn('flex-1 rounded-full py-3 text-sm font-semibold transition-all disabled:opacity-40', color.bg, color.text, 'border', color.border)}
+            className={cn(
+              'w-full rounded-2xl py-4 text-[15px] font-semibold transition-all disabled:opacity-40',
+              color.bg, color.text, 'border', color.border
+            )}
           >
-            Додати
+            Додати категорію
           </button>
         </div>
       </div>
