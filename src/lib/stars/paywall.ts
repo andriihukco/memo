@@ -154,27 +154,38 @@ export async function createSubscription(
     : new Date();
   const endsAt = new Date(baseDate.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 
-  // Upsert subscription row (idempotent — safe to retry)
+  // Insert subscription row — use INSERT ... ON CONFLICT DO NOTHING to be idempotent
+  // (both telegram_payment_charge_id and provider_payment_charge_id are unique)
   const { data: subData, error: subError } = await supabase
     .from("subscriptions")
-    .upsert(
-      {
-        user_id: userId,
-        tier,
-        status: "active",
-        start_date: new Date().toISOString(),
-        end_date: endsAt,
-        telegram_payment_charge_id: telegramPaymentChargeId,
-        provider_payment_charge_id: providerPaymentChargeId,
-      },
-      { onConflict: "telegram_payment_charge_id" }
-    )
+    .insert({
+      user_id: userId,
+      tier,
+      status: "active",
+      start_date: new Date().toISOString(),
+      end_date: endsAt,
+      telegram_payment_charge_id: telegramPaymentChargeId,
+      provider_payment_charge_id: providerPaymentChargeId,
+    })
     .select("id")
     .single();
 
   if (subError) {
-    console.error("[paywall] createSubscription upsert error:", subError.message);
-    // Still update the profile even if subscription row failed
+    // Duplicate charge ID means this payment was already processed — look up existing row
+    if (subError.code === "23505") {
+      const { data: existing } = await supabase
+        .from("subscriptions")
+        .select("id")
+        .eq("telegram_payment_charge_id", telegramPaymentChargeId)
+        .single();
+      if (existing) {
+        console.log("[paywall] createSubscription: duplicate payment, reusing existing subscription row");
+        // Still update profile below
+      }
+    } else {
+      console.error("[paywall] createSubscription insert error:", subError.message);
+      // Still update the profile even if subscription row failed
+    }
   }
 
   // Always update the profile — this is the source of truth for the app
@@ -184,6 +195,7 @@ export async function createSubscription(
       subscription_tier: tier,
       subscription_status: "active",
       subscription_ends_at: endsAt,
+      subscription_start_date: new Date().toISOString(),
     })
     .eq("id", userId);
 
@@ -192,7 +204,16 @@ export async function createSubscription(
     return null;
   }
 
-  return subData?.id ?? null;
+  // Try to get the subscription id — either from the new insert or the existing row
+  if (subData?.id) return subData.id;
+
+  const { data: existingRow } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("telegram_payment_charge_id", telegramPaymentChargeId)
+    .single();
+
+  return existingRow?.id ?? null;
 }
 
 export async function cancelSubscription(userId: string): Promise<boolean> {
