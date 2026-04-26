@@ -442,6 +442,12 @@ export default function SubscriptionsPage() {
                   </p>
                 </div>
               )}
+              {!endsAt && effectiveTier !== 'free' && (
+                <div className="rounded-xl bg-muted/30 px-3 py-2">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Діє до</p>
+                  <p className="text-[12px] font-medium">∞</p>
+                </div>
+              )}
             </div>
 
             {daysRemaining !== null && (
