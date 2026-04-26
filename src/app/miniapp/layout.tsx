@@ -587,7 +587,7 @@ const tabs = [
   { label: 'Стрічка',  href: '/miniapp',            icon: 'contract' },
   { label: 'Віджети',  href: '/miniapp/dashboard',   icon: 'dashboard' },
   { label: 'Графік',   href: '/miniapp/graph',        icon: 'hub' },
-  { label: 'Інсайти',  href: '/miniapp/reports',      icon: 'wb_incandescent', activeIconColor: '#F5C542' },
+  { label: 'Інсайти',  href: '/miniapp/reports',      icon: 'wb_incandescent', activeIconColor: '#F5C542', activeIconStyle: { transform: 'rotate(1deg)', filter: 'drop-shadow(0 4px 8px rgba(245,197,66,0.55))' } },
   { label: 'Меню',    href: '/miniapp/settings',     icon: 'menu' },
 ];
 
@@ -645,7 +645,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
               pointerEvents: 'auto',
             }}
           >
-            {tabs.map(({ label, href, icon, activeIconColor }) => {
+            {tabs.map(({ label, href, icon, activeIconColor, activeIconStyle }) => {
               const isActive = pathname === href;
               const iconColor = isActive ? (activeIconColor ?? ACTIVE_COLOR) : INACTIVE_COLOR;
               return (
@@ -678,7 +678,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
                     name={icon}
                     size={24}
                     filled={isActive}
-                    style={{ color: iconColor }}
+                    style={{ color: iconColor, ...(isActive && activeIconStyle ? activeIconStyle : {}) }}
                   />
                   <span
                     style={{
