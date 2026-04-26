@@ -285,6 +285,10 @@ interface EntryStats {
   dailyVolume: { date: string; count: number }[];
   moodTrend: number[]; // -2..+2 per day
   topCategory: string;
+  hourlyVolume: number[]; // 24 buckets
+  weekdayVolume: number[]; // 7 buckets Mon-Sun
+  currentStreak: number;
+  longestStreak: number;
 }
 
 const MOOD_KW: Record<string, number> = {
@@ -365,10 +369,34 @@ function computeStats(entries: Array<{ content: string; category: string; metada
     return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
   });
 
-  return { totalEntries: entries.length, daysActive, totalDays, categoryBreakdown, metricHighlights, dailyVolume, moodTrend, topCategory };
-}
+  // Hourly distribution
+  const hourlyVolume = Array(24).fill(0);
+  for (const e of entries) hourlyVolume[new Date(e.created_at).getHours()]++;
 
-// ── Stat visualisation components ─────────────────────────────────────────────
+  // Weekday distribution (0=Mon..6=Sun)
+  const weekdayVolume = Array(7).fill(0);
+  for (const e of entries) {
+    const d = new Date(e.created_at).getDay();
+    weekdayVolume[(d + 6) % 7]++;
+  }
+
+  // Streak calculation
+  const activeDaySet = new Set(dailyVolume.filter(d => d.count > 0).map(d => d.date));
+  let currentStreak = 0, longestStreak = 0, streak = 0;
+  const today = new Date().toISOString().slice(0, 10);
+  for (const { date } of dailyVolume) {
+    if (activeDaySet.has(date)) { streak++; longestStreak = Math.max(longestStreak, streak); }
+    else streak = 0;
+  }
+  const reversedDays = [...dailyVolume].reverse();
+  for (const { date } of reversedDays) {
+    if (date > today) continue;
+    if (activeDaySet.has(date)) currentStreak++;
+    else break;
+  }
+
+  return { totalEntries: entries.length, daysActive, totalDays, categoryBreakdown, metricHighlights, dailyVolume, moodTrend, topCategory, hourlyVolume, weekdayVolume, currentStreak, longestStreak };
+}
 
 function StatCard({ title, children, accent = '#4797FF' }: { title: string; children: React.ReactNode; accent?: string }) {
   return (
@@ -502,6 +530,89 @@ function VolumeChart({ dailyVolume }: { dailyVolume: { date: string; count: numb
   );
 }
 
+// Hourly activity chart — when are you most active?
+function HourlyChart({ hourlyVolume }: { hourlyVolume: number[] }) {
+  const max = Math.max(1, ...hourlyVolume);
+  const peakHour = hourlyVolume.indexOf(max);
+  const fmt = (h: number) => `${h.toString().padStart(2,'0')}:00`;
+  const total = hourlyVolume.reduce((a,b) => a+b, 0);
+  if (total === 0) return null;
+  return (
+    <StatCard title="Активність по годинах" accent="#f472b6">
+      <div className="flex items-end gap-px mb-2" style={{ height: 44 }}>
+        {hourlyVolume.map((v, h) => {
+          const height = v === 0 ? 2 : Math.max(3, (v / max) * 40);
+          const isPeak = h === peakHour;
+          return (
+            <div key={h} className="flex-1 rounded-sm transition-all"
+              style={{ height, backgroundColor: isPeak ? '#f472b6' : v === 0 ? 'rgba(255,255,255,0.05)' : `rgba(244,114,182,${0.2 + (v/max)*0.5})` }} />
+          );
+        })}
+      </div>
+      <div className="flex justify-between text-[10px] text-muted-foreground/50 mb-1">
+        <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+      </div>
+      <p className="text-[11px] text-muted-foreground">Пік активності: <span className="text-foreground/80 font-medium">{fmt(peakHour)}</span></p>
+    </StatCard>
+  );
+}
+
+// Weekday pattern — which days are most active?
+function WeekdayPattern({ weekdayVolume }: { weekdayVolume: number[] }) {
+  const DAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+  const max = Math.max(1, ...weekdayVolume);
+  const total = weekdayVolume.reduce((a,b) => a+b, 0);
+  if (total === 0) return null;
+  const peakDay = weekdayVolume.indexOf(Math.max(...weekdayVolume));
+  return (
+    <StatCard title="Активність по днях тижня" accent="#34d399">
+      <div className="flex gap-1.5 items-end mb-2" style={{ height: 52 }}>
+        {weekdayVolume.map((v, i) => {
+          const h = v === 0 ? 3 : Math.max(4, (v / max) * 48);
+          const isWeekend = i >= 5;
+          const isPeak = i === peakDay;
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div className="w-full rounded-md transition-all"
+                style={{ height: h, backgroundColor: isPeak ? '#34d399' : isWeekend ? 'rgba(52,211,153,0.25)' : 'rgba(52,211,153,0.15)' }} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-1.5">
+        {DAYS.map((d, i) => (
+          <div key={d} className="flex-1 text-center text-[10px]"
+            style={{ color: i === peakDay ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{d}</div>
+        ))}
+      </div>
+    </StatCard>
+  );
+}
+
+// Streak card
+function StreakCard({ currentStreak, longestStreak, daysActive, totalDays }: { currentStreak: number; longestStreak: number; daysActive: number; totalDays: number }) {
+  const consistency = totalDays > 0 ? Math.round((daysActive / totalDays) * 100) : 0;
+  return (
+    <StatCard title="Серія та постійність" accent="#fbbf24">
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: 'Поточна серія', value: currentStreak, unit: 'дн', color: '#fbbf24' },
+          { label: 'Найдовша', value: longestStreak, unit: 'дн', color: '#fb923c' },
+          { label: 'Постійність', value: consistency, unit: '%', color: '#34d399' },
+        ].map(({ label, value, unit, color }) => (
+          <div key={label} className="rounded-xl px-2.5 py-2.5 text-center" style={{ background: `${color}12`, border: `1px solid ${color}25` }}>
+            <p className="text-[10px] text-muted-foreground mb-1 leading-tight">{label}</p>
+            <div className="flex items-baseline justify-center gap-0.5">
+              <span className="text-[20px] font-bold leading-none" style={{ color }}>{value}</span>
+              <span className="text-[10px] text-muted-foreground">{unit}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </StatCard>
+  );
+}
+
 // Overview stat row
 function OverviewStats({ stats }: { stats: EntryStats }) {
   const items = [
@@ -582,7 +693,10 @@ function ReportDetail({ report, onClose, accessToken }: {
         {stats && (
           <div className="px-4 flex flex-col gap-3 pb-2">
             <OverviewStats stats={stats} />
+            <StreakCard currentStreak={stats.currentStreak} longestStreak={stats.longestStreak} daysActive={stats.daysActive} totalDays={stats.totalDays} />
             <VolumeChart dailyVolume={stats.dailyVolume} />
+            {stats.weekdayVolume.some(v => v > 0) && <WeekdayPattern weekdayVolume={stats.weekdayVolume} />}
+            {stats.hourlyVolume.some(v => v > 0) && <HourlyChart hourlyVolume={stats.hourlyVolume} />}
             {stats.categoryBreakdown.length > 0 && <CategoryBreakdown breakdown={stats.categoryBreakdown} />}
             {stats.metricHighlights.length > 0 && <MetricHighlights metrics={stats.metricHighlights} />}
             {stats.moodTrend.some(v => v !== 0) && <MoodSparkline moodTrend={stats.moodTrend} dailyVolume={stats.dailyVolume} />}

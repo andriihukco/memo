@@ -820,10 +820,10 @@ export default function GraphPage() {
             <button
               onClick={() => { if (dateRange) { setDateRange(null); } else { play('OPEN'); setShowDateSheet(true); } }}
               onContextMenu={e => { e.preventDefault(); play('OPEN'); setShowDateSheet(true); }}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-muted px-3.5 text-[13px] font-medium text-muted-foreground"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-muted px-3 text-[13px] font-medium text-muted-foreground max-w-[160px]"
             >
-              <Icon name="calendar_today" size={16} />
-              {dateLabel}
+              <Icon name="calendar_today" size={16} className="shrink-0" />
+              <span className="truncate">{dateLabel}</span>
             </button>
           )}
         </div>
@@ -871,22 +871,42 @@ export default function GraphPage() {
               exit={{ opacity: 0 }}
               className="h-full w-full"
             >
-              {/* Skeleton graph — scattered pulse dots */}
+              {/* Skeleton graph — scattered pulse dots connected by dashed lines */}
               <svg className="h-full w-full" aria-label="Завантаження...">
-                {[
-                  [22,35],[55,20],[75,45],[40,60],[65,75],[20,70],[80,25],[50,50],[30,80],[70,55],
-                  [45,30],[85,65],[15,50],[60,35],[35,70],[90,40],[25,55],[70,20],[50,80],[80,70],
-                ].map(([cx, cy], i) => (
-                  <circle
-                    key={i}
-                    cx={`${cx}%`} cy={`${cy}%`}
-                    r={i % 3 === 0 ? 7 : i % 3 === 1 ? 5 : 4}
-                    className="animate-pulse"
-                    fill="hsl(var(--muted-foreground))"
-                    fillOpacity={0.15 + (i % 4) * 0.05}
-                    style={{ animationDelay: `${i * 80}ms` }}
-                  />
-                ))}
+                {(() => {
+                  const pts = [
+                    [22,35],[55,20],[75,45],[40,60],[65,75],[20,70],[80,25],[50,50],[30,80],[70,55],
+                    [45,30],[85,65],[15,50],[60,35],[35,70],[90,40],[25,55],[70,20],[50,80],[80,70],
+                  ];
+                  // Connect nearby pairs with dashed lines
+                  const lines: [number,number,number,number][] = [];
+                  for (let i = 0; i < pts.length; i++) {
+                    for (let j = i + 1; j < pts.length; j++) {
+                      const dx = pts[i][0] - pts[j][0], dy = pts[i][1] - pts[j][1];
+                      if (Math.sqrt(dx*dx + dy*dy) < 22) lines.push([pts[i][0], pts[i][1], pts[j][0], pts[j][1]]);
+                    }
+                  }
+                  return (
+                    <>
+                      {lines.map(([x1,y1,x2,y2], i) => (
+                        <line key={`l${i}`}
+                          x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
+                          stroke="rgba(255,255,255,0.07)" strokeWidth="1" strokeDasharray="3 4"
+                        />
+                      ))}
+                      {pts.map(([cx, cy], i) => (
+                        <circle key={i}
+                          cx={`${cx}%`} cy={`${cy}%`}
+                          r={i % 3 === 0 ? 7 : i % 3 === 1 ? 5 : 4}
+                          className="animate-pulse"
+                          fill="hsl(var(--muted-foreground))"
+                          fillOpacity={0.15 + (i % 4) * 0.05}
+                          style={{ animationDelay: `${i * 80}ms` }}
+                        />
+                      ))}
+                    </>
+                  );
+                })()}
               </svg>
             </motion.div>
           )}
