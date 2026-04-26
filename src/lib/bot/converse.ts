@@ -28,7 +28,7 @@ export async function loadUserContext(userId: string): Promise<UserContext> {
         .limit(15),
       supabase
         .from("profiles")
-        .select("settings, telegram_id")
+        .select("settings, telegram_id, encryption_salt")
         .eq("id", userId)
         .single(),
     ]);
@@ -40,7 +40,10 @@ export async function loadUserContext(userId: string): Promise<UserContext> {
     // Decrypt entry content for tone analysis
     if (profileRes.data?.telegram_id) {
       try {
-        const key = await deriveUserKey(String(profileRes.data.telegram_id));
+        const key = await deriveUserKey(
+          String(profileRes.data.telegram_id),
+          profileRes.data.encryption_salt ?? null
+        );
         entries = await Promise.all(
           entries.map(async (e) => ({
             ...e,

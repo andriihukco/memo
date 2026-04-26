@@ -338,6 +338,122 @@ export async function handleCallbackQuery(ctx: BotContext): Promise<void> {
   if (data === "report:monthly") return runReport(ctx, "monthly");
 }
 
+// ── /remind — schedule a reminder ────────────────────────────────────────────
+
+export async function handleRemind(ctx: BotContext): Promise<void> {
+  const profile = ctx.profile;
+  if (!profile) return;
+
+  const text = ctx.message?.text ?? "";
+  // Parse: /remind <text> at <HH:MM>
+  const match = text.match(/^\/remind (.+) at (\d{1,2}:\d{2})$/i);
+  if (!match) {
+    await ctx.reply("Формат: /remind випити воду at 15:00");
+    return;
+  }
+
+  const [, reminderText, timeStr] = match;
+  const [hoursStr, minutesStr] = timeStr.split(":");
+  const hours = parseInt(hoursStr, 10);
+  const minutes = parseInt(minutesStr, 10);
+
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    await ctx.reply("Невірний час. Формат: /remind випити воду at 15:00");
+    return;
+  }
+
+  // Build scheduled_at: today's date with the given HH:MM in UTC
+  const now = new Date();
+  const scheduledAt = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hours, minutes, 0, 0)
+  );
+
+  // If the time has already passed today, schedule for tomorrow
+  if (scheduledAt.getTime() <= Date.now()) {
+    scheduledAt.setUTCDate(scheduledAt.getUTCDate() + 1);
+  }
+
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+
+  const { error } = await supabase.from("reminders").insert({
+    user_id: profile.id,
+    text: reminderText.trim(),
+    scheduled_at: scheduledAt.toISOString(),
+    status: "pending",
+    // Also populate legacy columns for backward compatibility
+    remind_at: scheduledAt.toISOString(),
+    done: false,
+  });
+
+  if (error) {
+    console.error("[handleRemind] insert error:", error.message);
+    await ctx.reply("Не вдалося зберегти нагадування. Спробуй ще раз 🙏");
+    return;
+  }
+
+  const timeLabel = scheduledAt.toISOString().slice(11, 16); // HH:MM UTC
+  await ctx.reply(
+    `⏰ Нагадування встановлено!\n\n*${reminderText.trim()}*\n\nЧас: ${timeLabel} UTC`,
+    { parse_mode: "Markdown" }
+  );
+}
+
+// ── /invite — referral link ───────────────────────────────────────────────────
+
+export async function handleInvite(ctx: BotContext): Promise<void> {
+  const profile = ctx.profile;
+  if (!profile) return;
+
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
+
+  // Try to fetch an existing referral code for this user
+  const { data: existing } = await supabase
+    .from("referrals")
+    .select("code")
+    .eq("referrer_id", profile.id)
+    .is("referred_id", null)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  let code: string;
+
+  if (existing?.code) {
+    code = existing.code;
+  } else {
+    // Generate a new unique referral code (8 hex chars)
+    code = Array.from(crypto.getRandomValues(new Uint8Array(6)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    const { error } = await supabase.from("referrals").insert({
+      referrer_id: profile.id,
+      code,
+    });
+
+    if (error) {
+      console.error("[handleInvite] insert error:", error.message);
+      await ctx.reply("Не вдалося створити реферальне посилання. Спробуй ще раз 🙏");
+      return;
+    }
+  }
+
+  const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? "memo_r0bot";
+  const deepLink = `https://t.me/${botUsername}?start=ref_${code}`;
+
+  await ctx.reply(
+    `🎁 *Запроси друга — отримай 30 днів Nova безкоштовно\\!*\n\n` +
+      `Поділись своїм посиланням:\n${deepLink}\n\n` +
+      `Коли твій друг зареєструється і оформить підписку — ти автоматично отримаєш *30 днів Memo Nova* у подарунок\\.\n\n` +
+      `Нагорода нараховується один раз за кожного нового користувача\\.`,
+    { parse_mode: "MarkdownV2" }
+  );
+}
+
 // ── /recommendations — intelligent insights ───────────────────────────────────
 
 export async function handleRecommendations(ctx: BotContext): Promise<void> {

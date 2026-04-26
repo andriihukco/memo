@@ -375,6 +375,30 @@ async function attempt<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
   throw lastErr;
 }
 
+/**
+ * Classify a raw text message from a Telegram user into a structured result.
+ *
+ * Uses a two-pass approach with the `gemini-2.5-flash` model:
+ *  - **Pass 1** (`CLASSIFY_PROMPT`): determines intent, category, and cleaned content.
+ *  - **Pass 2** (`METRICS_PROMPT`): extracts measurable quantities (calories, distance,
+ *    mood scores, etc.) for `save_entry` / `converse` intents only. Non-metric
+ *    categories and entries without goal keywords skip Pass 2.
+ *
+ * An optional `threadContext` string (recent conversation history) is appended to
+ * the input so the model can resolve short or ambiguous replies correctly.
+ *
+ * Retries the full two-pass pipeline up to 2 times on transient failures before
+ * throwing a `ClassificationError`.
+ *
+ * @param text - Raw message text sent by the user.
+ * @param threadContext - Optional recent conversation context to help resolve
+ *   short replies (e.g. "yes", "ok", "more").
+ * @returns A validated `ClassificationResult` containing intent, one or more
+ *   entry payloads (with category, content, metadata, and extracted metrics),
+ *   and optional action parameters.
+ * @throws {ClassificationError} If all retry attempts fail or the Gemini API
+ *   returns an unparseable response.
+ */
 export async function classify(text: string, threadContext?: string): Promise<ClassificationResult> {
   try {
     const input = threadContext

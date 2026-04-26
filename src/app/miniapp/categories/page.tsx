@@ -7,6 +7,7 @@ import { useSound } from '@/lib/sound/use-sound';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { hapticNotification } from '@/lib/haptics';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 
@@ -519,7 +520,7 @@ export default function CategoriesPage() {
         {deleteError && <p className="mb-2 text-xs text-destructive">{deleteError}</p>}
         <div className="flex gap-3">
           <button onClick={() => { play('CLOSE'); setDeleteTarget(null); setDeleteError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
-          <button onClick={() => { play('BUTTON'); handleDelete(); }} disabled={deleteLoading} className="flex-1 rounded-full bg-destructive py-3 text-sm font-medium text-destructive-foreground disabled:opacity-50">
+          <button onClick={() => { play('BUTTON'); hapticNotification('warning'); handleDelete(); }} disabled={deleteLoading} className="flex-1 rounded-full bg-destructive py-3 text-sm font-medium text-destructive-foreground disabled:opacity-50">
             {deleteLoading ? '...' : 'Видалити'}
           </button>
         </div>

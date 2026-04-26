@@ -47,7 +47,7 @@ export async function GET(req: Request): Promise<Response> {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, subscription_tier, subscription_status, subscription_ends_at, subscription_start_date")
+    .select("id, subscription_tier, subscription_status, subscription_ends_at, subscription_start_date, trial_used")
     .eq("id", user.id)
     .single();
 

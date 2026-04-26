@@ -65,12 +65,12 @@ async function resolveThread(
   replyToMessageId: number | undefined
 ): Promise<{ threadId: string | null; parentEntryId: string | null }> {
   if (!replyToMessageId) return { threadId: null, parentEntryId: null };
-  // Query with both number and string forms to handle both storage formats (bug 1.6)
+  // All bot_msg_id values are stored as JSON strings after migration 20240001000022
   const { data } = await supabase
     .from("entries")
     .select("id, thread_id, reply_to_entry_id")
     .eq("user_id", userId)
-    .or(`metadata->bot_msg_id.eq.${replyToMessageId},metadata->>bot_msg_id.eq.${replyToMessageId}`)
+    .eq("metadata->>bot_msg_id", String(replyToMessageId))
     .maybeSingle();
   if (!data) return { threadId: null, parentEntryId: null };
   // Walk up the chain to find the true thread root (bug 1.30)
@@ -221,7 +221,15 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
   // Derive encryption key once for all entries in this batch
   let cryptoKey: CryptoKey | null = null;
   try {
-    cryptoKey = await deriveUserKey(profile.telegram_id.toString());
+    const { data: profileForSalt } = await supabase
+      .from("profiles")
+      .select("encryption_salt")
+      .eq("id", profile.id)
+      .single();
+    cryptoKey = await deriveUserKey(
+      profile.telegram_id.toString(),
+      profileForSalt?.encryption_salt ?? null
+    );
   } catch (cryptoErr) {
     console.error("[voice handler] key derivation failed:", cryptoErr);
   }
@@ -301,7 +309,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
         ...primaryMeta,
         ...(entriesToSave[0].dashboard_metrics.length > 0 ? { dashboard_metrics: entriesToSave[0].dashboard_metrics } : {}),
         ...(entriesToSave[0].goal_metrics.length > 0 ? { goal_metrics: entriesToSave[0].goal_metrics } : {}),
-        ...(botMsgId ? { bot_msg_id: botMsgId } : {}),
+        ...(botMsgId ? { bot_msg_id: String(botMsgId) } : {}),
       },
     }).eq("id", primaryId);
 

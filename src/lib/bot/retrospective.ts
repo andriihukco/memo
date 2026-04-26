@@ -54,11 +54,14 @@ async function loadEntriesForPeriod(userId: string, from: Date, to: Date) {
   try {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("telegram_id")
+      .select("telegram_id, encryption_salt")
       .eq("id", userId)
       .single();
     if (profile?.telegram_id) {
-      const key = await deriveUserKey(String(profile.telegram_id));
+      const key = await deriveUserKey(
+        String(profile.telegram_id),
+        profile.encryption_salt ?? null
+      );
       return Promise.all(
         raw.map(async (e) => ({
           ...e,
@@ -212,14 +215,20 @@ export async function saveReport(userId: string, report: Report): Promise<string
 
 // ── Load reports ──────────────────────────────────────────────────────────────
 
-export async function loadReports(userId: string, limit = 10) {
+export async function loadReports(userId: string, cutoff?: string, limit = 10) {
   const supabase = getServiceClient();
-  const { data } = await supabase
+  let query = supabase
     .from("reports")
     .select("id, period_type, period_from, period_to, summary, went_well, didnt_go_well, start_stop_continue, experiment, lesson, insights, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(limit);
+
+  if (cutoff) {
+    query = query.gte("created_at", cutoff);
+  }
+
+  const { data } = await query;
   return data ?? [];
 }
 

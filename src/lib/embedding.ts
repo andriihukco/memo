@@ -56,11 +56,36 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 }
 
 /**
- * Orchestrate embedding generation with retry + DB update for a single entry.
+ * Generate and persist a vector embedding for a single diary entry, with
+ * exponential-backoff retry logic and database side effects.
  *
- * On success: updates entries.embedding and sets embedding_status = 'done',
- * then asynchronously triggers the RAG insight pipeline if entryContext is provided.
- * On exhaustion: sets embedding_status = 'failed' and logs with entry_id.
+ * **Retry logic:** up to `MAX_ATTEMPTS` (3) attempts are made. Between each
+ * attempt the function waits 1 s, 2 s, and 4 s respectively (defined in
+ * `BACKOFF_DELAYS_MS`). After every failed attempt `entries.embedding_attempts`
+ * is incremented in the database so that `retryFailedEmbeddings()` can skip
+ * entries that have already exhausted their budget.
+ *
+ * **DB side effects on success:**
+ *  - `entries.embedding` is set to the 768-dimensional vector string.
+ *  - `entries.embedding_status` is set to `'done'`.
+ *  - `entries.embedding_attempts` is reset to `0`.
+ *  - If `entryContext` is provided, the RAG insight pipeline is triggered
+ *    asynchronously (non-blocking) to find similar entries and generate insights.
+ *
+ * **DB side effects on exhaustion:**
+ *  - `entries.embedding_status` is set to `'failed'`.
+ *  - `entries.embedding_attempts` reflects the total number of attempts made.
+ *  - The entry will be picked up by `retryFailedEmbeddings()` on the next cron
+ *    run as long as `embedding_attempts < 3`.
+ *
+ * @param entryId - UUID of the `entries` row to embed.
+ * @param content - Plain-text content to generate the embedding for.
+ * @param entryContext - Optional context used to trigger the RAG insight
+ *   pipeline after a successful embedding. Includes `userId`, `category`,
+ *   `created_at`, and an optional `sendMessage` callback (not used for
+ *   insights — they surface in the miniapp, not as Telegram messages).
+ * @returns Resolves when the embedding has been stored (or all attempts are
+ *   exhausted). Never rejects — failures are logged and reflected in the DB.
  */
 export async function embedEntry(
   entryId: string,
@@ -80,7 +105,7 @@ export async function embedEntry(
       const supabase = getServiceClient();
       const { error } = await supabase
         .from("entries")
-        .update({ embedding: `[${embedding.join(",")}]`, embedding_status: "done" })
+        .update({ embedding: `[${embedding.join(",")}]`, embedding_status: "done", embedding_attempts: 0 })
         .eq("id", entryId);
 
       if (error) {
@@ -99,6 +124,21 @@ export async function embedEntry(
       return;
     } catch (err) {
       lastError = err;
+
+      // Increment embedding_attempts in the DB so retryFailedEmbeddings can
+      // skip entries that have already exhausted their attempt budget.
+      const supabase = getServiceClient();
+      const { data: current } = await supabase
+        .from("entries")
+        .select("embedding_attempts")
+        .eq("id", entryId)
+        .single();
+
+      const nextAttempts = ((current?.embedding_attempts as number | null) ?? 0) + 1;
+      await supabase
+        .from("entries")
+        .update({ embedding_attempts: nextAttempts })
+        .eq("id", entryId);
     }
   }
 

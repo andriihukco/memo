@@ -26,17 +26,25 @@ const ENC_PREFIX = "enc:";
 const INFO = new TextEncoder().encode("memo-entry-encryption-v1");
 
 /**
- * Derive a per-user AES-256-GCM CryptoKey from the Telegram user ID and
- * the server-side pepper (ENTRY_ENCRYPTION_PEPPER env var).
+ * Derive a per-user AES-256-GCM CryptoKey from the Telegram user ID,
+ * an optional per-user salt, and the server-side pepper
+ * (ENTRY_ENCRYPTION_PEPPER env var).
+ *
+ * When `salt` is provided the IKM input is `${telegramUserId}:${salt}`,
+ * which binds the key to the per-user random salt stored in
+ * `profiles.encryption_salt`.  When `salt` is null/undefined the IKM is
+ * just `telegramUserId` — this preserves backward compatibility for
+ * existing accounts that were created before the salt column was added.
  *
  * Works in both browser (crypto.subtle) and Node 18+ (globalThis.crypto.subtle).
  */
-export async function deriveUserKey(telegramUserId: string): Promise<CryptoKey> {
+export async function deriveUserKey(telegramUserId: string, salt?: string | null): Promise<CryptoKey> {
   const pepper = getEncryptionPepper();
   const subtle = getCrypto().subtle;
 
-  // IKM = SHA-256(telegram_user_id)
-  const ikmRaw = new TextEncoder().encode(telegramUserId);
+  // IKM = SHA-256(telegramUserId) or SHA-256(telegramUserId:salt)
+  const ikm = salt ? `${telegramUserId}:${salt}` : telegramUserId;
+  const ikmRaw = new TextEncoder().encode(ikm);
   const ikmHash = await subtle.digest("SHA-256", ikmRaw);
 
   // Import IKM as HKDF key material
@@ -48,12 +56,12 @@ export async function deriveUserKey(telegramUserId: string): Promise<CryptoKey> 
     ["deriveKey"]
   );
 
-  // Salt = pepper bytes
-  const salt = new TextEncoder().encode(pepper);
+  // Salt = pepper bytes (renamed to avoid shadowing the `salt` parameter)
+  const hkdfSalt = new TextEncoder().encode(pepper);
 
   // Derive AES-256-GCM key
   return subtle.deriveKey(
-    { name: "HKDF", hash: "SHA-256", salt, info: INFO },
+    { name: "HKDF", hash: "SHA-256", salt: hkdfSalt, info: INFO },
     hkdfKey,
     { name: ALGORITHM, length: KEY_LENGTH },
     false,

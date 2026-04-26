@@ -4,6 +4,7 @@ export const maxDuration = 60; // allow up to 60s for Gemini generation
 import { createClient } from "@supabase/supabase-js";
 import { generateRetrospective, saveReport, loadReports, deleteReport } from "@/lib/bot/retrospective";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 function jwt(req: Request) {
   const a = req.headers.get("Authorization");
@@ -30,7 +31,14 @@ export async function GET(req: Request) {
     return Response.json({ reports: [] });
   }
 
-  const reports = await loadReports(profile.id);
+  // Apply historyDays cutoff based on user's tier
+  const tier = await getEffectiveTier(profile.id);
+  const historyDays = TIER_INFO[tier].limits.historyDays;
+  const cutoff = historyDays !== Infinity
+    ? new Date(Date.now() - historyDays * 86_400_000).toISOString()
+    : null;
+
+  const reports = await loadReports(profile.id, cutoff ?? undefined);
   return Response.json({ reports });
 }
 
@@ -38,6 +46,10 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const token = jwt(req);
   if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: 30 writes/min per JWT
+  const rl = rateLimit(`reports:write:${token.slice(0, 16)}`, 30, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const body = await req.json().catch(() => ({}));
   const { period_type = "weekly", from, to } = body;

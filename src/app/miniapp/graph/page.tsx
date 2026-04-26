@@ -10,10 +10,14 @@ import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Icon } from '@/components/ui/icon';
 import { X } from 'lucide-react';
 import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/edit-drawer';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { cn } from '@/lib/utils';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
+import { TIER_INFO } from '@/lib/stars/paywall';
 import { useSound } from '@/lib/sound/use-sound';
+
+const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? 'memo_r0bot';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -279,8 +283,24 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
 
   const isPaid = userTier === 'stars_basic' || userTier === 'stars_pro';
 
+  // Compute historyDays limit for the current tier
+  const historyDays = TIER_INFO[userTier].limits.historyDays;
+
+  // How many days back does each preset go?
+  const PRESET_DAYS: Partial<Record<DatePresetKey, number>> = {
+    today: 1, yesterday: 1, week: 7, '2weeks': 14, month: 30,
+    '3months': 92, year: 365, ytd: 366, all: Infinity,
+  };
+
   const handlePreset = (p: DatePreset) => {
     if (p.paid && !isPaid) {
+      play('CAUTION');
+      setPaywallOpen(true);
+      return;
+    }
+    // Lock presets that exceed the user's historyDays limit
+    const presetDays = PRESET_DAYS[p.key] ?? 0;
+    if (presetDays > historyDays) {
       play('CAUTION');
       setPaywallOpen(true);
       return;
@@ -315,7 +335,8 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
         <div className="px-4">
           {DATE_PRESETS.map((p) => {
             const isSelected = selected === p.key || (p.key === 'all' && value === null && selected === null);
-            const locked = p.paid && !isPaid;
+            const presetDays = PRESET_DAYS[p.key] ?? 0;
+            const locked = (p.paid && !isPaid) || (presetDays > historyDays);
             return (
               <button key={p.key} onClick={() => handlePreset(p)} className={cn('min-h-[44px] flex items-center gap-3 px-0 w-full', locked && 'opacity-60')}>
                 <Icon name={p.icon} size={20} className={locked ? 'text-muted-foreground/50 shrink-0' : 'text-primary/60 shrink-0'} />
@@ -415,8 +436,14 @@ export default function GraphPage() {
   const fetchGraph = useCallback(async () => {
     if (!accessToken) return;
     setStatus('loading');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const res = await fetch('/api/graph', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const res = await fetch('/api/graph', {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      clearTimeout(timeout);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? `Request failed (${res.status})`);
@@ -425,7 +452,12 @@ export default function GraphPage() {
       setGraphData(payload);
       setStatus('ready');
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Failed to load graph');
+      clearTimeout(timeout);
+      if (err instanceof Error && err.name === 'AbortError') {
+        setErrorMsg('Завантаження зайняло надто довго. Перевір з\'єднання та спробуй знову.');
+      } else {
+        setErrorMsg(err instanceof Error ? err.message : 'Failed to load graph');
+      }
       setStatus('error');
     }
   }, [accessToken]);
@@ -455,11 +487,78 @@ export default function GraphPage() {
 
   // ── D3 simulation ──────────────────────────────────────────────────────────
 
+  // ── Focus mode ─────────────────────────────────────────────────────────────
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
+  const [isolatedNodeMsg, setIsolatedNodeMsg] = useState(false);
+
   // Keep a ref to the node selection so we can update opacity without re-running simulation
   const nodeSelRef = useRef<d3.Selection<SVGCircleElement, SimNode, SVGGElement, unknown> | null>(null);
+  const linkSelRef = useRef<d3.Selection<SVGLineElement, SimLink, SVGGElement, unknown> | null>(null);
+  // Ref to the current nodes array for bounding box computation
+  const nodesRef = useRef<SimNode[]>([]);
+  // Ref to exitFocusMode so it can be called from inside D3 event handlers
+  const exitFocusModeRef = useRef<(() => void) | null>(null);
+  // Ref to the hex→filterId map for restoring glow filters
+  const hexToFilterRef = useRef<Map<string, string>>(new Map());
+
+  const exitFocusMode = useCallback(() => {
+    if (!nodeSelRef.current || !linkSelRef.current || !svgRef.current || !zoomRef.current || !containerRef.current) return;
+
+    // Restore all opacities
+    nodeSelRef.current.transition().duration(300)
+      .attr('fill-opacity', (d: SimNode) => selectedCategory && d.category !== selectedCategory ? 0.15 : 0.9)
+      .attr('filter', (d: SimNode) => {
+        if (selectedCategory && d.category !== selectedCategory) return null;
+        const f = hexToFilterRef.current.get(categoryHex(d.category));
+        return f ? `url(#${f})` : null;
+      });
+    linkSelRef.current.transition().duration(300)
+      .attr('stroke-opacity', (d: SimLink) => {
+        if (d.type === 'branch') return 0.7;
+        if (d.type === 'cross_category') return 0.5;
+        return 0.25;
+      });
+
+    // Zoom back to full graph
+    const allNodes = nodesRef.current;
+    if (allNodes.length > 0) {
+      const xs = allNodes.map(n => n.x ?? 0);
+      const ys = allNodes.map(n => n.y ?? 0);
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const bboxW = Math.max(maxX - minX, 60);
+      const bboxH = Math.max(maxY - minY, 60);
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      const padding = 48;
+      const scale = Math.min(3, Math.max(0.15,
+        Math.min((width - padding * 2) / bboxW, (height - padding * 2) / bboxH)
+      ));
+      d3.select(svgRef.current)
+        .transition().duration(600).ease(d3.easeCubicOut)
+        .call(zoomRef.current.transform, d3.zoomIdentity
+          .translate(width / 2 - scale * cx, height / 2 - scale * cy)
+          .scale(scale));
+    }
+
+    setFocusNodeId(null);
+    setIsolatedNodeMsg(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory]);
+
+  // Keep the ref in sync so D3 event handlers can call it
+  useEffect(() => {
+    exitFocusModeRef.current = exitFocusMode;
+  }, [exitFocusMode]);
 
   useEffect(() => {
     if (status !== 'ready' || !graphData || !svgRef.current || !containerRef.current) return;
+
+    // Reset focus mode when graph re-renders
+    setFocusNodeId(null);
+    setIsolatedNodeMsg(false);
 
     const allNodes = graphData.nodes;
     const allEdges = graphData.edges;
@@ -525,6 +624,7 @@ export default function GraphPage() {
     });
     // Map hex → filter id
     const hexToFilter = new Map(glowColors.map((hex, i) => [hex, `glow-${i}`]));
+    hexToFilterRef.current = hexToFilter;
 
     const g = svg.append('g');
 
@@ -533,6 +633,14 @@ export default function GraphPage() {
       .on('zoom', (event) => g.attr('transform', event.transform));
     svg.call(zoom);
     zoomRef.current = zoom;
+
+    // Background click — exit focus mode when tapping empty area
+    svg.on('click.background', (event) => {
+      if (event.target === svgRef.current) {
+        // Clicked on the SVG background (not a node)
+        exitFocusModeRef.current?.();
+      }
+    });
 
     // Edges
     const linkSel = g.append('g').attr('class', 'links')
@@ -581,10 +689,62 @@ export default function GraphPage() {
           .filter((n): n is GraphNode => n !== null);
         setLinkedNodes(connected);
         setSelectedNode(d);
+
+        // ── Enter focus mode ──────────────────────────────────────────────
+        const neighborIds = new Set(
+          links
+            .filter(l => (l.source as SimNode).id === d.id || (l.target as SimNode).id === d.id)
+            .flatMap(l => [(l.source as SimNode).id, (l.target as SimNode).id])
+        );
+        neighborIds.add(d.id);
+
+        const isIsolated = neighborIds.size === 1; // only the node itself
+
+        // Dim non-neighbors
+        nodeSel.transition().duration(300)
+          .attr('fill-opacity', (n: SimNode) => neighborIds.has(n.id) ? 0.9 : 0.08)
+          .attr('filter', (n: SimNode) => {
+            if (!neighborIds.has(n.id)) return null;
+            // Re-derive the glow filter from the node's category color
+            const hex = categoryHex(n.category);
+            const glowIdx = glowColors.indexOf(hex);
+            return glowIdx >= 0 ? `url(#glow-${glowIdx})` : null;
+          });
+        linkSel.transition().duration(300)
+          .attr('stroke-opacity', (l: SimLink) =>
+            neighborIds.has((l.source as SimNode).id) && neighborIds.has((l.target as SimNode).id) ? 0.6 : 0.03
+          );
+
+        // Zoom to neighborhood bounding box
+        const focusNodes = nodes.filter(n => neighborIds.has(n.id));
+        if (focusNodes.length > 0 && svgRef.current && zoomRef.current) {
+          const fxs = focusNodes.map(n => n.x ?? 0);
+          const fys = focusNodes.map(n => n.y ?? 0);
+          const fMinX = Math.min(...fxs), fMaxX = Math.max(...fxs);
+          const fMinY = Math.min(...fys), fMaxY = Math.max(...fys);
+          const fW = Math.max(fMaxX - fMinX, 60);
+          const fH = Math.max(fMaxY - fMinY, 60);
+          const fCx = (fMinX + fMaxX) / 2;
+          const fCy = (fMinY + fMaxY) / 2;
+          const fPad = isIsolated ? 120 : 80;
+          const fScale = Math.min(3, Math.max(0.3,
+            Math.min((width - fPad * 2) / fW, (height - fPad * 2) / fH)
+          ));
+          d3.select(svgRef.current)
+            .transition().duration(500).ease(d3.easeCubicOut)
+            .call(zoomRef.current.transform, d3.zoomIdentity
+              .translate(width / 2 - fScale * fCx, height / 2 - fScale * fCy)
+              .scale(fScale));
+        }
+
+        setFocusNodeId(d.id);
+        setIsolatedNodeMsg(isIsolated);
       });
 
     // Store ref for live opacity updates when chip selection changes
     nodeSelRef.current = nodeSel as unknown as d3.Selection<SVGCircleElement, SimNode, SVGGElement, unknown>;
+    linkSelRef.current = linkSel as unknown as d3.Selection<SVGLineElement, SimLink, SVGGElement, unknown>;
+    nodesRef.current = nodes;
 
     // Cluster labels
     const parent = new Map<string, string>(nodes.map((n) => [n.id, n.id]));
@@ -716,7 +876,14 @@ export default function GraphPage() {
         }
       });
 
-    return () => { simulation.stop(); };
+    return () => {
+      simulation.stop();
+      if (svgRef.current) {
+        const svgEl = d3.select(svgRef.current);
+        svgEl.selectAll('*').remove();
+        svgEl.on('.zoom', null);
+      }
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, graphData, dateRange]);
 
@@ -956,15 +1123,15 @@ export default function GraphPage() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex h-full flex-col items-center justify-center px-8 text-center gap-3"
+            className="flex h-full items-center justify-center"
           >
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30 text-4xl">
-              🕸️
-            </div>
-            <p className="text-[15px] font-semibold">Граф ще порожній</p>
-            <p className="text-[13px] text-muted-foreground leading-relaxed max-w-xs">
-              Почни вести щоденник у боті — після кількох записів тут з&apos;явиться граф зв&apos;язків між ними.
-            </p>
+            <EmptyState
+              icon="🕸️"
+              title="Граф ще порожній"
+              subtitle="Надішли перші записи боту — після кількох записів тут з'явиться граф зв'язків між ними."
+              ctaLabel="Відкрити бота"
+              onCta={() => window.open(`https://t.me/${BOT_USERNAME}`, '_blank')}
+            />
           </motion.div>
         )}
         {status === 'ready' && (graphData?.nodes.length ?? 0) > 0 && (
@@ -977,6 +1144,48 @@ export default function GraphPage() {
             <svg ref={svgRef} className="h-full w-full" />
           </motion.div>
         )}
+
+        {/* Focus mode overlays */}
+        <AnimatePresence>
+          {focusNodeId && (
+            <>
+              {/* "Show all" button */}
+              <motion.div
+                key="focus-btn"
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                className="absolute top-4 right-4 z-20"
+              >
+                <Button
+                  size="sm"
+                  onClick={() => { play('CLOSE'); exitFocusMode(); }}
+                  className="shadow-lg"
+                >
+                  Показати все
+                </Button>
+              </motion.div>
+
+              {/* Isolated node message */}
+              {isolatedNodeMsg && (
+                <motion.div
+                  key="isolated-msg"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 28, delay: 0.1 }}
+                  className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
+                >
+                  <div className="rounded-2xl bg-background/90 backdrop-blur-sm border border-border/40 px-4 py-2.5 shadow-lg text-center">
+                    <p className="text-[13px] text-muted-foreground">Цей запис не має пов&apos;язаних записів</p>
+                  </div>
+                </motion.div>
+              )}
+            </>
+          )}
+        </AnimatePresence>
+
         {/* Free tier overlay — shown when userTier is known and is 'free' */}
         <AnimatePresence>
           {tierLoaded && userTier === 'free' && (

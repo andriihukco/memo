@@ -18,6 +18,8 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
+import { TIER_INFO } from '@/lib/stars/paywall';
+import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
 
 // ── Full emoji library (10 categories × ~10 each) ────────────────────────────
 const EMOJI_LIBRARY = [
@@ -1089,6 +1091,15 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
 
   const isPaid = userTier === 'stars_basic' || userTier === 'stars_pro';
 
+  // Compute historyDays limit for the current tier
+  const historyDays = userTier ? TIER_INFO[userTier].limits.historyDays : 30;
+
+  // How many days back does each preset go?
+  const PRESET_DAYS: Partial<Record<DateRange, number>> = {
+    today: 1, yesterday: 1, week: 7, '2weeks': 14, month: 30,
+    '3months': 92, year: 365, ytd: 366, all: Infinity,
+  };
+
   type PresetOption = { range: DateRange; label: string; icon: string; paid: boolean };
   const PRESET_OPTIONS: PresetOption[] = [
     { range: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false },
@@ -1105,6 +1116,13 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
 
   const handleSelectPreset = (opt: PresetOption) => {
     if (opt.paid && !isPaid) {
+      play('CAUTION');
+      setPaywallOpen(true);
+      return;
+    }
+    // Lock presets that exceed the user's historyDays limit
+    const presetDays = PRESET_DAYS[opt.range] ?? 0;
+    if (presetDays > historyDays) {
       play('CAUTION');
       setPaywallOpen(true);
       return;
@@ -1136,7 +1154,8 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
         <div className="px-4">
           {PRESET_OPTIONS.map(opt => {
             const isSelected = selected === opt.range;
-            const locked = opt.paid && !isPaid;
+            const presetDays = PRESET_DAYS[opt.range] ?? 0;
+            const locked = (opt.paid && !isPaid) || (presetDays > historyDays);
             return (
               <button
                 key={opt.range}
@@ -1395,9 +1414,14 @@ export default function DashboardPage() {
 
   // ── User tier (for "+" button intercept) ──────────────────────────────────
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
+  const [trialUsed, setTrialUsed] = useState(true); // default true = no trial shown until confirmed
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null);
 
   // ── Usage counts ───────────────────────────────────────────────────────────
-  useUsageCounts(accessToken);
+  const { counts: usageCounts } = useUsageCounts(accessToken);
+
+  // ── Entry limit banner dismissed state (session-scoped) ───────────────────
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const { play } = useSound();
 
@@ -1441,11 +1465,24 @@ export default function DashboardPage() {
       if (!res.ok) return;
       const { profile } = await res.json();
       setUserTier((profile?.subscription_tier as SubscriptionTier) ?? 'free');
+      setTrialUsed(profile?.trial_used ?? true);
+      setSubscriptionEndsAt(profile?.subscription_ends_at ?? null);
     } catch { /* non-critical */ }
   }, [accessToken]);
 
   useEffect(() => { fetchEntries(filter.from, filter.to); }, [fetchEntries, filter]);
   useEffect(() => { fetchAllEntries(); fetchCustomWidgets(); fetchUserTier(); }, [fetchAllEntries, fetchCustomWidgets, fetchUserTier]);
+
+  // ── Auto-open paywall when entry limit reached (task 7.4) ─────────────────
+  useEffect(() => {
+    const entryCount = usageCounts?.entries ?? 0;
+    const entryLimit = TIER_INFO.free.limits.entries;
+    if (userTier === 'free' && entryCount >= entryLimit) {
+      openPaywall('entries', entryCount, entryLimit, 'stars_basic');
+    }
+    // Only trigger when usageCounts or userTier changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usageCounts, userTier]);
 
   const handleUpdate = async (id: string, content: string, category: string) => {
     if (!accessToken) return;
@@ -1579,6 +1616,13 @@ export default function DashboardPage() {
     setPaywallOpen(true);
   };
 
+  // ── Trial detection ────────────────────────────────────────────────────────
+  // A user is on a trial when: trial_used=true AND tier=stars_basic AND ends_at is in the future
+  const isTrial = trialUsed && userTier === 'stars_basic' && !!subscriptionEndsAt && new Date(subscriptionEndsAt) > new Date();
+  const trialDaysLeft = isTrial
+    ? Math.max(1, Math.ceil((new Date(subscriptionEndsAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
   const handleAddWidgetTap = () => {
     // Count all custom widgets against the limit
     const widgetCount = customWidgets.length;
@@ -1605,6 +1649,12 @@ export default function DashboardPage() {
           </button>
         </div>
         <div className="flex items-center gap-2">
+          {/* Trial badge — shown when user is on an active free trial */}
+          {isTrial && (
+            <Badge className="shrink-0 rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/30 text-[11px] font-semibold px-2.5 py-0.5">
+              Пробний · {trialDaysLeft} дн.
+            </Badge>
+          )}
           {/* Date picker — hidden on goals view */}
           {view === 'actual' && (
             <button
@@ -1664,6 +1714,32 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
+
+      {/* ── Entry usage warnings (free tier) ──────────────────────────────── */}
+      {(() => {
+        const entryCount = usageCounts?.entries ?? 0;
+        const entryLimit = TIER_INFO.free.limits.entries;
+        const usagePct = entryCount / entryLimit;
+        if (userTier !== 'free') return null;
+        return (
+          <>
+            {/* >80%: usage chip */}
+            {usagePct > 0.8 && (
+              <UsageCounterChip
+                label={`${entryCount} / ${entryLimit} записів`}
+                onClick={() => openPaywall('entries', entryCount, entryLimit, 'stars_basic')}
+              />
+            )}
+            {/* >90%: dismissible banner with upgrade CTA */}
+            {usagePct > 0.9 && !bannerDismissed && (
+              <ErrorBanner
+                message={`Ти майже досяг ліміту записів (${entryCount}/${entryLimit}). Оновись до Nova щоб продовжити.`}
+                onDismiss={() => setBannerDismissed(true)}
+              />
+            )}
+          </>
+        );
+      })()}
 
       {/* View content */}
       <div>
@@ -1933,6 +2009,11 @@ export default function DashboardPage() {
         open={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         {...paywallProps}
+        trialUsed={trialUsed}
+        onTrialActivated={() => {
+          setPaywallOpen(false);
+          fetchUserTier(); // refresh tier + trial state
+        }}
       />
     </div>
   );

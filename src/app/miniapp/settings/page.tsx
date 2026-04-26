@@ -250,6 +250,29 @@ export default function SettingsPage() {
   const [confirmMismatch, setConfirmMismatch] = useState(false);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
 
+  const [notifStreak, setNotifStreak] = useState(true);
+  const [notifWeekly, setNotifWeekly] = useState(true);
+  const [notifMounted, setNotifMounted] = useState(false);
+
+  useEffect(() => {
+    setNotifStreak(localStorage.getItem('memo_notif_streak') !== 'false');
+    setNotifWeekly(localStorage.getItem('memo_notif_weekly') !== 'false');
+    setNotifMounted(true);
+  }, []);
+
+  const toggleNotifStreak = () => {
+    const next = !notifStreak;
+    setNotifStreak(next);
+    localStorage.setItem('memo_notif_streak', String(next));
+    play(next ? 'TOGGLE_ON' : 'TOGGLE_OFF');
+  };
+  const toggleNotifWeekly = () => {
+    const next = !notifWeekly;
+    setNotifWeekly(next);
+    localStorage.setItem('memo_notif_weekly', String(next));
+    play(next ? 'TOGGLE_ON' : 'TOGGLE_OFF');
+  };
+
   useEffect(() => {
     setHasPasscode(!!getPasscodeHash());
     setLockTimerState(getLockTimer());
@@ -420,53 +443,62 @@ export default function SettingsPage() {
       className="flex flex-col gap-6 px-4 pt-5 pb-6"
     >
 
-      {/* ── Subscription ────────────────────────────────────────────────────── */}
+      {/* ── Підписка ────────────────────────────────────────────────────── */}
       <motion.section
+        id="subscription"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
       >
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підписка</p>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підписка</h2>
+
+        {/* Current tier + expiry info */}
+        {userTier && (
+          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
+            <span className="text-2xl leading-none shrink-0">
+              {TIER_INFO[userTier as SubscriptionTier]?.icon ?? '⭐'}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">
+                {TIER_INFO[userTier as SubscriptionTier]?.name ?? 'Підписка'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {userTier === 'free' || !subscriptionEndsAt
+                  ? 'Безкоштовний план'
+                  : (() => {
+                      const isExpired = new Date(subscriptionEndsAt) < new Date();
+                      if (isExpired) return 'Підписка закінчилась';
+                      const daysLeft = Math.ceil((new Date(subscriptionEndsAt).getTime() - Date.now()) / 86400000);
+                      const dateStr = new Date(subscriptionEndsAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+                      return `Активна до ${dateStr} (${daysLeft} дн.)`;
+                    })()}
+              </p>
+            </div>
+            {userTier !== 'free' && (() => {
+              const isExpired = subscriptionEndsAt ? new Date(subscriptionEndsAt) < new Date() : false;
+              return isExpired
+                ? <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive shrink-0">Закінчилась</span>
+                : <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400 shrink-0">Активна</span>;
+            })()}
+          </div>
+        )}
+
         <Card>
           <CardContent className="p-0">
             <a href="/miniapp/subscriptions"
               onClick={() => play('OPEN')}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/15">
-                <span className="text-base leading-none">
-                  {userTier ? TIER_INFO[userTier as SubscriptionTier]?.icon ?? '⭐' : '⭐'}
-                </span>
+                <Icon name="workspace_premium" size={16} className="text-amber-400" />
               </div>
               <div className="flex-1 text-left min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-medium">
-                    {userTier ? TIER_INFO[userTier as SubscriptionTier]?.name ?? 'Підписка' : 'Підписка'}
-                  </p>
-                  {userTier && userTier !== 'free' && (() => {
-                    const isExpired = subscriptionEndsAt ? new Date(subscriptionEndsAt) < new Date() : false;
-                    const daysLeft = subscriptionEndsAt && !isExpired
-                      ? Math.ceil((new Date(subscriptionEndsAt).getTime() - Date.now()) / 86400000)
-                      : null;
-                    return (
-                      <>
-                        {isExpired ? (
-                          <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-medium text-destructive">Закінчилась</span>
-                        ) : (
-                          <span className="rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-400">Активна</span>
-                        )}
-                        {daysLeft !== null && daysLeft <= 7 && (
-                          <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">{daysLeft}д</span>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
+                <p className="text-sm font-medium">
+                  {userTier === 'free' || !userTier ? 'Оновити план' : 'Керувати підпискою'}
+                </p>
                 <p className="text-xs text-muted-foreground truncate">
                   {userTier === 'free' || !userTier
                     ? 'Розблокуй AI-функції та більше лімітів'
-                    : subscriptionEndsAt
-                      ? `До ${new Date(subscriptionEndsAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })}`
-                      : 'Керувати підпискою'}
+                    : 'Переглянути деталі та змінити план'}
                 </p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
@@ -475,13 +507,14 @@ export default function SettingsPage() {
         </Card>
       </motion.section>
 
-      {/* ── Privacy ───────────────────────────────────────────────────────── */}
+      {/* ── Приватність та безпека ────────────────────────────────────────── */}
       <motion.section
+        id="privacy"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
       >
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Конфіденційність</p>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Приватність та безпека</h2>
         <Card>
           <CardContent className="p-0">
             <motion.button
@@ -568,17 +601,125 @@ export default function SettingsPage() {
                 </div>
               </motion.button>
             )}
+            <Separator />
+            {/* Export data */}
+            <motion.button
+              whileTap={{ scale: 0.99 }}
+              onClick={async () => {
+                play('OPEN');
+                if (!accessToken) return;
+                try {
+                  const res = await fetch('/api/profile/export', {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                  });
+                  if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    alert(d.error ?? 'Не вдалося експортувати дані');
+                    return;
+                  }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `memo-export-${new Date().toISOString().slice(0, 10)}.zip`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch {
+                  alert('Не вдалося завантажити дані. Спробуй ще раз.');
+                }
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="download" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Експортувати мої дані</p>
+                <p className="text-xs text-muted-foreground">Завантажити всі записи (ZIP)</p>
+              </div>
+              <Icon name="chevron_right" size={16} className="text-muted-foreground" />
+            </motion.button>
           </CardContent>
         </Card>
       </motion.section>
 
-      {/* ── Categories ──────────────────────────────────────────────────── */}
+      {/* ── Сповіщення ──────────────────────────────────────────────────── */}
       <motion.section
+        id="notifications"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
       >
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Категорії</p>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Сповіщення</h2>
+        <Card>
+          <CardContent className="p-0">
+            {/* Streak reminders toggle */}
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="local_fire_department" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Нагадування про серію</p>
+                <p className="text-xs text-muted-foreground">
+                  {notifMounted ? (notifStreak ? 'Увімкнено' : 'Вимкнено') : 'Увімкнено'}
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={notifMounted ? notifStreak : true}
+                onClick={toggleNotifStreak}
+                className={cn(
+                  'relative flex-shrink-0 rounded-full transition-colors duration-200',
+                  notifMounted && notifStreak ? 'bg-[#4797FF]' : 'bg-[#335B7E]'
+                )}
+                style={{ width: 44, height: 26, minWidth: 44, minHeight: 26 }}
+              >
+                <span
+                  className="absolute top-[3px] rounded-full bg-white shadow-sm transition-all duration-200"
+                  style={{ width: 20, height: 20, left: notifMounted && notifStreak ? 21 : 3 }}
+                />
+              </button>
+            </div>
+            <Separator />
+            {/* Weekly summary toggle */}
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="calendar_month" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Щотижневий підсумок</p>
+                <p className="text-xs text-muted-foreground">
+                  {notifMounted ? (notifWeekly ? 'Щопонеділка' : 'Вимкнено') : 'Щопонеділка'}
+                </p>
+              </div>
+              <button
+                role="switch"
+                aria-checked={notifMounted ? notifWeekly : true}
+                onClick={toggleNotifWeekly}
+                className={cn(
+                  'relative flex-shrink-0 rounded-full transition-colors duration-200',
+                  notifMounted && notifWeekly ? 'bg-[#4797FF]' : 'bg-[#335B7E]'
+                )}
+                style={{ width: 44, height: 26, minWidth: 44, minHeight: 26 }}
+              >
+                <span
+                  className="absolute top-[3px] rounded-full bg-white shadow-sm transition-all duration-200"
+                  style={{ width: 20, height: 20, left: notifMounted && notifWeekly ? 21 : 3 }}
+                />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.section>
+
+      {/* ── Категорії ──────────────────────────────────────────────────── */}
+      <motion.section
+        id="categories"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Категорії</h2>
         <Card>
           <CardContent className="p-0">
             <motion.a
@@ -600,22 +741,23 @@ export default function SettingsPage() {
         </Card>
       </motion.section>
 
-      {/* ── Sound ───────────────────────────────────────────────────────── */}
+      {/* ── Звук ───────────────────────────────────────────────────────── */}
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <SoundSection />
-      </motion.div>
-
-      {/* ── Support ─────────────────────────────────────────────────────── */}
-      <motion.section
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
       >
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підтримка</p>
+        <SoundSection />
+      </motion.div>
+
+      {/* ── Підтримка ─────────────────────────────────────────────────────── */}
+      <motion.section
+        id="support"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підтримка</h2>
         <Card>
           <CardContent className="p-0">
             <motion.a
@@ -657,63 +799,14 @@ export default function SettingsPage() {
         </Card>
       </motion.section>
 
-      {/* ── About ───────────────────────────────────────────────────────── */}
+      {/* ── Про додаток ───────────────────────────────────────────────────── */}
       <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Дані та конфіденційність</p>
-        <Card>
-          <CardContent className="p-0">
-            {/* Export data */}
-            <motion.button
-              whileTap={{ scale: 0.99 }}
-              onClick={async () => {
-                play('OPEN');
-                if (!accessToken) return;
-                try {
-                  const res = await fetch('/api/profile/export', {
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                  });
-                  if (!res.ok) {
-                    const d = await res.json().catch(() => ({}));
-                    alert(d.error ?? 'Не вдалося експортувати дані');
-                    return;
-                  }
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `memo-export-${new Date().toISOString().slice(0, 10)}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch {
-                  alert('Не вдалося завантажити дані. Спробуй ще раз.');
-                }
-              }}
-              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <Icon name="download" size={16} className="text-primary" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Експортувати мої дані</p>
-                <p className="text-xs text-muted-foreground">Завантажити всі записи у форматі JSON</p>
-              </div>
-              <Icon name="chevron_right" size={16} className="text-muted-foreground" />
-            </motion.button>
-          </CardContent>
-        </Card>
-      </motion.section>
-
-      {/* ── About ───────────────────────────────────────────────────────── */}
-      <motion.section
+        id="about"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.31, ease: [0.22, 1, 0.36, 1] }}
       >
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Про додаток</p>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Про додаток</h2>
         <Card>
           <CardContent className="p-0">
             <motion.button
@@ -730,17 +823,28 @@ export default function SettingsPage() {
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
             </motion.button>
+            <Separator />
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="info" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Версія</p>
+                <p className="text-xs text-muted-foreground">Memo 1.0</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </motion.section>
 
-      {/* ── Danger zone ─────────────────────────────────────────────────── */}
+      {/* ── Акаунт ─────────────────────────────────────────────────── */}
       <motion.section
+        id="account"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.3, delay: 0.34, ease: [0.22, 1, 0.36, 1] }}
       >
-        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Акаунт</p>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Акаунт</h2>
         <Card>
           <CardContent className="p-0">
             <motion.button

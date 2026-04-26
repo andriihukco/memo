@@ -145,7 +145,18 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
 
       // Decrypt entry content for preview
       let cryptoKey: CryptoKey | null = null;
-      try { cryptoKey = await deriveUserKey(profile.telegram_id.toString()); } catch { /* fallback */ }
+      try {
+        const supabaseForSalt = getServiceClient();
+        const { data: profileForSalt } = await supabaseForSalt
+          .from("profiles")
+          .select("encryption_salt")
+          .eq("id", profile.id)
+          .single();
+        cryptoKey = await deriveUserKey(
+          profile.telegram_id.toString(),
+          profileForSalt?.encryption_salt ?? null
+        );
+      } catch { /* fallback */ }
 
       const decryptedEntries = await Promise.all(
         (toDelete ?? []).map(async (e: { id: string; content: string; created_at: string }) => {

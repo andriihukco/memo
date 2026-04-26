@@ -21,14 +21,18 @@ function makeSupabase(jwt: string) {
   });
 }
 
-/** Resolve the Telegram user ID from the JWT via the profiles table. */
-async function getTelegramId(jwt: string): Promise<string | null> {
+/** Resolve the Telegram user ID and encryption salt from the JWT via the profiles table. */
+async function getTelegramProfile(jwt: string): Promise<{ telegramId: string; encryptionSalt: string | null } | null> {
   const supabase = makeSupabase(jwt);
   const { data } = await supabase
     .from("profiles")
-    .select("telegram_id")
+    .select("telegram_id, encryption_salt")
     .single();
-  return data?.telegram_id ? String(data.telegram_id) : null;
+  if (!data?.telegram_id) return null;
+  return {
+    telegramId: String(data.telegram_id),
+    encryptionSalt: data.encryption_salt ?? null,
+  };
 }
 
 // Re-extract dashboard_metrics from updated content using Gemini
@@ -124,9 +128,9 @@ export async function POST(req: Request): Promise<Response> {
   // Encrypt content
   let storedContent = content.trim();
   try {
-    const telegramId = await getTelegramId(jwt);
-    if (telegramId) {
-      const key = await deriveUserKey(telegramId);
+    const telegramProfile = await getTelegramProfile(jwt);
+    if (telegramProfile) {
+      const key = await deriveUserKey(telegramProfile.telegramId, telegramProfile.encryptionSalt);
       storedContent = await encryptField(storedContent, key);
     }
   } catch (cryptoErr) {
@@ -186,8 +190,8 @@ export async function PATCH(req: Request): Promise<Response> {
   // Derive encryption key
   let cryptoKey: CryptoKey | null = null;
   try {
-    const telegramId = await getTelegramId(jwt);
-    if (telegramId) cryptoKey = await deriveUserKey(telegramId);
+    const telegramProfile = await getTelegramProfile(jwt);
+    if (telegramProfile) cryptoKey = await deriveUserKey(telegramProfile.telegramId, telegramProfile.encryptionSalt);
   } catch (cryptoErr) {
     console.error("[api/entries] key derivation error:", cryptoErr);
   }
@@ -319,23 +323,46 @@ export async function GET(req: Request): Promise<Response> {
 
   const { searchParams } = new URL(req.url);
   const categoryParam = searchParams.get("category");
-  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-  const limit = Math.min(500, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
-  const offset = (page - 1) * limit;
+  const beforeParam = searchParams.get("before"); // cursor-based: entry ID to paginate before
+  const limitParam = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") ?? "20", 10)));
   const fromParam = searchParams.get("from");
   const toParam   = searchParams.get("to");
+
+  // Legacy offset pagination support (ignored when cursor is present)
+  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
 
   const category = categoryParam ?? null;
 
   let query = supabase
     .from("entries")
-    .select("id, content, category, metadata, bot_reply, thread_id, reply_to_entry_id, created_at", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .select("id, content, category, metadata, bot_reply, thread_id, reply_to_entry_id, created_at")
+    .order("created_at", { ascending: false });
 
   if (category) query = query.eq("category", category);
   if (fromParam) query = query.gte("created_at", fromParam);
   if (toParam)   query = query.lte("created_at", toParam);
+
+  // Cursor-based pagination: if `before` is provided, fetch the created_at of that entry
+  // and filter to entries strictly older than it. Otherwise fall back to offset pagination.
+  if (beforeParam) {
+    const { data: cursorEntry } = await supabase
+      .from("entries")
+      .select("created_at")
+      .eq("id", beforeParam)
+      .single();
+    if (cursorEntry?.created_at) {
+      query = query.lt("created_at", cursorEntry.created_at);
+    }
+    // Fetch limit + 1 to determine has_more
+    query = query.limit(limitParam + 1);
+  } else if (searchParams.has("page")) {
+    // Legacy offset pagination (backward compat)
+    const offset = (page - 1) * limitParam;
+    query = query.range(offset, offset + limitParam - 1);
+  } else {
+    // First page cursor fetch
+    query = query.limit(limitParam + 1);
+  }
 
   // Apply history filter based on effective tier
   if (profileForTier?.id) {
@@ -347,7 +374,7 @@ export async function GET(req: Request): Promise<Response> {
     }
   }
 
-  const { data, error, count } = await query;
+  const { data, error } = await query;
 
   if (error) {
     console.error("[api/entries] query error:", error.message);
@@ -357,12 +384,27 @@ export async function GET(req: Request): Promise<Response> {
     });
   }
 
+  // Determine has_more and trim the extra row used for detection
+  const rawEntries = data ?? [];
+  const isLegacyOffset = searchParams.has("page") && !beforeParam;
+  let hasMore = false;
+  let pageEntries = rawEntries;
+
+  if (!isLegacyOffset) {
+    hasMore = rawEntries.length > limitParam;
+    pageEntries = hasMore ? rawEntries.slice(0, limitParam) : rawEntries;
+  }
+
+  const nextCursor = hasMore && pageEntries.length > 0
+    ? pageEntries[pageEntries.length - 1].id
+    : null;
+
   // Decrypt content and bot_reply for each entry
-  let entries = data ?? [];
+  let entries = pageEntries;
   try {
-    const telegramId = await getTelegramId(jwt);
-    if (telegramId) {
-      const key = await deriveUserKey(telegramId);
+    const telegramProfile = await getTelegramProfile(jwt);
+    if (telegramProfile) {
+      const key = await deriveUserKey(telegramProfile.telegramId, telegramProfile.encryptionSalt);
       entries = await Promise.all(
         entries.map(async (e) => ({
           ...e,
@@ -376,8 +418,16 @@ export async function GET(req: Request): Promise<Response> {
     // Return entries as-is (may be plaintext legacy entries)
   }
 
+  // Return cursor-based response shape; include legacy `total` and `page` for backward compat
   return new Response(
-    JSON.stringify({ entries, total: count ?? 0, page }),
+    JSON.stringify({
+      entries,
+      has_more: hasMore,
+      next_cursor: nextCursor,
+      // Legacy fields (kept for backward compat with existing callers)
+      total: entries.length,
+      page,
+    }),
     {
       status: 200,
       headers: { "Content-Type": "application/json" },

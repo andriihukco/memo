@@ -341,7 +341,7 @@ export interface FeatureAccess {
 export const FEATURE_TIERS: Record<string, SubscriptionTier> = {
   ai_reports:           "stars_basic",
   ai_recommendations:   "stars_basic",
-  voice_logging:        "stars_basic",
+  voice_logging:        "free",        // available to all users
   goal_tracking:        "stars_basic",
   custom_widgets:       "stars_basic",
   full_history:         "stars_pro",
@@ -407,9 +407,9 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
       { label: "Стрічка за 30 днів",               included: true  },
       { label: "Шифрування записів",               included: true  },
       { label: "Пін-код захист",                   included: true  },
+      { label: "Голосові повідомлення",             included: true  },
       { label: "AI ретроспективи",                 included: false },
       { label: "AI рекомендації",                  included: false },
-      { label: "Голосові повідомлення",             included: false },
       { label: "Трекінг цілей",                    included: false },
       { label: "Більше AI-віджетів (до 15)",       included: false },
       { label: "Граф зв'язків",                    included: false },

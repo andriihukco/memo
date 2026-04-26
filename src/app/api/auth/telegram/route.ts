@@ -28,8 +28,27 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 /**
- * Verify Telegram initData HMAC-SHA256 signature.
- * Returns the parsed fields on success, or null on failure.
+ * Verify a Telegram Mini App `initData` string using HMAC-SHA256.
+ *
+ * **Verification process (per Telegram docs):**
+ * 1. Extract the `hash` field from `initData` and remove it from the parameter set.
+ * 2. Sort the remaining `key=value` pairs alphabetically and join them with `\n`
+ *    to form the *data-check-string*.
+ * 3. Derive a *secret key*: `HMAC-SHA256("WebAppData", botToken)`.
+ * 4. Compute the *expected signature*: `HMAC-SHA256(dataCheckString, secretKey)`.
+ * 5. Compare the hex-encoded signature against the received `hash` using a
+ *    constant-time comparison (`timingSafeEqual`) to prevent timing attacks.
+ *
+ * **24-hour expiry check:** after the signature is validated, the `auth_date`
+ * field (Unix timestamp) is checked. If `now - auth_date > 86400` seconds the
+ * data is considered stale and `null` is returned.
+ *
+ * @param initData - Raw `initData` query string from `Telegram.WebApp.initData`.
+ * @param botToken - The Telegram bot token used as the HMAC key material.
+ * @returns The parsed `URLSearchParams` on success, or `null` if:
+ *   - the `hash` field is missing,
+ *   - the computed signature does not match the received hash, or
+ *   - the `auth_date` is older than 24 hours.
  */
 async function verifyInitData(
   initData: string,
@@ -89,12 +108,12 @@ async function verifyInitData(
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request): Promise<Response> {
-  // Rate limit: 10 auth attempts per minute per IP
+  // Rate limit: 30 auth attempts per minute per IP
   const ip =
     req.headers.get("CF-Connecting-IP") ??
     req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
     "unknown";
-  const rl = rateLimit(`auth:${ip}`, 10, 60_000);
+  const rl = rateLimit(`auth:${ip}`, 30, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   let body: { initData?: string };

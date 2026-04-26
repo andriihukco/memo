@@ -1,16 +1,132 @@
 export const runtime = "nodejs";
 
+import { createClient } from "@supabase/supabase-js";
 import { Bot, Context, webhookCallback, InlineKeyboard } from "grammy";
 import { env } from "@/lib/env";
 import { resolveOrCreateProfile, ProfileError, Profile } from "@/lib/profile";
 import { handleTextMessage } from "@/lib/bot/handlers/text";
 import { handleVoiceMessage } from "@/lib/bot/handlers/voice";
-import { handleStart, handleHelp, handleReport, handleReportDaily, handleReportWeekly, handleReportMonthly, handleStats, handleRecommendations, handleCallbackQuery } from "@/lib/bot/commands";
+import { handleStart, handleHelp, handleReport, handleReportDaily, handleReportWeekly, handleReportMonthly, handleStats, handleRecommendations, handleCallbackQuery, handleRemind, handleInvite } from "@/lib/bot/commands";
 import { createSubscription, recordTransaction } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 interface BotContext extends Context {
   profile?: Profile;
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// ── Referral helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Handle /start with a ref_<code> deep-link parameter.
+ * Records the referred_id in the referrals table (if not already set),
+ * then shows the normal welcome message.
+ */
+async function handleStartWithReferral(ctx: BotContext, code: string): Promise<void> {
+  const profile = ctx.profile;
+  if (profile) {
+    try {
+      const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false },
+      });
+
+      // Find the referral row by code — only update if referred_id is not yet set
+      // and the referred user is not the referrer themselves
+      const { data: referral } = await supabase
+        .from("referrals")
+        .select("id, referrer_id, referred_id")
+        .eq("code", code)
+        .maybeSingle();
+
+      if (
+        referral &&
+        !referral.referred_id &&
+        referral.referrer_id !== profile.id
+      ) {
+        await supabase
+          .from("referrals")
+          .update({ referred_id: profile.id })
+          .eq("id", referral.id)
+          .is("referred_id", null); // guard against race condition
+      }
+    } catch (err) {
+      // Non-fatal — log and continue to show welcome
+      console.error("[webhook] handleStartWithReferral error:", err);
+    }
+  }
+
+  await handleStart(ctx);
+}
+
+/**
+ * After a referred user activates a paid subscription, check if they were referred
+ * and grant the referrer 30 days of Nova access (once per referred user).
+ */
+async function processReferralReward(referredUserId: string): Promise<void> {
+  try {
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false },
+    });
+
+    // Find an unrewarded referral where this user is the referred party
+    const { data: referral } = await supabase
+      .from("referrals")
+      .select("id, referrer_id")
+      .eq("referred_id", referredUserId)
+      .eq("reward_granted", false)
+      .maybeSingle();
+
+    if (!referral) return; // no pending referral
+
+    // Grant referrer 30 days of Nova (stars_basic)
+    const REFERRAL_REWARD_DAYS = 30;
+    const REFERRAL_CHARGE_ID = `referral_reward_${referral.id}`;
+
+    await createSubscription(
+      referral.referrer_id,
+      "stars_basic",
+      REFERRAL_CHARGE_ID,
+      REFERRAL_CHARGE_ID,
+      REFERRAL_REWARD_DAYS
+    );
+
+    // Mark reward as granted
+    await supabase
+      .from("referrals")
+      .update({ reward_granted: true })
+      .eq("id", referral.id)
+      .eq("reward_granted", false); // guard against race condition
+
+    // Notify referrer via bot
+    const { data: referrerProfile } = await supabase
+      .from("profiles")
+      .select("telegram_id")
+      .eq("id", referral.referrer_id)
+      .single();
+
+    if (referrerProfile?.telegram_id) {
+      try {
+        const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+        await bot.api.sendMessage(
+          Number(referrerProfile.telegram_id),
+          `🎉 *Твій друг оформив підписку\\!*\n\nТи отримав *30 днів Memo Nova* безкоштовно як нагороду за запрошення\\. Дякуємо, що ділишся Memo\\! 🙏`,
+          { parse_mode: "MarkdownV2" }
+        );
+      } catch (notifyErr) {
+        console.error("[webhook] processReferralReward notify error:", notifyErr);
+      }
+    }
+
+    console.log(`[webhook] Referral reward granted: referrer=${referral.referrer_id}, referred=${referredUserId}`);
+  } catch (err) {
+    console.error("[webhook] processReferralReward error:", err);
+  }
 }
 
 let _handleUpdate: ((req: Request) => Promise<Response>) | null = null;
@@ -38,7 +154,16 @@ function getHandler(): (req: Request) => Promise<Response> {
   });
 
   // ── Commands ────────────────────────────────────────────────────────────────
-  bot.command("start", handleStart);
+  bot.command("start", async (ctx) => {
+    // Check for referral param: /start ref_<code>
+    const param = ctx.match?.trim() ?? "";
+    if (param.startsWith("ref_")) {
+      const code = param.slice(4); // strip "ref_" prefix
+      await handleStartWithReferral(ctx, code);
+    } else {
+      await handleStart(ctx);
+    }
+  });
   bot.command("help", handleHelp);
   bot.command("stats", handleStats);
   bot.command("report", handleReport);
@@ -46,6 +171,8 @@ function getHandler(): (req: Request) => Promise<Response> {
   bot.command("report_weekly", handleReportWeekly);
   bot.command("report_monthly", handleReportMonthly);
   bot.command("recommendations", handleRecommendations);
+  bot.command("remind", handleRemind);
+  bot.command("invite", handleInvite);
 
   // ── Callback queries (inline keyboard buttons) ──────────────────────────────
   bot.on("callback_query:data", handleCallbackQuery);
@@ -102,6 +229,9 @@ function getHandler(): (req: Request) => Promise<Response> {
         );
       }
 
+      // Check if this user was referred — grant referrer reward if applicable
+      await processReferralReward(profile.id);
+
       // Confirm to user
       const tierNames: Record<string, string> = {
         stars_basic: "Memo Nova 🌟",
@@ -144,7 +274,7 @@ export async function POST(req: Request): Promise<Response> {
   const webhookSecret = env.TELEGRAM_WEBHOOK_SECRET;
   if (webhookSecret) {
     const incoming = req.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
-    if (incoming !== webhookSecret) {
+    if (!timingSafeEqual(incoming, webhookSecret)) {
       console.warn("[webhook] rejected: invalid secret token");
       return new Response("Forbidden", { status: 403 });
     }

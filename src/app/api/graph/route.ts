@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 import { createClient } from "@supabase/supabase-js";
 import { deriveUserKey, decryptField } from "@/lib/crypto";
 import { env } from "@/lib/env";
+import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ export async function GET(req: Request): Promise<Response> {
 
   const { data: profileRow, error: profileErr } = await anonClient
     .from("profiles")
-    .select("id, telegram_id")
+    .select("id, telegram_id, encryption_salt")
     .single();
 
   if (profileErr || !profileRow) {
@@ -111,17 +112,31 @@ export async function GET(req: Request): Promise<Response> {
 
   const userId = profileRow.id as string;
   const telegramId = profileRow.telegram_id ? String(profileRow.telegram_id) : null;
+  const encryptionSalt = profileRow.encryption_salt ?? null;
 
   const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
   });
 
+  // Apply historyDays cutoff based on user's tier
+  const tier = await getEffectiveTier(userId);
+  const historyDays = TIER_INFO[tier].limits.historyDays;
+  const cutoff = historyDays !== Infinity
+    ? new Date(Date.now() - historyDays * 86_400_000).toISOString()
+    : null;
+
   // Fetch entries (with embeddings for similarity computation)
-  const { data: entriesData, error: entriesError } = await supabase
+  let entriesQuery = supabase
     .from("entries")
     .select("id, content, category, created_at, branch_id, embedding, embedding_status")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
+
+  if (cutoff) {
+    entriesQuery = entriesQuery.gte("created_at", cutoff);
+  }
+
+  const { data: entriesData, error: entriesError } = await entriesQuery;
 
   if (entriesError) {
     console.error("[api/graph] entries query error:", entriesError.message);
@@ -148,10 +163,10 @@ export async function GET(req: Request): Promise<Response> {
   const entries = (entriesData ?? []) as EntryRow[];
   const insights = (insightsData ?? []) as InsightRow[];
 
-  // Decrypt entry content using per-user key derived from telegram_id
+  // Decrypt entry content using per-user key derived from telegram_id + encryption_salt
   if (telegramId) {
     try {
-      const cryptoKey = await deriveUserKey(telegramId);
+      const cryptoKey = await deriveUserKey(telegramId, encryptionSalt);
       await Promise.all(entries.map(async (e) => {
         try { e.content = await decryptField(e.content, cryptoKey); } catch { /* use as-is */ }
       }));

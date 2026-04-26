@@ -536,6 +536,15 @@ export default function FeedPage() {
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // ── Cursor-based pagination state ──────────────────────────────────────────
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState(false);
+
+  // Sentinel ref for IntersectionObserver
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   // ── Paywall state ──────────────────────────────────────────────────────────
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallProps, setPaywallProps] = useState<{
@@ -547,6 +556,8 @@ export default function FeedPage() {
 
   // ── User tier ──────────────────────────────────────────────────────────────
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
+  const [trialUsed, setTrialUsed] = useState(true); // default true = no trial shown until confirmed
+  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null);
 
   const fetchUserTier = useCallback(async () => {
     if (!accessToken) return;
@@ -555,6 +566,8 @@ export default function FeedPage() {
       if (!res.ok) return;
       const { profile } = await res.json();
       setUserTier((profile?.subscription_tier as SubscriptionTier) ?? 'free');
+      setTrialUsed(profile?.trial_used ?? true);
+      setSubscriptionEndsAt(profile?.subscription_ends_at ?? null);
     } catch { /* non-critical */ }
   }, [accessToken]);
 
@@ -564,8 +577,11 @@ export default function FeedPage() {
   const fetchEntries = useCallback(async () => {
     if (!accessToken) return;
     setStatus('loading');
+    setNextCursor(null);
+    setHasMore(false);
+    setLoadMoreError(false);
     try {
-      const res = await fetch('/api/entries?limit=100', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const res = await fetch('/api/entries?limit=20', { headers: { Authorization: `Bearer ${accessToken}` } });
       if (res.status === 402) {
         // Limit exceeded — open paywall
         const data = await res.json().catch(() => ({}));
@@ -580,10 +596,52 @@ export default function FeedPage() {
         return;
       }
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error ?? `Request failed (${res.status})`); }
-      const { entries: data } = await res.json();
-      setAllEntries(data ?? []); setStatus('ready');
+      const { entries: data, has_more, next_cursor } = await res.json();
+      setAllEntries(data ?? []);
+      setHasMore(has_more ?? false);
+      setNextCursor(next_cursor ?? null);
+      setStatus('ready');
     } catch (err) { setErrorMsg(err instanceof Error ? err.message : 'Failed'); setStatus('error'); }
   }, [accessToken]);
+
+  // ── Load next page ─────────────────────────────────────────────────────────
+  const fetchMoreEntries = useCallback(async () => {
+    if (!accessToken || !nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadMoreError(false);
+    try {
+      const params = new URLSearchParams({ limit: '20', before: nextCursor });
+      const res = await fetch(`/api/entries?${params}`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      const { entries: data, has_more, next_cursor } = await res.json();
+      // Append new entries to the existing list
+      setAllEntries(prev => [...prev, ...(data ?? [])]);
+      setHasMore(has_more ?? false);
+      setNextCursor(next_cursor ?? null);
+    } catch {
+      setLoadMoreError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [accessToken, nextCursor, loadingMore]);
+
+  // ── IntersectionObserver — trigger load more when sentinel is visible ──────
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasMore && !loadingMore && !loadMoreError) {
+          fetchMoreEntries();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loadMoreError, fetchMoreEntries]);
 
   useEffect(() => {
     setEntries(selectedCategory ? allEntries.filter(e => e.category === selectedCategory) : allEntries);
@@ -636,6 +694,13 @@ export default function FeedPage() {
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
   const toggleSelectAll = () => { if (allSelected) exitSelectMode(); else { setIsSelectMode(true); setSelectedIds(new Set(allIds)); } };
 
+  // ── Trial detection ────────────────────────────────────────────────────────
+  // A user is on a trial when: trial_used=true AND tier=stars_basic AND ends_at is in the future
+  const isTrial = trialUsed && userTier === 'stars_basic' && !!subscriptionEndsAt && new Date(subscriptionEndsAt) > new Date();
+  const trialDaysLeft = isTrial
+    ? Math.max(1, Math.ceil((new Date(subscriptionEndsAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -652,7 +717,15 @@ export default function FeedPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          <h1 className="text-[28px] font-bold leading-tight">Стрічка</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-[28px] font-bold leading-tight">Стрічка</h1>
+            {/* Trial badge — shown when user is on an active free trial */}
+            {isTrial && (
+              <Badge className="shrink-0 rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/30 text-[11px] font-semibold px-2.5 py-0.5">
+                Пробний · {trialDaysLeft} дн.
+              </Badge>
+            )}
+          </div>
           {/* Usage counter chip — shown when Free tier and usage ≥ 70 (70% of 100) */}
           {userTier === 'free' && usageCounts !== null && usageCounts.entries >= 70 && (
             <UsageCounterChip
@@ -772,6 +845,31 @@ export default function FeedPage() {
               </div>
             </motion.div>
           ))}
+
+          {/* Sentinel div for IntersectionObserver — triggers next page load */}
+          <div ref={sentinelRef} className="h-1" aria-hidden="true" />
+
+          {/* Loading spinner — shown while fetching next page */}
+          {loadingMore && (
+            <div className="flex justify-center py-4" aria-label="Завантаження...">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
+            </div>
+          )}
+
+          {/* Retry button — shown when next-page fetch failed */}
+          {loadMoreError && !loadingMore && (
+            <div className="flex flex-col items-center gap-2 py-4">
+              <p className="text-[13px] text-muted-foreground">Не вдалося завантажити більше записів</p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-full min-h-[36px]"
+                onClick={() => { setLoadMoreError(false); fetchMoreEntries(); }}
+              >
+                Спробувати ще раз
+              </Button>
+            </div>
+          )}
         </motion.div>
       )}
 
@@ -802,6 +900,11 @@ export default function FeedPage() {
         open={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         {...paywallProps}
+        trialUsed={trialUsed}
+        onTrialActivated={() => {
+          setPaywallOpen(false);
+          fetchUserTier(); // refresh tier + trial state
+        }}
       />
     </motion.div>
   );

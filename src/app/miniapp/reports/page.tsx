@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
@@ -637,6 +637,157 @@ function OverviewStats({ stats }: { stats: EntryStats }) {
   );
 }
 
+// ── Share card (hidden DOM node rendered off-screen for html-to-image) ────────
+
+function ReportShareCard({ report, cardRef }: {
+  report: ReportSummary;
+  cardRef: React.RefObject<HTMLDivElement>;
+}) {
+  const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+  const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Collect up to 4 highlights: retro section labels that have content
+  const highlights: { emoji: string; label: string; text: string }[] = [];
+  for (const s of RETRO_SECTIONS) {
+    if (report[s.key] && highlights.length < 4) {
+      const raw = stripSectionHeader(report[s.key]!);
+      // Take first non-empty line as the highlight snippet
+      const snippet = raw.split('\n').map(l => l.trim()).find(l => l.length > 0) ?? '';
+      highlights.push({ emoji: s.emoji, label: s.label, text: snippet.slice(0, 80) + (snippet.length > 80 ? '…' : '') });
+    }
+  }
+  // Fallback: use summary excerpt if no retro sections
+  if (highlights.length === 0) {
+    const summarySnippet = report.summary.replace(/\*\*/g, '').replace(/\*/g, '').slice(0, 120);
+    highlights.push({ emoji: '💡', label: 'Підсумок', text: summarySnippet + (report.summary.length > 120 ? '…' : '') });
+  }
+
+  return (
+    <div
+      ref={cardRef}
+      style={{
+        position: 'absolute',
+        left: '-9999px',
+        top: 0,
+        width: 600,
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+        borderRadius: 24,
+        padding: '40px 40px 32px',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        color: '#f8fafc',
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Header row: logo + period */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Memo" style={{ height: 36, width: 'auto' }} />
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            {PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}
+          </div>
+          <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{from} — {to}</div>
+        </div>
+      </div>
+
+      {/* Highlights */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 28 }}>
+        {highlights.map((h, i) => (
+          <div
+            key={i}
+            style={{
+              background: 'rgba(255,255,255,0.05)',
+              borderRadius: 14,
+              padding: '12px 16px',
+              border: '1px solid rgba(255,255,255,0.08)',
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 4 }}>
+              {h.emoji} {h.label}
+            </div>
+            <div style={{ fontSize: 14, color: '#e2e8f0', lineHeight: 1.5 }}>{h.text}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* CTA footer */}
+      <div style={{
+        borderTop: '1px solid rgba(255,255,255,0.1)',
+        paddingTop: 20,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc' }}>Веди щоденник з Memo</div>
+          <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>Рефлексія · Аналіз · Зростання</div>
+        </div>
+        <div style={{
+          background: 'linear-gradient(135deg, #4797FF, #818cf8)',
+          borderRadius: 20,
+          padding: '8px 18px',
+          fontSize: 13,
+          fontWeight: 700,
+          color: '#fff',
+        }}>
+          Спробувати
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Share logic ───────────────────────────────────────────────────────────────
+
+async function shareReport(
+  report: ReportSummary,
+  cardRef: React.RefObject<HTMLDivElement>,
+  onError: (msg: string) => void,
+  onTextFallback: () => void,
+): Promise<void> {
+  // Build a text-only share payload as fallback
+  const periodLabel = PERIOD_LABELS[report.period_type] ?? 'Ретроспектива';
+  const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+  const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const summaryText = report.summary.replace(/\*\*/g, '').replace(/\*/g, '').slice(0, 200);
+  const shareText = `📊 ${periodLabel} (${from} — ${to})\n\n${summaryText}\n\nВеди щоденник з Memo`;
+
+  // Try to generate image card
+  if (cardRef.current) {
+    try {
+      const { toPng } = await import('html-to-image');
+      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+
+      // Try shareToStory first (Telegram Mini App API)
+      const twa = (window as Window & { Telegram?: { WebApp?: { shareToStory?: (mediaUrl: string, params?: object) => void; openTelegramLink?: (url: string) => void } } }).Telegram?.WebApp;
+      if (typeof twa?.shareToStory === 'function') {
+        twa.shareToStory(dataUrl, {
+          text: shareText,
+        });
+        return;
+      }
+
+      // Fallback: open t.me/share/url with text
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent('https://t.me/memo_diary_bot')}&text=${encodeURIComponent(shareText)}`;
+      if (typeof twa?.openTelegramLink === 'function') {
+        twa.openTelegramLink(shareUrl);
+      } else {
+        window.open(shareUrl, '_blank');
+      }
+      return;
+    } catch {
+      // Image generation failed — show error and offer text fallback
+      onError('Не вдалося згенерувати зображення. Поділитись текстом?');
+      onTextFallback();
+      return;
+    }
+  }
+
+  // No card ref — go straight to text fallback
+  onError('Не вдалося згенерувати зображення. Поділитись текстом?');
+  onTextFallback();
+}
+
 // ── Report Detail View ────────────────────────────────────────────────────────
 
 function ReportDetail({ report, onClose, accessToken }: {
@@ -646,6 +797,43 @@ function ReportDetail({ report, onClose, accessToken }: {
 }) {
   const { play } = useSound();
   const [stats, setStats] = useState<EntryStats | null>(null);
+  const shareCardRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
+  const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [showTextFallback, setShowTextFallback] = useState(false);
+
+  const handleShare = async () => {
+    setSharing(true);
+    setShareError(null);
+    setShowTextFallback(false);
+    try {
+      await shareReport(
+        report,
+        shareCardRef,
+        (msg) => setShareError(msg),
+        () => setShowTextFallback(true),
+      );
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleTextOnlyShare = () => {
+    const periodLabel = PERIOD_LABELS[report.period_type] ?? 'Ретроспектива';
+    const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
+    const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+    const summaryText = report.summary.replace(/\*\*/g, '').replace(/\*/g, '').slice(0, 200);
+    const shareText = `📊 ${periodLabel} (${from} — ${to})\n\n${summaryText}\n\nВеди щоденник з Memo`;
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent('https://t.me/memo_diary_bot')}&text=${encodeURIComponent(shareText)}`;
+    const twa = (window as Window & { Telegram?: { WebApp?: { openTelegramLink?: (url: string) => void } } }).Telegram?.WebApp;
+    if (typeof twa?.openTelegramLink === 'function') {
+      twa.openTelegramLink(shareUrl);
+    } else {
+      window.open(shareUrl, '_blank');
+    }
+    setShareError(null);
+    setShowTextFallback(false);
+  };
 
   const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
   const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -665,6 +853,9 @@ function ReportDetail({ report, onClose, accessToken }: {
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col" style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px))' }}>
+      {/* Hidden share card — rendered off-screen for html-to-image */}
+      <ReportShareCard report={report} cardRef={shareCardRef} />
+
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-5 pb-3 border-b border-border/20">
         <button
@@ -677,7 +868,51 @@ function ReportDetail({ report, onClose, accessToken }: {
           <p className="text-[17px] font-semibold truncate">{PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}</p>
           <p className="text-[12px] text-muted-foreground">{from} — {to}</p>
         </div>
+        {/* Share button */}
+        <button
+          onClick={handleShare}
+          disabled={sharing}
+          className="flex h-[44px] w-[44px] items-center justify-center rounded-full bg-muted/60 text-muted-foreground shrink-0 disabled:opacity-50 transition-opacity"
+          aria-label="Поділитись ретроспективою"
+        >
+          {sharing
+            ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+            : <Icon name="share" size={20} />}
+        </button>
       </div>
+
+      {/* Share error banner + text fallback */}
+      <AnimatePresence>
+        {shareError && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="mx-4 mt-3 rounded-2xl px-4 py-3 flex items-center justify-between gap-3"
+            style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.25)' }}
+          >
+            <p className="text-[13px] text-red-400 flex-1">{shareError}</p>
+            <div className="flex items-center gap-2 shrink-0">
+              {showTextFallback && (
+                <button
+                  onClick={handleTextOnlyShare}
+                  className="text-[13px] font-semibold text-primary underline-offset-2 hover:underline"
+                >
+                  Текст
+                </button>
+              )}
+              <button
+                onClick={() => { setShareError(null); setShowTextFallback(false); }}
+                className="text-muted-foreground"
+                aria-label="Закрити"
+              >
+                <Icon name="close" size={16} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">

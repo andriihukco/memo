@@ -1,4 +1,4 @@
-import { processUser, processAllUsers } from "@/lib/processing/loop";
+import { processUser, processAllUsers, processReminders, processStreakNotifications, processWeeklySummaries } from "@/lib/processing/loop";
 
 export const runtime = "nodejs";
 
@@ -20,6 +20,12 @@ export async function GET(req: Request): Promise<Response> {
       return Response.json({ ok: true, processed: [userId] });
     } else {
       await processAllUsers();
+      await processReminders();
+      await processStreakNotifications();
+      // Run weekly summaries on Mondays (day 1)
+      if (new Date().getDay() === 1) {
+        await processWeeklySummaries();
+      }
       return Response.json({ ok: true, processed: "all" });
     }
   } catch (err) {

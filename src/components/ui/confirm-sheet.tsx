@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { Button } from '@/components/ui/button';
 import { useSound } from '@/lib/sound/use-sound';
+import { hapticNotification } from '@/lib/haptics';
 
 interface ConfirmSheetProps {
   open: boolean;
@@ -35,6 +36,7 @@ export function ConfirmSheet({
 
   const handleConfirm = () => {
     play('CAUTION');
+    hapticNotification('warning');
     onConfirm();
   };
 

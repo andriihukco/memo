@@ -56,11 +56,14 @@ async function decryptEntries<T extends { content: string }>(
     const supabase = getServiceClient();
     const { data } = await supabase
       .from("profiles")
-      .select("telegram_id")
+      .select("telegram_id, encryption_salt")
       .eq("id", userId)
       .single();
     if (!data?.telegram_id) return entries;
-    const key = await deriveUserKey(String(data.telegram_id));
+    const key = await deriveUserKey(
+      String(data.telegram_id),
+      data.encryption_salt ?? null
+    );
     return Promise.all(
       entries.map(async (e) => ({
         ...e,

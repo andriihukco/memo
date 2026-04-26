@@ -109,6 +109,10 @@ interface PaywallModalProps {
   current?: number;
   limit?: number;
   requiredTier: SubscriptionTier;
+  /** Whether the user has already used their free trial. When false, a trial CTA is shown. */
+  trialUsed?: boolean;
+  /** Called after the trial is successfully activated. */
+  onTrialActivated?: () => void;
 }
 
 export function PaywallModal({
@@ -118,11 +122,14 @@ export function PaywallModal({
   current = 0,
   limit = 0,
   requiredTier,
+  trialUsed = true,
+  onTrialActivated,
 }: PaywallModalProps) {
   const router = useRouter();
   const { play } = useSound();
   const { accessToken } = useAuth();
   const [paying, setPaying] = useState(false);
+  const [activatingTrial, setActivatingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Allow switching between plans in the modal
   const [selectedTier, setSelectedTier] = useState<'stars_basic' | 'stars_pro'>(
@@ -137,10 +144,36 @@ export function PaywallModal({
       play('CAUTION');
       setError(null);
       setPaying(false);
+      setActivatingTrial(false);
       setSelectedTier(requiredTier === 'stars_pro' ? 'stars_pro' : 'stars_basic');
       setBillingPeriod('monthly');
     }
-  }, [open, play, requiredTier]);
+  }, [open, play, requiredTier, feature]);
+
+  const handleActivateTrial = async () => {
+    if (!accessToken) return;
+    play('BUTTON');
+    setError(null);
+    setActivatingTrial(true);
+    try {
+      const res = await fetch('/api/profile/trial', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Не вдалося активувати пробний період.');
+      } else {
+        play('CELEBRATION');
+        onTrialActivated?.();
+        onClose();
+      }
+    } catch {
+      setError('Щось пішло не так. Спробуй ще раз.');
+    } finally {
+      setActivatingTrial(false);
+    }
+  };
 
   const handleUpgrade = async () => {
     play('BUTTON');
@@ -311,6 +344,27 @@ export function PaywallModal({
               `Підписатися — ${starsPrice} ⭐`
             )}
           </button>
+          {/* Free trial CTA — only shown when trial has not been used yet */}
+          {!trialUsed && selectedTier === 'stars_basic' && (
+            <button
+              className={cn(
+                'w-full min-h-[44px] rounded-xl py-3 text-[14px] font-semibold transition-all active:scale-[0.98]',
+                'bg-white/10 text-foreground border border-white/20',
+                activatingTrial && 'opacity-60'
+              )}
+              disabled={activatingTrial || paying}
+              onClick={handleActivateTrial}
+            >
+              {activatingTrial ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-foreground/30 border-t-foreground" />
+                  Активуємо...
+                </span>
+              ) : (
+                'Спробувати Nova безкоштовно — 3 дні'
+              )}
+            </button>
+          )}
           <button
             className="w-full min-h-[44px] py-2 text-[14px] text-muted-foreground active:text-foreground transition-colors"
             onClick={() => { play('CLOSE'); onClose(); }}

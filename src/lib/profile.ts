@@ -64,8 +64,33 @@ async function ensureAuthUser(telegramId: string, username: string): Promise<str
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Resolve or create a profile, always aligned with Supabase Auth.
- * Ensures profile.id === auth.uid() so RLS works for both bot and miniapp.
+ * Resolve an existing profile or create a new one for the given Telegram user,
+ * ensuring the profile is always aligned with a Supabase Auth account.
+ *
+ * **Upsert logic:**
+ * 1. Call `ensureAuthUser()` to guarantee a Supabase Auth user exists for this
+ *    `telegramId`. If `authUserId` is already known (e.g. from a fresh sign-in),
+ *    it is used directly to skip the lookup.
+ * 2. Query `profiles` by `telegram_id`. If a row is found, update `username` if
+ *    it has changed and return the existing profile. The `profile.id` is **not**
+ *    migrated to match `authUserId` — doing so would wipe subscription data.
+ * 3. If no profile exists, generate a random 32-byte hex `encryption_salt` and
+ *    insert a new row with `id = resolvedAuthId` so that `profile.id === auth.uid()`
+ *    and RLS policies work for both the bot (service role) and the mini app (JWT).
+ *
+ * **Synthetic Auth account creation** (`ensureAuthUser`):
+ * - A deterministic synthetic email `telegram_<id>@memo.app` and a derived
+ *   password are used so the same credentials can be reproduced on any server.
+ * - `createUser` is attempted first; if the user already exists the function
+ *   falls back to `listUsers` to retrieve the existing UUID.
+ *
+ * @param telegramId - The user's Telegram numeric ID as a `bigint`.
+ * @param username - The user's Telegram username (may be empty string).
+ * @param authUserId - Optional pre-resolved Supabase Auth UUID. When provided,
+ *   the `ensureAuthUser` network call is skipped.
+ * @returns The resolved or newly created `Profile` record.
+ * @throws {ProfileError} If the Supabase Auth user cannot be created or looked
+ *   up, or if the `profiles` insert fails.
  */
 export async function resolveOrCreateProfile(
   telegramId: bigint,
@@ -97,6 +122,15 @@ export async function resolveOrCreateProfile(
     return { ...existing, telegram_id: BigInt(existing.telegram_id) } as Profile;
   }
 
+  // Generate a random 32-byte hex salt for per-user key derivation.
+  // This salt is stored in profiles.encryption_salt and passed to
+  // deriveUserKey() so that each user's encryption key is unique even
+  // if two users share the same telegram_id (impossible in practice, but
+  // the salt adds an extra layer of key isolation).
+  const encryptionSalt = Buffer.from(
+    globalThis.crypto.getRandomValues(new Uint8Array(32))
+  ).toString("hex");
+
   // Create new profile with the correct auth-aligned id
   const { data, error } = await supabase
     .from("profiles")
@@ -104,6 +138,7 @@ export async function resolveOrCreateProfile(
       id: resolvedAuthId,
       telegram_id: telegramIdStr,
       username: username || null,
+      encryption_salt: encryptionSalt,
     })
     .select("id, telegram_id, username, settings, created_at, updated_at")
     .single();
