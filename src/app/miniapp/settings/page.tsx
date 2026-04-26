@@ -242,6 +242,161 @@ function SoundSection() {
 // SettingsPage
 // ---------------------------------------------------------------------------
 
+// ── ExportSheet ───────────────────────────────────────────────────────────────
+
+type ExportState = 'idle' | 'loading' | 'ready' | 'error';
+
+function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onClose: () => void }) {
+  const [state, setState] = useState<ExportState>('loading');
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const { play } = useSound();
+
+  useSheetBodyAttr(true);
+
+  useEffect(() => {
+    if (!accessToken) { setState('error'); setErrorMsg('Не авторизовано'); return; }
+    fetch('/api/profile/export', { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(async res => {
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          throw new Error(d.error ?? 'Помилка сервера');
+        }
+        return res.blob();
+      })
+      .then(blob => {
+        const url = URL.createObjectURL(blob);
+        const name = `memo-export-${new Date().toISOString().slice(0, 10)}.zip`;
+        setDownloadUrl(url);
+        setFileName(name);
+        setState('ready');
+        play('CELEBRATION');
+      })
+      .catch(err => {
+        setErrorMsg(err instanceof Error ? err.message : 'Не вдалося завантажити дані');
+        setState('error');
+        play('CAUTION');
+      });
+    // cleanup blob URL on unmount
+    return () => { if (downloadUrl) URL.revokeObjectURL(downloadUrl); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleOpen = () => {
+    if (!downloadUrl) return;
+    play('OPEN');
+    // Telegram miniapps block programmatic clicks — use openLink if available,
+    // otherwise fall back to window.open which opens in the system browser.
+    const tg = (window as { Telegram?: { WebApp?: { openLink?: (url: string) => void } } }).Telegram?.WebApp;
+    if (tg?.openLink) {
+      tg.openLink(downloadUrl);
+    } else {
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end">
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/50"
+        onClick={() => { play('CLOSE'); onClose(); }}
+      />
+      <motion.div
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
+        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-10 shadow-2xl"
+      >
+        {/* Handle */}
+        <div className="mb-5 flex justify-center">
+          <div className="h-1 w-10 rounded-full bg-muted" />
+        </div>
+
+        {/* Icon */}
+        <div className="mb-4 flex justify-center">
+          <div className={cn(
+            'flex h-14 w-14 items-center justify-center rounded-full',
+            state === 'ready' ? 'bg-green-500/15' : state === 'error' ? 'bg-destructive/10' : 'bg-primary/10'
+          )}>
+            {state === 'loading' && (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+              >
+                <Icon name="progress_activity" size={26} className="text-primary" />
+              </motion.div>
+            )}
+            {state === 'ready' && <Icon name="check_circle" size={26} className="text-green-400" />}
+            {state === 'error' && <Icon name="error" size={26} className="text-destructive" />}
+          </div>
+        </div>
+
+        {/* Title + body */}
+        <div className="mb-6 text-center">
+          {state === 'loading' && (
+            <>
+              <p className="text-base font-semibold">Готуємо архів…</p>
+              <p className="mt-1 text-sm text-muted-foreground">Збираємо всі твої записи в ZIP-файл</p>
+            </>
+          )}
+          {state === 'ready' && (
+            <>
+              <p className="text-base font-semibold">Архів готовий</p>
+              <p className="mt-1 text-sm text-muted-foreground">{fileName}</p>
+              <p className="mt-2 text-xs text-muted-foreground/70">
+                Telegram не дозволяє завантажувати файли напряму з міні-застосунку.
+                Натисни кнопку нижче — файл відкриється у браузері, звідки його можна зберегти.
+              </p>
+            </>
+          )}
+          {state === 'error' && (
+            <>
+              <p className="text-base font-semibold text-destructive">Помилка</p>
+              <p className="mt-1 text-sm text-muted-foreground">{errorMsg}</p>
+            </>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2">
+          {state === 'ready' && (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleOpen}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
+            >
+              <Icon name="open_in_new" size={16} />
+              Відкрити у браузері
+            </motion.button>
+          )}
+          {state === 'error' && (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => { setState('loading'); setErrorMsg(''); }}
+              className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
+            >
+              Спробувати ще раз
+            </motion.button>
+          )}
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => { play('CLOSE'); onClose(); }}
+            className="w-full py-3 text-sm text-muted-foreground"
+          >
+            {state === 'loading' ? 'Скасувати' : 'Закрити'}
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SettingsPage
+// ---------------------------------------------------------------------------
+
 export default function SettingsPage() {
   const [hasPasscode, setHasPasscode] = useState(false);
   const [lockTimer, setLockTimerState] = useState<LockTimer>(0);
@@ -249,6 +404,7 @@ export default function SettingsPage() {
   const [pendingPin, setPendingPin] = useState('');
   const [confirmMismatch, setConfirmMismatch] = useState(false);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
+  const [showExportSheet, setShowExportSheet] = useState(false);
 
   const [notifStreak, setNotifStreak] = useState(true);
   const [notifWeekly, setNotifWeekly] = useState(true);
@@ -306,6 +462,7 @@ export default function SettingsPage() {
 
   // Register inline sheets with body attribute so tab bar hides
   useSheetBodyAttr(showDeleteConfirm);
+  useSheetBodyAttr(showExportSheet);
 
   // ── Passcode handlers ─────────────────────────────────────────────────────
   const handleEnablePasscode = () => { play('OPEN'); setStep('set_new'); };
@@ -605,29 +762,7 @@ export default function SettingsPage() {
             {/* Export data */}
             <motion.button
               whileTap={{ scale: 0.99 }}
-              onClick={async () => {
-                play('OPEN');
-                if (!accessToken) return;
-                try {
-                  const res = await fetch('/api/profile/export', {
-                    headers: { Authorization: `Bearer ${accessToken}` },
-                  });
-                  if (!res.ok) {
-                    const d = await res.json().catch(() => ({}));
-                    alert(d.error ?? 'Не вдалося експортувати дані');
-                    return;
-                  }
-                  const blob = await res.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `memo-export-${new Date().toISOString().slice(0, 10)}.zip`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch {
-                  alert('Не вдалося завантажити дані. Спробуй ще раз.');
-                }
-              }}
+              onClick={() => { play('OPEN'); setShowExportSheet(true); }}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
@@ -661,7 +796,9 @@ export default function SettingsPage() {
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">Нагадування про серію</p>
                 <p className="text-xs text-muted-foreground">
-                  {notifMounted ? (notifStreak ? 'Увімкнено' : 'Вимкнено') : 'Увімкнено'}
+                  {notifMounted && !notifStreak
+                    ? 'Вимкнено'
+                    : 'Щодня о 20:00, якщо ще не записував'}
                 </p>
               </div>
               <button
@@ -689,7 +826,9 @@ export default function SettingsPage() {
               <div className="flex-1 text-left">
                 <p className="text-sm font-medium">Щотижневий підсумок</p>
                 <p className="text-xs text-muted-foreground">
-                  {notifMounted ? (notifWeekly ? 'Щопонеділка' : 'Вимкнено') : 'Щопонеділка'}
+                  {notifMounted && !notifWeekly
+                    ? 'Вимкнено'
+                    : 'Щопонеділка — AI-огляд твого тижня'}
                 </p>
               </div>
               <button
@@ -868,6 +1007,16 @@ export default function SettingsPage() {
       <AnimatePresence>
         {showOnboarding && (
           <OnboardingReplay onClose={() => setShowOnboarding(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Export sheet */}
+      <AnimatePresence>
+        {showExportSheet && (
+          <ExportSheet
+            accessToken={accessToken}
+            onClose={() => setShowExportSheet(false)}
+          />
         )}
       </AnimatePresence>
 

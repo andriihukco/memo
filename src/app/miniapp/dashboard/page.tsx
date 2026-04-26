@@ -1105,8 +1105,8 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
     { range: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false },
     { range: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false },
     { range: 'week',     label: '7 днів',          icon: 'date_range',     paid: false },
-    { range: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: true  },
-    { range: 'month',    label: '30 днів',         icon: 'calendar_month', paid: true  },
+    { range: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: false },
+    { range: 'month',    label: '30 днів',         icon: 'calendar_month', paid: false },
     { range: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true  },
     { range: 'year',     label: 'Рік',             icon: 'event_note',     paid: true  },
     { range: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true  },
@@ -1641,10 +1641,10 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => setView('actual')} className="flex items-center">
+          <button onClick={() => { setView('actual'); play('SLIDE'); }} className="flex items-center">
             <h1 className={cn('text-[28px] font-bold leading-tight transition-all duration-200', view === 'actual' ? 'text-foreground' : 'text-foreground/30')}>Віджети</h1>
           </button>
-          <button onClick={() => setView('goals')} className="flex items-center">
+          <button onClick={() => { setView('goals'); play('SLIDE'); }} className="flex items-center">
             <h1 className={cn('text-[28px] font-bold leading-tight transition-all duration-200', view === 'goals' ? 'text-foreground' : 'text-foreground/30')}>Цілі</h1>
           </button>
         </div>
