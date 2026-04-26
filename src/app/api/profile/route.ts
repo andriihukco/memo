@@ -61,7 +61,10 @@ export async function GET(req: Request): Promise<Response> {
 
   return new Response(JSON.stringify({ profile }), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
   });
 }
 
