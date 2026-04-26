@@ -89,7 +89,7 @@ function UsageSection({ accessToken, currentTier }: { accessToken: string | null
               <span className="text-base leading-none">{row.icon}</span>
               <span className="flex-1 text-[14px] text-foreground/80">{row.label}</span>
               <span className="text-[13px] font-medium tabular-nums text-muted-foreground">
-                {isUnlimited ? '∞' : `${row.current} / ${row.limit}`}
+                {isUnlimited ? `${row.current} / ∞` : `${row.current} / ${row.limit}`}
               </span>
               {!isUnlimited && (
                 <div className="w-16 h-1.5 rounded-full bg-muted/60 overflow-hidden">
