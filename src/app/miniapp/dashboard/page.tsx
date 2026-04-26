@@ -663,7 +663,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
             ))}
           </div>
           <p className="mt-1.5 text-[11px] text-muted-foreground/60">
-            Ціль з'явиться на сторінці Цілі. Трекінг-віджет залишиться на Віджетах.
+            Ціль з&apos;явиться на сторінці Цілі. Трекінг-віджет залишиться на Віджетах.
           </p>
         </div>
       )}
