@@ -509,10 +509,8 @@ export default function SubscriptionsPage() {
           </div>
         )}
 
-        {/* Usage */}
-        {effectiveTier !== 'stars_pro' && (
-          <UsageSection accessToken={accessToken} currentTier={effectiveTier} />
-        )}
+        {/* Usage — shown for all tiers, ∞ for Supernova */}
+        <UsageSection accessToken={accessToken} currentTier={effectiveTier} />
 
         {/* Billing period switcher — shown below usage stats */}
         <div className="flex flex-col gap-1.5">

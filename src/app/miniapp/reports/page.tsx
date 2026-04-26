@@ -185,11 +185,11 @@ const PERIOD_OPTIONS = [
   { type: 'daily',    label: 'Сьогодні',       icon: 'today',          fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
   { type: 'yesterday',label: 'Вчора',           icon: 'history',        fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
   { type: 'weekly',   label: '7 днів',          icon: 'date_range',     fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: '2weeks',   label: '2 тижні',         icon: 'date_range',     fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-13); return { from: startOfDay(f), to: endOfDay(n) }; } },
   { type: 'monthly',  label: 'Місяць',          icon: 'calendar_month', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
   { type: '3months',  label: '3 місяці',        icon: 'calendar_month', fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
   { type: 'year',     label: 'Рік',             icon: 'event_note',     fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
   { type: 'ytd',      label: 'З початку року',  icon: 'start',          fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(),0,1)), to: endOfDay(n) }; } },
+  { type: 'all',      label: 'Весь час',        icon: 'all_inclusive',  fn: () => { return { from: new Date('2020-01-01'), to: endOfDay(new Date()) }; } },
   { type: 'custom',   label: 'Свій діапазон',   icon: 'tune',           fn: null },
 ] as const;
 
