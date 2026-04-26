@@ -356,6 +356,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   const [title, setTitle] = useState('');
   const [unit, setUnit] = useState('');
   const [goal, setGoal] = useState('');
+  const [goalPeriod, setGoalPeriod] = useState<'day' | 'week' | 'month'>('day');
   const [emoji, setEmoji] = useState('✨');
   const [iconColor, setIconColor] = useState('blue');
   const [iconTab, setIconTab] = useState<'color' | 'emoji'>('color');
@@ -389,12 +390,13 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
     setError(null);
     try {
       const goalNum = goal.trim() ? parseFloat(goal.replace(',', '.')) : undefined;
+      const hasGoalVal = goalNum !== undefined && goalNum > 0;
       const directDef = selected.directWidget
-        ? { ...selected.directWidget, title: title.trim(), unit: unit.trim() || selected.defaultUnit, emoji, iconColor, ...(goalNum ? { goal: goalNum } : {}) }
+        ? { ...selected.directWidget, title: title.trim(), unit: unit.trim() || selected.defaultUnit, emoji, iconColor, ...(goalNum ? { goal: goalNum, ...(hasGoalVal ? { period: goalPeriod } : {}) } : {}) }
         : null;
       const body = directDef
         ? { prompt: `${selected.label}: ${title}`, direct: directDef }
-        : { prompt: `${selected.label}: ${title.trim()}`, answers: { question: title.trim(), unit: unit.trim(), goal: goalNum }, emoji, iconColor };
+        : { prompt: `${selected.label}: ${title.trim()}`, answers: { question: title.trim(), unit: unit.trim(), goal: goalNum, period: hasGoalVal ? goalPeriod : undefined }, emoji, iconColor };
       const res = await fetch('/api/widgets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
@@ -546,11 +548,20 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   );
 
   // ── Step 2: name / unit / goal ────────────────────────────────────────────
-  if (step === 2 && selected) return (
+  if (step === 2 && selected) {
+    const goalNum = goal.trim() ? parseFloat(goal.replace(',', '.')) : null;
+    const hasGoal = goalNum !== null && goalNum > 0;
+    const PERIOD_OPTIONS = [
+      { key: 'day',   label: 'День' },
+      { key: 'week',  label: 'Тиждень' },
+      { key: 'month', label: 'Місяць' },
+    ] as const;
+
+    return (
     <BottomSheet open onClose={onClose} className="px-4 pb-6">
       <StepDots />
       {/* Back */}
-      <div className="relative flex items-center justify-center py-1 mb-3">
+      <div className="relative flex items-center justify-center py-1 mb-4">
         <button
           onClick={() => goTo(1)}
           className="absolute left-0 flex h-8 w-8 items-center justify-center rounded-full bg-muted/70 text-muted-foreground hover:bg-muted transition-colors"
@@ -562,14 +573,34 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
         </button>
       </div>
 
-      {/* Preview pill */}
-      <div className="flex items-center gap-3 rounded-2xl bg-muted/30 border border-border/40 px-4 py-3 mb-5">
-        <div className={cn('flex h-11 w-11 items-center justify-center rounded-2xl text-2xl shrink-0', color.bg)}>
-          {emoji}
-        </div>
-        <div className="min-w-0">
-          <p className="font-semibold truncate">{title || selected.label}</p>
-          <p className="text-[13px] text-muted-foreground">{unit || selected.defaultUnit}{goal ? ` · ціль ${goal}` : ''}</p>
+      {/* ── Live widget preview ── */}
+      <div className="flex justify-center mb-5">
+        <div className="w-[160px] rounded-2xl bg-card border border-border/40 p-4 flex flex-col shadow-sm">
+          {/* Icon */}
+          <div className={cn('mb-3 flex h-10 w-10 items-center justify-center rounded-2xl text-xl shrink-0', color.bg)}>
+            {emoji}
+          </div>
+          {/* Value placeholder */}
+          <div className="flex items-baseline gap-1 mb-0.5">
+            <span className="text-[28px] font-bold tracking-tight leading-none text-foreground/30">—</span>
+            <span className="text-[13px] text-muted-foreground">{unit || selected.defaultUnit}</span>
+          </div>
+          {/* Title */}
+          <p className="text-[13px] font-medium text-foreground/80 mt-0.5 truncate">{title || selected.label}</p>
+          {/* Goal bar — only when goal is set */}
+          {hasGoal ? (
+            <div className="mt-2.5">
+              <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
+                <div className={cn('h-full rounded-full w-0', color.bg)} />
+              </div>
+              <p className="mt-1 text-right text-[10px] text-muted-foreground">
+                0% · ціль {goalNum} {unit || selected.defaultUnit}
+                {goalPeriod ? ` / ${PERIOD_OPTIONS.find(p => p.key === goalPeriod)?.label.toLowerCase()}` : ''}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-1 text-[11px] text-muted-foreground/50">Немає даних</p>
+          )}
         </div>
       </div>
 
@@ -585,7 +616,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
       />
 
       {/* Unit + Goal side by side */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-3">
         <div className="flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Одиниця</p>
           <input
@@ -610,6 +641,32 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
           />
         </div>
       </div>
+
+      {/* Goal period — only shown when goal is entered */}
+      {hasGoal && (
+        <div className="mb-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Період цілі</p>
+          <div className="flex gap-2">
+            {PERIOD_OPTIONS.map(p => (
+              <button
+                key={p.key}
+                onClick={() => setGoalPeriod(p.key)}
+                className={cn(
+                  'flex-1 rounded-xl border py-2.5 text-[13px] font-medium transition-all',
+                  goalPeriod === p.key
+                    ? cn(color.bg, color.text, 'border-transparent')
+                    : 'bg-muted/30 border-border/40 text-muted-foreground'
+                )}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-muted-foreground/60">
+            Ціль з'явиться на сторінці Цілі. Трекінг-віджет залишиться на Віджетах.
+          </p>
+        </div>
+      )}
 
       {/* AI warning */}
       {!hasEntries && !selected.directWidget && (
@@ -637,10 +694,11 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
             {selected.directWidget ? 'Створюємо...' : 'AI створює...'}
           </span>
-        ) : 'Створити віджет'}
+        ) : hasGoal ? 'Створити віджет + ціль' : 'Створити віджет'}
       </Button>
     </BottomSheet>
-  );
+    );
+  }
 
   return null;
 }
