@@ -86,46 +86,10 @@ export async function resolveOrCreateProfile(
     .maybeSingle();
 
   if (existing) {
-    // If profile id doesn't match auth id, migrate entries and update profile
-    if (existing.id !== resolvedAuthId) {
-      console.log(`[profile] Migrating profile ${existing.id} → ${resolvedAuthId} for telegram_id ${telegramIdStr}`);
-
-      // Read full existing profile to preserve subscription data
-      const { data: fullExisting } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", existing.id)
-        .single();
-
-      // Migrate all entries to the correct user_id
-      await supabase.from("entries").update({ user_id: resolvedAuthId }).eq("user_id", existing.id);
-      await supabase.from("insights").update({ user_id: resolvedAuthId }).eq("user_id", existing.id);
-      await supabase.from("subscriptions").update({ user_id: resolvedAuthId }).eq("user_id", existing.id);
-
-      // Delete old profile and create new one with correct id — preserving subscription
-      await supabase.from("profiles").delete().eq("id", existing.id);
-      const { data: migrated, error: migrateError } = await supabase
-        .from("profiles")
-        .insert({
-          id: resolvedAuthId,
-          telegram_id: telegramIdStr,
-          username: username || null,
-          settings: existing.settings ?? {},
-          subscription_tier:    fullExisting?.subscription_tier    ?? 'free',
-          subscription_status:  fullExisting?.subscription_status  ?? 'free',
-          subscription_ends_at: fullExisting?.subscription_ends_at ?? null,
-        })
-        .select("id, telegram_id, username, settings, created_at, updated_at")
-        .single();
-
-      if (migrateError) {
-        throw new ProfileError(`Failed to migrate profile: ${migrateError.message}`);
-      }
-
-      return { ...migrated, telegram_id: BigInt(migrated.telegram_id) } as Profile;
-    }
-
-    // Profile already aligned — just update username if changed
+    // Profile exists — use it as-is, just update username if changed
+    // NOTE: We do NOT migrate profile IDs anymore — it wipes subscription data
+    // The profile.id may differ from authUserId; that's acceptable since we use
+    // service role for all DB operations in the miniapp
     if (username && existing.username !== username) {
       await supabase.from("profiles").update({ username }).eq("id", existing.id);
     }
