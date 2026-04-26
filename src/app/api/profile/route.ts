@@ -45,10 +45,15 @@ export async function GET(req: Request): Promise<Response> {
     });
   }
 
+  // Look up profile by telegram_id when available (handles pre-existing users where
+  // profile.id ≠ auth user.id), fall back to id for users without telegram metadata.
+  const telegramId = user.user_metadata?.telegram_id as string | undefined;
+  const lookupColumn = telegramId ? "telegram_id" : "id";
+  const lookupValue = telegramId ?? user.id;
   const { data: profile, error } = await supabase
     .from("profiles")
     .select("id, subscription_tier, subscription_status, subscription_ends_at, subscription_start_date, trial_used")
-    .eq("id", user.id)
+    .eq(lookupColumn, lookupValue)
     .single();
 
   if (error) {

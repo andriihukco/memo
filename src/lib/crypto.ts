@@ -43,7 +43,9 @@ export async function deriveUserKey(telegramUserId: string, salt?: string | null
   const subtle = getCrypto().subtle;
 
   // IKM = SHA-256(telegramUserId) or SHA-256(telegramUserId:salt)
-  const ikm = salt ? `${telegramUserId}:${salt}` : telegramUserId;
+  // Treat null, undefined, and empty string as "no salt" — legacy path for
+  // users created before migration 20240001000016_encryption_salt.sql
+  const ikm = (salt != null && salt !== "") ? `${telegramUserId}:${salt}` : telegramUserId;
   const ikmRaw = new TextEncoder().encode(ikm);
   const ikmHash = await subtle.digest("SHA-256", ikmRaw);
 
