@@ -677,20 +677,16 @@ export default function GraphPage() {
           {!(tierLoaded && userTier === 'free') && (
             <button
               onClick={() => { play('OPEN'); setShowDateSheet(true); }}
-              className={cn(
-                'inline-flex min-h-[36px] items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors',
-                dateRange
-                  ? 'bg-primary/15 border-primary text-primary'
-                  : 'bg-muted/40 border-border/50 text-muted-foreground'
-              )}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-full bg-muted px-3 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-muted/80"
             >
-              <Icon name="calendar_month" size={14} />
+              {dateRange && <span className="h-1.5 w-1.5 rounded-full bg-primary shrink-0" />}
+              <Icon name="calendar_today" size={13} />
               {dateLabel ?? 'Весь час'}
               {dateRange && (
                 <span
                   role="button"
                   onClick={e => { e.stopPropagation(); setDateRange(null); }}
-                  className="ml-0.5 flex items-center text-primary/60 hover:text-primary"
+                  className="ml-0.5 flex items-center opacity-60 hover:opacity-100"
                 >
                   <Icon name="close" size={12} />
                 </span>
