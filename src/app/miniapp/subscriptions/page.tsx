@@ -499,11 +499,7 @@ export default function SubscriptionsPage() {
         <div className="flex flex-col gap-1.5">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-1">Період</p>
           <BillingPeriodSwitcher selected={billingPeriod} onChange={setBillingPeriod} />
-          {billingPeriod !== 'monthly' && (
-            <p className="text-[11px] text-green-400 text-center">
-              Економія {BILLING_PERIODS[billingPeriod].discountPct}% порівняно з місячною оплатою
-            </p>
-          )}
+
         </div>
 
         {/* Error */}
