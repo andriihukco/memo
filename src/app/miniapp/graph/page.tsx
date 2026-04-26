@@ -453,15 +453,17 @@ export default function GraphPage() {
 
   // ── D3 simulation ──────────────────────────────────────────────────────────
 
+  // Keep a ref to the node selection so we can update opacity without re-running simulation
+  const nodeSelRef = useRef<d3.Selection<SVGCircleElement, SimNode, SVGGElement, unknown> | null>(null);
+
   useEffect(() => {
     if (status !== 'ready' || !graphData || !svgRef.current || !containerRef.current) return;
 
     const allNodes = graphData.nodes;
     const allEdges = graphData.edges;
 
-    // Apply filters
+    // Apply only date filter — category filter is handled via opacity, not removal
     const filteredNodes = allNodes.filter(n => {
-      if (selectedCategory && n.category !== selectedCategory) return false;
       if (dateRange) {
         const t = new Date(n.created_at).getTime();
         if (t < dateRange.from.getTime() || t > dateRange.to.getTime()) return false;
@@ -551,10 +553,15 @@ export default function GraphPage() {
       .selectAll('circle').data(nodes).join('circle')
       .attr('r', (d) => Math.min(5 + d.edge_count * 1.5, 16))
       .attr('fill', (d) => categoryHex(d.category))
-      .attr('fill-opacity', 0.9)
+      .attr('fill-opacity', (d) => selectedCategory && d.category !== selectedCategory ? 0.15 : 0.9)
       .attr('stroke', '#080c14')
       .attr('stroke-width', 1.5)
       .attr('filter', (d) => {
+        if (selectedCategory && d.category !== selectedCategory) return null;
+        const f = hexToFilter.get(categoryHex(d.category));
+        return f ? `url(#${f})` : null;
+      })
+      .attr('data-glow-filter', (d) => {
         const f = hexToFilter.get(categoryHex(d.category));
         return f ? `url(#${f})` : null;
       })
@@ -573,6 +580,9 @@ export default function GraphPage() {
         setLinkedNodes(connected);
         setSelectedNode(d);
       });
+
+    // Store ref for live opacity updates when chip selection changes
+    nodeSelRef.current = nodeSel as unknown as d3.Selection<SVGCircleElement, SimNode, SVGGElement, unknown>;
 
     // Cluster labels
     const parent = new Map<string, string>(nodes.map((n) => [n.id, n.id]));
@@ -659,18 +669,27 @@ export default function GraphPage() {
           .attr('y', (d) => Math.min(...d.nodes.map((n) => n.y ?? 0)) - 16);
       })
       .on('end', () => {
-        // When a category filter is active, pan/zoom to the centroid of those nodes
+        // Pan/zoom to the bounding box of selected category nodes
         if (selectedCategory && nodes.length > 0 && svgRef.current && zoomRef.current) {
-          const xs = nodes.map(n => n.x ?? 0);
-          const ys = nodes.map(n => n.y ?? 0);
-          const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
-          const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
-          const scale = Math.min(2.2, Math.max(0.6, 400 / (Math.max(...xs) - Math.min(...xs) + 1)));
+          const catNodes = nodes.filter(n => n.category === selectedCategory);
+          if (catNodes.length === 0) return;
+          const xs = catNodes.map(n => n.x ?? 0);
+          const ys = catNodes.map(n => n.y ?? 0);
+          const minX = Math.min(...xs), maxX = Math.max(...xs);
+          const minY = Math.min(...ys), maxY = Math.max(...ys);
+          const bboxW = Math.max(maxX - minX, 60);
+          const bboxH = Math.max(maxY - minY, 60);
+          const cx = (minX + maxX) / 2;
+          const cy = (minY + maxY) / 2;
+          const padding = 80;
+          const scale = Math.min(2.5, Math.max(0.4,
+            Math.min((width - padding * 2) / bboxW, (height - padding * 2) / bboxH)
+          ));
           const tx = width / 2 - scale * cx;
           const ty = height / 2 - scale * cy;
           d3.select(svgRef.current)
             .transition()
-            .duration(600)
+            .duration(700)
             .ease(d3.easeCubicOut)
             .call(zoomRef.current.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
         }
@@ -678,7 +697,50 @@ export default function GraphPage() {
 
     return () => { simulation.stop(); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, graphData, selectedCategory, dateRange]);
+  }, [status, graphData, dateRange]);
+
+  // ── Live category highlight — no simulation re-run ─────────────────────────
+  useEffect(() => {
+    if (!nodeSelRef.current || !svgRef.current || !zoomRef.current || !containerRef.current) return;
+
+    const nodeSel = nodeSelRef.current;
+
+    // Update opacity + glow
+    nodeSel
+      .transition().duration(300)
+      .attr('fill-opacity', (d: SimNode) => selectedCategory && d.category !== selectedCategory ? 0.15 : 0.9)
+      .attr('filter', function(this: SVGCircleElement, d: SimNode) {
+        if (selectedCategory && d.category !== selectedCategory) return null;
+        return this.getAttribute('data-glow-filter');
+      });
+
+    if (!selectedCategory) return;
+
+    // Pan to bounding box of selected category nodes
+    const catNodes: SimNode[] = [];
+    nodeSel.each((d: SimNode) => { if (d.category === selectedCategory) catNodes.push(d); });
+    if (catNodes.length === 0) return;
+
+    const xs = catNodes.map(n => n.x ?? 0);
+    const ys = catNodes.map(n => n.y ?? 0);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const bboxW = Math.max(maxX - minX, 60);
+    const bboxH = Math.max(maxY - minY, 60);
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const width = containerRef.current.clientWidth;
+    const height = containerRef.current.clientHeight;
+    const padding = 80;
+    const scale = Math.min(2.5, Math.max(0.4,
+      Math.min((width - padding * 2) / bboxW, (height - padding * 2) / bboxH)
+    ));
+    const tx = width / 2 - scale * cx;
+    const ty = height / 2 - scale * cy;
+    d3.select(svgRef.current)
+      .transition().duration(500).ease(d3.easeCubicOut)
+      .call(zoomRef.current.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  }, [selectedCategory]);
 
   // Collect unique categories from graph data for filter chips
   const allCategories = graphData
@@ -722,7 +784,7 @@ export default function GraphPage() {
         className="flex flex-col gap-2 px-4 pt-5 pb-3"
       >
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Граф</h1>
+          <h1 className="text-lg font-semibold">Графік</h1>
           {/* Date filter button — hidden for free tier */}
           {!(tierLoaded && userTier === 'free') && (
             <button
