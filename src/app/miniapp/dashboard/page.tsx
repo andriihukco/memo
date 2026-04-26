@@ -1779,7 +1779,7 @@ export default function DashboardPage() {
             )}
 
             {/* ── Add widget tile — always last ──────────────────────────── */}
-            {status === 'ready' && sectionFilter === null && (
+            {status === 'ready' && sectionFilter === null && (entries.length > 0 || customWidgets.length > 0) && (
               <button
                 onClick={handleAddWidgetTap}
                 className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/60 p-4 text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary active:bg-muted/20 min-h-[120px]"
