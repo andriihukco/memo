@@ -182,28 +182,37 @@ function groupReportsByMonth(reports: ReportSummary[]): Array<{ label: string; r
 // ── New Report Sheet ──────────────────────────────────────────────────────────
 
 const PERIOD_OPTIONS = [
-  { type: 'daily',    label: 'Сьогодні',       icon: 'today',          fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
-  { type: 'yesterday',label: 'Вчора',           icon: 'history',        fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
-  { type: 'weekly',   label: '7 днів',          icon: 'date_range',     fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: 'monthly',  label: 'Місяць',          icon: 'calendar_month', fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: '3months',  label: '3 місяці',        icon: 'calendar_month', fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: 'year',     label: 'Рік',             icon: 'event_note',     fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: 'ytd',      label: 'З початку року',  icon: 'start',          fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(),0,1)), to: endOfDay(n) }; } },
-  { type: 'all',      label: 'Весь час',        icon: 'all_inclusive',  fn: () => { return { from: new Date('2020-01-01'), to: endOfDay(new Date()) }; } },
-  { type: 'custom',   label: 'Свій діапазон',   icon: 'tune',           fn: null },
+  { type: 'daily',    label: 'Сьогодні',       icon: 'today',          paid: false, fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
+  { type: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false, fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
+  { type: 'weekly',   label: '7 днів',          icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { type: 'monthly',  label: 'Місяць',          icon: 'calendar_month', paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { type: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { type: 'year',     label: 'Рік',             icon: 'event_note',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { type: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true,  fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(),0,1)), to: endOfDay(n) }; } },
+  { type: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true,  fn: () => { return { from: new Date('2020-01-01'), to: endOfDay(new Date()) }; } },
+  { type: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true,  fn: null },
 ] as const;
 
-function NewReportSheet({ open, onClose, onGenerate, generating }: {
+function NewReportSheet({ open, onClose, onGenerate, generating, userTier, onPaywall }: {
   open: boolean; onClose: () => void;
   onGenerate: (periodType: string, from?: Date, to?: Date) => void;
   generating: boolean;
+  userTier: SubscriptionTier | null;
+  onPaywall: () => void;
 }) {
   const [fromStr, setFromStr] = useState(isoDate(startOfDay(new Date())));
   const [toStr, setToStr] = useState(isoDate(new Date()));
   const [selected, setSelected] = useState<{ type: string; from: Date; to: Date } | null>(null);
   const customExpanded = selected?.type === 'custom';
+  const isPaid = userTier === 'stars_basic' || userTier === 'stars_pro';
+  const { play } = useSound();
 
   const handleSelectPreset = (opt: typeof PERIOD_OPTIONS[number]) => {
+    if (opt.paid && !isPaid) {
+      play('CAUTION');
+      onPaywall();
+      return;
+    }
     if (opt.fn) {
       const r = opt.fn();
       setSelected({ type: opt.type, from: r.from, to: r.to });
@@ -239,16 +248,21 @@ function NewReportSheet({ open, onClose, onGenerate, generating }: {
       <div className="px-4">
         {PERIOD_OPTIONS.map((opt) => {
           const isSelected = selected?.type === opt.type;
+          const locked = opt.paid && !isPaid;
           return (
-            <button key={opt.type} onClick={() => handleSelectPreset(opt)} className="min-h-[44px] flex items-center gap-3 px-0 w-full">
-              <Icon name={opt.icon} size={20} className="text-primary/60 shrink-0" />
+            <button key={opt.type} onClick={() => handleSelectPreset(opt)} className={cn('min-h-[44px] flex items-center gap-3 px-0 w-full', locked && 'opacity-60')}>
+              <Icon name={opt.icon} size={20} className={locked ? 'text-muted-foreground/50 shrink-0' : 'text-primary/60 shrink-0'} />
               <span className="flex-1 text-left text-[15px]">{opt.label}</span>
-              {isSelected ? <Icon name="check" size={18} className="text-primary shrink-0" /> : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />}
+              {locked
+                ? <Icon name="lock" size={16} className="text-yellow-400/70 shrink-0" />
+                : isSelected
+                  ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                  : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />}
             </button>
           );
         })}
       </div>
-      <div className={cn('overflow-hidden transition-all duration-300', customExpanded ? 'max-h-40' : 'max-h-0')}>
+      <div className={cn('overflow-hidden transition-all duration-300', customExpanded && isPaid ? 'max-h-40' : 'max-h-0')}>
         <div className="mx-4 h-px bg-border/40" />
         <div className="px-4 pt-3 pb-1 flex items-center gap-2">
           <input type="date" value={fromStr} onChange={e => handleFromChange(e.target.value)} className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
@@ -1034,6 +1048,7 @@ export default function ReportsPage() {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallProps, _setPaywallProps] = useState<{ feature: string; current?: number; limit?: number; requiredTier: SubscriptionTier }>({ feature: 'ai_reports', requiredTier: 'stars_basic' });
   const { counts: _counts } = useUsageCounts(accessToken);
+  const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
 
   // Use shared generation context — survives tab switches
   const { generating, pendingLabel, startGeneration, setOnComplete } = useReportGeneration();
@@ -1043,6 +1058,8 @@ export default function ReportsPage() {
     try {
       const res = await fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) return;
+      const data = await res.json();
+      setUserTier(data.profile?.subscription_tier ?? 'free');
     } catch { /* non-critical */ }
   }, [accessToken]);
 
@@ -1197,6 +1214,8 @@ export default function ReportsPage() {
         onClose={() => { play('CLOSE'); setShowNewReport(false); }}
         onGenerate={(type, from, to) => generateReport(type, from, to)}
         generating={generating}
+        userTier={userTier}
+        onPaywall={() => setPaywallOpen(true)}
       />
 
       <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} {...paywallProps} />

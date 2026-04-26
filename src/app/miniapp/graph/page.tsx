@@ -975,13 +975,15 @@ export default function GraphPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold">Графік</h1>
-            <button
-              onClick={() => { play('OPEN'); setShowInfo(true); }}
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors"
-              aria-label="Як це працює"
-            >
-              <Icon name="info" size={18} />
-            </button>
+            {!(tierLoaded && userTier === 'free') && (
+              <button
+                onClick={() => { play('OPEN'); setShowInfo(true); }}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors"
+                aria-label="Як це працює"
+              >
+                <Icon name="info" size={18} />
+              </button>
+            )}
           </div>
           {/* Date filter button — hidden for free tier */}
           {!(tierLoaded && userTier === 'free') && (
@@ -1341,7 +1343,7 @@ export default function GraphPage() {
               <div className="px-4 flex flex-col gap-3">
                 {[
                   {
-                    emoji: '⚫',
+                    emoji: '🔵',
                     bg: 'from-slate-500/20 to-slate-600/10',
                     accent: 'text-slate-300',
                     title: 'Крапки — твої записи',
@@ -1388,9 +1390,9 @@ export default function GraphPage() {
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.05 + i * 0.06, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-                    className={`flex gap-4 rounded-2xl bg-gradient-to-br ${bg} border border-white/5 px-4 py-4`}
+                    className={`flex gap-3 rounded-2xl bg-gradient-to-br ${bg} border border-white/5 px-4 py-3.5`}
                   >
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black/20 text-3xl">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/20 text-xl">
                       {emoji}
                     </div>
                     <div className="flex-1 min-w-0">
