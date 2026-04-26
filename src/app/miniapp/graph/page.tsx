@@ -809,10 +809,10 @@ export default function GraphPage() {
             <h1 className="text-lg font-semibold">Графік</h1>
             <button
               onClick={() => { play('OPEN'); setShowInfo(true); }}
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors"
               aria-label="Як це працює"
             >
-              <Icon name="info" size={14} />
+              <Icon name="info" size={18} />
             </button>
           </div>
           {/* Date filter button — hidden for free tier */}
@@ -820,9 +820,9 @@ export default function GraphPage() {
             <button
               onClick={() => { if (dateRange) { setDateRange(null); } else { play('OPEN'); setShowDateSheet(true); } }}
               onContextMenu={e => { e.preventDefault(); play('OPEN'); setShowDateSheet(true); }}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-muted-foreground"
+              className="inline-flex min-h-[44px] items-center gap-2 rounded-full bg-muted px-3.5 text-[13px] font-medium text-muted-foreground"
             >
-              <Icon name="calendar_today" size={13} />
+              <Icon name="calendar_today" size={16} />
               {dateLabel}
             </button>
           )}

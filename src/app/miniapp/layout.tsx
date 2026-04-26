@@ -42,7 +42,7 @@ interface Slide {
 
 const SLIDES: Slide[] = [
   {
-    emoji: '📓',
+    emoji: '🔵',
     title: 'Твій особистий щоденник',
     body: 'Просто пиши або говори — Memo сам розбере що зберегти. Їжа, тренування, витрати, думки.',
     bg: 'from-indigo-950 to-slate-950',
