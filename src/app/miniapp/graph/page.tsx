@@ -1053,7 +1053,7 @@ export default function GraphPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
               onClick={() => { play('CLOSE'); setShowInfo(false); }}
             />
             <motion.div
@@ -1061,66 +1061,88 @@ export default function GraphPage() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300, mass: 0.8 }}
-              className="relative w-full rounded-t-2xl bg-background px-5 pt-4 shadow-2xl overflow-y-auto"
-              style={{ maxHeight: '80vh', paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1rem)' }}
+              className="relative w-full rounded-t-3xl bg-background shadow-2xl overflow-y-auto"
+              style={{ maxHeight: '85vh', paddingBottom: 'calc(max(var(--bottom-inset, 0px), 16px) + 1.5rem)' }}
             >
               {/* Handle */}
-              <div className="mb-4 flex justify-center">
+              <div className="pt-3 pb-1 flex justify-center">
                 <div className="h-1 w-10 rounded-full bg-muted" />
               </div>
 
-              {/* Header */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-xl shrink-0">
+              {/* Hero header */}
+              <div className="px-6 pt-4 pb-6 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-4xl shadow-lg shadow-indigo-500/10">
                   🕸️
                 </div>
-                <div>
-                  <h3 className="text-[17px] font-bold leading-tight">Як працює граф</h3>
-                  <p className="text-[12px] text-muted-foreground">Візуалізація зв&apos;язків між записами</p>
-                </div>
+                <h3 className="text-[22px] font-bold leading-tight mb-1">Граф зв&apos;язків</h3>
+                <p className="text-[14px] text-muted-foreground leading-relaxed max-w-xs mx-auto">
+                  Твої думки та записи — це не просто список. Це жива мережа ідей.
+                </p>
               </div>
 
-              {/* Sections */}
-              {[
-                {
-                  icon: '⚫',
-                  title: 'Вузли — твої записи',
-                  body: 'Кожна крапка — це один запис. Розмір крапки залежить від кількості зв\'язків: чим більше зв\'язків, тим більша крапка. Колір відповідає категорії запису.',
-                },
-                {
-                  icon: '🔗',
-                  title: 'Зв\'язки між записами',
-                  body: 'Лінії між крапками показують три типи зв\'язків:\n• Гілки (сині) — записи в одному діалозі з ботом\n• Схожість (пунктир) — AI знайшов семантичну схожість між текстами\n• Між категоріями (жовті) — записи з різних категорій, що пов\'язані за змістом',
-                },
-                {
-                  icon: '🧠',
-                  title: 'Як AI знаходить зв\'язки',
-                  body: 'Кожен запис перетворюється на числовий вектор (embedding) за допомогою AI. Записи з близькими векторами вважаються семантично схожими — навіть якщо написані різними словами.',
-                },
-                {
-                  icon: '🎨',
-                  title: 'Кольори та кластери',
-                  body: 'Записи однієї категорії мають однаковий колір. Кластери — групи записів, що часто зустрічаються разом. Назва кластера показує домінуючу категорію.',
-                },
-                {
-                  icon: '🔍',
-                  title: 'Фільтрація та навігація',
-                  body: 'Тап на категорію — виділяє її записи та наближає камеру до них. Інші записи стають напівпрозорими. Зводь/розводь пальці для зуму, тягни для переміщення.',
-                },
-                {
-                  icon: '✏️',
-                  title: 'Редагування',
-                  body: 'Тап на будь-яку крапку відкриває деталі запису та список пов\'язаних записів. Звідти можна редагувати або видалити запис.',
-                },
-              ].map(({ icon, title, body }) => (
-                <div key={title} className="mb-4 flex gap-3">
-                  <span className="text-[18px] leading-none shrink-0 mt-0.5">{icon}</span>
-                  <div>
-                    <p className="text-[14px] font-semibold mb-0.5">{title}</p>
-                    <p className="text-[13px] text-muted-foreground leading-relaxed whitespace-pre-line">{body}</p>
-                  </div>
-                </div>
-              ))}
+              {/* Tutorial cards */}
+              <div className="px-4 flex flex-col gap-3">
+                {[
+                  {
+                    emoji: '⚫',
+                    bg: 'from-slate-500/20 to-slate-600/10',
+                    accent: 'text-slate-300',
+                    title: 'Крапки — твої записи',
+                    body: 'Кожна крапка — один запис. Більша крапка = більше зв\'язків. Колір відповідає категорії.',
+                  },
+                  {
+                    emoji: '🔗',
+                    bg: 'from-indigo-500/20 to-blue-500/10',
+                    accent: 'text-indigo-300',
+                    title: 'Три типи зв\'язків',
+                    body: 'Сині лінії — один діалог з ботом. Жовті — зв\'язок між категоріями. Пунктир — AI знайшов схожість.',
+                  },
+                  {
+                    emoji: '🧠',
+                    bg: 'from-violet-500/20 to-purple-500/10',
+                    accent: 'text-violet-300',
+                    title: 'AI-семантика',
+                    body: 'Кожен запис перетворюється на числовий вектор. Близькі вектори = схожі думки, навіть різними словами.',
+                  },
+                  {
+                    emoji: '🎨',
+                    bg: 'from-pink-500/20 to-rose-500/10',
+                    accent: 'text-pink-300',
+                    title: 'Кольори та кластери',
+                    body: 'Однакові кольори — одна категорія. Кластери — групи пов\'язаних записів з підписом домінуючої теми.',
+                  },
+                  {
+                    emoji: '👆',
+                    bg: 'from-cyan-500/20 to-teal-500/10',
+                    accent: 'text-cyan-300',
+                    title: 'Навігація',
+                    body: 'Тап на чіп — виділяє категорію та наближає до неї. Зводь/розводь пальці для зуму. Тягни для переміщення.',
+                  },
+                  {
+                    emoji: '✏️',
+                    bg: 'from-amber-500/20 to-yellow-500/10',
+                    accent: 'text-amber-300',
+                    title: 'Редагування',
+                    body: 'Тап на крапку — деталі запису та пов\'язані записи. Можна редагувати або видалити прямо звідси.',
+                  },
+                ].map(({ emoji, bg, accent, title, body }, i) => (
+                  <motion.div
+                    key={title}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 + i * 0.06, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+                    className={`flex gap-4 rounded-2xl bg-gradient-to-br ${bg} border border-white/5 px-4 py-4`}
+                  >
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-black/20 text-3xl">
+                      {emoji}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[15px] font-semibold mb-1 ${accent}`}>{title}</p>
+                      <p className="text-[13px] text-muted-foreground leading-relaxed">{body}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </motion.div>
           </div>
         )}
