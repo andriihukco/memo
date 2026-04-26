@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { deriveUserKey, encryptField, decryptField } from "@/lib/crypto";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get("Authorization");
@@ -65,6 +66,10 @@ export async function POST(req: Request): Promise<Response> {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Rate limit: 30 writes/min per JWT (keyed on first 16 chars of token)
+  const rl = rateLimit(`entries:write:${jwt.slice(0, 16)}`, 30, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabase = makeSupabase(jwt);
 
@@ -206,7 +211,7 @@ export async function PATCH(req: Request): Promise<Response> {
     }
   }
 
-  // Re-compute metrics when content changes — use plaintext for AI
+  // Re-compute metrics and reset embedding when content changes — use plaintext for AI
   if (content !== undefined) {
     const plainContent = content.trim();
     // Decrypt existing content for comparison
@@ -220,6 +225,9 @@ export async function PATCH(req: Request): Promise<Response> {
         const existingMeta = (existing?.metadata as Record<string, unknown>) ?? {};
         updates.metadata = { ...existingMeta, dashboard_metrics: newMetrics };
       }
+      // Reset embedding so the cron job re-embeds the updated content.
+      // This keeps semantic search and clustering accurate after edits.
+      updates.embedding_status = "pending";
     }
   }
 
@@ -296,6 +304,10 @@ export async function GET(req: Request): Promise<Response> {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Rate limit: 120 reads/min per JWT
+  const rl = rateLimit(`entries:read:${jwt.slice(0, 16)}`, 120, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabase = makeSupabase(jwt);
 

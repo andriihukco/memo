@@ -181,12 +181,53 @@ export async function autoIncrementStreaks(userId: string): Promise<void> {
 }
 
 /**
+ * Re-embed entries that have embedding_status = 'pending'.
+ * This covers:
+ *   - New entries whose async embedding failed on first attempt
+ *   - Edited entries (PATCH /api/entries resets status to 'pending')
+ *
+ * Processes up to 50 pending entries per user per cron run to stay within
+ * Gemini API rate limits. Remaining entries are picked up in the next run.
+ */
+export async function reembedPendingEntries(userId: string): Promise<void> {
+  const supabase = getServiceClient();
+
+  const { data: pending, error } = await supabase
+    .from("entries")
+    .select("id, content")
+    .eq("user_id", userId)
+    .eq("embedding_status", "pending")
+    .order("updated_at", { ascending: true })
+    .limit(50);
+
+  if (error) {
+    console.error(`[loop] reembedPendingEntries fetch error for user ${userId}:`, error.message);
+    return;
+  }
+
+  if (!pending || pending.length === 0) return;
+
+  const { embedEntry } = await import("@/lib/embedding");
+
+  for (const entry of pending as Array<{ id: string; content: string }>) {
+    try {
+      await embedEntry(entry.id, entry.content);
+    } catch (err) {
+      console.error(`[loop] reembedPendingEntries failed for entry ${entry.id}:`, err);
+      // embedEntry already marks as 'failed' after MAX_ATTEMPTS — continue to next
+    }
+  }
+}
+
+/**
  * Main per-user processing function.
- * 1. Re-clusters entries via pgvector similarity
- * 2. Builds and saves widget configs (delegated to widgets.ts)
- * 3. Auto-increments active streaks
+ * 1. Re-embeds pending entries (new + edited)
+ * 2. Re-clusters entries via pgvector similarity
+ * 3. Builds and saves widget configs (delegated to widgets.ts)
+ * 4. Auto-increments active streaks
  */
 export async function processUser(userId: string): Promise<void> {
+  await reembedPendingEntries(userId).catch(err => console.error("[loop] reembedPendingEntries failed:", err));
   await clusterEntries(userId);
   const { buildAndSaveWidgets } = await import("./widgets");
   await buildAndSaveWidgets(userId);

@@ -7,10 +7,10 @@ DECLARE
   v_user_id UUID;
   v_sub_id  UUID;
 BEGIN
-  SELECT id INTO v_user_id FROM profiles WHERE telegram_id = 6195181340;
+  SELECT id INTO v_user_id FROM profiles WHERE telegram_id = _8481763864;
 
   IF v_user_id IS NULL THEN
-    RAISE NOTICE 'User telegram_id=6195181340 not found — skipping';
+    RAISE NOTICE 'User telegram_id=_8481763864 not found — skipping';
     RETURN;
   END IF;
 
@@ -21,7 +21,7 @@ BEGIN
   )
   VALUES (
     v_user_id, 'stars_pro', 'active', now(), NULL,
-    'free_access_6195181340', 'free_access_6195181340'
+    'free_access_8481763864', 'free_access_6195181340'
   )
   ON CONFLICT (telegram_payment_charge_id) DO UPDATE
     SET status = 'active', end_date = NULL, updated_at = now()

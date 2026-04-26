@@ -1,6 +1,7 @@
 export const runtime = "edge";
 
 import { createClient } from "@supabase/supabase-js";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,14 @@ async function verifyInitData(
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: Request): Promise<Response> {
+  // Rate limit: 10 auth attempts per minute per IP
+  const ip =
+    req.headers.get("CF-Connecting-IP") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown";
+  const rl = rateLimit(`auth:${ip}`, 10, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
+
   let body: { initData?: string };
   try {
     body = await req.json();

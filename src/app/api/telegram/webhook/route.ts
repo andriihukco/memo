@@ -7,6 +7,7 @@ import { handleTextMessage } from "@/lib/bot/handlers/text";
 import { handleVoiceMessage } from "@/lib/bot/handlers/voice";
 import { handleStart, handleHelp, handleReport, handleReportDaily, handleReportWeekly, handleReportMonthly, handleStats, handleRecommendations, handleCallbackQuery } from "@/lib/bot/commands";
 import { createSubscription, recordTransaction } from "@/lib/stars/paywall";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -136,6 +137,32 @@ function getHandler(): (req: Request) => Promise<Response> {
 }
 
 export async function POST(req: Request): Promise<Response> {
+  // ── 1. Webhook secret verification ─────────────────────────────────────────
+  // Set TELEGRAM_WEBHOOK_SECRET in env and register it with Telegram:
+  //   https://api.telegram.org/bot<TOKEN>/setWebhook?url=...&secret_token=<SECRET>
+  // Telegram sends it as X-Telegram-Bot-Api-Secret-Token on every update.
+  const webhookSecret = env.TELEGRAM_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const incoming = req.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
+    if (incoming !== webhookSecret) {
+      console.warn("[webhook] rejected: invalid secret token");
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
+  // ── 2. Rate limiting — 60 updates/min per source IP ────────────────────────
+  // Telegram sends from a fixed set of IPs, but we key on CF-Connecting-IP /
+  // x-forwarded-for so a single compromised/spoofed source can't flood us.
+  const ip =
+    req.headers.get("CF-Connecting-IP") ??
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    "unknown";
+  const rl = rateLimit(`webhook:${ip}`, 60, 60_000);
+  if (!rl.allowed) {
+    console.warn(`[webhook] rate limited IP: ${ip}`);
+    return rateLimitResponse(rl.resetAt);
+  }
+
   try {
     return await getHandler()(req);
   } catch (err) {

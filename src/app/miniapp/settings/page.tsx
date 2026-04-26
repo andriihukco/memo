@@ -663,6 +663,56 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
       >
+        <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Дані та конфіденційність</p>
+        <Card>
+          <CardContent className="p-0">
+            {/* Export data */}
+            <motion.button
+              whileTap={{ scale: 0.99 }}
+              onClick={async () => {
+                play('OPEN');
+                if (!accessToken) return;
+                try {
+                  const res = await fetch('/api/profile/export', {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                  });
+                  if (!res.ok) {
+                    const d = await res.json().catch(() => ({}));
+                    alert(d.error ?? 'Не вдалося експортувати дані');
+                    return;
+                  }
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `memo-export-${new Date().toISOString().slice(0, 10)}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch {
+                  alert('Не вдалося завантажити дані. Спробуй ще раз.');
+                }
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                <Icon name="download" size={16} className="text-primary" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-medium">Експортувати мої дані</p>
+                <p className="text-xs text-muted-foreground">Завантажити всі записи у форматі JSON</p>
+              </div>
+              <Icon name="chevron_right" size={16} className="text-muted-foreground" />
+            </motion.button>
+          </CardContent>
+        </Card>
+      </motion.section>
+
+      {/* ── About ───────────────────────────────────────────────────────── */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.31, ease: [0.22, 1, 0.36, 1] }}
+      >
         <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Про додаток</p>
         <Card>
           <CardContent className="p-0">
