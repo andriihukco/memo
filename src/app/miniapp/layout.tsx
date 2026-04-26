@@ -726,7 +726,9 @@ const rootPaths = ['/miniapp', '/miniapp/dashboard', '/miniapp/graph', '/miniapp
 function MiniAppContent({ children }: { children: React.ReactNode }) {
   const { setAccessToken } = useAuth();
   const { play } = useSound();
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // If auth already completed this session, skip the splash immediately
+  const alreadyAuthed = typeof window !== 'undefined' && !!sessionStorage.getItem('memo_auth_done');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(alreadyAuthed ? 'ready' : 'loading');
   const [errorMsg, setErrorMsg] = useState('');
   const pathname = usePathname();
   const router = useRouter();
@@ -787,6 +789,8 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
         const { access_token } = await res.json();
         setAccessToken(access_token);
+        // Mark auth as done for this session so sub-page navigations skip the splash
+        sessionStorage.setItem('memo_auth_done', '1');
 
         // Check subscription expiry and show renewal banner if needed
         const profileRes = await fetch('/api/profile', {
@@ -819,10 +823,12 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
     async function initWithMinSplash() {
       await init();
-      // Ensure splash shows for at least 3s so icons/fonts always load fully
-      const elapsed = Date.now() - splashStartRef.current;
-      const remaining = Math.max(0, 3000 - elapsed);
-      if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
+      // Only enforce minimum splash time on first load, not on re-mounts
+      if (!alreadyAuthed) {
+        const elapsed = Date.now() - splashStartRef.current;
+        const remaining = Math.max(0, 3000 - elapsed);
+        if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
+      }
       setStatus('ready');
     }
 
