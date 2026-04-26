@@ -869,74 +869,56 @@ export default function GraphPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="h-full w-full relative"
+              className="h-full w-full relative flex items-center justify-center"
             >
-              {/* Skeleton graph — dots arranged in M shape with jiggle + dashed connections */}
-              <svg className="h-full w-full" aria-label="Завантаження...">
+              <svg viewBox="0 0 220 280" style={{ width: 'min(55vw, 260px)', overflow: 'visible' }} aria-label="Завантаження...">
                 <defs>
                   <style>{`
-                    @keyframes jiggle {
+                    @keyframes softJiggle {
                       0%,100% { transform: translate(0,0); }
-                      20% { transform: translate(-1.5px, 2px); }
-                      40% { transform: translate(2px, -1.5px); }
-                      60% { transform: translate(-1px, -2px); }
-                      80% { transform: translate(1.5px, 1px); }
+                      33% { transform: translate(2px,-2px); }
+                      66% { transform: translate(-1px,1px); }
                     }
-                    .jiggle-dot { animation: jiggle 2.4s ease-in-out infinite; }
+                    @keyframes shimmer {
+                      0%,100% { opacity:0.3; transform:scale(0.8); }
+                      50% { opacity:1; transform:scale(1.2); }
+                    }
+                    .m-dot { fill:#a3e4ff; animation: softJiggle 5s ease-in-out infinite; }
+                    .bg-star { fill:#a3e4ff; animation: shimmer 3s ease-in-out infinite; }
+                    .accent-star { fill:#a3e4ff; filter: drop-shadow(0 0 3px rgba(163,228,255,0.8)); }
                   `}</style>
                 </defs>
-                {(() => {
-                  // M shape: left leg up, valley down, peak up, valley down, right leg up
-                  // Coordinates in % of viewport
-                  const M: [number,number][] = [
-                    // Left vertical leg (bottom to top)
-                    [20,80],[20,65],[20,50],[20,35],[20,20],
-                    // Down-right diagonal to valley
-                    [28,35],[35,50],[42,65],
-                    // Up-right diagonal to center peak
-                    [50,50],[50,35],[50,20],
-                    // Down-right diagonal to second valley
-                    [58,35],[65,50],[72,65],
-                    // Up to right leg top
-                    [80,50],[80,35],[80,20],
-                    // Right vertical leg down
-                    [80,35],[80,50],[80,65],[80,80],
-                    // Extra scatter nodes for graph feel
-                    [35,72],[65,72],[50,72],
-                    [25,55],[75,55],
-                  ];
-                  // Edges: connect sequential M points + some cross-connections
-                  const edges: [number,number][] = [];
-                  for (let i = 0; i < 21; i++) edges.push([i, i+1]);
-                  // Extra connections for graph density
-                  edges.push([4,5],[10,11],[16,17],[21,7],[22,13],[23,10],[24,3],[25,16]);
 
-                  return (
-                    <>
-                      {edges.map(([a,b], i) => {
-                        if (!M[a] || !M[b]) return null;
-                        return (
-                          <line key={`e${i}`}
-                            x1={`${M[a][0]}%`} y1={`${M[a][1]}%`}
-                            x2={`${M[b][0]}%`} y2={`${M[b][1]}%`}
-                            stroke="rgba(255,255,255,0.08)" strokeWidth="1.2" strokeDasharray="3 5"
-                          />
-                        );
-                      })}
-                      {M.map(([cx, cy], i) => (
-                        <circle
-                          key={i}
-                          cx={`${cx}%`} cy={`${cy}%`}
-                          r={i < 5 || (i >= 9 && i <= 11) || (i >= 15 && i <= 17) ? 6 : 4}
-                          className="jiggle-dot"
-                          fill="hsl(var(--muted-foreground))"
-                          fillOpacity={0.18 + (i % 5) * 0.04}
-                          style={{ animationDelay: `${i * 120}ms` }}
-                        />
-                      ))}
-                    </>
-                  );
-                })()}
+                {/* Background shimmer stars */}
+                <circle className="bg-star" cx="30" cy="40" r="1" style={{ animationDelay:'0s' }} />
+                <circle className="bg-star" cx="190" cy="110" r="1.2" style={{ animationDelay:'0.5s' }} />
+                <circle className="bg-star" cx="50" cy="220" r="0.8" style={{ animationDelay:'1.2s' }} />
+                <circle className="bg-star" cx="170" cy="240" r="1" style={{ animationDelay:'0.8s' }} />
+                <circle className="bg-star" cx="20" cy="150" r="1.1" style={{ animationDelay:'2s' }} />
+                <circle className="bg-star" cx="200" cy="60" r="0.9" style={{ animationDelay:'1.5s' }} />
+                <circle className="bg-star" cx="110" cy="20" r="1" style={{ animationDelay:'0.3s' }} />
+                <circle className="bg-star" cx="80" cy="250" r="0.7" style={{ animationDelay:'2.2s' }} />
+
+                {/* M path lines */}
+                <path stroke="rgba(163,228,255,0.5)" strokeWidth="2.5" strokeLinecap="round" fill="none"
+                  d="M 45,185 L 75,85 L 110,155 L 145,85 L 175,185" />
+
+                {/* M dots */}
+                {([
+                  [45,185,0],[55,152,-1],[65,118,-2],[75,85,0],
+                  [93,120,-1.5],[110,155,0],[127,120,-0.5],[145,85,0],
+                  [155,118,-2.5],[165,152,-1.2],[175,185,0],
+                ] as [number,number,number][]).map(([cx,cy,delay],i) => (
+                  <circle key={i} className="m-dot" cx={cx} cy={cy} r="7.5"
+                    style={{ animationDelay: `${delay}s` }} />
+                ))}
+
+                {/* Accent sparkle stars */}
+                <path className="accent-star" d="M175,30 L178,42 L190,45 L178,48 L175,60 L172,48 L160,45 L172,42 Z" opacity="0.9" />
+                <path className="accent-star" d="M85,185 L87,192 L94,194 L87,196 L85,203 L83,196 L76,194 L83,192 Z" opacity="0.7" />
+                <path className="accent-star" d="M40,55 L42,60 L47,61 L42,62 L40,67 L38,62 L33,61 L38,60 Z" opacity="0.8" />
+                <rect className="bg-star" x="195" y="180" width="4" height="4" transform="rotate(45 197 182)" />
+                <rect className="bg-star" x="25" y="110" width="3" height="3" transform="rotate(45 26.5 111.5)" />
               </svg>
             </motion.div>
           )}
