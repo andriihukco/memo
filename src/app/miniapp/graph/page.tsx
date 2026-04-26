@@ -883,21 +883,36 @@ export default function GraphPage() {
                       0%,100% { opacity:0.3; transform:scale(0.8); }
                       50% { opacity:1; transform:scale(1.2); }
                     }
+                    @keyframes drift0 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(4px,-6px)} 50%{transform:translate(-3px,-4px)} 75%{transform:translate(5px,3px)} }
+                    @keyframes drift1 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-5px,4px)} 50%{transform:translate(3px,6px)} 75%{transform:translate(-4px,-3px)} }
+                    @keyframes drift2 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(6px,3px)} 50%{transform:translate(-4px,5px)} 75%{transform:translate(2px,-6px)} }
+                    @keyframes drift3 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-3px,-5px)} 50%{transform:translate(5px,-2px)} 75%{transform:translate(-6px,4px)} }
+                    @keyframes drift4 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(2px,7px)} 50%{transform:translate(-6px,2px)} 75%{transform:translate(4px,-5px)} }
+                    @keyframes drift5 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-7px,-2px)} 50%{transform:translate(4px,-5px)} 75%{transform:translate(-2px,6px)} }
+                    @keyframes drift6 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(5px,-4px)} 50%{transform:translate(-2px,7px)} 75%{transform:translate(6px,2px)} }
+                    @keyframes drift7 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-4px,5px)} 50%{transform:translate(7px,-3px)} 75%{transform:translate(-5px,-4px)} }
                     .m-dot { fill:#a3e4ff; animation: softJiggle 5s ease-in-out infinite; }
-                    .bg-star { fill:#a3e4ff; animation: shimmer 3s ease-in-out infinite; }
+                    .bg-star { fill:#a3e4ff; }
                     .accent-star { fill:#a3e4ff; filter: drop-shadow(0 0 3px rgba(163,228,255,0.8)); }
                   `}</style>
                 </defs>
 
-                {/* Background shimmer stars */}
-                <circle className="bg-star" cx="30" cy="40" r="1" style={{ animationDelay:'0s' }} />
-                <circle className="bg-star" cx="190" cy="110" r="1.2" style={{ animationDelay:'0.5s' }} />
-                <circle className="bg-star" cx="50" cy="220" r="0.8" style={{ animationDelay:'1.2s' }} />
-                <circle className="bg-star" cx="170" cy="240" r="1" style={{ animationDelay:'0.8s' }} />
-                <circle className="bg-star" cx="20" cy="150" r="1.1" style={{ animationDelay:'2s' }} />
-                <circle className="bg-star" cx="200" cy="60" r="0.9" style={{ animationDelay:'1.5s' }} />
-                <circle className="bg-star" cx="110" cy="20" r="1" style={{ animationDelay:'0.3s' }} />
-                <circle className="bg-star" cx="80" cy="250" r="0.7" style={{ animationDelay:'2.2s' }} />
+                {/* Background stars — each drifts in a unique direction */}
+                {([
+                  { cx:30,  cy:40,  r:1,   dur:'7s',  delay:'0s',   anim:'drift0' },
+                  { cx:190, cy:110, r:1.2, dur:'9s',  delay:'0.5s', anim:'drift1' },
+                  { cx:50,  cy:220, r:0.8, dur:'8s',  delay:'1.2s', anim:'drift2' },
+                  { cx:170, cy:240, r:1,   dur:'11s', delay:'0.8s', anim:'drift3' },
+                  { cx:20,  cy:150, r:1.1, dur:'6s',  delay:'2s',   anim:'drift4' },
+                  { cx:200, cy:60,  r:0.9, dur:'10s', delay:'1.5s', anim:'drift5' },
+                  { cx:110, cy:20,  r:1,   dur:'8.5s',delay:'0.3s', anim:'drift6' },
+                  { cx:80,  cy:250, r:0.7, dur:'7.5s',delay:'2.2s', anim:'drift7' },
+                ] as { cx:number; cy:number; r:number; dur:string; delay:string; anim:string }[]).map((s, i) => (
+                  <circle key={`bs${i}`} className="bg-star"
+                    cx={s.cx} cy={s.cy} r={s.r}
+                    style={{ animation: `${s.anim} ${s.dur} ease-in-out infinite, shimmer ${s.dur} ease-in-out infinite`, animationDelay: s.delay }}
+                  />
+                ))}
 
                 {/* M path lines */}
                 <path stroke="rgba(163,228,255,0.5)" strokeWidth="2.5" strokeLinecap="round" fill="none"
