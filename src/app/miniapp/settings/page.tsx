@@ -609,56 +609,46 @@ export default function SettingsPage() {
       >
         <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підписка</h2>
 
-        {/* Current tier + expiry info */}
-        {userTier && (
-          <div className="mb-2 flex items-center gap-3 rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
-            <span className="text-2xl leading-none shrink-0">
-              {TIER_INFO[userTier as SubscriptionTier]?.icon ?? '⭐'}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">
-                {TIER_INFO[userTier as SubscriptionTier]?.name ?? 'Підписка'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {userTier === 'free' || !subscriptionEndsAt
-                  ? 'Безкоштовний план'
-                  : (() => {
-                      const isExpired = new Date(subscriptionEndsAt) < new Date();
-                      if (isExpired) return 'Підписка закінчилась';
-                      const daysLeft = Math.ceil((new Date(subscriptionEndsAt).getTime() - Date.now()) / 86400000);
-                      const dateStr = new Date(subscriptionEndsAt).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
-                      return `Активна до ${dateStr} (${daysLeft} дн.)`;
-                    })()}
-              </p>
-            </div>
-            {userTier !== 'free' && (() => {
-              const isExpired = subscriptionEndsAt ? new Date(subscriptionEndsAt) < new Date() : false;
-              return isExpired
-                ? <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive shrink-0">Закінчилась</span>
-                : <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400 shrink-0">Активна</span>;
-            })()}
-          </div>
-        )}
-
         <Card>
           <CardContent className="p-0">
             <a href="/miniapp/subscriptions"
               onClick={() => play('OPEN')}
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/15">
-                <Icon name="workspace_premium" size={16} className="text-amber-400" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/15 shrink-0">
+                <span className="text-base leading-none">
+                  {userTier ? (TIER_INFO[userTier as SubscriptionTier]?.icon ?? '⭐') : '⭐'}
+                </span>
               </div>
               <div className="flex-1 text-left min-w-0">
                 <p className="text-sm font-medium">
-                  {userTier === 'free' || !userTier ? 'Оновити план' : 'Керувати підпискою'}
+                  {userTier && userTier !== 'free'
+                    ? TIER_INFO[userTier as SubscriptionTier]?.name ?? 'Підписка'
+                    : 'Оновити план'}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
                   {userTier === 'free' || !userTier
                     ? 'Розблокуй AI-функції та більше лімітів'
-                    : 'Переглянути деталі та змінити план'}
+                    : (() => {
+                        if (!subscriptionEndsAt) return 'Керувати підпискою';
+                        const isExpired = new Date(subscriptionEndsAt) < new Date();
+                        if (isExpired) return 'Підписка закінчилась';
+                        const daysLeft = Math.ceil((new Date(subscriptionEndsAt).getTime() - Date.now()) / 86400000);
+                        return `Активна · ${daysLeft} дн. залишилось`;
+                      })()}
                 </p>
               </div>
-              <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
+              {userTier && userTier !== 'free' && subscriptionEndsAt && (() => {
+                const isExpired = new Date(subscriptionEndsAt) < new Date();
+                return isExpired
+                  ? <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive shrink-0">Закінчилась</span>
+                  : <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400 shrink-0">Активна</span>;
+              })()}
+              {(!userTier || userTier === 'free') && (
+                <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
+              )}
+              {userTier && userTier !== 'free' && (
+                <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
+              )}
             </a>
           </CardContent>
         </Card>
