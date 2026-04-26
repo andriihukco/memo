@@ -726,9 +726,7 @@ const rootPaths = ['/miniapp', '/miniapp/dashboard', '/miniapp/graph', '/miniapp
 function MiniAppContent({ children }: { children: React.ReactNode }) {
   const { setAccessToken } = useAuth();
   const { play } = useSound();
-  // If auth already completed this session, skip the splash immediately
-  const alreadyAuthed = typeof window !== 'undefined' && !!sessionStorage.getItem('memo_auth_done');
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(alreadyAuthed ? 'ready' : 'loading');
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const pathname = usePathname();
   const router = useRouter();
@@ -739,12 +737,16 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showRenewalBanner, setShowRenewalBanner] = useState(false);
   const didInit = useRef(false);
-  const splashStartRef = useRef(Date.now());
 
   // Pill tab bar height: 64px tall + 10px bottom offset + bottomInset
   const tabBarH = 64 + 10 + bottomInset;
 
   useEffect(() => {
+    // If auth already completed this session, skip splash immediately
+    if (sessionStorage.getItem('memo_auth_done')) {
+      setStatus('ready');
+    }
+
     async function init() {
       try {
         const tg = window.Telegram?.WebApp;
@@ -758,8 +760,6 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
         if (!didInit.current) {
           didInit.current = true;
-          // Use sessionStorage so lock check only fires once per browser session,
-          // not on every navigation that causes layout remount
           if (!sessionStorage.getItem('memo_session_init')) {
             sessionStorage.setItem('memo_session_init', '1');
             if (shouldLock()) setLocked(true);
@@ -778,7 +778,6 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          // User was removed from DB — clear all local state so they get a clean slate
           if (res.status === 401 || res.status === 403 || res.status === 404) {
             removePasscode();
             localStorage.removeItem('memo_onboarding_done');
@@ -789,10 +788,9 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
         const { access_token } = await res.json();
         setAccessToken(access_token);
-        // Mark auth as done for this session so sub-page navigations skip the splash
         sessionStorage.setItem('memo_auth_done', '1');
 
-        // Check subscription expiry and show renewal banner if needed
+        // Check subscription expiry for renewal banner
         const profileRes = await fetch('/api/profile', {
           headers: { Authorization: `Bearer ${access_token}` },
         });
@@ -809,30 +807,18 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
             }
           }
         }
-
-        // setStatus('ready') is called by initWithMinSplash after the minimum delay
       } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : 'Authentication failed');
-        // Still respect minimum splash time on error
-        const elapsed = Date.now() - splashStartRef.current;
-        const remaining = Math.max(0, 3000 - elapsed);
-        setTimeout(() => setStatus('error'), remaining);
-        return;
-      }
-    }
-
-    async function initWithMinSplash() {
-      await init();
-      // Only enforce minimum splash time on first load, not on re-mounts
-      if (!alreadyAuthed) {
-        const elapsed = Date.now() - splashStartRef.current;
-        const remaining = Math.max(0, 3000 - elapsed);
-        if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
+        // Only show error screen on first load, not on re-mounts
+        if (!sessionStorage.getItem('memo_auth_done')) {
+          setErrorMsg(err instanceof Error ? err.message : 'Authentication failed');
+          setStatus('error');
+          return;
+        }
       }
       setStatus('ready');
     }
 
-    initWithMinSplash();
+    init();
   }, [setAccessToken]);
 
   useEffect(() => {
@@ -853,7 +839,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   };
 
   if (status === 'loading') {
-    return <SplashScreen />;
+    return <div className="flex h-screen bg-background" />;
   }
 
   if (status === 'error') {
