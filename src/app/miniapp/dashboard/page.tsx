@@ -986,15 +986,15 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
 
   type PresetOption = { range: DateRange; label: string; icon: string; paid: boolean };
   const PRESET_OPTIONS: PresetOption[] = [
-    { range: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true  },
     { range: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false },
     { range: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false },
     { range: 'week',     label: '7 днів',          icon: 'date_range',     paid: false },
-    { range: 'month',    label: '30 днів',         icon: 'calendar_month', paid: true  },
     { range: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: true  },
+    { range: 'month',    label: '30 днів',         icon: 'calendar_month', paid: true  },
     { range: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true  },
     { range: 'year',     label: 'Рік',             icon: 'event_note',     paid: true  },
     { range: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true  },
+    { range: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true  },
     { range: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true  },
   ];
 
@@ -1027,38 +1027,11 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
           <h3 className="text-[17px] font-semibold">Оберіть період</h3>
         </div>
 
-        {/* Free presets */}
+        {/* All presets — flat list */}
         <div className="px-4">
-          {PRESET_OPTIONS.filter(o => !o.paid).map(opt => {
+          {PRESET_OPTIONS.map(opt => {
             const isSelected = selected === opt.range;
-            return (
-              <button
-                key={opt.range}
-                onClick={() => handleSelectPreset(opt)}
-                className="min-h-[44px] flex items-center gap-3 px-0 w-full"
-              >
-                <Icon name={opt.icon} size={20} className="text-primary/60 shrink-0" />
-                <span className="flex-1 text-left text-[15px]">{opt.label}</span>
-                {isSelected
-                  ? <Icon name="check" size={18} className="text-primary shrink-0" />
-                  : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />
-                }
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Paid presets section */}
-        <div className="mx-4 mt-2 mb-1 h-px bg-border/40" />
-        <div className="px-4 pb-1">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Icon name="star" size={12} className="text-yellow-400" />
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Розширені діапазони</span>
-            {!isPaid && <span className="ml-auto text-[10px] text-yellow-400 font-medium">Nova+</span>}
-          </div>
-          {PRESET_OPTIONS.filter(o => o.paid).map(opt => {
-            const isSelected = selected === opt.range;
-            const locked = !isPaid;
+            const locked = opt.paid && !isPaid;
             return (
               <button
                 key={opt.range}
