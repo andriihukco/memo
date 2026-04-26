@@ -21,11 +21,20 @@ CREATE INDEX IF NOT EXISTS referrals_referred_id_idx ON referrals (referred_id) 
 -- RLS: users can only see their own referral rows (as referrer or referred)
 ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 
+-- auth.uid() returns UUID but telegram_id is BIGINT — cannot cast directly.
+-- Instead, read telegram_id from the JWT user_metadata (stored as text) and
+-- cast to BIGINT for comparison against profiles.telegram_id.
 CREATE POLICY "Users can view their own referrals"
   ON referrals FOR SELECT
   USING (
-    referrer_id IN (SELECT id FROM profiles WHERE telegram_id = (auth.uid())::bigint)
-    OR referred_id IN (SELECT id FROM profiles WHERE telegram_id = (auth.uid())::bigint)
+    referrer_id IN (
+      SELECT id FROM profiles
+      WHERE telegram_id = (auth.jwt() -> 'user_metadata' ->> 'telegram_id')::bigint
+    )
+    OR referred_id IN (
+      SELECT id FROM profiles
+      WHERE telegram_id = (auth.jwt() -> 'user_metadata' ->> 'telegram_id')::bigint
+    )
   );
 
 -- Service role bypasses RLS for bot/cron operations
