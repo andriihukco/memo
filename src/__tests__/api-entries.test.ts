@@ -85,8 +85,6 @@ vi.mock('@/lib/stars/paywall', async (importOriginal) => {
 // ── Setup Supabase mock responses ─────────────────────────────────────────────
 
 function setupMocks() {
-  let callCount = 0;
-
   mockFrom.mockImplementation((table: string) => {
     if (table === 'profiles') {
       // Returns different things depending on which select is called

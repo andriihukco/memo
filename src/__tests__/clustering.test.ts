@@ -61,12 +61,12 @@ function findSimilarEntries(
     .map((e) => ({ id: e.id, similarity: 0.9 })); // above 0.75 threshold
 }
 
-const mockRpc = vi.fn();
-const mockUpdate = vi.fn();
-const mockSelect = vi.fn();
-const mockEq = vi.fn();
-const mockNot = vi.fn();
-const mockIn = vi.fn();
+const _mockRpc = vi.fn();
+const _mockUpdate = vi.fn();
+const _mockSelect = vi.fn();
+const _mockEq = vi.fn();
+const _mockNot = vi.fn();
+const _mockIn = vi.fn();
 
 function buildMockChain() {
   // Chainable mock that resolves at the end

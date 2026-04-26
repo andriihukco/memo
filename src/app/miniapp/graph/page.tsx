@@ -876,10 +876,11 @@ export default function GraphPage() {
         }
       });
 
+    const svgNode = svgRef.current;
     return () => {
       simulation.stop();
-      if (svgRef.current) {
-        const svgEl = d3.select(svgRef.current);
+      if (svgNode) {
+        const svgEl = d3.select(svgNode);
         svgEl.selectAll('*').remove();
         svgEl.on('.zoom', null);
       }
