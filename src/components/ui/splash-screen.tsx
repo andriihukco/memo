@@ -271,18 +271,86 @@ export function SplashScreen() {
         style={{ width: '100%', height: '100%' }}
       />
 
-      <div className="relative z-10 flex flex-col items-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo.png"
-          alt="Memo"
-          className="block"
-          style={{
-            width: 96,
-            height: 'auto',
-            filter: 'drop-shadow(0 0 28px rgba(80,170,255,0.45))',
-          }}
-        />
+      <div className="relative z-10 flex flex-col items-center gap-5">
+        {/* Animated M constellation logo */}
+        <svg viewBox="0 0 220 280" style={{ width: 140, overflow: 'visible', filter: 'drop-shadow(0 0 24px rgba(163,228,255,0.35))' }}>
+          <defs>
+            <style>{`
+              @keyframes mDotJiggle {
+                0%,100% { transform: translate(0,0); }
+                33% { transform: translate(2px,-2px); }
+                66% { transform: translate(-1px,1px); }
+              }
+              @keyframes svgShimmer {
+                0%,100% { opacity:0.3; transform:scale(0.8); }
+                50% { opacity:1; transform:scale(1.2); }
+              }
+              @keyframes svgDrift0 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(4px,-6px)} 50%{transform:translate(-3px,-4px)} 75%{transform:translate(5px,3px)} }
+              @keyframes svgDrift1 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-5px,4px)} 50%{transform:translate(3px,6px)} 75%{transform:translate(-4px,-3px)} }
+              @keyframes svgDrift2 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(6px,3px)} 50%{transform:translate(-4px,5px)} 75%{transform:translate(2px,-6px)} }
+              @keyframes svgDrift3 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-3px,-5px)} 50%{transform:translate(5px,-2px)} 75%{transform:translate(-6px,4px)} }
+              @keyframes svgDrift4 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(2px,7px)} 50%{transform:translate(-6px,2px)} 75%{transform:translate(4px,-5px)} }
+              @keyframes svgDrift5 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-7px,-2px)} 50%{transform:translate(4px,-5px)} 75%{transform:translate(-2px,6px)} }
+              @keyframes svgDrift6 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(5px,-4px)} 50%{transform:translate(-2px,7px)} 75%{transform:translate(6px,2px)} }
+              @keyframes svgDrift7 { 0%,100%{transform:translate(0,0)} 25%{transform:translate(-4px,5px)} 50%{transform:translate(7px,-3px)} 75%{transform:translate(-5px,-4px)} }
+            `}</style>
+          </defs>
+
+          {/* Drifting bg stars */}
+          {([
+            { cx:30,  cy:40,  r:1,   dur:'7s',   delay:'0s',   anim:'svgDrift0' },
+            { cx:190, cy:110, r:1.2, dur:'9s',   delay:'0.5s', anim:'svgDrift1' },
+            { cx:50,  cy:220, r:0.8, dur:'8s',   delay:'1.2s', anim:'svgDrift2' },
+            { cx:170, cy:240, r:1,   dur:'11s',  delay:'0.8s', anim:'svgDrift3' },
+            { cx:20,  cy:150, r:1.1, dur:'6s',   delay:'2s',   anim:'svgDrift4' },
+            { cx:200, cy:60,  r:0.9, dur:'10s',  delay:'1.5s', anim:'svgDrift5' },
+            { cx:110, cy:20,  r:1,   dur:'8.5s', delay:'0.3s', anim:'svgDrift6' },
+            { cx:80,  cy:250, r:0.7, dur:'7.5s', delay:'2.2s', anim:'svgDrift7' },
+          ] as { cx:number; cy:number; r:number; dur:string; delay:string; anim:string }[]).map((s, i) => (
+            <circle key={i} fill="#a3e4ff" cx={s.cx} cy={s.cy} r={s.r}
+              style={{ animation: `${s.anim} ${s.dur} ease-in-out infinite, svgShimmer ${s.dur} ease-in-out infinite`, animationDelay: s.delay }} />
+          ))}
+
+          {/* M path */}
+          <path stroke="rgba(163,228,255,0.5)" strokeWidth="2.5" strokeLinecap="round" fill="none"
+            d="M 45,185 L 75,85 L 110,155 L 145,85 L 175,185" />
+
+          {/* M dots */}
+          {([
+            [45,185,0],[55,152,-1],[65,118,-2],[75,85,0],
+            [93,120,-1.5],[110,155,0],[127,120,-0.5],[145,85,0],
+            [155,118,-2.5],[165,152,-1.2],[175,185,0],
+          ] as [number,number,number][]).map(([cx,cy,delay],i) => (
+            <circle key={i} fill="#a3e4ff" cx={cx} cy={cy} r="7.5"
+              style={{ animation: `mDotJiggle 5s ease-in-out infinite`, animationDelay: `${delay}s` }} />
+          ))}
+
+          {/* Accent sparkle stars */}
+          <path fill="#a3e4ff" style={{ filter:'drop-shadow(0 0 3px rgba(163,228,255,0.8))' }}
+            d="M175,30 L178,42 L190,45 L178,48 L175,60 L172,48 L160,45 L172,42 Z" opacity="0.9" />
+          <path fill="#a3e4ff" style={{ filter:'drop-shadow(0 0 3px rgba(163,228,255,0.8))' }}
+            d="M85,185 L87,192 L94,194 L87,196 L85,203 L83,196 L76,194 L83,192 Z" opacity="0.7" />
+          <path fill="#a3e4ff" style={{ filter:'drop-shadow(0 0 3px rgba(163,228,255,0.8))' }}
+            d="M40,55 L42,60 L47,61 L42,62 L40,67 L38,62 L33,61 L38,60 Z" opacity="0.8" />
+          <rect fill="#a3e4ff" x="195" y="180" width="4" height="4" transform="rotate(45 197 182)"
+            style={{ animation: 'svgShimmer 9s ease-in-out infinite', animationDelay: '1s' }} />
+          <rect fill="#a3e4ff" x="25" y="110" width="3" height="3" transform="rotate(45 26.5 111.5)"
+            style={{ animation: 'svgShimmer 7s ease-in-out infinite', animationDelay: '0.4s' }} />
+        </svg>
+
+        {/* Brand name */}
+        <p style={{
+          fontFamily: "'Comfortaa', 'Mulish', sans-serif",
+          fontSize: 36,
+          fontWeight: 300,
+          letterSpacing: '0.18em',
+          color: '#a3e4ff',
+          textTransform: 'lowercase',
+          textShadow: '0 0 20px rgba(163,228,255,0.4)',
+          marginTop: -8,
+        }}>
+          memo
+        </p>
       </div>
     </div>
   );
