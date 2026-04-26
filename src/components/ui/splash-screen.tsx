@@ -342,14 +342,14 @@ export function SplashScreen() {
         <p style={{
           fontFamily: "'Comfortaa', 'Mulish', sans-serif",
           fontSize: 36,
-          fontWeight: 300,
-          letterSpacing: '0.18em',
+          fontWeight: 700,
+          letterSpacing: '0.22em',
           color: '#a3e4ff',
-          textTransform: 'lowercase',
+          textTransform: 'uppercase',
           textShadow: '0 0 20px rgba(163,228,255,0.4)',
           marginTop: -8,
         }}>
-          memo
+          MEMO
         </p>
       </div>
     </div>

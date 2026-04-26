@@ -825,7 +825,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
         const splashStart = Date.now();
         await init();
         const elapsed = Date.now() - splashStart;
-        const remaining = Math.max(0, 1800 - elapsed);
+        const remaining = Math.max(0, 2500 - elapsed);
         if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
       } else {
         await init();
