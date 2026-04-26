@@ -726,20 +726,12 @@ export default function GraphPage() {
           {/* Date filter button — hidden for free tier */}
           {!(tierLoaded && userTier === 'free') && (
             <button
-              onClick={() => { play('OPEN'); setShowDateSheet(true); }}
+              onClick={() => { if (dateRange) { setDateRange(null); } else { play('OPEN'); setShowDateSheet(true); } }}
+              onContextMenu={e => { e.preventDefault(); play('OPEN'); setShowDateSheet(true); }}
               className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-muted px-3 text-xs font-medium text-muted-foreground"
             >
               <Icon name="calendar_today" size={13} />
               {dateLabel}
-              {dateRange && (
-                <span
-                  role="button"
-                  onClick={e => { e.stopPropagation(); setDateRange(null); }}
-                  className="ml-0.5 flex items-center opacity-60 hover:opacity-100"
-                >
-                  <Icon name="close" size={12} />
-                </span>
-              )}
             </button>
           )}
         </div>
