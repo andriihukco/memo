@@ -253,15 +253,15 @@ interface DatePreset {
 }
 
 const DATE_PRESETS: DatePreset[] = [
-  { key: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true,  fn: () => null },
   { key: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false, fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
   { key: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false, fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
   { key: 'week',     label: '7 днів',          icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: 'month',    label: '30 днів',         icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-29); return { from: startOfDay(f), to: endOfDay(n) }; } },
   { key: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-13); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: 'month',    label: '30 днів',         icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-29); return { from: startOfDay(f), to: endOfDay(n) }; } },
   { key: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
   { key: 'year',     label: 'Рік',             icon: 'event_note',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
   { key: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true,  fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(), 0, 1)), to: endOfDay(n) }; } },
+  { key: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true,  fn: () => null },
   { key: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true,  fn: null },
 ];
 
@@ -311,33 +311,11 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
           <h3 className="text-[17px] font-semibold">Оберіть період</h3>
         </div>
 
-        {/* Free presets */}
+        {/* All presets — flat list */}
         <div className="px-4">
-          {DATE_PRESETS.filter(p => !p.paid).map((p) => {
+          {DATE_PRESETS.map((p) => {
             const isSelected = selected === p.key || (p.key === 'all' && value === null && selected === null);
-            return (
-              <button key={p.key} onClick={() => handlePreset(p)} className="min-h-[44px] flex items-center gap-3 px-0 w-full">
-                <Icon name={p.icon} size={20} className="text-primary/60 shrink-0" />
-                <span className="flex-1 text-left text-[15px]">{p.label}</span>
-                {isSelected
-                  ? <Icon name="check" size={18} className="text-primary shrink-0" />
-                  : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Paid presets section */}
-        <div className="mx-4 mt-2 mb-1 h-px bg-border/40" />
-        <div className="px-4 pb-1">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Icon name="star" size={12} className="text-yellow-400" />
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Розширені діапазони</span>
-            {!isPaid && <span className="ml-auto text-[10px] text-yellow-400 font-medium">Nova+</span>}
-          </div>
-          {DATE_PRESETS.filter(p => p.paid).map((p) => {
-            const isSelected = selected === p.key;
-            const locked = !isPaid;
+            const locked = p.paid && !isPaid;
             return (
               <button key={p.key} onClick={() => handlePreset(p)} className={cn('min-h-[44px] flex items-center gap-3 px-0 w-full', locked && 'opacity-60')}>
                 <Icon name={p.icon} size={20} className={locked ? 'text-muted-foreground/50 shrink-0' : 'text-primary/60 shrink-0'} />
