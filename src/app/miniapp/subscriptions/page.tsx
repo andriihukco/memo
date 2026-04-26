@@ -347,9 +347,10 @@ export default function SubscriptionsPage() {
   if (loading) {
     return (
       <div className="flex flex-col gap-4 px-4 pt-5 pb-6">
-        {/* Header skeleton — centered */}
-        <div className="flex justify-center">
-          <div className="h-8 w-40 rounded-xl bg-muted/60 animate-pulse" />
+        {/* Header skeleton — centered, matches real title layout */}
+        <div className="flex flex-col items-center gap-2 py-1">
+          <div className="h-8 w-36 rounded-xl bg-muted/60 animate-pulse" />
+          <div className="h-3.5 w-48 rounded-lg bg-muted/40 animate-pulse" />
         </div>
         {/* Plan card skeletons */}
         {[0, 1, 2].map(i => (
