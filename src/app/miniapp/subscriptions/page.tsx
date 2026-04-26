@@ -10,7 +10,6 @@ import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
 import { Confetti } from '@/components/ui/confetti';
-import { Icon } from '@/components/ui/icon';
 
 interface ProfileData {
   id: string;
@@ -248,8 +247,6 @@ export default function SubscriptionsPage() {
   const [confetti, setConfetti] = useState(false);
   const [thankYouTier, setThankYouTier] = useState<SubscriptionTier | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
-  const [downgrading, setDowngrading] = useState(false);
-  const [showDowngradeConfirm, setShowDowngradeConfirm] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!accessToken) return;
@@ -331,25 +328,6 @@ export default function SubscriptionsPage() {
     }
   }
 
-  async function handleDowngrade() {
-    if (!accessToken || !profile) return;
-    setDowngrading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ downgrade: true }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      setShowDowngradeConfirm(false);
-      await loadProfile();
-    } catch {
-      setError('Не вдалося скасувати підписку. Спробуй ще раз.');
-    } finally {
-      setDowngrading(false);
-    }
-  }
 
   const currentTier = profile?.subscription_tier ?? 'free';
   const isCanceling = profile?.subscription_status === 'canceled' && currentTier !== 'free';
@@ -548,47 +526,7 @@ export default function SubscriptionsPage() {
           ))}
         </div>
 
-        {/* Downgrade / cancel */}
-        {effectiveTier !== 'free' && !isExpired && !isCanceling && (
-          <div className="pt-2">
-            {!showDowngradeConfirm ? (
-              <button
-                onClick={() => setShowDowngradeConfirm(true)}
-                className="w-full py-3 text-[13px] text-muted-foreground/60 hover:text-muted-foreground transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Icon name="arrow_downward" size={14} />
-                Перейти на безкоштовний план
-              </button>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="rounded-2xl border border-destructive/20 bg-destructive/5 px-4 py-4 flex flex-col gap-3"
-              >
-                <p className="text-[13px] font-medium text-center">Скасувати підписку?</p>
-                <p className="text-[12px] text-muted-foreground text-center leading-relaxed">
-                  Доступ до платних функцій збережеться до кінця оплаченого періоду
-                  {endsAt ? ` (${fmtDate(endsAt)})` : ''}. Поновити можна в будь-який час.
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowDowngradeConfirm(false)}
-                    className="flex-1 rounded-full border border-border py-2.5 text-[13px] font-medium"
-                  >
-                    Залишити
-                  </button>
-                  <button
-                    onClick={handleDowngrade}
-                    disabled={downgrading}
-                    className="flex-1 rounded-full bg-destructive/15 text-destructive py-2.5 text-[13px] font-medium disabled:opacity-50"
-                  >
-                    {downgrading ? 'Скасовуємо...' : 'Скасувати'}
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </div>
-        )}
+
 
         <p className="text-center text-[11px] text-muted-foreground">
           Telegram Stars · Поновлення вручну · Без автосписання
