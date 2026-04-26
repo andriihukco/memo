@@ -346,8 +346,24 @@ export default function SubscriptionsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-foreground" />
+      <div className="flex flex-col gap-4 px-4 pt-5 pb-6">
+        {/* Header skeleton */}
+        <div className="h-8 w-40 rounded-xl bg-muted/60 animate-pulse" />
+        {/* Plan card skeletons */}
+        {[0, 1, 2].map(i => (
+          <div key={i} className="rounded-2xl border border-border/30 bg-card/60 p-4 flex flex-col gap-3"
+            style={{ animationDelay: `${i * 80}ms` }}>
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-muted/60 animate-pulse" />
+              <div className="flex-1 flex flex-col gap-1.5">
+                <div className="h-4 w-24 rounded-lg bg-muted/60 animate-pulse" />
+                <div className="h-3 w-36 rounded-lg bg-muted/50 animate-pulse" />
+              </div>
+              <div className="h-6 w-16 rounded-lg bg-muted/60 animate-pulse" />
+            </div>
+            <div className="h-10 w-full rounded-xl bg-muted/40 animate-pulse" />
+          </div>
+        ))}
       </div>
     );
   }

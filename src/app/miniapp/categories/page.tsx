@@ -419,12 +419,16 @@ export default function CategoriesPage() {
           Стандартні
         </p>
         {loading ? (
-          <div className="flex items-center justify-center py-6">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-              className="h-5 w-5 rounded-full border-2 border-muted border-t-primary"
-            />
+          <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden">
+            {[0,1,2,3,4].map(i => (
+              <div key={i}>
+                {i > 0 && <div className="h-px bg-border/30" />}
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="h-7 w-7 rounded-xl bg-muted/60 animate-pulse" />
+                  <div className="h-4 flex-1 rounded-lg bg-muted/60 animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden">

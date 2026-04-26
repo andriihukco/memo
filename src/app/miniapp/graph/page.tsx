@@ -839,14 +839,25 @@ export default function GraphPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex h-full flex-col items-center justify-center"
+              className="h-full w-full"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                className="mb-3 h-7 w-7 rounded-full border-2 border-muted border-t-foreground"
-              />
-              <p className="text-sm text-muted-foreground">Завантаження графу...</p>
+              {/* Skeleton graph — scattered pulse dots */}
+              <svg className="h-full w-full" aria-label="Завантаження...">
+                {[
+                  [22,35],[55,20],[75,45],[40,60],[65,75],[20,70],[80,25],[50,50],[30,80],[70,55],
+                  [45,30],[85,65],[15,50],[60,35],[35,70],[90,40],[25,55],[70,20],[50,80],[80,70],
+                ].map(([cx, cy], i) => (
+                  <circle
+                    key={i}
+                    cx={`${cx}%`} cy={`${cy}%`}
+                    r={i % 3 === 0 ? 7 : i % 3 === 1 ? 5 : 4}
+                    className="animate-pulse"
+                    fill="hsl(var(--muted-foreground))"
+                    fillOpacity={0.15 + (i % 4) * 0.05}
+                    style={{ animationDelay: `${i * 80}ms` }}
+                  />
+                ))}
+              </svg>
             </motion.div>
           )}
           {status === 'error' && (
