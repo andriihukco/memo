@@ -9,6 +9,7 @@ import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import { answerQuestion } from "@/lib/bot/qa";
 import { generateConverseReply, loadUserContext } from "@/lib/bot/converse";
+import { generateSmartReply } from "@/lib/bot/smart-reply";
 import { handleAction } from "@/lib/bot/handlers/action";
 import { sanitizeMarkdown } from "@/lib/utils";
 import { extractFacts, saveMemory } from "@/lib/bot/memory";
@@ -265,21 +266,17 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
     if (entry) savedIds.push(entry.id);
   }
 
-  // ── Reply with thread context ──────────────────────────────────────────────
-  const replyContext = threadCtx
-    ? `Контекст розмови:\n${threadCtx}\n\nНове повідомлення: ${result.content}`
-    : result.content;
-
-  let botReplyText: string;
-  try {
-    botReplyText = await withTypingIndicator(ctx, () =>
-      generateConverseReply(replyContext, undefined, undefined, undefined, userCtx)
-    );
-  } catch (err) {
-    // Fallback reply so user knows entry was saved (bug 1.22)
-    console.error("[voice handler] generateConverseReply failed:", err);
-    botReplyText = "Записав! ✓";
-  }
+  // ── Generate reply ─────────────────────────────────────────────────────────
+  const smartReply = await withTypingIndicator(ctx, () =>
+    generateSmartReply({
+      entries: entriesToSave,
+      userMessage: result.content,
+      userCtx,
+      threadCtx,
+      intent: result.intent as "save_entry" | "converse",
+    })
+  );
+  const botReplyText = smartReply.text;
   const sent = await ctx.reply(sanitizeMarkdown(botReplyText));
   // Only store bot_msg_id when message_id is a valid number (bug 1.5)
   const botMsgId = (sent?.message_id && typeof sent.message_id === "number") ? sent.message_id : null;

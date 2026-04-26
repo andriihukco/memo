@@ -9,6 +9,7 @@ import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import { answerQuestion } from "@/lib/bot/qa";
 import { generateConverseReply, loadUserContext } from "@/lib/bot/converse";
+import { generateSmartReply } from "@/lib/bot/smart-reply";
 import { handleAction } from "@/lib/bot/handlers/action";
 import { sanitizeMarkdown } from "@/lib/utils";
 import { extractFacts, saveMemory } from "@/lib/bot/memory";
@@ -295,31 +296,16 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
     ? await loadThreadContext(supabase, resolvedThreadId, profile.id, savedIds[0])
     : undefined;
 
-  // Build a summary of what was saved so the bot can confirm it explicitly
-  const savedSummary = entriesToSave.map(e => {
-    const metrics = e.dashboard_metrics ?? [];
-    const metricStr = metrics.length > 0
-      ? '\n' + metrics.map(m => `  • ${m.label}: ${m.value} ${m.unit}`).join('\n')
-      : '';
-    return `[${e.category_label}] ${e.content}${metricStr}`;
-  }).join('\n');
-
-  const replyContext = threadCtx
-    ? `Контекст розмови:\n${threadCtx}\n\nНове повідомлення: ${text}`
-    : text;
-
-  const replyPrompt = `${replyContext}\n\n[ЗБЕРЕЖЕНО В ЩОДЕННИК:\n${savedSummary}\n\nОБОВ'ЯЗКОВО: Підтвердь що саме записав — назви конкретні метрики і цифри з ЗБЕРЕЖЕНО. Відповідь має бути живою, з емодзі, 1-3 речення. Не питай уточнень якщо дані вже є.]`;
-
-  let finalReplyText: string;
-  try {
-    finalReplyText = await withTypingIndicator(ctx, () =>
-      generateConverseReply(replyPrompt, undefined, undefined, undefined, userCtx)
-    );
-  } catch (err) {
-    // Fallback reply so user knows entry was saved (bug 1.22)
-    console.error("[text handler] generateConverseReply failed:", err);
-    finalReplyText = "Записав! ✓";
-  }
+  const smartReply = await withTypingIndicator(ctx, () =>
+    generateSmartReply({
+      entries: entriesToSave,
+      userMessage: text,
+      userCtx,
+      threadCtx,
+      intent: result.intent as "save_entry" | "converse",
+    })
+  );
+  const finalReplyText = smartReply.text;
 
   const sent = await ctx.reply(sanitizeMarkdown(finalReplyText));
   // Only store bot_msg_id when message_id is a valid number (bug 1.5)
