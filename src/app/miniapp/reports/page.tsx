@@ -870,6 +870,31 @@ export default function ReportsPage() {
 
       {/* Error banner — now shown as persistent toast in layout */}
 
+      {/* In-progress skeleton row — always on top, shown immediately when generation starts */}
+      <AnimatePresence>
+        {generating && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="rounded-2xl bg-card/60 border border-primary/20 overflow-hidden"
+          >
+            <div className="flex items-center gap-3 px-4 py-3.5">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary shrink-0" />
+                  <span className="text-[15px] font-semibold text-muted-foreground">{pendingLabel ?? 'Ретроспектива'}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Генерується</span>
+                </div>
+                <div className="h-2.5 w-3/4 rounded-full bg-muted/50 animate-pulse" />
+                <div className="h-2 w-1/2 rounded-full bg-muted/30 animate-pulse mt-1.5" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Loading */}
       {loading && (
         <div className="flex flex-col gap-2" role="status">
@@ -895,31 +920,6 @@ export default function ReportsPage() {
           onCta={() => { play('OPEN'); setShowNewReport(true); }}
         />
       )}
-
-      {/* In-progress skeleton row — shown immediately when generation starts */}
-      <AnimatePresence>
-        {generating && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden"
-          >
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1.5">
-                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary shrink-0" />
-                  <span className="text-[15px] font-semibold text-muted-foreground">{pendingLabel ?? 'Ретроспектива'}</span>
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Генерується</span>
-                </div>
-                <div className="h-2.5 w-3/4 rounded-full bg-muted/50 animate-pulse" />
-                <div className="h-2 w-1/2 rounded-full bg-muted/30 animate-pulse mt-1.5" />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Month-grouped report list */}
       {!loading && monthGroups.length > 0 && (

@@ -869,39 +869,69 @@ export default function GraphPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="h-full w-full"
+              className="h-full w-full relative"
             >
-              {/* Skeleton graph — scattered pulse dots connected by dashed lines */}
+              {/* Skeleton graph — dots arranged in M shape with jiggle + dashed connections */}
               <svg className="h-full w-full" aria-label="Завантаження...">
-                {(() => {
-                  const pts = [
-                    [22,35],[55,20],[75,45],[40,60],[65,75],[20,70],[80,25],[50,50],[30,80],[70,55],
-                    [45,30],[85,65],[15,50],[60,35],[35,70],[90,40],[25,55],[70,20],[50,80],[80,70],
-                  ];
-                  // Connect nearby pairs with dashed lines
-                  const lines: [number,number,number,number][] = [];
-                  for (let i = 0; i < pts.length; i++) {
-                    for (let j = i + 1; j < pts.length; j++) {
-                      const dx = pts[i][0] - pts[j][0], dy = pts[i][1] - pts[j][1];
-                      if (Math.sqrt(dx*dx + dy*dy) < 22) lines.push([pts[i][0], pts[i][1], pts[j][0], pts[j][1]]);
+                <defs>
+                  <style>{`
+                    @keyframes jiggle {
+                      0%,100% { transform: translate(0,0); }
+                      20% { transform: translate(-1.5px, 2px); }
+                      40% { transform: translate(2px, -1.5px); }
+                      60% { transform: translate(-1px, -2px); }
+                      80% { transform: translate(1.5px, 1px); }
                     }
-                  }
+                    .jiggle-dot { animation: jiggle 2.4s ease-in-out infinite; }
+                  `}</style>
+                </defs>
+                {(() => {
+                  // M shape: left leg up, valley down, peak up, valley down, right leg up
+                  // Coordinates in % of viewport
+                  const M: [number,number][] = [
+                    // Left vertical leg (bottom to top)
+                    [20,80],[20,65],[20,50],[20,35],[20,20],
+                    // Down-right diagonal to valley
+                    [28,35],[35,50],[42,65],
+                    // Up-right diagonal to center peak
+                    [50,50],[50,35],[50,20],
+                    // Down-right diagonal to second valley
+                    [58,35],[65,50],[72,65],
+                    // Up to right leg top
+                    [80,50],[80,35],[80,20],
+                    // Right vertical leg down
+                    [80,35],[80,50],[80,65],[80,80],
+                    // Extra scatter nodes for graph feel
+                    [35,72],[65,72],[50,72],
+                    [25,55],[75,55],
+                  ];
+                  // Edges: connect sequential M points + some cross-connections
+                  const edges: [number,number][] = [];
+                  for (let i = 0; i < 21; i++) edges.push([i, i+1]);
+                  // Extra connections for graph density
+                  edges.push([4,5],[10,11],[16,17],[21,7],[22,13],[23,10],[24,3],[25,16]);
+
                   return (
                     <>
-                      {lines.map(([x1,y1,x2,y2], i) => (
-                        <line key={`l${i}`}
-                          x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
-                          stroke="rgba(255,255,255,0.07)" strokeWidth="1" strokeDasharray="3 4"
-                        />
-                      ))}
-                      {pts.map(([cx, cy], i) => (
-                        <circle key={i}
+                      {edges.map(([a,b], i) => {
+                        if (!M[a] || !M[b]) return null;
+                        return (
+                          <line key={`e${i}`}
+                            x1={`${M[a][0]}%`} y1={`${M[a][1]}%`}
+                            x2={`${M[b][0]}%`} y2={`${M[b][1]}%`}
+                            stroke="rgba(255,255,255,0.08)" strokeWidth="1.2" strokeDasharray="3 5"
+                          />
+                        );
+                      })}
+                      {M.map(([cx, cy], i) => (
+                        <circle
+                          key={i}
                           cx={`${cx}%`} cy={`${cy}%`}
-                          r={i % 3 === 0 ? 7 : i % 3 === 1 ? 5 : 4}
-                          className="animate-pulse"
+                          r={i < 5 || (i >= 9 && i <= 11) || (i >= 15 && i <= 17) ? 6 : 4}
+                          className="jiggle-dot"
                           fill="hsl(var(--muted-foreground))"
-                          fillOpacity={0.15 + (i % 4) * 0.05}
-                          style={{ animationDelay: `${i * 80}ms` }}
+                          fillOpacity={0.18 + (i % 5) * 0.04}
+                          style={{ animationDelay: `${i * 120}ms` }}
                         />
                       ))}
                     </>
