@@ -15,6 +15,7 @@ import React, {
 
 export interface SoundContextValue {
   play: (sound: string) => void;
+  playForced: (sound: string) => void;
   enabled: boolean;
   kit: string;
   setEnabled: (v: boolean) => void;
@@ -147,7 +148,8 @@ const LS_KIT     = 'memo_sound_kit';
 // ---------------------------------------------------------------------------
 
 export const SoundContext = createContext<SoundContextValue>({
-  play:       () => {},
+  play:        () => {},
+  playForced:  () => {},
   enabled:    true,
   kit:        'SINE',
   setEnabled: () => {},
@@ -201,25 +203,34 @@ export function SoundProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('pointerdown', resume);
   }, [getCtx]);
 
-  const play = useCallback(
+  const playCore = useCallback(
     (sound: string) => {
-      if (!enabled) return;
       if (typeof window === 'undefined') return;
-
       const def = SINE_SOUNDS[sound];
       if (!def) return;
-
       const ctx = getCtx();
       if (!ctx) return;
-
-      // Resume if suspended (e.g. after page visibility change)
       if (ctx.state === 'suspended') {
         ctx.resume().then(() => playSineSounds(ctx, def)).catch(() => {});
       } else {
         try { playSineSounds(ctx, def); } catch { /* ignore */ }
       }
     },
-    [enabled, getCtx],
+    [getCtx],
+  );
+
+  const play = useCallback(
+    (sound: string) => {
+      if (!enabled) return;
+      playCore(sound);
+    },
+    [enabled, playCore],
+  );
+
+  // Plays regardless of enabled state — used for toggle feedback
+  const playForced = useCallback(
+    (sound: string) => { playCore(sound); },
+    [playCore],
   );
 
   const setEnabled = useCallback((v: boolean) => {
@@ -235,7 +246,7 @@ export function SoundProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SoundContext.Provider value={{ play, enabled, kit, setEnabled, setKit }}>
+    <SoundContext.Provider value={{ play, playForced, enabled, kit, setEnabled, setKit }}>
       {children}
     </SoundContext.Provider>
   );

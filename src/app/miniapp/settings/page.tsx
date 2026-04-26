@@ -171,7 +171,7 @@ function useSheetBodyAttr(open: boolean) {
 // ---------------------------------------------------------------------------
 
 function SoundSection() {
-  const { enabled, setEnabled, play } = useSound();
+  const { enabled, setEnabled, play, playForced } = useSound();
   // Guard against SSR hydration mismatch — don't render toggle until mounted
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -194,9 +194,15 @@ function SoundSection() {
               role="switch"
               aria-checked={mounted ? enabled : false}
               onClick={() => {
-                const next = !enabled;
-                setEnabled(next);
-                if (next) play('TOGGLE_ON'); else play('TOGGLE_OFF');
+                if (!enabled) {
+                  // Turning ON: enable first, then play (playForced bypasses enabled check)
+                  setEnabled(true);
+                  playForced('TOGGLE_ON');
+                } else {
+                  // Turning OFF: play first while still enabled, then disable
+                  play('TOGGLE_OFF');
+                  setTimeout(() => setEnabled(false), 150);
+                }
               }}
               className={cn(
                 'relative flex-shrink-0 rounded-full transition-colors duration-200',

@@ -247,25 +247,22 @@ type DatePresetKey = 'all' | 'today' | 'yesterday' | 'week' | 'month' | '2weeks'
 interface DatePreset {
   key: DatePresetKey;
   label: string;
-  sublabel: string;
+  icon: string;
   paid: boolean;
   fn: (() => DateRange | null) | null;
 }
 
-const FREE_DATE_PRESETS: DatePreset[] = [
-  { key: 'today',     label: 'Сьогодні', sublabel: 'today',     paid: false, fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
-  { key: 'yesterday', label: 'Вчора',    sublabel: 'yesterday', paid: false, fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
-  { key: 'week',      label: '7 днів',   sublabel: 'last 7d',   paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
-];
-
-const PAID_DATE_PRESETS: DatePreset[] = [
-  { key: 'month',    label: '30 днів',        sublabel: 'last 30d',  paid: true, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-29); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: '2weeks',   label: '2 тижні',        sublabel: 'last 14d',  paid: true, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-13); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: '3months',  label: '3 місяці',       sublabel: 'last 90d',  paid: true, fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: 'year',     label: 'Рік',            sublabel: 'last 365d', paid: true, fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: 'ytd',      label: 'З початку року', sublabel: 'YTD',       paid: true, fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(), 0, 1)), to: endOfDay(n) }; } },
-  { key: 'all',      label: 'Весь час',       sublabel: 'all time',  paid: true, fn: () => null },
-  { key: 'custom',   label: 'Свій',           sublabel: 'custom',    paid: true, fn: null },
+const DATE_PRESETS: DatePreset[] = [
+  { key: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true,  fn: () => null },
+  { key: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false, fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
+  { key: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false, fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
+  { key: 'week',     label: '7 днів',          icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: 'month',    label: '30 днів',         icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-29); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-13); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: 'year',     label: 'Рік',             icon: 'event_note',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true,  fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(), 0, 1)), to: endOfDay(n) }; } },
+  { key: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true,  fn: null },
 ];
 
 function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
@@ -289,21 +286,15 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
       return;
     }
     play('SELECT');
-    if (p.fn === null && p.key !== 'custom') {
-      // 'all' — null range
-      setSelected(p.key);
-      onChange(null);
-      onClose();
-      return;
-    }
-    if (p.key === 'custom') {
+    if (p.fn === null) {
       setSelected('custom');
       return;
     }
-    const r = p.fn!();
+    const r = p.fn();
     setSelected(p.key);
     onChange(r);
-    onClose();
+    if (r !== null) onClose();
+    else onClose(); // 'all' → null means no filter
   };
 
   const applyCustom = () => {
@@ -313,81 +304,66 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
     onClose();
   };
 
-  const ChipButton = ({ p }: { p: DatePreset }) => {
-    const isSelected = selected === p.key || (p.key === 'all' && value === null && selected === null);
-    const locked = p.paid && !isPaid;
-    return (
-      <button
-        onClick={() => handlePreset(p)}
-        className={cn(
-          'relative flex flex-col items-center justify-center rounded-2xl px-2 py-3 transition-all active:scale-95 min-h-[64px]',
-          isSelected
-            ? 'bg-primary text-primary-foreground shadow-sm'
-            : locked
-              ? 'bg-muted/30 text-muted-foreground/50'
-              : 'bg-muted/50 text-foreground hover:bg-muted/70'
-        )}
-      >
-        {locked && (
-          <span className="absolute top-1.5 right-1.5">
-            <Icon name="lock" size={10} className="text-yellow-400/80" />
-          </span>
-        )}
-        <span className={cn('text-[14px] font-semibold leading-tight', isSelected && 'text-primary-foreground')}>
-          {p.label}
-        </span>
-        <span className={cn('text-[10px] mt-0.5 leading-none', isSelected ? 'text-primary-foreground/70' : locked ? 'text-muted-foreground/40' : 'text-muted-foreground/70')}>
-          {p.sublabel}
-        </span>
-      </button>
-    );
-  };
-
   return (
     <>
       <BottomSheet open={open} onClose={onClose} style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
-        <div className="px-4 pt-4 pb-3 flex items-center justify-between">
-          <h3 className="text-[17px] font-semibold">Період</h3>
-          {!isPaid && (
-            <span className="flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[11px] font-medium text-yellow-400">
-              <Icon name="star" size={10} />
-              Nova+ для більше
-            </span>
-          )}
+        <div className="px-4 pt-3 pb-2">
+          <h3 className="text-[17px] font-semibold">Оберіть період</h3>
         </div>
 
-        <div className="px-4 pb-4 flex flex-col gap-3">
-          {/* Free chips */}
-          <div className="grid grid-cols-3 gap-2">
-            {FREE_DATE_PRESETS.map(p => <ChipButton key={p.key} p={p} />)}
-          </div>
+        {/* Free presets */}
+        <div className="px-4">
+          {DATE_PRESETS.filter(p => !p.paid).map((p) => {
+            const isSelected = selected === p.key || (p.key === 'all' && value === null && selected === null);
+            return (
+              <button key={p.key} onClick={() => handlePreset(p)} className="min-h-[44px] flex items-center gap-3 px-0 w-full">
+                <Icon name={p.icon} size={20} className="text-primary/60 shrink-0" />
+                <span className="flex-1 text-left text-[15px]">{p.label}</span>
+                {isSelected
+                  ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                  : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
 
-          {/* Divider */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-px bg-border/40" />
-            {!isPaid && (
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-yellow-400/80 flex items-center gap-1">
-                <Icon name="lock" size={10} /> Nova+
-              </span>
-            )}
-            <div className="flex-1 h-px bg-border/40" />
+        {/* Paid presets section */}
+        <div className="mx-4 mt-2 mb-1 h-px bg-border/40" />
+        <div className="px-4 pb-1">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Icon name="star" size={12} className="text-yellow-400" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Розширені діапазони</span>
+            {!isPaid && <span className="ml-auto text-[10px] text-yellow-400 font-medium">Nova+</span>}
           </div>
+          {DATE_PRESETS.filter(p => p.paid).map((p) => {
+            const isSelected = selected === p.key;
+            const locked = !isPaid;
+            return (
+              <button key={p.key} onClick={() => handlePreset(p)} className={cn('min-h-[44px] flex items-center gap-3 px-0 w-full', locked && 'opacity-60')}>
+                <Icon name={p.icon} size={20} className={locked ? 'text-muted-foreground/50 shrink-0' : 'text-primary/60 shrink-0'} />
+                <span className="flex-1 text-left text-[15px]">{p.label}</span>
+                {locked
+                  ? <Icon name="lock" size={16} className="text-yellow-400/70 shrink-0" />
+                  : isSelected
+                    ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                    : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
 
-          {/* Paid chips */}
-          <div className={cn('grid grid-cols-3 gap-2', !isPaid && 'opacity-70')}>
-            {PAID_DATE_PRESETS.map(p => <ChipButton key={p.key} p={p} />)}
+        {/* Custom date range inputs */}
+        <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' && isPaid ? 'max-h-40' : 'max-h-0')}>
+          <div className="mx-4 h-px bg-border/40" />
+          <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+            <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
+              className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
+            <span className="text-muted-foreground">–</span>
+            <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
+              className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
           </div>
-
-          {/* Custom date inputs */}
-          <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' && isPaid ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0')}>
-            <div className="flex items-center gap-2 pt-1">
-              <input type="date" value={fromStr} onChange={e => setFromStr(e.target.value)}
-                className="flex-1 rounded-xl border border-input bg-muted/40 px-3 py-2.5 text-[14px] focus:outline-none focus:ring-1 focus:ring-ring" />
-              <span className="text-muted-foreground text-sm">–</span>
-              <input type="date" value={toStr} onChange={e => setToStr(e.target.value)}
-                className="flex-1 rounded-xl border border-input bg-muted/40 px-3 py-2.5 text-[14px] focus:outline-none focus:ring-1 focus:ring-ring" />
-            </div>
-            <Button className="w-full min-h-[44px] mt-2 rounded-xl" onClick={applyCustom}>Застосувати</Button>
+          <div className="px-4 pt-2 pb-1">
+            <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
           </div>
         </div>
       </BottomSheet>
@@ -825,101 +801,77 @@ export default function GraphPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.3 }}
-              className="absolute inset-0 z-10 flex flex-col items-end justify-end"
+              className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background/90 backdrop-blur-md px-6"
             >
-              {/* Blurred graph preview — decorative nodes */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none select-none">
-                {/* Fake node clusters */}
-                {[
-                  { x: '18%', y: '22%', size: 52, color: 'bg-indigo-500/30', delay: 0 },
-                  { x: '55%', y: '15%', size: 36, color: 'bg-violet-500/25', delay: 0.05 },
-                  { x: '75%', y: '35%', size: 44, color: 'bg-blue-500/30', delay: 0.1 },
-                  { x: '30%', y: '50%', size: 60, color: 'bg-emerald-500/25', delay: 0.08 },
-                  { x: '65%', y: '58%', size: 32, color: 'bg-amber-500/25', delay: 0.12 },
-                  { x: '12%', y: '68%', size: 40, color: 'bg-pink-500/25', delay: 0.06 },
-                  { x: '82%', y: '70%', size: 28, color: 'bg-cyan-500/20', delay: 0.15 },
-                  { x: '45%', y: '78%', size: 48, color: 'bg-purple-500/25', delay: 0.1 },
-                  { x: '22%', y: '38%', size: 24, color: 'bg-rose-500/20', delay: 0.07 },
-                  { x: '60%', y: '42%', size: 20, color: 'bg-teal-500/20', delay: 0.13 },
-                ].map((node, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, scale: 0.5 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: node.delay, type: 'spring', stiffness: 200, damping: 20 }}
-                    className={`absolute rounded-full ${node.color} blur-[2px]`}
-                    style={{ left: node.x, top: node.y, width: node.size, height: node.size, transform: 'translate(-50%, -50%)' }}
-                  />
-                ))}
-                {/* Fake edges as thin lines */}
-                <svg className="absolute inset-0 w-full h-full opacity-20" xmlns="http://www.w3.org/2000/svg">
-                  <line x1="18%" y1="22%" x2="30%" y2="50%" stroke="#818cf8" strokeWidth="1.5" strokeDasharray="4 3" />
-                  <line x1="30%" y1="50%" x2="55%" y2="15%" stroke="#818cf8" strokeWidth="1" strokeDasharray="4 3" />
-                  <line x1="55%" y1="15%" x2="75%" y2="35%" stroke="#a78bfa" strokeWidth="1.5" strokeDasharray="4 3" />
-                  <line x1="75%" y1="35%" x2="65%" y2="58%" stroke="#60a5fa" strokeWidth="1" strokeDasharray="4 3" />
-                  <line x1="30%" y1="50%" x2="45%" y2="78%" stroke="#34d399" strokeWidth="1.5" strokeDasharray="4 3" />
-                  <line x1="65%" y1="58%" x2="45%" y2="78%" stroke="#f59e0b" strokeWidth="1" strokeDasharray="4 3" />
-                  <line x1="12%" y1="68%" x2="30%" y2="50%" stroke="#f472b6" strokeWidth="1" strokeDasharray="4 3" />
-                  <line x1="22%" y1="38%" x2="18%" y2="22%" stroke="#fb7185" strokeWidth="1" strokeDasharray="4 3" />
-                  <line x1="60%" y1="42%" x2="75%" y2="35%" stroke="#2dd4bf" strokeWidth="1" strokeDasharray="4 3" />
-                  <line x1="82%" y1="70%" x2="65%" y2="58%" stroke="#818cf8" strokeWidth="1" strokeDasharray="4 3" />
-                </svg>
-                {/* Gradient fade overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-background/20" />
-              </div>
-
-              {/* Bottom sheet card */}
               <motion.div
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ type: 'spring', stiffness: 280, damping: 28, delay: 0.15 }}
-                className="relative w-full px-4 pb-6 pt-2"
+                initial={{ opacity: 0, y: 24, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 280, damping: 26, delay: 0.1 }}
+                className="w-full max-w-xs flex flex-col items-center text-center"
               >
-                {/* Lock badge */}
-                <div className="flex justify-center mb-3">
-                  <div className="flex items-center gap-1.5 rounded-full bg-yellow-400/15 border border-yellow-400/30 px-3 py-1">
-                    <Icon name="lock" size={12} className="text-yellow-400" />
-                    <span className="text-[12px] font-semibold text-yellow-400">Nova+</span>
-                  </div>
-                </div>
+                {/* Icon */}
+                <motion.div
+                  initial={{ scale: 0, rotate: -20 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 16, delay: 0.15 }}
+                  className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-4xl"
+                >
+                  🕸️
+                </motion.div>
 
-                <p className="text-[22px] font-bold leading-tight text-center mb-1">Граф зв&apos;язків</p>
-                <p className="text-[13px] text-muted-foreground text-center mb-4 leading-relaxed">
-                  Бачиш як думки та записи пов&apos;язані між собою — кластери, патерни, зв&apos;язки
+                {/* Title */}
+                <p className="text-[22px] font-bold leading-tight mb-1">Граф зв&apos;язків</p>
+                <p className="text-[14px] text-muted-foreground mb-5">
+                  Візуалізуй, як твої думки та записи пов&apos;язані між собою
                 </p>
 
-                {/* Feature pills — 2-col grid */}
-                <div className="grid grid-cols-2 gap-2 mb-4">
+                {/* Feature list */}
+                <div className="w-full rounded-2xl bg-muted/30 border border-border/30 px-4 py-3 mb-5 flex flex-col gap-2.5 text-left">
                   {[
                     { emoji: '🔗', text: 'Зв\'язки між записами' },
-                    { emoji: '🎨', text: 'Кластери по категоріях' },
-                    { emoji: '🔍', text: 'Патерни у думках' },
-                    { emoji: '✏️', text: 'Редагування з графу' },
+                    { emoji: '🎨', text: 'Кольорові кластери по категоріях' },
+                    { emoji: '🔍', text: 'Пошук патернів у думках' },
+                    { emoji: '✏️', text: 'Редагування записів прямо з графу' },
+                    { emoji: '🌐', text: 'Інтерактивна навігація' },
                   ].map(({ emoji, text }, i) => (
                     <motion.div
                       key={text}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.25 + i * 0.05 }}
-                      className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2.5"
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.25 + i * 0.06, duration: 0.25 }}
+                      className="flex items-center gap-3"
                     >
-                      <span className="text-[16px] leading-none shrink-0">{emoji}</span>
-                      <span className="text-[12px] text-foreground/80 leading-tight">{text}</span>
+                      <span className="text-[18px] leading-none shrink-0">{emoji}</span>
+                      <span className="text-[14px] text-foreground/80">{text}</span>
                     </motion.div>
                   ))}
                 </div>
 
-                {/* CTA */}
-                <motion.button
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.45, type: 'spring', stiffness: 300, damping: 26 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }}
-                  className="w-full rounded-xl bg-yellow-400 py-3.5 text-[15px] font-semibold text-slate-950 active:opacity-90 transition-opacity"
+                {/* Tier badge */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.55 }}
+                  className="flex items-center gap-2 mb-4"
                 >
-                  Розблокувати — від 250 ⭐
-                </motion.button>
+                  <span className="text-lg">🌟</span>
+                  <span className="text-[13px] text-muted-foreground">Доступно з плану <span className="font-semibold text-foreground">Memo Nova</span></span>
+                </motion.div>
+
+                {/* CTA */}
+                <motion.div
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6, type: 'spring', stiffness: 300, damping: 26 }}
+                  className="w-full"
+                >
+                  <Button
+                    className="w-full min-h-[48px] text-[15px] font-semibold"
+                    onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }}
+                  >
+                    Перейти на Nova — 250 ⭐
+                  </Button>
+                </motion.div>
               </motion.div>
             </motion.div>
           )}

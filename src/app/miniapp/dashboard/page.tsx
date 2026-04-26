@@ -933,8 +933,6 @@ function DrillDownDrawer({ title, entries, onClose, onUpdate, onDelete, accessTo
 
 // ── Calendar bottom sheet ─────────────────────────────────────────────────────
 
-// ── Calendar bottom sheet ─────────────────────────────────────────────────────
-
 function CalendarSheet({ filter, onChange, onClose, userTier }: {
   filter: DateFilter;
   onChange: (f: DateFilter) => void;
@@ -949,25 +947,21 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
 
   const isPaid = userTier === 'stars_basic' || userTier === 'stars_pro';
 
-  type PresetOption = { range: DateRange; label: string; sublabel?: string; paid: boolean };
-
-  const FREE_PRESETS: PresetOption[] = [
-    { range: 'today' as DateRange,     label: 'Сьогодні',  sublabel: 'today',     paid: false },
-    { range: 'yesterday' as DateRange, label: 'Вчора',     sublabel: 'yesterday', paid: false },
-    { range: 'week' as DateRange,      label: '7 днів',    sublabel: 'last 7d',   paid: false },
+  type PresetOption = { range: DateRange; label: string; icon: string; paid: boolean };
+  const PRESET_OPTIONS: PresetOption[] = [
+    { range: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true  },
+    { range: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false },
+    { range: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false },
+    { range: 'week',     label: '7 днів',          icon: 'date_range',     paid: false },
+    { range: 'month',    label: '30 днів',         icon: 'calendar_month', paid: true  },
+    { range: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: true  },
+    { range: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true  },
+    { range: 'year',     label: 'Рік',             icon: 'event_note',     paid: true  },
+    { range: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true  },
+    { range: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true  },
   ];
 
-  const PAID_PRESETS: PresetOption[] = [
-    { range: 'month' as DateRange,    label: '30 днів',        sublabel: 'last 30d',  paid: true },
-    { range: '2weeks' as DateRange,   label: '2 тижні',        sublabel: 'last 14d',  paid: true },
-    { range: '3months' as DateRange,  label: '3 місяці',       sublabel: 'last 90d',  paid: true },
-    { range: 'year' as DateRange,     label: 'Рік',            sublabel: 'last 365d', paid: true },
-    { range: 'ytd' as DateRange,      label: 'З початку року', sublabel: 'YTD',       paid: true },
-    { range: 'all' as DateRange,      label: 'Весь час',       sublabel: 'all time',  paid: true },
-    { range: 'custom' as DateRange,   label: 'Свій',           sublabel: 'custom',    paid: true },
-  ];
-
-  const handleSelect = (opt: PresetOption) => {
+  const handleSelectPreset = (opt: PresetOption) => {
     if (opt.paid && !isPaid) {
       play('CAUTION');
       setPaywallOpen(true);
@@ -988,92 +982,85 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
     onClose();
   };
 
-  const ChipButton = ({ opt }: { opt: PresetOption }) => {
-    const isSelected = selected === opt.range;
-    const locked = opt.paid && !isPaid;
-    return (
-      <button
-        onClick={() => handleSelect(opt)}
-        className={cn(
-          'relative flex flex-col items-center justify-center rounded-2xl px-2 py-3 transition-all active:scale-95 min-h-[64px]',
-          isSelected
-            ? 'bg-primary text-primary-foreground shadow-sm'
-            : locked
-              ? 'bg-muted/30 text-muted-foreground/50'
-              : 'bg-muted/50 text-foreground hover:bg-muted/70'
-        )}
-      >
-        {locked && (
-          <span className="absolute top-1.5 right-1.5">
-            <Icon name="lock" size={10} className="text-yellow-400/80" />
-          </span>
-        )}
-        <span className={cn('text-[14px] font-semibold leading-tight', isSelected && 'text-primary-foreground')}>
-          {opt.label}
-        </span>
-        {opt.sublabel && (
-          <span className={cn('text-[10px] mt-0.5 leading-none', isSelected ? 'text-primary-foreground/70' : locked ? 'text-muted-foreground/40' : 'text-muted-foreground/70')}>
-            {opt.sublabel}
-          </span>
-        )}
-      </button>
-    );
-  };
-
   return (
     <>
       <BottomSheet open onClose={onClose} style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
         {/* Header */}
-        <div className="px-4 pt-4 pb-3 flex items-center justify-between">
-          <h3 className="text-[17px] font-semibold">Період</h3>
-          {!isPaid && (
-            <span className="flex items-center gap-1 rounded-full bg-yellow-400/15 px-2 py-0.5 text-[11px] font-medium text-yellow-400">
-              <Icon name="star" size={10} />
-              Nova+ для більше
-            </span>
-          )}
+        <div className="px-4 pt-3 pb-2">
+          <h3 className="text-[17px] font-semibold">Оберіть період</h3>
         </div>
 
-        <div className="px-4 pb-4 flex flex-col gap-3">
-          {/* Free chips */}
-          <div className="grid grid-cols-3 gap-2">
-            {FREE_PRESETS.map(opt => <ChipButton key={opt.range} opt={opt} />)}
-          </div>
+        {/* Free presets */}
+        <div className="px-4">
+          {PRESET_OPTIONS.filter(o => !o.paid).map(opt => {
+            const isSelected = selected === opt.range;
+            return (
+              <button
+                key={opt.range}
+                onClick={() => handleSelectPreset(opt)}
+                className="min-h-[44px] flex items-center gap-3 px-0 w-full"
+              >
+                <Icon name={opt.icon} size={20} className="text-primary/60 shrink-0" />
+                <span className="flex-1 text-left text-[15px]">{opt.label}</span>
+                {isSelected
+                  ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                  : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />
+                }
+              </button>
+            );
+          })}
+        </div>
 
-          {/* Divider */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-px bg-border/40" />
-            {!isPaid && (
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-yellow-400/80 flex items-center gap-1">
-                <Icon name="lock" size={10} /> Nova+
-              </span>
-            )}
-            <div className="flex-1 h-px bg-border/40" />
+        {/* Paid presets section */}
+        <div className="mx-4 mt-2 mb-1 h-px bg-border/40" />
+        <div className="px-4 pb-1">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Icon name="star" size={12} className="text-yellow-400" />
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Розширені діапазони</span>
+            {!isPaid && <span className="ml-auto text-[10px] text-yellow-400 font-medium">Nova+</span>}
           </div>
+          {PRESET_OPTIONS.filter(o => o.paid).map(opt => {
+            const isSelected = selected === opt.range;
+            const locked = !isPaid;
+            return (
+              <button
+                key={opt.range}
+                onClick={() => handleSelectPreset(opt)}
+                className={cn('min-h-[44px] flex items-center gap-3 px-0 w-full', locked && 'opacity-60')}
+              >
+                <Icon name={opt.icon} size={20} className={locked ? 'text-muted-foreground/50 shrink-0' : 'text-primary/60 shrink-0'} />
+                <span className="flex-1 text-left text-[15px]">{opt.label}</span>
+                {locked
+                  ? <Icon name="lock" size={16} className="text-yellow-400/70 shrink-0" />
+                  : isSelected
+                    ? <Icon name="check" size={18} className="text-primary shrink-0" />
+                    : <Icon name="chevron_right" size={18} className="text-muted-foreground shrink-0" />
+                }
+              </button>
+            );
+          })}
+        </div>
 
-          {/* Paid chips */}
-          <div className={cn('grid grid-cols-3 gap-2', !isPaid && 'opacity-70')}>
-            {PAID_PRESETS.map(opt => <ChipButton key={opt.range} opt={opt} />)}
+        {/* Inline custom date range */}
+        <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' && isPaid ? 'max-h-56' : 'max-h-0')}>
+          <div className="mx-4 h-px bg-border/40" />
+          <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+            <input
+              type="date"
+              value={fromStr}
+              onChange={e => setFromStr(e.target.value)}
+              className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
+            <span className="text-muted-foreground">–</span>
+            <input
+              type="date"
+              value={toStr}
+              onChange={e => setToStr(e.target.value)}
+              className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
           </div>
-
-          {/* Custom date inputs — expands when custom selected */}
-          <div className={cn('overflow-hidden transition-all duration-300', selected === 'custom' && isPaid ? 'max-h-32 opacity-100' : 'max-h-0 opacity-0')}>
-            <div className="flex items-center gap-2 pt-1">
-              <input
-                type="date"
-                value={fromStr}
-                onChange={e => setFromStr(e.target.value)}
-                className="flex-1 rounded-xl border border-input bg-muted/40 px-3 py-2.5 text-[14px] focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-              <span className="text-muted-foreground text-sm">–</span>
-              <input
-                type="date"
-                value={toStr}
-                onChange={e => setToStr(e.target.value)}
-                className="flex-1 rounded-xl border border-input bg-muted/40 px-3 py-2.5 text-[14px] focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            </div>
-            <Button className="w-full min-h-[44px] mt-2 rounded-xl" onClick={applyCustom}>Застосувати</Button>
+          <div className="px-4 pt-2 pb-1">
+            <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
           </div>
         </div>
       </BottomSheet>
