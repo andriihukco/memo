@@ -1787,7 +1787,6 @@ export default function DashboardPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
                   <Icon name="add" size={20} className="text-primary" />
                 </div>
-                <span className="text-xs font-medium">Додати</span>
               </button>
             )}
 
