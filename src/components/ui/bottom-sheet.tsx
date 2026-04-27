@@ -89,7 +89,7 @@ export function BottomSheet({ open, onClose, children, className, style }: Botto
             {/* Drag handle with 44px touch zone */}
             <div className="flex h-[44px] items-center justify-center cursor-grab active:cursor-grabbing">
               <motion.div
-                className="h-1 w-10 rounded-full bg-muted"
+                className="h-1 w-10 rounded-full bg-white/20"
                 whileHover={{ scaleX: 1.2 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               />

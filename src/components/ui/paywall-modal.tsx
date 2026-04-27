@@ -273,7 +273,18 @@ export function PaywallModal({
       onClose={() => { play('CLOSE'); onClose(); }}
       className="bg-gradient-to-b from-yellow-950 to-[#0d1117]"
     >
-      <div className="flex flex-col pb-2">
+      <div className="relative flex flex-col pb-2">
+
+        {/* Close button — top-left */}
+        <button
+          onClick={() => { play('CLOSE'); onClose(); }}
+          className="absolute top-0 left-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70 active:bg-white/20 transition-colors"
+          aria-label="Закрити"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </button>
 
         {/* ── Hero ── */}
         <div className="flex flex-col items-center text-center gap-2 pt-4 px-4">
