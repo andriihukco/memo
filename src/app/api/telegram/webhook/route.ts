@@ -26,10 +26,12 @@ function timingSafeEqual(a: string, b: string): boolean {
 /**
  * Handle /start with a ref_<code> deep-link parameter.
  * Records the referred_id in the referrals table (if not already set),
- * then shows the normal welcome message.
+ * then shows a personalised referral welcome message.
  */
 async function handleStartWithReferral(ctx: BotContext, code: string): Promise<void> {
   const profile = ctx.profile;
+  let referrerUsername: string | null = null;
+
   if (profile) {
     try {
       const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -44,24 +46,49 @@ async function handleStartWithReferral(ctx: BotContext, code: string): Promise<v
         .eq("code", code)
         .maybeSingle();
 
-      if (
-        referral &&
-        !referral.referred_id &&
-        referral.referrer_id !== profile.id
-      ) {
-        await supabase
-          .from("referrals")
-          .update({ referred_id: profile.id })
-          .eq("id", referral.id)
-          .is("referred_id", null); // guard against race condition
+      if (referral && referral.referrer_id !== profile.id) {
+        if (!referral.referred_id) {
+          await supabase
+            .from("referrals")
+            .update({ referred_id: profile.id })
+            .eq("id", referral.id)
+            .is("referred_id", null); // guard against race condition
+        }
+
+        // Fetch referrer's username for the welcome message
+        const { data: referrerProfile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", referral.referrer_id)
+          .maybeSingle();
+
+        referrerUsername = referrerProfile?.username ?? null;
       }
     } catch (err) {
-      // Non-fatal — log and continue to show welcome
       console.error("[webhook] handleStartWithReferral error:", err);
     }
   }
 
-  await handleStart(ctx);
+  if (referrerUsername) {
+    // Personalised referral welcome
+    const miniappUrl = env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp";
+    await ctx.reply(
+      `👋 Привіт\\! Тебе запросив *@${referrerUsername.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&")}* 🎁\n\n` +
+      `Я *Memo* — твій особистий AI\\-щоденник у Telegram 📓\n\n` +
+      `*Як працює реферальна програма:*\n` +
+      `• Оформи підписку *Nova на 1 місяць* — 250 ⭐\n` +
+      `• Ти отримаєш *\\+30 днів Nova безкоштовно* зверху\n` +
+      `• @${referrerUsername.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&")} теж отримає *\\+30 днів Nova*\n\n` +
+      `Відкрий Memo, щоб почати 👇`,
+      {
+        parse_mode: "MarkdownV2",
+        reply_markup: new InlineKeyboard().webApp("📱 Відкрити Memo", miniappUrl),
+      }
+    );
+  } else {
+    // No valid referral code or self-referral — show normal welcome
+    await handleStart(ctx);
+  }
 }
 
 /**
