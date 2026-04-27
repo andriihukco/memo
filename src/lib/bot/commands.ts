@@ -451,12 +451,12 @@ export async function handleInvite(ctx: BotContext): Promise<void> {
   const botUsername = process.env.TELEGRAM_BOT_USERNAME ?? "memo_r0bot";
   const deepLink = `https://t.me/${botUsername}?start=ref_${code}`;
 
+  // Use plain text (no parse_mode) to avoid MarkdownV2 escaping issues with URLs
   await ctx.reply(
-    `🎁 *Запроси друга — отримай 30 днів Nova безкоштовно\\!*\n\n` +
+    `🎁 Запроси друга — отримай 30 днів Nova безкоштовно!\n\n` +
       `Поділись своїм посиланням:\n${deepLink}\n\n` +
-      `Коли твій друг зареєструється і оформить підписку — ти автоматично отримаєш *30 днів Memo Nova* у подарунок\\.\n\n` +
-      `Нагорода нараховується один раз за кожного нового користувача\\.`,
-    { parse_mode: "MarkdownV2" }
+      `Коли твій друг зареєструється і оформить підписку — ти автоматично отримаєш 30 днів Memo Nova у подарунок.\n\n` +
+      `Нагорода нараховується один раз за кожного нового користувача.`
   );
 }
 
@@ -466,9 +466,8 @@ export async function handleCancel(ctx: BotContext): Promise<void> {
   // Clears any pending bot state for the user and sends a fresh start prompt.
   // Useful when the bot gets stuck mid-conversation or the user wants to reset.
   await ctx.reply(
-    "✅ Скинуто\\. Можеш починати з чистого аркуша\\!\n\nПросто напиши або надішли голосове — я готовий 📓",
+    "✅ Скинуто. Можеш починати з чистого аркуша!\n\nПросто напиши або надішли голосове — я готовий 📓",
     {
-      parse_mode: "MarkdownV2",
       reply_markup: new InlineKeyboard().webApp(
         "📱 Відкрити Memo",
         process.env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp"
