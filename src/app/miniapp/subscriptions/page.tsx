@@ -17,6 +17,7 @@ interface ProfileData {
   subscription_status: string;
   subscription_ends_at: string | null;
   subscription_start_date?: string | null;
+  trial_used?: boolean;
 }
 
 // ── BillingPeriodSwitcher ─────────────────────────────────────────────────────
@@ -247,6 +248,8 @@ export default function SubscriptionsPage() {
   const [confetti, setConfetti] = useState(false);
   const [thankYouTier, setThankYouTier] = useState<SubscriptionTier | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
+  const [activatingTrial, setActivatingTrial] = useState(false);
+  const [trialSuccess, setTrialSuccess] = useState(false);
 
   const loadProfile = useCallback(async () => {
     if (!accessToken) return;
@@ -263,6 +266,33 @@ export default function SubscriptionsPage() {
   }, [accessToken]);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
+
+  async function handleActivateTrial() {
+    if (!accessToken) return;
+    play('BUTTON');
+    setError(null);
+    setActivatingTrial(true);
+    try {
+      const res = await fetch('/api/profile/trial', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Не вдалося активувати пробний період.');
+      } else {
+        play('CELEBRATION');
+        setConfetti(true);
+        setTrialSuccess(true);
+        setTimeout(() => setConfetti(false), 3500);
+        await loadProfile();
+      }
+    } catch {
+      setError('Щось пішло не так. Спробуй ще раз.');
+    } finally {
+      setActivatingTrial(false);
+    }
+  }
 
   async function handleSubscribe(tier: SubscriptionTier) {
     if (!accessToken) return;
@@ -524,6 +554,56 @@ export default function SubscriptionsPage() {
 
         {/* Error */}
         {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+        {/* Trial CTA — shown for free users who haven't used the trial */}
+        {effectiveTier === 'free' && !profile?.trial_used && !trialSuccess && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.05 }}
+            className="rounded-2xl border border-yellow-400/40 bg-yellow-950/30 px-4 py-4 flex flex-col gap-3"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-2xl leading-none">🎁</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-semibold">Спробуй Nova безкоштовно</p>
+                <p className="text-[12px] text-muted-foreground">3 дні повного доступу — без оплати</p>
+              </div>
+            </div>
+            <button
+              onClick={handleActivateTrial}
+              disabled={activatingTrial || paying !== null}
+              className={cn(
+                'w-full min-h-[44px] rounded-xl bg-yellow-400 py-3 text-[14px] font-semibold text-slate-950 transition-all active:scale-[0.98]',
+                (activatingTrial || paying !== null) && 'opacity-60'
+              )}
+            >
+              {activatingTrial ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
+                  Активуємо...
+                </span>
+              ) : (
+                'Активувати 3 дні Nova безкоштовно'
+              )}
+            </button>
+          </motion.div>
+        )}
+
+        {/* Trial success banner */}
+        {trialSuccess && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-4 flex items-center gap-3"
+          >
+            <span className="text-2xl">🎉</span>
+            <div>
+              <p className="text-[14px] font-semibold text-green-400">Пробний період активовано!</p>
+              <p className="text-[12px] text-muted-foreground">Memo Nova доступна на 3 дні</p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Plan cards */}
         <div className="flex flex-col gap-4 pt-2">
