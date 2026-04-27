@@ -95,6 +95,9 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
   const [visible, setVisible] = useState(false);
   const [paying, setPaying] = useState<'stars_basic' | 'stars_pro' | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
+  const [trialUsed, setTrialUsed] = useState(true); // assume used until we know otherwise
+  const [activatingTrial, setActivatingTrial] = useState(false);
+  const [trialDone, setTrialDone] = useState(false);
 
   const BILLING = {
     monthly:   { label: 'Місяць',   months: 1,  days: 30,  discount: 0,   badge: null },
@@ -109,10 +112,36 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setVisible(true));
+    // Check if trial is available for this user
+    if (accessToken) {
+      fetch('/api/profile', { headers: { Authorization: `Bearer ${accessToken}` } })
+        .then(r => r.json())
+        .then(d => { if (d.profile?.trial_used === false) setTrialUsed(false); })
+        .catch(() => {});
+    }
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [accessToken]);
 
   const handleContinueFree = () => { play('CLOSE'); finish(); };
+
+  const handleActivateTrial = async () => {
+    if (!accessToken || activatingTrial) return;
+    play('BUTTON');
+    setActivatingTrial(true);
+    try {
+      const res = await fetch('/api/profile/trial', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (res.ok) {
+        play('CELEBRATION');
+        setTrialDone(true);
+        setTimeout(() => finish(), 1400);
+      }
+    } catch { /* silent */ } finally {
+      setActivatingTrial(false);
+    }
+  };
 
   const handleSubscribe = async (tier: 'stars_basic' | 'stars_pro') => {
     play('BUTTON');
@@ -226,6 +255,43 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
           <span className="text-[13px] text-white/40">Безкоштовно</span>
         </div>
 
+        {/* Free trial banner — shown above plan cards when available */}
+        {!trialUsed && !trialDone && (
+          <div className="mb-3 rounded-2xl border border-yellow-400/30 bg-yellow-950/40 px-4 py-3.5 flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl leading-none">🎁</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold text-white">Спробуй Nova безкоштовно</p>
+                <p className="text-[12px] text-white/50">3 дні повного доступу — без оплати</p>
+              </div>
+            </div>
+            <button
+              onClick={handleActivateTrial}
+              disabled={activatingTrial || paying !== null}
+              className="w-full rounded-xl bg-yellow-400 py-3 text-[14px] font-semibold text-slate-950 disabled:opacity-60 active:scale-95 transition-all"
+            >
+              {activatingTrial ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
+                  Активуємо...
+                </span>
+              ) : (
+                'Активувати 3 дні Nova безкоштовно'
+              )}
+            </button>
+          </div>
+        )}
+
+        {trialDone && (
+          <div className="mb-3 rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-3.5 flex items-center gap-3">
+            <span className="text-2xl">🎉</span>
+            <div>
+              <p className="text-[14px] font-semibold text-green-400">Nova активована на 3 дні!</p>
+              <p className="text-[12px] text-white/50">Переходимо до додатку...</p>
+            </div>
+          </div>
+        )}
+
         {/* Paid plan cards */}
         <div className="flex flex-col gap-3">
           {plans.map((plan) => {
@@ -274,7 +340,11 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
                   disabled={paying !== null}
                   className={cn(
                     'w-full rounded-xl py-2.5 text-[14px] font-semibold transition-all active:scale-95 disabled:opacity-60',
-                    plan.recommended ? 'bg-yellow-400 text-slate-950' : 'bg-white/10 text-white'
+                    plan.recommended && !trialUsed
+                      ? 'bg-white/10 text-white/70'
+                      : plan.recommended
+                        ? 'bg-yellow-400 text-slate-950'
+                        : 'bg-white/10 text-white'
                   )}
                 >
                   {paying === plan.tier ? (
