@@ -43,7 +43,7 @@ interface Slide {
 
 const SLIDES: Slide[] = [
   {
-    emoji: '🔵',
+    emoji: '📓',
     title: 'Твій особистий щоденник',
     body: 'Просто пиши або говори — Memo сам розбере що зберегти. Їжа, тренування, витрати, думки.',
     bg: 'from-indigo-950 to-slate-950',
@@ -1050,16 +1050,6 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
           router.replace('/miniapp');
         }} />
       )}
-
-      <AnimatePresence>
-        {referralWelcome && !showOnboarding && (
-          <ReferralWelcomeBanner
-            referrerUsername={referralWelcome.referrerUsername}
-            accessToken={accessToken}
-            onClose={() => setReferralWelcome(null)}
-          />
-        )}
-      </AnimatePresence>
 
       {locked && (
         <PasscodeScreen
