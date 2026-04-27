@@ -10,176 +10,104 @@ import type { SubscriptionTier, BillingPeriod } from '@/lib/stars/paywall';
 import { TIER_INFO, BILLING_PERIODS, calcPrice } from '@/lib/stars/paywall';
 import { cn } from '@/lib/utils';
 
-// ── Feature scenes ────────────────────────────────────────────────────────────
-// Each scene has a hero visual, headline, and benefit bullets.
+// ── Feature copy map ──────────────────────────────────────────────────────────
 
-interface FeatureScene {
+interface FeatureCopy {
   emoji: string;
-  gradient: string;       // Tailwind bg-gradient classes for the hero area
-  accentColor: string;    // Tailwind text color for accents
-  headline: string;
-  subline: (current: number, limit: number) => string;
-  bullets: { icon: string; text: string }[];
-  requiredTier: 'stars_basic' | 'stars_pro';
+  title: string;
+  subtitle: (current: number, limit: number) => string;
+  basicFeatures: string[];
+  proFeatures: string[];
 }
 
-const SCENES: Record<string, FeatureScene> = {
+const PAYWALL_COPY: Record<string, FeatureCopy> = {
   ai_reports: {
     emoji: '✨',
-    gradient: 'from-violet-950 via-indigo-950 to-slate-950',
-    accentColor: 'text-violet-300',
-    headline: 'AI ретроспективи',
-    subline: () => 'Глибокий аналіз твого прогресу за будь-який період',
-    bullets: [
-      { icon: '📊', text: 'Щоденні, тижневі та місячні звіти' },
-      { icon: '🔍', text: 'Патерни та тренди у твоїх даних' },
-      { icon: '💡', text: 'Персоналізовані інсайти від AI' },
-      { icon: '📈', text: 'До 50 звітів на місяць' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'AI ретроспективи',
+    subtitle: () => 'Аналізуй свій прогрес за будь-який період',
+    basicFeatures: ['50 звітів на місяць', 'Щоденні, тижневі, місячні', 'Структурований аналіз'],
+    proFeatures: ['Необмежені звіти', 'Пріоритетна обробка', 'Повна аналітика'],
   },
   ai_recommendations: {
     emoji: '💡',
-    gradient: 'from-amber-950 via-orange-950 to-slate-950',
-    accentColor: 'text-amber-300',
-    headline: 'AI рекомендації',
-    subline: () => 'Персоналізовані поради на основі твоїх записів',
-    bullets: [
-      { icon: '🧠', text: 'Аналіз твоїх звичок і патернів' },
-      { icon: '🎯', text: 'Конкретні поради для покращення' },
-      { icon: '📅', text: 'Щотижневі рекомендації' },
-      { icon: '❤️', text: 'Поради по здоров\'ю та продуктивності' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'AI рекомендації',
+    subtitle: () => 'Персоналізовані поради на основі твоїх даних',
+    basicFeatures: ['Щотижневі рекомендації', 'Аналіз патернів', 'Поради по здоров\'ю'],
+    proFeatures: ['Щоденні рекомендації', 'Пріоритетна обробка', 'Розширений аналіз'],
   },
   goal_tracking: {
     emoji: '🎯',
-    gradient: 'from-emerald-950 via-teal-950 to-slate-950',
-    accentColor: 'text-emerald-300',
-    headline: 'Трекінг цілей',
-    subline: () => 'Ставь цілі та відстежуй прогрес у реальному часі',
-    bullets: [
-      { icon: '🎯', text: 'Необмежена кількість цілей' },
-      { icon: '📊', text: 'Прогрес-бари на дашборді' },
-      { icon: '🔔', text: 'Нагадування та мотивація' },
-      { icon: '🏆', text: 'Відстеження досягнень' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'Трекінг цілей',
+    subtitle: () => 'Ставь цілі та відстежуй прогрес',
+    basicFeatures: ['Необмежені цілі', 'Прогрес-бари', 'Нагадування'],
+    proFeatures: ['AI аналіз цілей', 'Пріоритетна обробка', 'Всі функції Basic'],
   },
   graph_full: {
     emoji: '🕸️',
-    gradient: 'from-indigo-950 via-blue-950 to-slate-950',
-    accentColor: 'text-indigo-300',
-    headline: 'Граф зв\'язків',
-    subline: () => 'Візуалізуй, як твої думки та записи пов\'язані між собою',
-    bullets: [
-      { icon: '🔗', text: 'Зв\'язки між записами та ідеями' },
-      { icon: '🎨', text: 'Кольорові кластери по категоріях' },
-      { icon: '🔍', text: 'Пошук патернів у думках' },
-      { icon: '✏️', text: 'Редагування прямо з графу' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'Граф зв\'язків',
+    subtitle: () => 'Візуалізуй, як твої думки та записи пов\'язані між собою',
+    basicFeatures: ['Інтерактивний граф', 'Кольорові кластери', 'Редагування з графу'],
+    proFeatures: ['Всі функції Nova', 'Пріоритетна обробка', 'Розширена аналітика'],
   },
   ai_widgets: {
     emoji: '📊',
-    gradient: 'from-cyan-950 via-sky-950 to-slate-950',
-    accentColor: 'text-cyan-300',
-    headline: 'Більше AI-віджетів',
-    subline: (c, l) => `Використано ${c} з ${l}. Розблокуй до 15 кастомних метрик`,
-    bullets: [
-      { icon: '📊', text: '15 кастомних AI-віджетів' },
-      { icon: '🤖', text: 'AI генерація метрик з тексту' },
-      { icon: '🎯', text: 'Цілі та прогрес-бари' },
-      { icon: '📈', text: 'Всі типи трекінгу' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'Ліміт AI-віджетів вичерпано',
+    subtitle: (c, l) => `Використано ${c} з ${l} AI-віджетів. Перейди на Nova для збільшення до 15.`,
+    basicFeatures: ['15 кастомних AI-віджетів', 'AI генерація метрик', 'Всі типи трекінгу'],
+    proFeatures: ['Необмежені AI-віджети', 'Пріоритетна обробка', 'Розширена аналітика'],
   },
   custom_widgets: {
     emoji: '📊',
-    gradient: 'from-cyan-950 via-sky-950 to-slate-950',
-    accentColor: 'text-cyan-300',
-    headline: 'Більше AI-віджетів',
-    subline: () => 'Розблокуй до 15 кастомних метрик на дашборді',
-    bullets: [
-      { icon: '📊', text: '15 кастомних AI-віджетів' },
-      { icon: '🤖', text: 'AI генерація метрик з тексту' },
-      { icon: '🎯', text: 'Цілі та прогрес-бари' },
-      { icon: '📈', text: 'Всі типи трекінгу' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'Ліміт AI-віджетів вичерпано',
+    subtitle: () => 'У безкоштовному плані доступно 3 AI-віджети. Перейди на Nova для збільшення до 15.',
+    basicFeatures: ['15 кастомних AI-віджетів', 'AI генерація метрик', 'Всі типи трекінгу'],
+    proFeatures: ['Необмежені AI-віджети', 'Пріоритетна обробка', 'Розширена аналітика'],
   },
   widgets: {
     emoji: '📊',
-    gradient: 'from-cyan-950 via-sky-950 to-slate-950',
-    accentColor: 'text-cyan-300',
-    headline: 'Більше AI-віджетів',
-    subline: (c, l) => `Використано ${c} з ${l}. Розблокуй до 15 кастомних метрик`,
-    bullets: [
-      { icon: '📊', text: '15 кастомних AI-віджетів' },
-      { icon: '🤖', text: 'AI генерація метрик з тексту' },
-      { icon: '🎯', text: 'Цілі та прогрес-бари' },
-      { icon: '📈', text: 'Всі типи трекінгу' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'Ліміт AI-віджетів вичерпано',
+    subtitle: (c, l) => `Використано ${c} з ${l} AI-віджетів. Перейди на Nova для збільшення до 15.`,
+    basicFeatures: ['15 кастомних AI-віджетів', 'AI генерація метрик', 'Всі типи трекінгу'],
+    proFeatures: ['Необмежені AI-віджети', 'Пріоритетна обробка', 'Розширена аналітика'],
   },
   entries: {
     emoji: '📝',
-    gradient: 'from-rose-950 via-pink-950 to-slate-950',
-    accentColor: 'text-rose-300',
-    headline: 'Більше записів',
-    subline: (c, l) => `${c} з ${l} записів використано`,
-    bullets: [
-      { icon: '📝', text: 'До 2 000 записів' },
-      { icon: '📜', text: 'Повна стрічка без обмежень' },
-      { icon: '🗂️', text: 'Всі категорії та метрики' },
-      { icon: '🔍', text: 'Повний пошук по записах' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'Ліміт записів вичерпано',
+    subtitle: (c, l) => `${c} з ${l} записів використано`,
+    basicFeatures: ['До 2 000 записів', 'Повна стрічка', 'Всі категорії'],
+    proFeatures: ['Необмежені записи', 'Пріоритетна обробка', 'Повна аналітика'],
   },
   reports: {
     emoji: '💡',
-    gradient: 'from-violet-950 via-purple-950 to-slate-950',
-    accentColor: 'text-violet-300',
-    headline: 'Більше ретроспектив',
-    subline: (c, l) => `${c} з ${l} звітів цього місяця`,
-    bullets: [
-      { icon: '📊', text: '50 звітів на місяць' },
-      { icon: '📅', text: 'Всі типи аналізу' },
-      { icon: '✍️', text: 'Структурований звіт' },
-      { icon: '💡', text: 'AI інсайти та рекомендації' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'Ліміт ретроспектив вичерпано',
+    subtitle: (c, l) => `${c} з ${l} звітів цього місяця`,
+    basicFeatures: ['50 звітів на місяць', 'Всі типи аналізу', 'Структурований звіт'],
+    proFeatures: ['Необмежені звіти', 'Пріоритетна обробка', 'Повна аналітика'],
   },
   date_range: {
     emoji: '📅',
-    gradient: 'from-blue-950 via-indigo-950 to-slate-950',
-    accentColor: 'text-blue-300',
-    headline: 'Розширена історія',
-    subline: () => 'Аналізуй дані за 3 місяці, рік або весь час',
-    bullets: [
-      { icon: '📅', text: '3 місяці, рік, з початку року' },
-      { icon: '🗓️', text: 'Власний діапазон дат' },
-      { icon: '📊', text: '365 днів для Nova' },
-      { icon: '♾️', text: 'Необмежена історія для Supernova' },
-    ],
-    requiredTier: 'stars_basic',
+    title: 'Розширена історія',
+    subtitle: () => 'Аналізуй дані за 3 місяці, рік або весь час',
+    basicFeatures: ['3 місяці, рік, з початку року', 'Власний діапазон дат', '365 днів для Nova'],
+    proFeatures: ['Необмежена історія', 'Пріоритетна обробка', 'Повна аналітика'],
   },
 };
 
-const FALLBACK_SCENE: FeatureScene = {
-  emoji: '⭐',
-  gradient: 'from-slate-900 via-slate-950 to-black',
-  accentColor: 'text-yellow-300',
-  headline: 'Розблокуй повний доступ',
-  subline: () => 'Перейди на платний план щоб отримати всі функції',
-  bullets: [
-    { icon: '🤖', text: 'AI ретроспективи та рекомендації' },
-    { icon: '📊', text: '15 кастомних AI-віджетів' },
-    { icon: '🕸️', text: 'Граф зв\'язків між записами' },
-    { icon: '📅', text: '365 днів історії' },
-  ],
-  requiredTier: 'stars_basic',
+const FALLBACK_COPY: FeatureCopy = {
+  emoji: '🔒',
+  title: 'Функція недоступна',
+  subtitle: () => 'Перейди на платний план, щоб розблокувати',
+  basicFeatures: ['Розширені функції', 'AI аналітика', 'Більше лімітів'],
+  proFeatures: ['Необмежений доступ', 'Пріоритетна обробка', 'Всі функції'],
 };
+
+// ── Warm elevation tokens (matches onboarding warm brown palette) ─────────────
+const EL = {
+  track: 'bg-[#2a1f0e]',          // segmented control background — warm dark brown
+  pill:  'bg-[#3d2e14]',          // selected segment pill — lighter warm brown
+  card:  'bg-[#2a1f0e]',          // feature card background
+  cardBorder: 'border-[#5a3e1a]/60',
+} as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -216,7 +144,7 @@ export function PaywallModal({
   );
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
 
-  const scene = SCENES[feature] ?? FALLBACK_SCENE;
+  const copy = PAYWALL_COPY[feature] ?? FALLBACK_COPY;
 
   useEffect(() => {
     if (open) {
@@ -296,6 +224,8 @@ export function PaywallModal({
   const selectedInfo = TIER_INFO[selectedTier];
   const starsPrice = calcPrice(selectedInfo.priceStars, billingPeriod);
   const periodInfo = BILLING_PERIODS[billingPeriod];
+  const features = selectedTier === 'stars_basic' ? copy.basicFeatures : copy.proFeatures;
+  const isPro = selectedTier === 'stars_pro';
   const showTrial = !trialUsed && selectedTier === 'stars_basic';
 
   // ── Success screen ──────────────────────────────────────────────────────────
@@ -312,7 +242,7 @@ export function PaywallModal({
             initial={{ scale: 0, rotate: -20 }}
             animate={{ scale: 1, rotate: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.05 }}
-            className="flex h-20 w-20 items-center justify-center rounded-full bg-green-500/15 text-5xl select-none"
+            className="flex h-20 w-20 items-center justify-center rounded-full bg-yellow-400/15 text-5xl select-none"
           >
             {isTrial ? '🎉' : TIER_INFO[selectedTier].icon}
           </motion.div>
@@ -320,7 +250,7 @@ export function PaywallModal({
             <h2 className="text-[22px] font-bold">
               {isTrial ? 'Пробний період активовано!' : 'Дякуємо! 🎉'}
             </h2>
-            <p className="text-[15px] font-semibold text-green-400">
+            <p className="text-[15px] font-semibold text-yellow-400">
               {isTrial ? 'Memo Nova — 3 дні безкоштовно' : `${TIER_INFO[selectedTier].name} активовано`}
             </p>
             <p className="text-[14px] text-muted-foreground">
@@ -328,7 +258,7 @@ export function PaywallModal({
             </p>
           </div>
           <button
-            className="w-full min-h-[48px] rounded-2xl bg-primary py-3.5 text-[15px] font-semibold text-primary-foreground active:scale-[0.98] transition-transform"
+            className="w-full min-h-[48px] rounded-2xl bg-yellow-400 py-3.5 text-[15px] font-semibold text-slate-950 active:scale-[0.98] transition-transform"
             onClick={() => { play('BUTTON'); onClose(); }}
           >
             Чудово →
@@ -340,125 +270,172 @@ export function PaywallModal({
 
   return (
     <BottomSheet open={open} onClose={() => { play('CLOSE'); onClose(); }}>
-      <div className="flex flex-col pb-2">
+      <div className="flex flex-col px-4 pb-2 gap-4">
 
-        {/* ── Hero section ── */}
-        <div className={cn(
-          'relative mx-4 mt-1 mb-4 rounded-2xl bg-gradient-to-br px-5 pt-6 pb-5 overflow-hidden',
-          scene.gradient
-        )}>
-          {/* Decorative blobs */}
-          <div className="pointer-events-none absolute -top-8 -right-8 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-6 -left-6 h-24 w-24 rounded-full bg-white/5 blur-xl" />
+        {/* ── Hero ── */}
+        <div className="flex flex-col items-center text-center gap-2 pt-1">
+          <motion.span
+            initial={{ scale: 0.6, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 20, delay: 0.05 }}
+            className="text-[52px] leading-none select-none"
+          >
+            {copy.emoji}
+          </motion.span>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.25 }}
+            className="flex flex-col gap-1"
+          >
+            <h2 className="text-[18px] font-bold tracking-tight">{copy.title}</h2>
+            <p className="text-[13px] text-muted-foreground leading-snug max-w-[260px] mx-auto">
+              {copy.subtitle(current, limit)}
+            </p>
+          </motion.div>
+        </div>
 
-          {/* Emoji + headline */}
-          <div className="relative flex flex-col items-center text-center gap-3">
-            <motion.div
-              initial={{ scale: 0.6, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.05 }}
-              className="text-5xl leading-none select-none"
-            >
-              {scene.emoji}
-            </motion.div>
-            <div>
-              <h2 className="text-[20px] font-bold text-white leading-tight">{scene.headline}</h2>
-              <p className="mt-1 text-[13px] text-white/60 leading-snug">{scene.subline(current, limit)}</p>
+        {/* ── Plan segmented control ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15, duration: 0.22 }}
+          className={cn('flex rounded-2xl p-1 gap-1', EL.track)}
+        >
+          {(['stars_basic', 'stars_pro'] as const).map((planTier) => {
+            const info = TIER_INFO[planTier];
+            const isSelected = selectedTier === planTier;
+            return (
+              <button
+                key={planTier}
+                onClick={() => { play('SELECT'); setSelectedTier(planTier); }}
+                className={cn(
+                  'relative flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-200',
+                  isSelected
+                    ? cn(EL.pill, 'text-foreground shadow-sm')
+                    : 'text-muted-foreground/60 hover:text-muted-foreground'
+                )}
+              >
+                <span className="text-[17px] leading-none">{info.icon}</span>
+                <span>{info.name}</span>
+                {planTier === 'stars_pro' && (
+                  <span className="absolute -top-2 right-3 rounded-full bg-amber-400/20 border border-amber-400/30 px-1.5 py-px text-[9px] font-bold text-amber-300 whitespace-nowrap">
+                    PRO
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </motion.div>
+
+        {/* ── Billing period segmented control ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.22 }}
+          className={cn('flex rounded-2xl p-1 gap-1', EL.track)}
+        >
+          {(['monthly', 'quarterly', 'annual'] as BillingPeriod[]).map((p) => {
+            const info = BILLING_PERIODS[p];
+            const isSelected = billingPeriod === p;
+            return (
+              <button
+                key={p}
+                onClick={() => { play('SELECT'); setBillingPeriod(p); }}
+                className={cn(
+                  'relative flex-1 flex flex-col items-center justify-center rounded-xl py-2 text-[12px] font-medium transition-all duration-200',
+                  isSelected
+                    ? cn(EL.pill, 'text-foreground shadow-sm')
+                    : 'text-muted-foreground/60 hover:text-muted-foreground'
+                )}
+              >
+                {info.badge && (
+                  <span className={cn(
+                    'absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-px text-[9px] font-bold whitespace-nowrap border',
+                    isSelected
+                      ? 'bg-green-500/20 border-green-500/40 text-green-300'
+                      : 'bg-green-500/10 border-green-500/20 text-green-500/50'
+                  )}>
+                    {info.badge}
+                  </span>
+                )}
+                <span>{info.label}</span>
+              </button>
+            );
+          })}
+        </motion.div>
+
+        {/* ── Plan detail card ── */}
+        <motion.div
+          key={`${selectedTier}-${billingPeriod}`}
+          initial={{ opacity: 0, y: 8, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+          className={cn(
+            'rounded-2xl border px-4 py-4',
+            EL.card, EL.cardBorder
+          )}
+        >
+          {/* Price row */}
+          <div className="flex items-center justify-between mb-3.5">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[22px] leading-none">{selectedInfo.icon}</span>
+              <div>
+                <p className="text-[15px] font-bold leading-tight">{selectedInfo.name}</p>
+                <p className="text-[11px] text-muted-foreground">{selectedInfo.description}</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[22px] font-bold leading-tight text-yellow-400">
+                {starsPrice} ⭐
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {billingPeriod === 'monthly' ? '/ місяць' : `/ ${periodInfo.label.toLowerCase()}`}
+              </p>
+              {billingPeriod !== 'monthly' && (
+                <p className="text-[10px] text-green-400 font-medium">
+                  ≈ {Math.round(starsPrice / periodInfo.months)} ⭐/міс
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Benefit bullets */}
-          <div className="relative mt-4 flex flex-col gap-2">
-            {scene.bullets.map(({ icon, text }, i) => (
+          {/* Divider */}
+          <div className="h-px bg-white/5 mb-3" />
+
+          {/* Features */}
+          <div className="flex flex-col gap-2">
+            {features.map((f, i) => (
               <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
+                key={f}
+                initial={{ opacity: 0, x: -6 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 + i * 0.05, duration: 0.25 }}
+                transition={{ delay: i * 0.04, duration: 0.18 }}
                 className="flex items-center gap-2.5"
               >
-                <span className="text-[16px] leading-none shrink-0">{icon}</span>
-                <span className="text-[13px] text-white/80">{text}</span>
+                <span className="text-[13px] font-bold text-yellow-400/80 shrink-0">✓</span>
+                <span className="text-[13px] text-foreground/80">{f}</span>
               </motion.div>
             ))}
           </div>
-        </div>
-
-        {/* ── Plan tabs ── */}
-        <div className="px-4 mb-3">
-          <div className="flex rounded-2xl bg-muted/40 p-1 gap-1">
-            {(['stars_basic', 'stars_pro'] as const).map((planTier) => {
-              const info = TIER_INFO[planTier];
-              const isSelected = selectedTier === planTier;
-              return (
-                <button
-                  key={planTier}
-                  onClick={() => { play('SELECT'); setSelectedTier(planTier); }}
-                  className={cn(
-                    'flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13px] font-semibold transition-all',
-                    isSelected ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                  )}
-                >
-                  <span className="text-base leading-none">{info.icon}</span>
-                  <span>{info.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Billing period ── */}
-        <div className="px-4 mb-4">
-          <div className="flex rounded-2xl bg-muted/40 p-1 gap-1">
-            {(['monthly', 'quarterly', 'annual'] as BillingPeriod[]).map((p) => {
-              const info = BILLING_PERIODS[p];
-              const isSelected = billingPeriod === p;
-              return (
-                <button
-                  key={p}
-                  onClick={() => { play('SELECT'); setBillingPeriod(p); }}
-                  className={cn(
-                    'relative flex-1 flex flex-col items-center justify-center rounded-xl py-2 text-[12px] font-medium transition-all',
-                    isSelected ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                  )}
-                >
-                  {info.badge && (
-                    <span className={cn(
-                      'absolute -top-2 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold whitespace-nowrap',
-                      isSelected ? 'bg-green-500 text-white' : 'bg-green-500/30 text-green-400'
-                    )}>
-                      {info.badge}
-                    </span>
-                  )}
-                  {info.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Price row ── */}
-        <div className="px-4 mb-4 flex items-center justify-between">
-          <div>
-            <p className="text-[13px] text-muted-foreground">
-              {billingPeriod === 'monthly' ? 'На місяць' : `За ${periodInfo.label.toLowerCase()}`}
-            </p>
-            {billingPeriod !== 'monthly' && (
-              <p className="text-[11px] text-green-400">≈ {Math.round(starsPrice / periodInfo.months)} ⭐/міс</p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="text-[24px] font-bold leading-tight">{starsPrice} ⭐</p>
-          </div>
-        </div>
+        </motion.div>
 
         {/* ── Error ── */}
-        {error && (
-          <p className="px-4 mb-3 text-[13px] text-destructive text-center">{error}</p>
-        )}
+        <AnimatePresence>
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="text-[13px] text-destructive text-center -mt-1"
+            >
+              {error}
+            </motion.p>
+          )}
+        </AnimatePresence>
 
         {/* ── CTAs ── */}
-        <div className="px-4 flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5">
           {/* Trial CTA — most prominent when available */}
           <AnimatePresence>
             {showTrial && (
@@ -469,7 +446,7 @@ export function PaywallModal({
                 whileTap={{ scale: 0.97 }}
                 className={cn(
                   'w-full min-h-[52px] rounded-2xl py-3.5 text-[15px] font-bold transition-all',
-                  'bg-gradient-to-r from-yellow-400 to-amber-400 text-slate-950',
+                  'bg-yellow-400 text-slate-950',
                   activatingTrial && 'opacity-60'
                 )}
                 disabled={activatingTrial || paying}
@@ -490,15 +467,16 @@ export function PaywallModal({
           {/* Subscribe button */}
           <motion.button
             whileTap={{ scale: 0.97 }}
-            className={cn(
-              'w-full min-h-[48px] rounded-2xl py-3 text-[14px] font-semibold transition-all',
-              showTrial
-                ? 'bg-muted/60 text-foreground/80 border border-border/40'
-                : 'bg-yellow-400 text-slate-950',
-              paying && 'opacity-60'
-            )}
-            disabled={paying}
+            disabled={paying || activatingTrial}
             onClick={handleUpgrade}
+            className={cn(
+              'w-full min-h-[50px] rounded-2xl text-[15px] font-bold transition-all disabled:opacity-60',
+              showTrial
+                ? 'bg-[#3d2e14] border border-[#5a3e1a]/60 text-foreground/80'
+                : isPro
+                  ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-900 shadow-lg shadow-amber-400/20'
+                  : 'bg-yellow-400 text-slate-950 shadow-lg shadow-yellow-400/20'
+            )}
           >
             {paying ? (
               <span className="flex items-center justify-center gap-2">
@@ -513,10 +491,9 @@ export function PaywallModal({
             )}
           </motion.button>
 
-          {/* Dismiss */}
           <button
-            className="w-full py-2.5 text-[13px] text-muted-foreground active:text-foreground transition-colors"
             onClick={() => { play('CLOSE'); onClose(); }}
+            className="w-full py-3 text-[13px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
           >
             Не зараз
           </button>

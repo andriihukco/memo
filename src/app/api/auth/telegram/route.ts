@@ -216,20 +216,75 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
+  // Extract start_param — Telegram passes it as the `start_param` field in initData
+  // when the user opened the bot via a deep link like t.me/bot?start=ref_XXXX
+  const startParam = params.get("start_param") ?? undefined;
+  const referralCode = startParam?.startsWith("ref_") ? startParam.slice(4) : undefined;
+
   // Upsert profile with the auth user's UUID so RLS (auth.uid()) aligns with entries.user_id
   const authUserId = sessionData.session.user.id;
+  let isNewUser = false;
+  let referrerUsername: string | null = null;
+
   try {
     const { resolveOrCreateProfile } = await import("@/lib/profile");
-    await resolveOrCreateProfile(BigInt(telegramId), username ?? "", authUserId);
+    const profile = await resolveOrCreateProfile(BigInt(telegramId), username ?? "", authUserId);
+    // Detect new users: profile was just created (created_at within last 10 seconds)
+    const createdAt = new Date(profile.created_at).getTime();
+    isNewUser = Date.now() - createdAt < 10_000;
   } catch (err) {
     console.error("[auth/telegram] profile upsert error:", err);
     // Non-fatal — user can still get their token
+  }
+
+  // If this is a new user arriving via a referral link, link them to the referrer
+  if (isNewUser && referralCode) {
+    try {
+      // Look up the referral row by code
+      const { data: referralRow } = await supabase
+        .from("referrals")
+        .select("id, referrer_id, referred_id")
+        .eq("code", referralCode)
+        .maybeSingle();
+
+      if (referralRow && !referralRow.referred_id) {
+        // Get the new user's profile id
+        const { data: newProfile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("telegram_id", telegramId)
+          .maybeSingle();
+
+        if (newProfile && newProfile.id !== referralRow.referrer_id) {
+          // Link the referred user to this referral row
+          await supabase
+            .from("referrals")
+            .update({ referred_id: newProfile.id })
+            .eq("id", referralRow.id);
+
+          // Fetch referrer's username for the welcome banner
+          const { data: referrerProfile } = await supabase
+            .from("profiles")
+            .select("username")
+            .eq("id", referralRow.referrer_id)
+            .maybeSingle();
+
+          referrerUsername = referrerProfile?.username ?? null;
+        }
+      }
+    } catch (err) {
+      console.error("[auth/telegram] referral linking error:", err);
+      // Non-fatal
+    }
   }
 
   return new Response(
     JSON.stringify({
       access_token: sessionData.session.access_token,
       refresh_token: sessionData.session.refresh_token,
+      referral_code: referralCode ?? null,
+      referrer_username: referrerUsername,
+      is_new_user: isNewUser,
     }),
     {
       status: 200,

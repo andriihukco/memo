@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icon';
+import { useAuth } from '@/lib/supabase/auth-context';
 
 interface Slide {
   emoji: string;
@@ -94,6 +95,10 @@ export default function OnboardingPage() {
   const isScrolling = useRef<boolean | null>(null);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const { accessToken } = useAuth();
+  const [activatingTrial, setActivatingTrial] = useState(false);
+  const [trialDone, setTrialDone] = useState(false);
+  const [trialError, setTrialError] = useState<string | null>(null);
 
   const finish = () => {
     localStorage.setItem(ONBOARDING_KEY, '1');
@@ -114,6 +119,30 @@ export default function OnboardingPage() {
     if (index > 0) {
       setDirection(-1);
       setIndex(i => i - 1);
+    }
+  };
+
+  const handleActivateTrial = async () => {
+    if (!accessToken || activatingTrial) return;
+    setTrialError(null);
+    setActivatingTrial(true);
+    try {
+      const res = await fetch('/api/profile/trial', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTrialError(data.error ?? 'Не вдалося активувати пробний період.');
+      } else {
+        setTrialDone(true);
+        // Short delay so user sees success, then finish onboarding
+        setTimeout(() => finish(), 1200);
+      }
+    } catch {
+      setTrialError('Щось пішло не так. Спробуй ще раз.');
+    } finally {
+      setActivatingTrial(false);
     }
   };
 
@@ -236,15 +265,30 @@ export default function OnboardingPage() {
 
       {/* Dots */}
       <div className="mb-8 flex gap-2 items-center">
-        {SLIDES.map((_, i) => (
-          <motion.button
-            key={i}
-            onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
-            animate={{ width: i === index ? 20 : 6 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-            style={{ height: 6, minWidth: 0, minHeight: 0 }}
-            className={cn('rounded-full', i === index ? 'bg-white' : 'bg-white/25')}
-          />
+        {SLIDES.map((s, i) => (
+          i === 0 ? (
+            // First slide uses the slide emoji as its dot indicator
+            <button
+              key={i}
+              onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
+              style={{ minHeight: 0, minWidth: 0 }}
+              className={cn(
+                'text-[14px] leading-none transition-all duration-200 select-none',
+                i === index ? 'opacity-100 scale-110' : 'opacity-30'
+              )}
+            >
+              {s.emoji}
+            </button>
+          ) : (
+            <motion.button
+              key={i}
+              onClick={() => { setDirection(i > index ? 1 : -1); setIndex(i); }}
+              animate={{ width: i === index ? 20 : 6 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+              style={{ height: 6, minWidth: 0, minHeight: 0 }}
+              className={cn('rounded-full', i === index ? 'bg-white' : 'bg-white/25')}
+            />
+          )
         ))}
       </div>
 
@@ -255,13 +299,55 @@ export default function OnboardingPage() {
         transition={{ delay: 0.3, type: 'spring', stiffness: 300, damping: 26 }}
         className="w-full max-w-xs space-y-3"
       >
+        {/* Free trial button — only on final slide */}
+        <AnimatePresence>
+          {slide.isFinal && !trialDone && (
+            <motion.button
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ delay: 0.1, duration: 0.25 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={handleActivateTrial}
+              disabled={activatingTrial}
+              className={cn(
+                'w-full rounded-2xl py-4 text-base font-semibold text-slate-950 transition-colors',
+                'bg-yellow-400 shadow-lg shadow-yellow-400/30',
+                activatingTrial && 'opacity-70'
+              )}
+            >
+              {activatingTrial ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
+                  Активуємо...
+                </span>
+              ) : (
+                '🎁 Спробувати Nova — 3 дні безкоштовно'
+              )}
+            </motion.button>
+          )}
+          {slide.isFinal && trialDone && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="w-full rounded-2xl py-4 text-base font-semibold text-center bg-green-500/20 text-green-300 border border-green-500/30"
+            >
+              🎉 Nova активована на 3 дні!
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {trialError && (
+          <p className="text-center text-[12px] text-red-400/80">{trialError}</p>
+        )}
+
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={goNext}
           className={cn(
             'w-full rounded-2xl py-4 text-base font-semibold text-slate-950 transition-colors',
             slide.isFinal
-              ? 'bg-yellow-400 shadow-lg shadow-yellow-400/30'
+              ? 'bg-white/15 text-white/70 shadow-none'
               : 'bg-white shadow-lg shadow-white/10'
           )}
         >
