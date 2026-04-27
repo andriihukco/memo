@@ -376,6 +376,8 @@ function InviteSheet({ accessToken, onClose }: { accessToken: string | null; onC
 
 // ── ExportSheet ───────────────────────────────────────────────────────────────
 
+type ExportState = 'idle' | 'loading' | 'ready' | 'error';
+
 function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onClose: () => void }) {
   const [state, setState] = useState<ExportState>('loading');
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
