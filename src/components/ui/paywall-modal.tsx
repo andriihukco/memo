@@ -131,6 +131,7 @@ export function PaywallModal({
   const [paying, setPaying] = useState(false);
   const [activatingTrial, setActivatingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successType, setSuccessType] = useState<'trial' | 'paid' | null>(null);
   // Allow switching between plans in the modal
   const [selectedTier, setSelectedTier] = useState<'stars_basic' | 'stars_pro'>(
     requiredTier === 'stars_pro' ? 'stars_pro' : 'stars_basic'
@@ -145,6 +146,7 @@ export function PaywallModal({
       setError(null);
       setPaying(false);
       setActivatingTrial(false);
+      setSuccessType(null);
       setSelectedTier(requiredTier === 'stars_pro' ? 'stars_pro' : 'stars_basic');
       setBillingPeriod('monthly');
     }
@@ -165,8 +167,8 @@ export function PaywallModal({
         setError(data.error ?? 'Не вдалося активувати пробний період.');
       } else {
         play('CELEBRATION');
+        setSuccessType('trial');
         onTrialActivated?.();
-        onClose();
       }
     } catch {
       setError('Щось пішло не так. Спробуй ще раз.');
@@ -209,7 +211,7 @@ export function PaywallModal({
         setPaying(false);
         if (status === 'paid') {
           play('CELEBRATION');
-          onClose();
+          setSuccessType('paid');
         } else if (status === 'failed') {
           setError('Оплата не вдалася. Спробуй ще раз.');
         }
@@ -226,6 +228,42 @@ export function PaywallModal({
   const starsPrice = calcPrice(selectedInfo.priceStars, billingPeriod);
   const periodInfo = BILLING_PERIODS[billingPeriod];
   const features = selectedTier === 'stars_basic' ? copy.basicFeatures : copy.proFeatures;
+
+  // ── Success screen ────────────────────────────────────────────────────────
+  if (successType) {
+    const isTrial = successType === 'trial';
+    return (
+      <BottomSheet open={open} onClose={() => { onClose(); }}>
+        <div className="flex flex-col items-center text-center px-6 pt-4 pb-8 gap-4">
+          {/* Icon */}
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-500/15 text-5xl select-none">
+            {isTrial ? '🎉' : TIER_INFO[selectedTier].icon}
+          </div>
+          {/* Title */}
+          <div className="flex flex-col gap-1">
+            <h2 className="text-[22px] font-bold">
+              {isTrial ? 'Пробний період активовано!' : 'Дякуємо! 🎉'}
+            </h2>
+            <p className="text-[15px] font-semibold text-primary">
+              {isTrial ? 'Memo Nova — 3 дні безкоштовно' : `${TIER_INFO[selectedTier].name} активовано`}
+            </p>
+            <p className="text-[14px] text-muted-foreground mt-1">
+              {isTrial
+                ? 'Тепер у тебе є доступ до всіх функцій Nova. Насолоджуйся!'
+                : 'Твоя підтримка дуже важлива для нас ❤️'}
+            </p>
+          </div>
+          {/* CTA */}
+          <button
+            className="w-full min-h-[48px] rounded-xl bg-primary py-3 text-[15px] font-semibold text-primary-foreground active:scale-[0.98] transition-transform"
+            onClick={() => { play('BUTTON'); onClose(); }}
+          >
+            Чудово →
+          </button>
+        </div>
+      </BottomSheet>
+    );
+  }
 
   return (
     <BottomSheet open={open} onClose={() => { play('CLOSE'); onClose(); }}>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
 import { Card } from '@/components/ui/card';
@@ -16,6 +17,7 @@ import { SkeletonMetricCard } from '@/components/ui/skeleton';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PaywallModal } from '@/components/ui/paywall-modal';
+import { Confetti } from '@/components/ui/confetti';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
 import { TIER_INFO } from '@/lib/stars/paywall';
@@ -1416,6 +1418,7 @@ export default function DashboardPage() {
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
   const [trialUsed, setTrialUsed] = useState(true); // default true = no trial shown until confirmed
   const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null);
+  const [thankYouTier, setThankYouTier] = useState<SubscriptionTier | null>(null);
 
   // ── Usage counts ───────────────────────────────────────────────────────────
   const { counts: usageCounts } = useUsageCounts(accessToken);
@@ -1616,13 +1619,6 @@ export default function DashboardPage() {
     setPaywallOpen(true);
   };
 
-  // ── Trial detection ────────────────────────────────────────────────────────
-  // A user is on a trial when: trial_used=true AND tier=stars_basic AND ends_at is in the future
-  const isTrial = trialUsed && userTier === 'stars_basic' && !!subscriptionEndsAt && new Date(subscriptionEndsAt) > new Date();
-  const trialDaysLeft = isTrial
-    ? Math.max(1, Math.ceil((new Date(subscriptionEndsAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
-    : 0;
-
   const handleAddWidgetTap = () => {
     // Count all custom widgets against the limit
     const widgetCount = customWidgets.length;
@@ -1649,12 +1645,6 @@ export default function DashboardPage() {
           </button>
         </div>
         <div className="flex items-center gap-2">
-          {/* Trial badge — shown when user is on an active free trial */}
-          {isTrial && (
-            <Badge className="shrink-0 rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/30 text-[11px] font-semibold px-2.5 py-0.5">
-              Пробний · {trialDaysLeft} дн.
-            </Badge>
-          )}
           {/* Date picker — hidden on goals view */}
           {view === 'actual' && (
             <button
@@ -2013,8 +2003,66 @@ export default function DashboardPage() {
         onTrialActivated={() => {
           setPaywallOpen(false);
           fetchUserTier(); // refresh tier + trial state
+          setThankYouTier('stars_basic');
         }}
       />
+
+      {/* Confetti + thank-you overlay — shown after trial activation or successful subscription */}
+      <Confetti active={!!thankYouTier} />
+      <AnimatePresence>
+        {thankYouTier && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 24 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 24 }}
+            transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+            className="fixed inset-0 z-[150] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm px-8 text-center"
+          >
+            <motion.div
+              initial={{ scale: 0, rotate: -20 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.1 }}
+              className="mb-6 text-7xl leading-none select-none"
+            >
+              {TIER_INFO[thankYouTier].icon}
+            </motion.div>
+            <motion.h1
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.35 }}
+              className="mb-2 text-[26px] font-bold"
+            >
+              Дякуємо! 🎉
+            </motion.h1>
+            <motion.p
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.35 }}
+              className="mb-1 text-[17px] font-semibold text-primary"
+            >
+              {TIER_INFO[thankYouTier].name} активовано
+            </motion.p>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.35 }}
+              className="text-[14px] text-muted-foreground"
+            >
+              Твоя підтримка дуже важлива для нас ❤️
+            </motion.p>
+            <motion.button
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.55, duration: 0.3 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => { play('CLOSE'); setThankYouTier(null); }}
+              className="mt-8 rounded-full bg-primary px-8 py-3.5 text-[15px] font-semibold text-primary-foreground"
+            >
+              Чудово →
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

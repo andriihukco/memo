@@ -447,12 +447,10 @@ export default function SubscriptionsPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-2 mt-1">
-              {startsAt && (
-                <div className="rounded-xl bg-muted/30 px-3 py-2">
-                  <p className="text-[10px] text-muted-foreground mb-0.5">Початок</p>
-                  <p className="text-[12px] font-medium">{fmtDate(startsAt)}</p>
-                </div>
-              )}
+              <div className="rounded-xl bg-muted/30 px-3 py-2">
+                <p className="text-[10px] text-muted-foreground mb-0.5">Початок</p>
+                <p className="text-[12px] font-medium">{startsAt ? fmtDate(startsAt) : fmtDate(new Date())}</p>
+              </div>
               {endsAt && (
                 <div className={cn('rounded-xl px-3 py-2', isExpired ? 'bg-destructive/10' : daysRemaining !== null && daysRemaining <= 7 ? 'bg-amber-400/10' : 'bg-muted/30')}>
                   <p className="text-[10px] text-muted-foreground mb-0.5">{isExpired ? 'Закінчилась' : isCanceling ? 'Доступ до' : 'Діє до'}</p>
@@ -472,10 +470,15 @@ export default function SubscriptionsPage() {
             {daysRemaining !== null && (
               <div className="flex items-center gap-2">
                 <div className="flex-1 h-1.5 rounded-full bg-muted/40 overflow-hidden">
-                  {startsAt && endsAt && (
+                  {endsAt && (
                     <div
                       className={cn('h-full rounded-full', daysRemaining <= 7 ? 'bg-amber-400' : 'bg-primary')}
-                      style={{ width: `${Math.max(5, Math.min(100, (daysRemaining / Math.ceil((endsAt.getTime() - startsAt.getTime()) / 86400000)) * 100))}%` }}
+                      style={{
+                        width: `${Math.max(5, Math.min(100, startsAt && endsAt
+                          ? (daysRemaining / Math.ceil((endsAt.getTime() - startsAt.getTime()) / 86400000)) * 100
+                          : (daysRemaining / 30) * 100
+                        ))}%`
+                      }}
                     />
                   )}
                 </div>
