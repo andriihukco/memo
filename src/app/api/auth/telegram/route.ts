@@ -245,7 +245,7 @@ export async function POST(req: Request): Promise<Response> {
         .from("referrals")
         .select("id, referrer_id, referred_id")
         .eq("code", referralCode)
-        .maybeSingle();
+        .maybeSingle() as { data: { id: string; referrer_id: string; referred_id: string | null } | null };
 
       if (referralRow && !referralRow.referred_id) {
         // Get the new user's profile id
@@ -253,7 +253,7 @@ export async function POST(req: Request): Promise<Response> {
           .from("profiles")
           .select("id")
           .eq("telegram_id", telegramId)
-          .maybeSingle();
+          .maybeSingle() as { data: { id: string } | null };
 
         if (newProfile && newProfile.id !== referralRow.referrer_id) {
           // Link the referred user to this referral row
@@ -267,7 +267,7 @@ export async function POST(req: Request): Promise<Response> {
             .from("profiles")
             .select("username")
             .eq("id", referralRow.referrer_id)
-            .maybeSingle();
+            .maybeSingle() as { data: { username: string | null } | null };
 
           referrerUsername = referrerProfile?.username ?? null;
         }

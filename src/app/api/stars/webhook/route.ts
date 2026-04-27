@@ -37,7 +37,7 @@ async function grantReferralRewards(
       .from("profiles")
       .select("subscription_tier, subscription_ends_at")
       .eq("id", referral.referrer_id)
-      .maybeSingle();
+      .maybeSingle() as { data: { subscription_tier: string; subscription_ends_at: string | null } | null };
 
     if (referrerProfile) {
       // Stack on top of existing subscription if active
@@ -73,7 +73,7 @@ async function grantReferralRewards(
       .from("profiles")
       .select("subscription_tier, subscription_ends_at")
       .eq("id", referredUserId)
-      .maybeSingle();
+      .maybeSingle() as { data: { subscription_tier: string; subscription_ends_at: string | null } | null };
 
     if (referredProfile) {
       // Stack on top of the subscription they just purchased
