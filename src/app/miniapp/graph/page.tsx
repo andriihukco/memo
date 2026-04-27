@@ -399,6 +399,7 @@ export default function GraphPage() {
   // Start as 'free' so the paywall overlay shows immediately while loading.
   // It will be hidden once we confirm the user has a paid tier.
   const [userTier, setUserTier] = useState<SubscriptionTier>('free');
+  const [trialUsed, setTrialUsed] = useState(true); // default true = no trial shown until confirmed
   const [tierLoaded, setTierLoaded] = useState(false);
 
   // ── Paywall state ──────────────────────────────────────────────────────────
@@ -429,6 +430,7 @@ export default function GraphPage() {
       const isExpired = endsAt ? endsAt < new Date() : false;
       const effectiveTier: SubscriptionTier = (rawTier !== 'free' && isExpired) ? 'free' : rawTier;
       setUserTier(effectiveTier);
+      setTrialUsed(profile?.trial_used ?? true);
     } catch { /* on error, keep 'free' — paywall stays visible */ }
     finally { setTierLoaded(true); }
   }, [accessToken]);
@@ -1292,6 +1294,8 @@ export default function GraphPage() {
         open={paywallOpen}
         onClose={() => setPaywallOpen(false)}
         {...paywallProps}
+        trialUsed={trialUsed}
+        onTrialActivated={() => { fetchUserTier(); }}
       />
 
       {/* Date filter sheet */}

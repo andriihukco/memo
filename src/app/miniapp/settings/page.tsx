@@ -244,7 +244,137 @@ function SoundSection() {
 
 // ── ExportSheet ───────────────────────────────────────────────────────────────
 
-type ExportState = 'idle' | 'loading' | 'ready' | 'error';
+// ── InviteSheet ───────────────────────────────────────────────────────────────
+
+function InviteSheet({ accessToken, onClose }: { accessToken: string | null; onClose: () => void }) {
+  const [link, setLink] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const { play } = useSound();
+
+  useSheetBodyAttr(true);
+
+  useEffect(() => {
+    if (!accessToken) { setLoading(false); return; }
+    // Fetch or create referral code via the bot API endpoint
+    fetch('/api/profile/referral', { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then(r => r.json())
+      .then(d => { if (d.link) setLink(d.link); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [accessToken]);
+
+  const handleShare = () => {
+    if (!link) return;
+    play('OPEN');
+    const tg = (window as { Telegram?: { WebApp?: { openTelegramLink?: (url: string) => void; openLink?: (url: string) => void } } }).Telegram?.WebApp;
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Спробуй Memo — AI-щоденник у Telegram! 📓')}`;
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(shareUrl);
+    } else if (tg?.openLink) {
+      tg.openLink(shareUrl);
+    } else {
+      window.open(shareUrl, '_blank');
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!link) return;
+    try {
+      await navigator.clipboard.writeText(link);
+      play('SELECT');
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* silent */ }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end">
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/50"
+        onClick={() => { play('CLOSE'); onClose(); }}
+      />
+      <motion.div
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
+        className="relative w-full rounded-t-2xl bg-background px-4 pt-4 pb-10 shadow-2xl"
+      >
+        {/* Handle */}
+        <div className="mb-5 flex justify-center">
+          <div className="h-1 w-10 rounded-full bg-muted" />
+        </div>
+
+        {/* Header */}
+        <div className="mb-5 text-center">
+          <div className="mb-3 flex justify-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-400/15 text-3xl">
+              🎁
+            </div>
+          </div>
+          <p className="text-[17px] font-bold">Запроси друга</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            Отримай <span className="font-semibold text-amber-400">30 днів Memo Nova</span> безкоштовно за кожного друга, який оформить підписку
+          </p>
+        </div>
+
+        {/* How it works */}
+        <div className="mb-5 rounded-2xl bg-muted/20 px-4 py-3 flex flex-col gap-2.5">
+          {[
+            { n: '1', text: 'Поділись своїм посиланням з другом' },
+            { n: '2', text: 'Друг реєструється в Memo' },
+            { n: '3', text: 'Друг оформлює підписку — ти отримуєш 30 днів Nova' },
+          ].map(({ n, text }) => (
+            <div key={n} className="flex items-center gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[11px] font-bold text-amber-400">{n}</span>
+              <span className="text-[13px] text-foreground/80">{text}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Link */}
+        {loading ? (
+          <div className="mb-4 h-12 rounded-xl bg-muted/40 animate-pulse" />
+        ) : link ? (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5">
+            <p className="flex-1 text-[13px] text-muted-foreground truncate">{link}</p>
+            <button
+              onClick={handleCopy}
+              className="shrink-0 rounded-lg bg-muted/60 px-2.5 py-1.5 text-[12px] font-medium transition-colors active:bg-muted"
+            >
+              {copied ? '✓ Скопійовано' : 'Копіювати'}
+            </button>
+          </div>
+        ) : (
+          <p className="mb-4 text-center text-[13px] text-muted-foreground">Не вдалося завантажити посилання</p>
+        )}
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2">
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={handleShare}
+            disabled={!link}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+          >
+            <Icon name="share" size={16} />
+            Поділитись у Telegram
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={() => { play('CLOSE'); onClose(); }}
+            className="w-full py-3 text-sm text-muted-foreground"
+          >
+            Закрити
+          </motion.button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── ExportSheet ───────────────────────────────────────────────────────────────
 
 function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onClose: () => void }) {
   const [state, setState] = useState<ExportState>('loading');
@@ -405,6 +535,7 @@ export default function SettingsPage() {
   const [confirmMismatch, setConfirmMismatch] = useState(false);
   const [showTimerPicker, setShowTimerPicker] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
+  const [showInviteSheet, setShowInviteSheet] = useState(false);
 
   const [notifStreak, setNotifStreak] = useState(true);
   const [notifWeekly, setNotifWeekly] = useState(true);
@@ -463,6 +594,7 @@ export default function SettingsPage() {
   // Register inline sheets with body attribute so tab bar hides
   useSheetBodyAttr(showDeleteConfirm);
   useSheetBodyAttr(showExportSheet);
+  useSheetBodyAttr(showInviteSheet);
 
   // ── Passcode handlers ─────────────────────────────────────────────────────
   const handleEnablePasscode = () => { play('OPEN'); setStep('set_new'); };
@@ -650,6 +782,34 @@ export default function SettingsPage() {
                 <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
               )}
             </a>
+          </CardContent>
+        </Card>
+      </motion.section>
+
+      {/* ── Запросити друзів ─────────────────────────────────────────────── */}
+      <motion.section
+        id="invite"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Запросити друзів</h2>
+        <Card>
+          <CardContent className="p-0">
+            <motion.button
+              whileTap={{ scale: 0.99 }}
+              onClick={() => { play('OPEN'); setShowInviteSheet(true); }}
+              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/15">
+                <span className="text-base leading-none">🎁</span>
+              </div>
+              <div className="flex-1 text-left min-w-0">
+                <p className="text-sm font-medium">Запросити друга</p>
+                <p className="text-xs text-muted-foreground truncate">Отримай 30 днів Nova за кожного друга</p>
+              </div>
+              <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
+            </motion.button>
           </CardContent>
         </Card>
       </motion.section>
@@ -997,6 +1157,16 @@ export default function SettingsPage() {
       <AnimatePresence>
         {showOnboarding && (
           <OnboardingReplay onClose={() => setShowOnboarding(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* Invite sheet */}
+      <AnimatePresence>
+        {showInviteSheet && (
+          <InviteSheet
+            accessToken={accessToken}
+            onClose={() => setShowInviteSheet(false)}
+          />
         )}
       </AnimatePresence>
 
