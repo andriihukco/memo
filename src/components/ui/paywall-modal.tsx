@@ -225,7 +225,6 @@ export function PaywallModal({
   const starsPrice = calcPrice(selectedInfo.priceStars, billingPeriod);
   const periodInfo = BILLING_PERIODS[billingPeriod];
   const features = selectedTier === 'stars_basic' ? copy.basicFeatures : copy.proFeatures;
-  const isPro = selectedTier === 'stars_pro';
   const showTrial = !trialUsed && selectedTier === 'stars_basic';
 
   // ── Success screen ──────────────────────────────────────────────────────────
