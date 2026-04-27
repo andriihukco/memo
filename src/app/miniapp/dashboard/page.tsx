@@ -1417,7 +1417,7 @@ export default function DashboardPage() {
   // ── User tier (for "+" button intercept) ──────────────────────────────────
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
   const [trialUsed, setTrialUsed] = useState(true); // default true = no trial shown until confirmed
-  const [subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null);
+  const [_subscriptionEndsAt, setSubscriptionEndsAt] = useState<string | null>(null);
   const [thankYouTier, setThankYouTier] = useState<SubscriptionTier | null>(null);
 
   // ── Usage counts ───────────────────────────────────────────────────────────
