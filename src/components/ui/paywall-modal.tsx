@@ -231,7 +231,7 @@ export function PaywallModal({
   if (successType) {
     const isTrial = successType === 'trial';
     return (
-      <BottomSheet open={open} onClose={onClose}>
+      <BottomSheet open={open} onClose={onClose} className="bg-gradient-to-b from-yellow-950 to-[#0d1117]">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -268,8 +268,12 @@ export function PaywallModal({
   }
 
   return (
-    <BottomSheet open={open} onClose={() => { play('CLOSE'); onClose(); }}>
-      <div className="flex flex-col pb-2 bg-gradient-to-b from-yellow-950/80 to-slate-950/80 rounded-b-2xl">
+    <BottomSheet
+      open={open}
+      onClose={() => { play('CLOSE'); onClose(); }}
+      className="bg-gradient-to-b from-yellow-950 to-[#0d1117]"
+    >
+      <div className="flex flex-col pb-2">
 
         {/* ── Hero ── */}
         <div className="flex flex-col items-center text-center gap-2 pt-4 px-4">
@@ -317,11 +321,6 @@ export function PaywallModal({
               >
                 <span className="text-[17px] leading-none">{info.icon}</span>
                 <span>{info.name}</span>
-                {planTier === 'stars_pro' && (
-                  <span className="absolute -top-2 right-3 rounded-full bg-amber-400/20 border border-amber-400/30 px-1.5 py-px text-[9px] font-bold text-amber-300 whitespace-nowrap">
-                    PRO
-                  </span>
-                )}
               </button>
             );
           })}
@@ -347,12 +346,7 @@ export function PaywallModal({
                 )}
               >
                 {info.badge && (
-                  <span className={cn(
-                    'absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-px text-[9px] font-bold whitespace-nowrap border',
-                    isSelected
-                      ? 'bg-green-500/20 border-green-500/40 text-green-300'
-                      : 'bg-green-500/10 border-green-500/20 text-green-500/50'
-                  )}>
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full px-1.5 py-px text-[9px] font-bold whitespace-nowrap bg-green-500 text-white">
                     {info.badge}
                   </span>
                 )}
