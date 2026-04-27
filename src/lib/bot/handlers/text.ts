@@ -151,6 +151,18 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
     return;
   }
 
+  // Guard: if the message looks like a mistyped command (no slash), redirect the user.
+  // This prevents the AI from treating "invite", "stats", "cancel" etc. as diary entries
+  // and generating follow-up questions that get the bot stuck in a thread loop.
+  const COMMAND_WORDS = ['invite', 'start', 'cancel', 'stats', 'help', 'report', 'remind', 'recommendations'];
+  const trimmedLower = text.trim().toLowerCase();
+  if (COMMAND_WORDS.includes(trimmedLower)) {
+    await ctx.reply(
+      `Схоже, ти мав на увазі команду /${trimmedLower}?\n\nНапиши зі слешем: /${trimmedLower}`,
+    );
+    return;
+  }
+
   await ctx.replyWithChatAction("typing");
 
   // Check pending delete confirmation first (fast path, no AI)
