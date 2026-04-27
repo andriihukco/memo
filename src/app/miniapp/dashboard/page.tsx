@@ -301,6 +301,7 @@ interface CustomWidget {
   aggregate: 'sum' | 'avg' | 'last';
   category?: string;
   goal?: number;
+  period?: string;
   created_at: string;
 }
 
@@ -1213,17 +1214,41 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
 
 // ── Goals tab ─────────────────────────────────────────────────────────────────
 
-function GoalsTab({ entries }: { entries: Entry[] }) {
-  const goals = aggregateGoals(entries);
+function GoalsTab({ entries, customWidgets }: { entries: Entry[]; customWidgets: CustomWidget[] }) {
+  const entryGoals = aggregateGoals(entries);
   const metrics = aggregateMetrics(entries);
   const metricByKey = new Map(metrics.map(m => [m.key, m]));
+
+  // Also include goals defined on custom widgets (widget.goal > 0)
+  // Merge with entry-based goals — widget goal wins if same key
+  const widgetGoalMap = new Map<string, { key: string; label: string; target: number; unit: string; icon?: string; period?: string; emoji?: string; iconColor?: string }>();
+  for (const w of customWidgets) {
+    if (w.goal && w.goal > 0) {
+      widgetGoalMap.set(w.metric_key, {
+        key: w.metric_key,
+        label: w.title,
+        target: w.goal,
+        unit: w.unit,
+        icon: undefined,
+        period: (w as { period?: string }).period,
+        emoji: w.emoji,
+        iconColor: w.iconColor ?? w.color,
+      });
+    }
+  }
+
+  // Merge: entry goals first, then widget goals override/add
+  const goalMap = new Map<string, typeof entryGoals[0] & { emoji?: string; iconColor?: string }>();
+  for (const g of entryGoals) goalMap.set(g.key, g);
+  for (const [key, wg] of widgetGoalMap) goalMap.set(key, wg);
+  const goals = [...goalMap.values()];
 
   if (goals.length === 0) {
     return (
       <EmptyState
         icon="🎯"
         title="Цілей ще немає"
-        subtitle="Скажи боту про свою ціль, і вона з'явиться тут"
+        subtitle="Скажи боту про свою ціль або створи віджет з ціллю"
         features={[
           { emoji: '🏃', text: 'Пробігти 100 км цього місяця' },
           { emoji: '💧', text: 'Пити 2 л води щодня' },
@@ -1241,11 +1266,14 @@ function GoalsTab({ entries }: { entries: Entry[] }) {
         const actual = metricByKey.get(g.key);
         const pct = actual ? Math.min(100, Math.round((actual.value / g.target) * 100)) : 0;
         const { bg, text } = metricColor(g.key);
+        // Use widget emoji/color if available
+        const wg = widgetGoalMap.get(g.key);
+        const wColor = wg?.iconColor ? getIconColor(wg.iconColor) : null;
         return (
           <Card key={g.key} className="p-4">
             <div className="mb-3 flex items-center gap-3">
-              <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', bg)}>
-                <MetricIcon name={g.icon} size={18} className={text} />
+              <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xl', wColor ? wColor.bg : bg)}>
+                {wg?.emoji ? wg.emoji : <MetricIcon name={g.icon} size={18} className={wColor ? wColor.text : text} />}
               </div>
               <div className="flex-1">
                 <p className="font-medium">{g.label}</p>
@@ -1257,7 +1285,7 @@ function GoalsTab({ entries }: { entries: Entry[] }) {
               </div>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-green-400' : 'bg-primary/70')} style={{ width: `${pct}%` }} />
+              <div className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-green-400' : wColor ? wColor.bg.replace('/15', '') : 'bg-primary/70')} style={{ width: `${pct}%` }} />
             </div>
             <p className="mt-1 text-right text-[10px] text-muted-foreground">{pct}%</p>
           </Card>
@@ -1744,7 +1772,7 @@ export default function DashboardPage() {
                 <SkeletonMetricCard />
               </div>
             )}
-            {status === 'ready' && <GoalsTab entries={allEntries} />}
+            {status === 'ready' && <GoalsTab entries={allEntries} customWidgets={customWidgets} />}
           </div>
         )}
 
