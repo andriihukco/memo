@@ -582,132 +582,6 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   );
 }
 
-// ── ReferralWelcomeBanner ─────────────────────────────────────────────────────
-
-function ReferralWelcomeBanner({
-  referrerUsername,
-  accessToken,
-  onClose,
-}: {
-  referrerUsername: string;
-  accessToken: string | null;
-  onClose: () => void;
-}) {
-  const { play } = useSound();
-  const router = useRouter();
-  const [paying, setPaying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubscribe = async () => {
-    play('BUTTON');
-    if (!accessToken) { router.push('/miniapp/subscriptions'); onClose(); return; }
-    const tg = window.Telegram?.WebApp;
-    if (!tg?.openInvoice) { router.push('/miniapp/subscriptions'); onClose(); return; }
-
-    setPaying(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/stars/invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ tier: 'stars_basic', billingPeriod: 'monthly' }),
-      });
-      const data = await res.json();
-      if (!data.ok || !data.invoiceLink) throw new Error(data.error ?? 'no invoice');
-      tg.openInvoice(data.invoiceLink, (status) => {
-        setPaying(false);
-        if (status === 'paid') { play('CELEBRATION'); onClose(); }
-        else if (status === 'failed') setError('Оплата не вдалася. Спробуй ще раз.');
-      });
-    } catch {
-      setPaying(false);
-      setError('Щось пішло не так. Спробуй ще раз.');
-    }
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[110] flex items-end justify-center bg-black/60 backdrop-blur-sm px-4 pb-8"
-      onClick={(e) => { if (e.target === e.currentTarget) { play('CLOSE'); onClose(); } }}
-    >
-      <motion.div
-        initial={{ y: 80, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 80, opacity: 0 }}
-        transition={{ type: 'spring', stiffness: 320, damping: 32 }}
-        className="w-full max-w-sm rounded-3xl bg-gradient-to-b from-yellow-950 to-slate-950 border border-yellow-400/20 px-5 pt-6 pb-7 flex flex-col gap-4"
-      >
-        {/* Header */}
-        <div className="flex flex-col items-center text-center gap-3">
-          <motion.div
-            initial={{ scale: 0, rotate: -20 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 14, delay: 0.1 }}
-            className="text-5xl leading-none select-none"
-          >
-            🎁
-          </motion.div>
-          <div>
-            <h2 className="text-[20px] font-bold text-white leading-tight">
-              Тебе запросив @{referrerUsername}
-            </h2>
-            <p className="mt-1.5 text-[13px] text-white/60 leading-snug">
-              Оформи підписку Nova на 1 місяць — і ти, і @{referrerUsername} отримаєте по{' '}
-              <span className="text-yellow-400 font-semibold">30 днів Nova безкоштовно</span> зверху
-            </p>
-          </div>
-        </div>
-
-        {/* How it works */}
-        <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-3 flex flex-col gap-2">
-          {[
-            { icon: '💳', text: 'Ти купуєш Nova на 1 місяць — 250 ⭐' },
-            { icon: '🎁', text: 'Ти отримуєш +30 днів Nova зверху' },
-            { icon: '🤝', text: `@${referrerUsername} теж отримує +30 днів Nova` },
-          ].map(({ icon, text }) => (
-            <div key={text} className="flex items-center gap-2.5">
-              <span className="text-base leading-none shrink-0">{icon}</span>
-              <span className="text-[13px] text-white/70">{text}</span>
-            </div>
-          ))}
-        </div>
-
-        {error && (
-          <p className="text-center text-[12px] text-red-400">{error}</p>
-        )}
-
-        {/* CTAs */}
-        <div className="flex flex-col gap-2.5">
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={handleSubscribe}
-            disabled={paying}
-            className="w-full min-h-[52px] rounded-2xl bg-yellow-400 py-3.5 text-[15px] font-bold text-slate-950 disabled:opacity-60 transition-all"
-          >
-            {paying ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
-                Відкриваємо оплату...
-              </span>
-            ) : (
-              'Підписатися — 250 ⭐ + 30 днів у подарунок'
-            )}
-          </motion.button>
-          <button
-            onClick={() => { play('CLOSE'); onClose(); }}
-            className="w-full py-2.5 text-[13px] text-white/40 hover:text-white/60 transition-colors"
-          >
-            Пізніше
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 // ── Pill Tab Bar ──────────────────────────────────────────────────────────────
 
 const tabs = [
@@ -850,7 +724,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
 
 const rootPaths = ['/miniapp', '/miniapp/dashboard', '/miniapp/graph', '/miniapp/reports', '/miniapp/settings'];
 function MiniAppContent({ children }: { children: React.ReactNode }) {
-  const { setAccessToken, accessToken } = useAuth();
+  const { setAccessToken } = useAuth();
   const { play } = useSound();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
@@ -862,7 +736,6 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showRenewalBanner, setShowRenewalBanner] = useState(false);
-  const [referralWelcome, setReferralWelcome] = useState<{ referrerUsername: string } | null>(null);
   const didInit = useRef(false);
 
   // Pill tab bar height: 64px tall + 10px bottom offset + bottomInset
@@ -914,15 +787,9 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
         }
 
         const authData = await res.json();
-        const { access_token, referrer_username, is_new_user } = authData;
+        const { access_token } = authData;
         setAccessToken(access_token);
         sessionStorage.setItem('memo_auth_done', '1');
-
-        // Show referral welcome banner for new users who arrived via a referral link
-        if (is_new_user && referrer_username && !sessionStorage.getItem('memo_referral_welcome_shown')) {
-          sessionStorage.setItem('memo_referral_welcome_shown', '1');
-          setReferralWelcome({ referrerUsername: referrer_username });
-        }
 
         // Check subscription expiry for renewal banner
         const profileRes = await fetch('/api/profile', {
