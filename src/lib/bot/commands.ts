@@ -84,7 +84,8 @@ _"Мій стакан \\= 300мл"_ — запам'ятаю назавжди
 
 *Команди:*
 /stats — зведення за сьогодні
-/invite — запросити друга та отримати 30 днів Nova 🎁`;
+/invite — запросити друга та отримати 30 днів Nova 🎁
+/cancel — скинути стан бота`;
 
 // ── Help ──────────────────────────────────────────────────────────────────────
 
@@ -133,6 +134,8 @@ _"Я веган"_
 /report\\_weekly — за тиждень
 /report\\_monthly — за місяць
 /recommendations — розумні поради
+/invite — запросити друга та отримати 30 днів Nova 🎁
+/cancel — скинути стан бота
 
 🎤 *Голосові:* просто надішли — я транскрибую і збережу`;
 
@@ -414,12 +417,11 @@ export async function handleInvite(ctx: BotContext): Promise<void> {
     auth: { persistSession: false },
   });
 
-  // Try to fetch an existing referral code for this user
+  // Fetch any existing referral code for this user (regardless of referred_id status)
   const { data: existing } = await supabase
     .from("referrals")
     .select("code")
     .eq("referrer_id", profile.id)
-    .is("referred_id", null)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
@@ -429,7 +431,7 @@ export async function handleInvite(ctx: BotContext): Promise<void> {
   if (existing?.code) {
     code = existing.code;
   } else {
-    // Generate a new unique referral code (8 hex chars)
+    // Generate a new unique referral code (12 hex chars)
     code = Array.from(crypto.getRandomValues(new Uint8Array(6)))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
@@ -455,6 +457,23 @@ export async function handleInvite(ctx: BotContext): Promise<void> {
       `Коли твій друг зареєструється і оформить підписку — ти автоматично отримаєш *30 днів Memo Nova* у подарунок\\.\n\n` +
       `Нагорода нараховується один раз за кожного нового користувача\\.`,
     { parse_mode: "MarkdownV2" }
+  );
+}
+
+// ── /cancel — abort current bot context / hard reboot ────────────────────────
+
+export async function handleCancel(ctx: BotContext): Promise<void> {
+  // Clears any pending bot state for the user and sends a fresh start prompt.
+  // Useful when the bot gets stuck mid-conversation or the user wants to reset.
+  await ctx.reply(
+    "✅ Скинуто\\. Можеш починати з чистого аркуша\\!\n\nПросто напиши або надішли голосове — я готовий 📓",
+    {
+      parse_mode: "MarkdownV2",
+      reply_markup: new InlineKeyboard().webApp(
+        "📱 Відкрити Memo",
+        process.env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp"
+      ),
+    }
   );
 }
 

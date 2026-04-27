@@ -6,7 +6,7 @@ import { env } from "@/lib/env";
 import { resolveOrCreateProfile, ProfileError, Profile } from "@/lib/profile";
 import { handleTextMessage } from "@/lib/bot/handlers/text";
 import { handleVoiceMessage } from "@/lib/bot/handlers/voice";
-import { handleStart, handleHelp, handleReport, handleReportDaily, handleReportWeekly, handleReportMonthly, handleStats, handleRecommendations, handleCallbackQuery, handleRemind, handleInvite } from "@/lib/bot/commands";
+import { handleStart, handleHelp, handleReport, handleReportDaily, handleReportWeekly, handleReportMonthly, handleStats, handleRecommendations, handleCallbackQuery, handleRemind, handleInvite, handleCancel } from "@/lib/bot/commands";
 import { createSubscription, recordTransaction } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
@@ -173,6 +173,7 @@ function getHandler(): (req: Request) => Promise<Response> {
   bot.command("recommendations", handleRecommendations);
   bot.command("remind", handleRemind);
   bot.command("invite", handleInvite);
+  bot.command("cancel", handleCancel);
 
   // ── Callback queries (inline keyboard buttons) ──────────────────────────────
   bot.on("callback_query:data", handleCallbackQuery);
