@@ -23,7 +23,7 @@ async function grantReferralRewards(
     .from("referrals")
     .select("id, referrer_id, reward_granted, referred_reward_granted")
     .eq("referred_id", referredUserId)
-    .maybeSingle();
+    .maybeSingle() as { data: { id: string; referrer_id: string; reward_granted: boolean; referred_reward_granted: boolean } | null };
 
   if (!referral) return; // User wasn't referred
 
