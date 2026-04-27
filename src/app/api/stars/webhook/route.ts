@@ -10,7 +10,8 @@ import { createSubscription, recordTransaction } from "@/lib/stars/paywall";
  * Only triggers once per referral row (reward_granted / referred_reward_granted flags).
  */
 async function grantReferralRewards(
-  supabase: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   referredUserId: string,
   tier: string,
   billingPeriod?: string

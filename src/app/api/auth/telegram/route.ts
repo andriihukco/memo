@@ -239,9 +239,11 @@ export async function POST(req: Request): Promise<Response> {
 
   // If this is a new user arriving via a referral link, link them to the referrer
   if (isNewUser && referralCode) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
     try {
       // Look up the referral row by code
-      const { data: referralRow } = await supabase
+      const { data: referralRow } = await sb
         .from("referrals")
         .select("id, referrer_id, referred_id")
         .eq("code", referralCode)
@@ -249,7 +251,7 @@ export async function POST(req: Request): Promise<Response> {
 
       if (referralRow && !referralRow.referred_id) {
         // Get the new user's profile id
-        const { data: newProfile } = await supabase
+        const { data: newProfile } = await sb
           .from("profiles")
           .select("id")
           .eq("telegram_id", telegramId)
@@ -257,13 +259,13 @@ export async function POST(req: Request): Promise<Response> {
 
         if (newProfile && newProfile.id !== referralRow.referrer_id) {
           // Link the referred user to this referral row
-          await supabase
+          await sb
             .from("referrals")
             .update({ referred_id: newProfile.id })
             .eq("id", referralRow.id);
 
           // Fetch referrer's username for the welcome banner
-          const { data: referrerProfile } = await supabase
+          const { data: referrerProfile } = await sb
             .from("profiles")
             .select("username")
             .eq("id", referralRow.referrer_id)
