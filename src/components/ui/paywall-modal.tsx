@@ -103,10 +103,10 @@ const FALLBACK_COPY: FeatureCopy = {
 
 // ── Warm elevation tokens (matches onboarding warm brown palette) ─────────────
 const EL = {
-  track: 'bg-[#2a1f0e]',          // segmented control background — warm dark brown
-  pill:  'bg-[#3d2e14]',          // selected segment pill — lighter warm brown
-  card:  'bg-[#2a1f0e]',          // feature card background
-  cardBorder: 'border-[#5a3e1a]/60',
+  track: 'bg-white/10',
+  pill:  'bg-white/15',
+  card:  'bg-white/5',
+  cardBorder: 'border-white/10',
 } as const;
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -270,10 +270,10 @@ export function PaywallModal({
 
   return (
     <BottomSheet open={open} onClose={() => { play('CLOSE'); onClose(); }}>
-      <div className="flex flex-col px-4 pb-2 gap-4">
+      <div className="flex flex-col pb-2 bg-gradient-to-b from-yellow-950/80 to-slate-950/80 rounded-b-2xl">
 
         {/* ── Hero ── */}
-        <div className="flex flex-col items-center text-center gap-2 pt-1">
+        <div className="flex flex-col items-center text-center gap-2 pt-4 px-4">
           <motion.span
             initial={{ scale: 0.6, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -288,8 +288,8 @@ export function PaywallModal({
             transition={{ delay: 0.1, duration: 0.25 }}
             className="flex flex-col gap-1"
           >
-            <h2 className="text-[18px] font-bold tracking-tight">{copy.title}</h2>
-            <p className="text-[13px] text-muted-foreground leading-snug max-w-[260px] mx-auto">
+            <h2 className="text-[18px] font-bold tracking-tight text-white">{copy.title}</h2>
+            <p className="text-[13px] text-white/50 leading-snug max-w-[260px] mx-auto">
               {copy.subtitle(current, limit)}
             </p>
           </motion.div>
@@ -300,7 +300,7 @@ export function PaywallModal({
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15, duration: 0.22 }}
-          className={cn('flex rounded-2xl p-1 gap-1', EL.track)}
+          className={cn('flex rounded-2xl p-1 gap-1 mx-4 mt-4', EL.track)}
         >
           {(['stars_basic', 'stars_pro'] as const).map((planTier) => {
             const info = TIER_INFO[planTier];
@@ -312,8 +312,8 @@ export function PaywallModal({
                 className={cn(
                   'relative flex-1 flex items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-semibold transition-all duration-200',
                   isSelected
-                    ? cn(EL.pill, 'text-foreground shadow-sm')
-                    : 'text-muted-foreground/60 hover:text-muted-foreground'
+                    ? cn(EL.pill, 'text-white shadow-sm')
+                    : 'text-white/50'
                 )}
               >
                 <span className="text-[17px] leading-none">{info.icon}</span>
@@ -333,7 +333,7 @@ export function PaywallModal({
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2, duration: 0.22 }}
-          className={cn('flex rounded-2xl p-1 gap-1', EL.track)}
+          className={cn('flex rounded-2xl p-1 gap-1 mx-4 mt-3', EL.track)}
         >
           {(['monthly', 'quarterly', 'annual'] as BillingPeriod[]).map((p) => {
             const info = BILLING_PERIODS[p];
@@ -344,9 +344,7 @@ export function PaywallModal({
                 onClick={() => { play('SELECT'); setBillingPeriod(p); }}
                 className={cn(
                   'relative flex-1 flex flex-col items-center justify-center rounded-xl py-2 text-[12px] font-medium transition-all duration-200',
-                  isSelected
-                    ? cn(EL.pill, 'text-foreground shadow-sm')
-                    : 'text-muted-foreground/60 hover:text-muted-foreground'
+                  isSelected ? cn(EL.pill, 'text-white shadow-sm') : 'text-white/50'
                 )}
               >
                 {info.badge && (
@@ -371,25 +369,22 @@ export function PaywallModal({
           initial={{ opacity: 0, y: 8, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ type: 'spring', stiffness: 340, damping: 28 }}
-          className={cn(
-            'rounded-2xl border px-4 py-4',
-            EL.card, EL.cardBorder
-          )}
+          className={cn('rounded-2xl border mx-4 mt-3 px-4 py-4', EL.card, EL.cardBorder)}
         >
           {/* Price row */}
           <div className="flex items-center justify-between mb-3.5">
             <div className="flex items-center gap-2.5">
               <span className="text-[22px] leading-none">{selectedInfo.icon}</span>
               <div>
-                <p className="text-[15px] font-bold leading-tight">{selectedInfo.name}</p>
-                <p className="text-[11px] text-muted-foreground">{selectedInfo.description}</p>
+                <p className="text-[15px] font-bold leading-tight text-white">{selectedInfo.name}</p>
+                <p className="text-[11px] text-white/40">{selectedInfo.description}</p>
               </div>
             </div>
             <div className="text-right">
               <p className="text-[22px] font-bold leading-tight text-yellow-400">
                 {starsPrice} ⭐
               </p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-[10px] text-white/40">
                 {billingPeriod === 'monthly' ? '/ місяць' : `/ ${periodInfo.label.toLowerCase()}`}
               </p>
               {billingPeriod !== 'monthly' && (
@@ -401,7 +396,7 @@ export function PaywallModal({
           </div>
 
           {/* Divider */}
-          <div className="h-px bg-white/5 mb-3" />
+          <div className="h-px bg-white/10 mb-3" />
 
           {/* Features */}
           <div className="flex flex-col gap-2">
@@ -414,7 +409,7 @@ export function PaywallModal({
                 className="flex items-center gap-2.5"
               >
                 <span className="text-[13px] font-bold text-yellow-400/80 shrink-0">✓</span>
-                <span className="text-[13px] text-foreground/80">{f}</span>
+                <span className="text-[13px] text-white/70">{f}</span>
               </motion.div>
             ))}
           </div>
@@ -427,7 +422,7 @@ export function PaywallModal({
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="text-[13px] text-destructive text-center -mt-1"
+              className="text-[13px] text-destructive text-center mt-2 px-4"
             >
               {error}
             </motion.p>
@@ -435,55 +430,20 @@ export function PaywallModal({
         </AnimatePresence>
 
         {/* ── CTAs ── */}
-        <div className="flex flex-col gap-2.5">
-          {/* Trial CTA — most prominent when available */}
-          <AnimatePresence>
-            {showTrial && (
-              <motion.button
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                whileTap={{ scale: 0.97 }}
-                className={cn(
-                  'w-full min-h-[52px] rounded-2xl py-3.5 text-[15px] font-bold transition-all',
-                  'bg-yellow-400 text-slate-950',
-                  activatingTrial && 'opacity-60'
-                )}
-                disabled={activatingTrial || paying}
-                onClick={handleActivateTrial}
-              >
-                {activatingTrial ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
-                    Активуємо...
-                  </span>
-                ) : (
-                  '🎁 Спробувати Nova безкоштовно — 3 дні'
-                )}
-              </motion.button>
-            )}
-          </AnimatePresence>
-
-          {/* Subscribe button */}
+        <div className="flex flex-col gap-2 px-4 mt-4">
+          {/* Subscribe — always the primary yellow CTA */}
           <motion.button
             whileTap={{ scale: 0.97 }}
             disabled={paying || activatingTrial}
             onClick={handleUpgrade}
             className={cn(
-              'w-full min-h-[50px] rounded-2xl text-[15px] font-bold transition-all disabled:opacity-60',
-              showTrial
-                ? 'bg-[#3d2e14] border border-[#5a3e1a]/60 text-foreground/80'
-                : isPro
-                  ? 'bg-gradient-to-r from-amber-400 to-yellow-300 text-slate-900 shadow-lg shadow-amber-400/20'
-                  : 'bg-yellow-400 text-slate-950 shadow-lg shadow-yellow-400/20'
+              'w-full min-h-[52px] rounded-2xl text-[15px] font-bold transition-all disabled:opacity-60',
+              'bg-yellow-400 text-slate-950 shadow-lg shadow-yellow-400/20'
             )}
           >
             {paying ? (
               <span className="flex items-center justify-center gap-2">
-                <span className={cn(
-                  'h-4 w-4 animate-spin rounded-full border-2',
-                  showTrial ? 'border-foreground/30 border-t-foreground' : 'border-slate-950/30 border-t-slate-950'
-                )} />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
                 Відкриваємо оплату...
               </span>
             ) : (
@@ -491,9 +451,33 @@ export function PaywallModal({
             )}
           </motion.button>
 
+          {/* Trial — minimal text link when available */}
+          <AnimatePresence>
+            {showTrial && (
+              <motion.button
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                whileTap={{ scale: 0.97 }}
+                disabled={activatingTrial || paying}
+                onClick={handleActivateTrial}
+                className="w-full py-2.5 text-[13px] font-medium text-yellow-400/80 hover:text-yellow-400 transition-colors disabled:opacity-50"
+              >
+                {activatingTrial ? (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-yellow-400/30 border-t-yellow-400" />
+                    Активуємо...
+                  </span>
+                ) : (
+                  '🎁 Спробувати безкоштовно — 3 дні'
+                )}
+              </motion.button>
+            )}
+          </AnimatePresence>
+
           <button
             onClick={() => { play('CLOSE'); onClose(); }}
-            className="w-full py-3 text-[13px] text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+            className="w-full py-2.5 text-[13px] text-white/30 hover:text-white/50 transition-colors"
           >
             Не зараз
           </button>

@@ -239,11 +239,6 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
             );
           })}
         </div>
-        {billingPeriod !== 'monthly' && (
-          <p className="mb-3 text-center text-[11px] text-green-400">
-            Економія {BILLING[billingPeriod].discount}% порівняно з місячною оплатою
-          </p>
-        )}
 
         {/* Free tier row */}
         <div className="mb-3 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
