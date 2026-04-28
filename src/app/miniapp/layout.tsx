@@ -13,6 +13,9 @@ import { getPasscodeHash, setPasscodeHash, shouldLock, touchLastActive, removePa
 import { cn } from '@/lib/utils';
 import { SplashScreen } from '@/components/ui/splash-screen';
 import { ReportGenerationProvider } from '@/lib/report-generation-context';
+import { I18nProvider, useI18n } from '@/lib/i18n/context';
+import type { Locale } from '@/i18n/locales';
+import { SUPPORTED_LOCALES, LOCALE_META } from '@/i18n/locales';
 
 declare global {
   interface Window {
@@ -33,8 +36,8 @@ declare global {
 
 interface Slide {
   emoji: string;
-  title: string;
-  body: string;
+  titleKey: string;
+  bodyKey: string;
   bg: string;
   textColor?: string;
   isFinal?: boolean;
@@ -44,40 +47,40 @@ interface Slide {
 const SLIDES: Slide[] = [
   {
     emoji: '📓',
-    title: 'Твій особистий щоденник',
-    body: 'Просто пиши або говори — Memo сам розбере що зберегти. Їжа, тренування, витрати, думки.',
+    titleKey: 'miniapp.onboarding.slide0.title',
+    bodyKey: 'miniapp.onboarding.slide0.body',
     bg: 'from-indigo-950 to-slate-950',
   },
   {
     emoji: '🤖',
-    title: 'AI, що тебе розуміє',
-    body: 'Memo аналізує твої записи, рахує калорії та макроси, трекає активність і відповідає на питання про твоє минуле.',
+    titleKey: 'miniapp.onboarding.slide1.title',
+    bodyKey: 'miniapp.onboarding.slide1.body',
     bg: 'from-violet-950 to-slate-950',
   },
   {
     emoji: '📊',
-    title: 'Дашборд і графіки',
-    body: 'Всі твої метрики в одному місці. Бачиш прогрес, патерни і тренди — без зайвих зусиль.',
+    titleKey: 'miniapp.onboarding.slide2.title',
+    bodyKey: 'miniapp.onboarding.slide2.body',
     bg: 'from-blue-950 to-slate-950',
   },
   {
     emoji: '💡',
-    title: 'Розумні рекомендації',
-    body: 'Memo помічає якщо ти мало спиш, п\'єш забагато алкоголю або не вистачає білка — і підказує що змінити.',
+    titleKey: 'miniapp.onboarding.slide3.title',
+    bodyKey: 'miniapp.onboarding.slide3.body',
     bg: 'from-amber-950 to-slate-950',
   },
   {
     emoji: '🔐',
-    title: 'Твої дані захищені',
-    body: 'Всі записи шифруються на твоєму пристрої перед збереженням. Навіть ми не можемо їх прочитати. Твоя приватність — наш пріоритет.',
+    titleKey: 'miniapp.onboarding.slide4.title',
+    bodyKey: 'miniapp.onboarding.slide4.body',
     bg: 'from-emerald-950 to-slate-950',
     textColor: 'text-emerald-400',
     showPrivacyBadge: true,
   },
   {
     emoji: '⭐',
-    title: 'Підтримай проект',
-    body: 'Базові функції безкоштовні назавжди. Stars Pro відкриває розширену аналітику та рекомендації.',
+    titleKey: 'miniapp.onboarding.slide5.title',
+    bodyKey: 'miniapp.onboarding.slide5.body',
     bg: 'from-yellow-950 to-slate-950',
     isFinal: true,
   },
@@ -92,6 +95,7 @@ interface OnboardingPaywallProps {
 
 function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
   const { accessToken } = useAuth();
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [paying, setPaying] = useState<'stars_basic' | 'stars_pro' | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
@@ -210,8 +214,8 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
             </svg>
           </button>
           <div className="text-center">
-            <h1 className="text-[18px] font-bold text-white leading-tight">Обери свій план</h1>
-            <p className="text-[12px] text-white/50">Базові функції безкоштовні назавжди</p>
+            <h1 className="text-[18px] font-bold text-white leading-tight">{t('miniapp.onboarding.paywall.title')}</h1>
+            <p className="text-[12px] text-white/50">{t('miniapp.onboarding.paywall.subtitle')}</p>
           </div>
         </div>
 
@@ -247,7 +251,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
             <p className="text-[14px] font-semibold text-white">Memo Spark</p>
             <p className="text-[12px] text-white/40">До 100 записів · 3 AI-віджети · 5 ретроспектив</p>
           </div>
-          <span className="text-[13px] text-white/40">Безкоштовно</span>
+          <span className="text-[13px] text-white/40">{t('miniapp.onboarding.paywall.free_forever')}</span>
         </div>
 
         {/* Free trial banner — shown above plan cards when available */}
@@ -256,8 +260,8 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
             <div className="flex items-center gap-3">
               <span className="text-2xl leading-none">🎁</span>
               <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-white">Спробуй Nova безкоштовно</p>
-                <p className="text-[12px] text-white/50">3 дні повного доступу — без оплати</p>
+                <p className="text-[14px] font-semibold text-white">{t('miniapp.onboarding.paywall.trial_title')}</p>
+                <p className="text-[12px] text-white/50">{t('miniapp.onboarding.paywall.trial_desc')}</p>
               </div>
             </div>
             <button
@@ -268,10 +272,10 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
               {activatingTrial ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
-                  Активуємо...
+                  {t('miniapp.onboarding.paywall.trial_activating')}
                 </span>
               ) : (
-                'Активувати 3 дні Nova безкоштовно'
+                t('miniapp.onboarding.paywall.trial_activate')
               )}
             </button>
           </div>
@@ -281,8 +285,8 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
           <div className="mb-3 rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-3.5 flex items-center gap-3">
             <span className="text-2xl">🎉</span>
             <div>
-              <p className="text-[14px] font-semibold text-green-400">Nova активована на 3 дні!</p>
-              <p className="text-[12px] text-white/50">Переходимо до додатку...</p>
+              <p className="text-[14px] font-semibold text-green-400">{t('miniapp.onboarding.paywall.trial_done_title')}</p>
+              <p className="text-[12px] text-white/50">{t('miniapp.onboarding.paywall.trial_done_desc')}</p>
             </div>
           </div>
         )}
@@ -304,7 +308,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
               >
                 {plan.recommended && (
                   <span className="absolute -top-2.5 right-3 rounded-full bg-yellow-400 px-2.5 py-0.5 text-[10px] font-semibold text-slate-950">
-                    Рекомендовано
+                    {t('miniapp.onboarding.paywall.recommended')}
                   </span>
                 )}
                 <div className="mb-2.5 flex items-center justify-between">
@@ -315,10 +319,10 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
                   <div className="text-right">
                     <p className="text-[15px] font-bold text-white">{price} ⭐</p>
                     <p className="text-[10px] text-white/40">
-                      {billingPeriod === 'monthly' ? '/ міс' : `/ ${BILLING[billingPeriod].label.toLowerCase()}`}
+                      {billingPeriod === 'monthly' ? t('miniapp.onboarding.paywall.per_month') : `/ ${BILLING[billingPeriod].label.toLowerCase()}`}
                     </p>
                     {monthlyEquiv && (
-                      <p className="text-[10px] text-green-400">≈ {monthlyEquiv} ⭐/міс</p>
+                      <p className="text-[10px] text-green-400">{t('miniapp.onboarding.paywall.approx', { price: String(monthlyEquiv) })}</p>
                     )}
                   </div>
                 </div>
@@ -345,10 +349,10 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
                   {paying === plan.tier ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      Відкриваємо...
+                      {t('miniapp.onboarding.paywall.opening')}
                     </span>
                   ) : (
-                    `Підписатися — ${price} ⭐`
+                    t('miniapp.onboarding.paywall.subscribe', { price: String(price) })
                   )}
                 </button>
               </div>
@@ -367,6 +371,7 @@ function OnboardingPasscode({ onDone, play }: { onDone: () => void; play: (s: st
   const [step, setStep] = useState<'ask' | 'set' | 'confirm'>('ask');
   const [pendingPin, setPendingPin] = useState('');
   const [mismatch, setMismatch] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => setVisible(true));
@@ -417,23 +422,77 @@ function OnboardingPasscode({ onDone, play }: { onDone: () => void; play: (s: st
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-emerald-400/15 text-5xl">
         🔐
       </div>
-      <h2 className="mb-2 text-[24px] font-bold text-white text-center">Захисти Memo</h2>
+      <h2 className="mb-2 text-[24px] font-bold text-white text-center">{t('miniapp.onboarding.passcode.title')}</h2>
       <p className="mb-8 text-[15px] text-white/60 text-center max-w-xs leading-relaxed">
-        Встанови 4-значний пін-код, щоб ніхто не міг переглянути твої записи
+        {t('miniapp.onboarding.passcode.desc')}
       </p>
       <div className="w-full max-w-xs flex flex-col gap-3">
         <button
           onClick={() => { play('OPEN'); setStep('set'); }}
           className="w-full rounded-2xl bg-emerald-400 py-4 text-[16px] font-semibold text-slate-950 active:scale-95 transition-all"
         >
-          Встановити код →
+          {t('miniapp.onboarding.passcode.set')}
         </button>
         <button
           onClick={skip}
           className="w-full py-3 text-[14px] text-white/40 active:text-white/60"
         >
-          Пропустити
+          {t('miniapp.onboarding.passcode.skip')}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ── OnboardingLanguagePicker ──────────────────────────────────────────────────
+
+interface OnboardingLanguagePickerProps {
+  onSelect: (locale: Locale) => void;
+}
+
+function OnboardingLanguagePicker({ onSelect }: OnboardingLanguagePickerProps) {
+  const [visible, setVisible] = useState(false);
+  const { t } = useI18n();
+
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setVisible(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex flex-col bg-gradient-to-b from-indigo-950 to-slate-950"
+      style={{
+        transform: visible ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)',
+      }}
+    >
+      <div className="flex flex-col flex-1 overflow-y-auto px-5 pb-10 pt-12">
+        <div className="mb-8 text-center">
+          <div className="mb-3 text-5xl">🌍</div>
+          <h1 className="text-[24px] font-bold text-white leading-tight">
+            {t('miniapp.onboarding.language_picker.title')}
+          </h1>
+          <p className="mt-2 text-[14px] text-white/50">
+            {t('miniapp.onboarding.language_picker.subtitle')}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {SUPPORTED_LOCALES.map((loc) => {
+            const { nativeName, flag } = LOCALE_META[loc];
+            return (
+              <button
+                key={loc}
+                onClick={() => onSelect(loc)}
+                className="flex items-center gap-4 rounded-2xl bg-white/8 px-4 py-3.5 text-left active:bg-white/15 transition-colors"
+              >
+                <span className="text-2xl leading-none">{flag}</span>
+                <span className="text-[16px] font-medium text-white">{nativeName}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -441,7 +500,8 @@ function OnboardingPasscode({ onDone, play }: { onDone: () => void; play: (s: st
 
 // ── OnboardingOverlay ─────────────────────────────────────────────────────────
 
-function OnboardingOverlay({ onDone }: { onDone: () => void }) {
+function OnboardingOverlay({ onDone, hasLanguageSet }: { onDone: () => void; hasLanguageSet: boolean }) {
+  const [showLanguagePicker, setShowLanguagePicker] = useState(!hasLanguageSet);
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
   const [showPasscode, setShowPasscode] = useState(false);
@@ -452,12 +512,44 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const { play } = useSound();
+  const { t, locale, setLocale } = useI18n();
+  const { accessToken } = useAuth();
+
+  const persistLocale = async (loc: Locale) => {
+    if (!accessToken) return;
+    try {
+      await fetch('/api/profile/settings', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ language: loc }),
+      });
+    } catch {
+      // silent — locale is already set in context; persistence is best-effort
+    }
+  };
 
   const finish = () => {
     play('CELEBRATION');
     setVisible(false);
+    // Persist the chosen locale when onboarding completes
+    persistLocale(locale);
     setTimeout(onDone, 350);
   };
+
+  // If language picker is shown, render it and wait for selection
+  if (showLanguagePicker) {
+    return (
+      <OnboardingLanguagePicker
+        onSelect={(loc) => {
+          setLocale(loc);
+          setShowLanguagePicker(false);
+        }}
+      />
+    );
+  }
 
   // Flow: slides → passcode → paywall → done
   const openPasscode = () => setShowPasscode(true);
@@ -539,7 +631,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
           onClick={() => { play('CLOSE'); openPasscode(); }}
           className="absolute right-5 top-5 text-sm text-white/40 active:text-white/70 min-h-[44px] flex items-center"
         >
-          Пропустити
+          {t('miniapp.onboarding.skip')}
         </motion.button>
 
         {/* Content */}
@@ -572,7 +664,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
                 transition={{ delay: 0.15, duration: 0.35 }}
                 className={cn('mb-4 text-[28px] font-bold leading-tight', slide.textColor ?? 'text-white')}
               >
-                {slide.title}
+                {t(slide.titleKey)}
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 15 }}
@@ -580,7 +672,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
                 transition={{ delay: 0.25, duration: 0.35 }}
                 className="max-w-xs text-[15px] leading-relaxed text-white/60"
               >
-                {slide.body}
+                {t(slide.bodyKey)}
               </motion.p>
             </motion.div>
           </AnimatePresence>
@@ -615,7 +707,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
               slide.isFinal ? 'bg-yellow-400 shadow-lg shadow-yellow-400/30' : 'bg-white shadow-lg shadow-white/10'
             )}
           >
-            {slide.isFinal ? 'Почати безкоштовно →' : 'Далі →'}
+            {slide.isFinal ? t('miniapp.onboarding.start_free') : t('miniapp.onboarding.next')}
           </motion.button>
           <AnimatePresence>
             {index > 0 && (
@@ -627,7 +719,7 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
                 onClick={goPrevWithDir}
                 className="w-full py-2 text-sm text-white/40 active:text-white/70"
               >
-                ← Назад
+                {t('miniapp.onboarding.back')}
               </motion.button>
             )}
           </AnimatePresence>
@@ -649,12 +741,12 @@ function OnboardingOverlay({ onDone }: { onDone: () => void }) {
 
 // ── Pill Tab Bar ──────────────────────────────────────────────────────────────
 
-const tabs = [
-  { label: 'Стрічка',  href: '/miniapp',            icon: 'contract' },
-  { label: 'Віджети',  href: '/miniapp/dashboard',   icon: 'dashboard' },
-  { label: 'Графік',   href: '/miniapp/graph',        icon: 'hub' },
-  { label: 'Інсайти',  href: '/miniapp/reports',      icon: 'wb_incandescent', activeIconColor: '#F5C542', activeIconStyle: { transform: 'rotate(1deg)', filter: 'drop-shadow(0 4px 8px rgba(245,197,66,0.55))' } },
-  { label: 'Меню',    href: '/miniapp/settings',     icon: 'menu' },
+const TAB_DEFS = [
+  { key: 'miniapp.tab.feed' as const,      href: '/miniapp',            icon: 'contract' },
+  { key: 'miniapp.tab.dashboard' as const, href: '/miniapp/dashboard',   icon: 'dashboard' },
+  { key: 'miniapp.tab.graph' as const,     href: '/miniapp/graph',        icon: 'hub' },
+  { key: 'miniapp.tab.insights' as const,  href: '/miniapp/reports',      icon: 'wb_incandescent', activeIconColor: '#F5C542', activeIconStyle: { transform: 'rotate(1deg)', filter: 'drop-shadow(0 4px 8px rgba(245,197,66,0.55))' } },
+  { key: 'miniapp.tab.menu' as const,      href: '/miniapp/settings',     icon: 'menu' },
 ];
 
 const ACTIVE_COLOR = '#4797FF';
@@ -662,6 +754,7 @@ const INACTIVE_COLOR = '#335B7E';
 
 function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: number }) {
   const { play } = useSound();
+  const { t } = useI18n();
   const [sheetsOpen, setSheetsOpen] = useState(false);
 
   // Hide tab bar when any bottom sheet is open
@@ -711,7 +804,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
               pointerEvents: 'auto',
             }}
           >
-            {tabs.map(({ label, href, icon, activeIconColor, activeIconStyle }) => {
+            {TAB_DEFS.map(({ key, href, icon, activeIconColor, activeIconStyle }) => {
               const isActive = pathname === href;
               const iconColor = isActive ? (activeIconColor ?? ACTIVE_COLOR) : INACTIVE_COLOR;
               return (
@@ -757,7 +850,7 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    {label}
+                    {t(key)}
                   </span>
                 </Link>
               );
@@ -801,6 +894,8 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showRenewalBanner, setShowRenewalBanner] = useState(false);
+  const [initialLocale, setInitialLocale] = useState<Locale>('uk');
+  const [hasLanguageSet, setHasLanguageSet] = useState(false);
   const didInit = useRef(false);
 
   // Pill tab bar height: 64px tall + 10px bottom offset + bottomInset
@@ -856,7 +951,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
         setAccessToken(access_token);
         sessionStorage.setItem('memo_auth_done', '1');
 
-        // Check subscription expiry for renewal banner
+        // Check subscription expiry for renewal banner + resolve locale
         const profileRes = await fetch('/api/profile', {
           headers: { Authorization: `Bearer ${access_token}` },
         });
@@ -871,6 +966,12 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
             if (localStorage.getItem('memo_renewal_banner_shown_date') !== today) {
               setShowRenewalBanner(true);
             }
+          }
+          // Resolve locale from profile settings (zero extra DB reads)
+          const lang = profile?.settings?.language;
+          if (lang && (SUPPORTED_LOCALES as readonly string[]).includes(lang)) {
+            setInitialLocale(lang as Locale);
+            setHasLanguageSet(true);
           }
         }
       } catch (err) {
@@ -967,6 +1068,72 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   }
 
   return (
+    <I18nProvider initialLocale={initialLocale}>
+      <MiniAppInner
+        bottomInset={bottomInset}
+        topInset={topInset}
+        tabBarH={tabBarH}
+        showOnboarding={showOnboarding}
+        onOnboardingDone={() => {
+          localStorage.setItem('memo_onboarding_done', '1');
+          setShowOnboarding(false);
+          router.replace('/miniapp');
+        }}
+        locked={locked}
+        onUnlock={handleUnlock}
+        isSubPage={isSubPage}
+        onBack={() => { router.back(); play('SLIDE'); }}
+        showRenewalBanner={showRenewalBanner}
+        onRenewalNavigate={() => router.push('/miniapp/subscriptions')}
+        onRenewalDismiss={dismissRenewalBanner}
+        pathname={pathname}
+        hasLanguageSet={hasLanguageSet}
+      >
+        {children}
+      </MiniAppInner>
+    </I18nProvider>
+  );
+}
+
+interface MiniAppInnerProps {
+  children: React.ReactNode;
+  bottomInset: number;
+  topInset: number;
+  tabBarH: number;
+  showOnboarding: boolean;
+  onOnboardingDone: () => void;
+  locked: boolean;
+  onUnlock: () => void;
+  isSubPage: boolean;
+  onBack: () => void;
+  showRenewalBanner: boolean;
+  onRenewalNavigate: () => void;
+  onRenewalDismiss: () => void;
+  pathname: string;
+  hasLanguageSet: boolean;
+}
+
+function MiniAppInner({
+  children,
+  bottomInset,
+  topInset,
+  tabBarH,
+  showOnboarding,
+  onOnboardingDone,
+  locked,
+  onUnlock,
+  isSubPage,
+  onBack,
+  showRenewalBanner,
+  onRenewalNavigate,
+  onRenewalDismiss,
+  pathname,
+  hasLanguageSet,
+}: MiniAppInnerProps) {
+  const { play } = useSound();
+  const { t } = useI18n();
+
+  return (
     <div
       className="flex h-screen flex-col bg-background"
       style={{
@@ -976,20 +1143,16 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
       } as React.CSSProperties}
     >
       {showOnboarding && (
-        <OnboardingOverlay onDone={() => {
-          localStorage.setItem('memo_onboarding_done', '1');
-          setShowOnboarding(false);
-          router.replace('/miniapp');
-        }} />
+        <OnboardingOverlay onDone={onOnboardingDone} hasLanguageSet={hasLanguageSet} />
       )}
 
       {locked && (
         <PasscodeScreen
           mode="enter"
           title="Memo"
-          subtitle="Введіть код доступу"
+          subtitle={t('miniapp.layout.passcode_subtitle')}
           expectedHash={getPasscodeHash() ?? undefined}
-          onSuccess={handleUnlock}
+          onSuccess={onUnlock}
         />
       )}
 
@@ -998,7 +1161,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
 
       {isSubPage && (
         <button
-          onClick={() => { router.back(); play('SLIDE'); }}
+          onClick={onBack}
           className="fixed top-4 left-4 z-50 flex h-[44px] w-[44px] items-center justify-center rounded-full bg-muted/80 backdrop-blur-sm text-foreground"
           aria-label="Назад"
         >
@@ -1030,17 +1193,17 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
           }}
         >
           <p className="flex-1 text-[13px] text-amber-200 leading-snug">
-            Підписка закінчилась. Поновіть для продовження доступу.
+            {t('miniapp.layout.renewal_banner')}
           </p>
           <button
-            onClick={() => router.push('/miniapp/subscriptions')}
+            onClick={onRenewalNavigate}
             className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-full bg-amber-400 px-3 text-[13px] font-semibold text-slate-950 shrink-0"
             aria-label="Поновити підписку"
           >
-            Поновити
+            {t('miniapp.layout.renewal_renew')}
           </button>
           <button
-            onClick={dismissRenewalBanner}
+            onClick={onRenewalDismiss}
             className="min-h-[44px] min-w-[44px] flex items-center justify-center text-amber-400/70 shrink-0"
             aria-label="Закрити банер"
           >

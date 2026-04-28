@@ -2,6 +2,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { deriveUserKey, decryptField } from "@/lib/crypto";
+import type { Locale } from "@/i18n/locales";
+import { aiLanguageInstruction } from "@/i18n/ai-locale";
 
 const MODEL = "gemini-2.5-flash";
 
@@ -118,7 +120,8 @@ export async function generateRetrospective(
   userId: string,
   periodType: "daily" | "weekly" | "monthly" | "custom",
   from: Date,
-  to: Date
+  to: Date,
+  locale: Locale = 'uk'
 ): Promise<Report | null> {
   const entries = await loadEntriesForPeriod(userId, from, to);
 
@@ -156,7 +159,7 @@ ${entriesText}
     const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
       model: MODEL,
-      systemInstruction: RETRO_SYSTEM_PROMPT,
+      systemInstruction: aiLanguageInstruction(locale) + '\n' + RETRO_SYSTEM_PROMPT,
     });
 
     const result = await model.generateContent(prompt);

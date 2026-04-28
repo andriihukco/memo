@@ -337,20 +337,6 @@ export function SplashScreen() {
           <rect fill="#a3e4ff" x="25" y="110" width="3" height="3" transform="rotate(45 26.5 111.5)"
             style={{ animation: 'svgShimmer 7s ease-in-out infinite', animationDelay: '0.4s' }} />
         </svg>
-
-        {/* Brand name */}
-        <p style={{
-          fontFamily: "'Comfortaa', 'Mulish', sans-serif",
-          fontSize: 36,
-          fontWeight: 700,
-          letterSpacing: '0.22em',
-          color: '#a3e4ff',
-          textTransform: 'uppercase',
-          textShadow: '0 0 20px rgba(163,228,255,0.4)',
-          marginTop: -8,
-        }}>
-          MEMO
-        </p>
       </div>
     </div>
   );

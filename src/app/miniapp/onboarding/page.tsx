@@ -6,11 +6,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/lib/supabase/auth-context';
+import { useI18n } from '@/lib/i18n/context';
 
 interface Slide {
   emoji: string;
-  title: string;
-  body: string;
+  titleKey: string;
+  bodyKey: string;
   bg: string;
   accent: string;
   isFinal?: boolean;
@@ -20,44 +21,44 @@ interface Slide {
 const SLIDES: Slide[] = [
   {
     emoji: '📓',
-    title: 'Твій особистий щоденник',
-    body: 'Просто напиши або запиши аудіо, я сам розберусь. Memo сам розбере що зберегти. Їжа, тренування, витрати, думки.',
+    titleKey: 'miniapp.onboarding.slide0.title',
+    bodyKey: 'miniapp.onboarding.slide0.body',
     bg: 'from-indigo-950 to-slate-950',
     accent: 'text-indigo-400',
   },
   {
     emoji: '🤖',
-    title: 'AI, що тебе розуміє',
-    body: 'Memo аналізує твої записи, рахує калорії та макроси, трекає активність і відповідає на питання про твоє минуле.',
+    titleKey: 'miniapp.onboarding.slide1.title',
+    bodyKey: 'miniapp.onboarding.slide1.body',
     bg: 'from-violet-950 to-slate-950',
     accent: 'text-violet-400',
   },
   {
     emoji: '📊',
-    title: 'Дашборд і графіки',
-    body: 'Всі твої метрики в одному місці. Бачиш прогрес, патерни і тренди — без зайвих зусиль.',
+    titleKey: 'miniapp.onboarding.slide2.title',
+    bodyKey: 'miniapp.onboarding.slide2.body',
     bg: 'from-blue-950 to-slate-950',
     accent: 'text-blue-400',
   },
   {
     emoji: '💡',
-    title: 'Розумні рекомендації',
-    body: 'Memo помічає якщо ти мало спиш, п\'єш забагато алкоголю або не вистачає білка — і підказує що змінити.',
+    titleKey: 'miniapp.onboarding.slide3.title',
+    bodyKey: 'miniapp.onboarding.slide3.body',
     bg: 'from-amber-950 to-slate-950',
     accent: 'text-amber-400',
   },
   {
     emoji: '🔐',
-    title: 'Твої дані захищені',
-    body: 'Всі записи шифруються на твоєму пристрої перед збереженням. Навіть ми не можемо їх прочитати. Твоя приватність — наш пріоритет.',
+    titleKey: 'miniapp.onboarding.slide4.title',
+    bodyKey: 'miniapp.onboarding.slide4.body',
     bg: 'from-emerald-950 to-slate-950',
     accent: 'text-emerald-400',
     showPrivacyBadge: true,
   },
   {
     emoji: '⭐',
-    title: 'Підтримай проект',
-    body: 'Базові функції безкоштовні назавжди. Stars Pro відкриває розширену аналітику, рекомендації та пріоритетну обробку.',
+    titleKey: 'miniapp.onboarding.slide5.title',
+    bodyKey: 'miniapp.onboarding.slide5.body',
     bg: 'from-yellow-950 to-slate-950',
     accent: 'text-yellow-400',
     isFinal: true,
@@ -96,6 +97,7 @@ export default function OnboardingPage() {
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const { accessToken } = useAuth();
+  const { t } = useI18n();
   const [activatingTrial, setActivatingTrial] = useState(false);
   const [trialDone, setTrialDone] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
@@ -198,7 +200,7 @@ export default function OnboardingPage() {
         onClick={finish}
         className="absolute right-5 top-14 text-sm text-white/40 hover:text-white/70 transition-colors min-h-[44px] flex items-center"
       >
-        Пропустити
+        {t('miniapp.onboarding.skip')}
       </motion.button>
 
       {/* Slide content */}
@@ -234,7 +236,7 @@ export default function OnboardingPage() {
               transition={{ delay: 0.12, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
               className={cn('mb-4 text-3xl font-bold text-white leading-tight', slide.accent)}
             >
-              {slide.title}
+              {t(slide.titleKey)}
             </motion.h1>
 
             {/* Body */}
@@ -244,7 +246,7 @@ export default function OnboardingPage() {
               transition={{ delay: 0.22, duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
               className="max-w-xs text-base leading-relaxed text-white/60"
             >
-              {slide.body}
+              {t(slide.bodyKey)}
             </motion.p>
 
             {/* Privacy badge */}
@@ -323,8 +325,7 @@ export default function OnboardingPage() {
                 </span>
               ) : (
                 '🎁 Спробувати Nova — 3 дні безкоштовно'
-              )}
-            </motion.button>
+              )}            </motion.button>
           )}
           {slide.isFinal && trialDone && (
             <motion.div
@@ -332,7 +333,7 @@ export default function OnboardingPage() {
               animate={{ opacity: 1, scale: 1 }}
               className="w-full rounded-2xl py-4 text-base font-semibold text-center bg-green-500/20 text-green-300 border border-green-500/30"
             >
-              🎉 Nova активована на 3 дні!
+              🎉 {t('miniapp.onboarding.paywall.trial_done_title')}
             </motion.div>
           )}
         </AnimatePresence>
@@ -351,7 +352,7 @@ export default function OnboardingPage() {
               : 'bg-white shadow-lg shadow-white/10'
           )}
         >
-          {slide.isFinal ? 'Почати безкоштовно →' : 'Далі →'}
+          {slide.isFinal ? t('miniapp.onboarding.start_free') : t('miniapp.onboarding.next')}
         </motion.button>
 
         <AnimatePresence>
@@ -364,7 +365,7 @@ export default function OnboardingPage() {
               onClick={goPrev}
               className="w-full py-2 text-sm text-white/40 hover:text-white/70 transition-colors"
             >
-              ← Назад
+              {t('miniapp.onboarding.back')}
             </motion.button>
           )}
         </AnimatePresence>

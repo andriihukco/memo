@@ -6,12 +6,15 @@ import { env } from "@/lib/env";
 import { resolveOrCreateProfile, ProfileError, Profile } from "@/lib/profile";
 import { handleTextMessage } from "@/lib/bot/handlers/text";
 import { handleVoiceMessage } from "@/lib/bot/handlers/voice";
-import { handleStart, handleHelp, handleReport, handleReportDaily, handleReportWeekly, handleReportMonthly, handleStats, handleRecommendations, handleCallbackQuery, handleRemind, handleInvite, handleCancel } from "@/lib/bot/commands";
+import { handleStart, handleHelp, handleReport, handleReportDaily, handleReportWeekly, handleReportMonthly, handleStats, handleRecommendations, handleCallbackQuery, handleRemind, handleInvite, handleCancel, handleLanguage } from "@/lib/bot/commands";
 import { createSubscription, recordTransaction } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import type { Locale } from "@/i18n/locales";
+import { getLocale } from "@/i18n/t";
 
 interface BotContext extends Context {
   profile?: Profile;
+  locale: Locale;
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
@@ -167,8 +170,10 @@ function getHandler(): (req: Request) => Promise<Response> {
   bot.use(async (ctx, next) => {
     const from = ctx.from;
     if (!from) return next();
+    ctx.locale = 'uk'; // default; overwritten after profile is resolved
     try {
       ctx.profile = await resolveOrCreateProfile(BigInt(from.id), from.username ?? "");
+      ctx.locale = getLocale(ctx.profile?.settings as Record<string, unknown> | undefined);
     } catch (err) {
       if (err instanceof ProfileError) {
         console.error("[webhook] ProfileError:", err.message, err.cause);
@@ -201,6 +206,7 @@ function getHandler(): (req: Request) => Promise<Response> {
   bot.command("remind", handleRemind);
   bot.command("invite", handleInvite);
   bot.command("cancel", handleCancel);
+  bot.command("language", handleLanguage);
 
   // ── Callback queries (inline keyboard buttons) ──────────────────────────────
   bot.on("callback_query:data", handleCallbackQuery);

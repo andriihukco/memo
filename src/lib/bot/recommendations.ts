@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import type { Locale } from "@/i18n/locales";
+import { aiLanguageInstruction } from "@/i18n/ai-locale";
 
 const MODEL = "gemini-2.5-flash";
 
@@ -131,7 +133,7 @@ const RECOMMENDATION_SYSTEM_PROMPT = `Ти — експерт з персона�
 - Використовуй мову записів користувача (українська)
 - Якщо користувач веган/вегетаріанець — рекомендуй відповідні продукти`;
 
-export async function generateRecommendations(userId: string, days: number = 7): Promise<Recommendation[]> {
+export async function generateRecommendations(userId: string, days: number = 7, locale: Locale = 'uk'): Promise<Recommendation[]> {
   const entries = await loadRecentEntries(userId, days);
 
   if (entries.length === 0) return [];
@@ -168,7 +170,7 @@ ${entriesText}
     const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({
       model: MODEL,
-      systemInstruction: RECOMMENDATION_SYSTEM_PROMPT,
+      systemInstruction: aiLanguageInstruction(locale) + '\n' + RECOMMENDATION_SYSTEM_PROMPT,
     });
 
     const result = await model.generateContent(prompt);
@@ -241,7 +243,7 @@ export function formatRecommendationsForTelegram(recommendations: Recommendation
 
 // ── Get recommendations for user ──────────────────────────────────────────────
 
-export async function getRecommendationsForUser(userId: string): Promise<string> {
-  const recommendations = await generateRecommendations(userId, 7);
+export async function getRecommendationsForUser(userId: string, locale: Locale = 'uk'): Promise<string> {
+  const recommendations = await generateRecommendations(userId, 7, locale);
   return formatRecommendationsForTelegram(recommendations);
 }

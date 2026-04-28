@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { formatMemoryForPrompt, type MemoryMap } from "@/lib/bot/memory";
 import { deriveUserKey, decryptField } from "@/lib/crypto";
+import type { Locale } from "@/i18n/locales";
+import { aiLanguageInstruction } from "@/i18n/ai-locale";
 
 const MODEL = "gemini-2.5-flash";
 
@@ -71,10 +73,10 @@ export async function loadUserTone(userId: string): Promise<string> {
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
-function buildSystemPrompt(ctx: UserContext): string {
+function buildSystemPrompt(ctx: UserContext, locale: Locale): string {
   const memoryBlock = formatMemoryForPrompt(ctx.memory);
 
-  return `Ти — Memo, особистий AI-асистент і щоденник. Твоя головна задача — вести живий діалог, збирати деталі та підтримувати людину.
+  return `${aiLanguageInstruction(locale)}\n` + `Ти — Memo, особистий AI-асистент і щоденник. Твоя головна задача — вести живий діалог, збирати деталі та підтримувати людину.
 Відповідай ЗАВЖДИ мовою користувача.
 ${memoryBlock}
 ${ctx.tone}
@@ -137,7 +139,8 @@ export async function generateConverseReply(
   threadContext?: string,
   userId?: string,
   prefetchedTone?: string,
-  userCtx?: UserContext
+  userCtx?: UserContext,
+  locale: Locale = 'uk'
 ): Promise<string> {
   // Resolve context: prefer pre-fetched full context, fall back to tone-only, fall back to loading
   let ctx: UserContext;
@@ -154,7 +157,7 @@ export async function generateConverseReply(
   const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
     model: MODEL,
-    systemInstruction: buildSystemPrompt(ctx),
+    systemInstruction: buildSystemPrompt(ctx, locale),
     generationConfig: {},
   });
 

@@ -14,9 +14,11 @@ import { handleAction } from "@/lib/bot/handlers/action";
 import { sanitizeMarkdown } from "@/lib/utils";
 import { extractFacts, saveMemory } from "@/lib/bot/memory";
 import { deriveUserKey, encryptField } from "@/lib/crypto";
+import type { Locale } from "@/i18n/locales";
 
 interface BotContext extends Context {
   profile?: Profile;
+  locale: Locale;
 }
 
 function getServiceClient() {
@@ -225,7 +227,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   // ── Smalltalk ──────────────────────────────────────────────────────────────
   if (result.intent === "smalltalk") {
     const reply = await withTypingIndicator(ctx, () =>
-      generateConverseReply(text, undefined, undefined, undefined, userCtx)
+      generateConverseReply(text, undefined, undefined, undefined, userCtx, ctx.locale)
     );
     await ctx.reply(sanitizeMarkdown(reply));
     return;

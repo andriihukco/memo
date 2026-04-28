@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui/icon';
@@ -15,24 +15,27 @@ import {
 } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
 import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
+import { useI18n } from '@/lib/i18n/context';
+import { SUPPORTED_LOCALES, LOCALE_META, type Locale } from '@/i18n/locales';
 
 type SetupStep = 'idle' | 'enter_current' | 'enter_current_to_disable' | 'set_new' | 'confirm_new' | 'success';
 
 // ── OnboardingReplay — view-only onboarding slides ────────────────────────────
 
 const ONBOARDING_SLIDES = [
-  { emoji: '📓', title: 'Твій особистий щоденник', body: 'Просто пиши або говори — Memo сам розбере що зберегти. Їжа, тренування, витрати, думки.', bg: 'from-indigo-950 to-slate-950' },
-  { emoji: '🤖', title: 'AI, що тебе розуміє', body: 'Memo аналізує твої записи, рахує калорії та макроси, трекає активність і відповідає на питання про твоє минуле.', bg: 'from-violet-950 to-slate-950' },
-  { emoji: '📊', title: 'Дашборд і графіки', body: 'Всі твої метрики в одному місці. Бачиш прогрес, патерни і тренди — без зайвих зусиль.', bg: 'from-blue-950 to-slate-950' },
-  { emoji: '💡', title: 'Розумні рекомендації', body: 'Memo помічає якщо ти мало спиш, п\'єш забагато алкоголю або не вистачає білка — і підказує що змінити.', bg: 'from-amber-950 to-slate-950' },
-  { emoji: '🔐', title: 'Твої дані захищені', body: 'Всі записи шифруються на твоєму пристрої перед збереженням. Навіть ми не можемо їх прочитати.', bg: 'from-emerald-950 to-slate-950' },
-  { emoji: '⭐', title: 'Підтримай проект', body: 'Базові функції безкоштовні назавжди. Stars Pro відкриває розширену аналітику, рекомендації та пріоритетну обробку.', bg: 'from-yellow-950 to-slate-950', isFinal: true },
+  { emoji: '📓', titleKey: 'miniapp.onboarding.slide0.title', bodyKey: 'miniapp.onboarding.slide0.body', bg: 'from-indigo-950 to-slate-950' },
+  { emoji: '🤖', titleKey: 'miniapp.onboarding.slide1.title', bodyKey: 'miniapp.onboarding.slide1.body', bg: 'from-violet-950 to-slate-950' },
+  { emoji: '📊', titleKey: 'miniapp.onboarding.slide2.title', bodyKey: 'miniapp.onboarding.slide2.body', bg: 'from-blue-950 to-slate-950' },
+  { emoji: '💡', titleKey: 'miniapp.onboarding.slide3.title', bodyKey: 'miniapp.onboarding.slide3.body', bg: 'from-amber-950 to-slate-950' },
+  { emoji: '🔐', titleKey: 'miniapp.onboarding.slide4.title', bodyKey: 'miniapp.onboarding.slide4.body', bg: 'from-emerald-950 to-slate-950' },
+  { emoji: '⭐', titleKey: 'miniapp.onboarding.slide5.title', bodyKey: 'miniapp.onboarding.slide5.body', bg: 'from-yellow-950 to-slate-950', isFinal: true },
 ];
 
 function OnboardingReplay({ onClose }: { onClose: () => void }) {
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const { play } = useSound();
+  const { t } = useI18n();
 
   // Hide the tab bar while the overlay is open
   useEffect(() => {
@@ -109,7 +112,7 @@ function OnboardingReplay({ onClose }: { onClose: () => void }) {
               transition={{ delay: 0.12, duration: 0.35 }}
               className="mb-4 text-[28px] font-bold leading-tight text-white"
             >
-              {slide.title}
+              {t(slide.titleKey)}
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 12 }}
@@ -117,7 +120,7 @@ function OnboardingReplay({ onClose }: { onClose: () => void }) {
               transition={{ delay: 0.22, duration: 0.35 }}
               className="max-w-xs text-[15px] leading-relaxed text-white/60"
             >
-              {slide.body}
+              {t(slide.bodyKey)}
             </motion.p>
           </motion.div>
         </AnimatePresence>
@@ -147,11 +150,11 @@ function OnboardingReplay({ onClose }: { onClose: () => void }) {
             (slide as { isFinal?: boolean }).isFinal ? 'bg-yellow-400' : 'bg-white'
           )}
         >
-          {(slide as { isFinal?: boolean }).isFinal ? 'Зрозуміло →' : 'Далі →'}
+          {(slide as { isFinal?: boolean }).isFinal ? t('miniapp.onboarding.understood') : t('miniapp.onboarding.next')}
         </motion.button>
         {index > 0 && (
           <button onClick={goPrev} className="w-full py-2 text-sm text-white/40">
-            ← Назад
+            {t('miniapp.onboarding.back')}
           </button>
         )}
       </div>
@@ -179,18 +182,86 @@ function useSheetBodyAttr(open: boolean) {
 }
 
 // ---------------------------------------------------------------------------
+// LanguageSection component
+// ---------------------------------------------------------------------------
+
+function LanguageSection() {
+  const { locale, setLocale, t } = useI18n();
+  const { accessToken } = useAuth();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [optimisticLocale, setOptimisticLocale] = useState<Locale>(locale);
+
+  const handleSelect = async (newLocale: Locale) => {
+    if (newLocale === optimisticLocale) return;
+    const prev = optimisticLocale;
+    setOptimisticLocale(newLocale);
+    setLocale(newLocale);
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/profile/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ language: newLocale }),
+      });
+      if (!res.ok) throw new Error('Failed to save');
+    } catch {
+      // Revert on failure
+      setOptimisticLocale(prev);
+      setLocale(prev);
+      setError(t('miniapp.error.language_save_failed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section>
+      <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {t('miniapp.settings.language')}
+      </p>
+      <Card>
+        <CardContent className="p-0">
+          {SUPPORTED_LOCALES.map((loc, i) => {
+            const { nativeName, flag } = LOCALE_META[loc];
+            const isActive = loc === optimisticLocale;
+            return (
+              <React.Fragment key={loc}>
+                {i > 0 && <Separator />}
+                <button
+                  onClick={() => handleSelect(loc)}
+                  disabled={saving}
+                  className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50 disabled:opacity-60"
+                >
+                  <span className="text-xl">{flag}</span>
+                  <span className="flex-1 text-left text-sm font-medium">{nativeName}</span>
+                  {isActive && <Icon name="check" size={16} className="text-primary" />}
+                </button>
+              </React.Fragment>
+            );
+          })}
+        </CardContent>
+      </Card>
+      {error && <p className="mt-2 px-1 text-xs text-destructive">{error}</p>}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SoundSection component
 // ---------------------------------------------------------------------------
 
 function SoundSection() {
   const { enabled, setEnabled, play, playForced } = useSound();
+  const { t } = useI18n();
   // Guard against SSR hydration mismatch — don't render toggle until mounted
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   return (
     <section>
-      <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Звук</p>
+      <p className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.sound')}</p>
       <Card>
         <CardContent className="p-0">
           <div className="flex items-center gap-3 px-4 py-3.5">
@@ -198,8 +269,8 @@ function SoundSection() {
               <Icon name={mounted && enabled ? 'volume_up' : 'volume_off'} size={16} className="text-primary" />
             </div>
             <div className="flex-1 text-left">
-              <p className="text-sm font-medium">Звукові ефекти</p>
-              <p className="text-xs text-muted-foreground">{mounted && enabled ? 'Увімкнено' : 'Вимкнено'}</p>
+              <p className="text-sm font-medium">{t('miniapp.settings.sound.effects')}</p>
+              <p className="text-xs text-muted-foreground">{mounted && enabled ? t('miniapp.settings.sound.enabled') : t('miniapp.settings.sound.disabled')}</p>
             </div>
             {/* Toggle switch — iOS style */}
             <button
@@ -251,6 +322,7 @@ function InviteSheet({ accessToken, onClose }: { accessToken: string | null; onC
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const { play } = useSound();
+  const { t } = useI18n();
 
   useSheetBodyAttr(true);
 
@@ -313,18 +385,18 @@ function InviteSheet({ accessToken, onClose }: { accessToken: string | null; onC
               🎁
             </div>
           </div>
-          <p className="text-[17px] font-bold">Запроси друга</p>
+          <p className="text-[17px] font-bold">{t('miniapp.invite.title')}</p>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Отримай <span className="font-semibold text-amber-400">30 днів Memo Nova</span> безкоштовно за кожного друга, який оформить підписку
+            {t('miniapp.invite.desc', { days: '30' })}
           </p>
         </div>
 
         {/* How it works */}
         <div className="mb-5 rounded-2xl bg-muted/20 px-4 py-3 flex flex-col gap-2.5">
           {[
-            { n: '1', text: 'Поділись своїм посиланням з другом' },
-            { n: '2', text: 'Друг реєструється в Memo' },
-            { n: '3', text: 'Друг оформлює підписку — ти отримуєш 30 днів Nova' },
+            { n: '1', text: t('miniapp.invite.how_it_works_1') },
+            { n: '2', text: t('miniapp.invite.how_it_works_2') },
+            { n: '3', text: t('miniapp.invite.how_it_works_3') },
           ].map(({ n, text }) => (
             <div key={n} className="flex items-center gap-3">
               <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-[11px] font-bold text-amber-400">{n}</span>
@@ -343,11 +415,11 @@ function InviteSheet({ accessToken, onClose }: { accessToken: string | null; onC
               onClick={handleCopy}
               className="shrink-0 rounded-lg bg-muted/60 px-2.5 py-1.5 text-[12px] font-medium transition-colors active:bg-muted"
             >
-              {copied ? '✓ Скопійовано' : 'Копіювати'}
+              {copied ? t('miniapp.invite.copied') : t('miniapp.invite.copy')}
             </button>
           </div>
         ) : (
-          <p className="mb-4 text-center text-[13px] text-muted-foreground">Не вдалося завантажити посилання</p>
+          <p className="mb-4 text-center text-[13px] text-muted-foreground">{t('miniapp.invite.link_error')}</p>
         )}
 
         {/* Actions */}
@@ -359,14 +431,14 @@ function InviteSheet({ accessToken, onClose }: { accessToken: string | null; onC
             className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
           >
             <Icon name="share" size={16} />
-            Поділитись у Telegram
+            {t('miniapp.invite.share')}
           </motion.button>
           <motion.button
             whileTap={{ scale: 0.97 }}
             onClick={() => { play('CLOSE'); onClose(); }}
             className="w-full py-3 text-sm text-muted-foreground"
           >
-            Закрити
+            {t('miniapp.invite.close')}
           </motion.button>
         </div>
       </motion.div>
@@ -384,6 +456,7 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
   const [fileName, setFileName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const { play } = useSound();
+  const { t } = useI18n();
 
   useSheetBodyAttr(true);
 
@@ -469,23 +542,22 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
         <div className="mb-6 text-center">
           {state === 'loading' && (
             <>
-              <p className="text-base font-semibold">Готуємо архів…</p>
-              <p className="mt-1 text-sm text-muted-foreground">Збираємо всі твої записи в ZIP-файл</p>
+              <p className="text-base font-semibold">{t('miniapp.export.preparing')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('miniapp.export.preparing_desc')}</p>
             </>
           )}
           {state === 'ready' && (
             <>
-              <p className="text-base font-semibold">Архів готовий</p>
+              <p className="text-base font-semibold">{t('miniapp.export.ready')}</p>
               <p className="mt-1 text-sm text-muted-foreground">{fileName}</p>
               <p className="mt-2 text-xs text-muted-foreground/70">
-                Telegram не дозволяє завантажувати файли напряму з міні-застосунку.
-                Натисни кнопку нижче — файл відкриється у браузері, звідки його можна зберегти.
+                {t('miniapp.export.browser_note')}
               </p>
             </>
           )}
           {state === 'error' && (
             <>
-              <p className="text-base font-semibold text-destructive">Помилка</p>
+              <p className="text-base font-semibold text-destructive">{t('miniapp.export.error')}</p>
               <p className="mt-1 text-sm text-muted-foreground">{errorMsg}</p>
             </>
           )}
@@ -500,7 +572,7 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
               className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
             >
               <Icon name="open_in_new" size={16} />
-              Відкрити у браузері
+              {t('miniapp.export.open_browser')}
             </motion.button>
           )}
           {state === 'error' && (
@@ -509,7 +581,7 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
               onClick={() => { setState('loading'); setErrorMsg(''); }}
               className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
             >
-              Спробувати ще раз
+              {t('miniapp.export.retry')}
             </motion.button>
           )}
           <motion.button
@@ -517,7 +589,7 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
             onClick={() => { play('CLOSE'); onClose(); }}
             className="w-full py-3 text-sm text-muted-foreground"
           >
-            {state === 'loading' ? 'Скасувати' : 'Закрити'}
+            {state === 'loading' ? t('miniapp.export.cancel') : t('miniapp.export.close')}
           </motion.button>
         </div>
       </motion.div>
@@ -568,6 +640,7 @@ export default function SettingsPage() {
   }, []);
 
   const { play } = useSound();
+  const { t } = useI18n();
 
   // ── Categories state ──────────────────────────────────────────────────────
   const { accessToken } = useAuth();
@@ -719,8 +792,8 @@ export default function SettingsPage() {
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-400/15">
         <span className="text-5xl">🔐</span>
       </div>
-      <p className="text-[22px] font-bold text-green-400">Код встановлено!</p>
-      <p className="text-[14px] text-muted-foreground">Додаток тепер захищено</p>
+      <p className="text-[22px] font-bold text-green-400">{t('miniapp.settings.passcode_set')}</p>
+      <p className="text-[14px] text-muted-foreground">{t('miniapp.settings.passcode_set_desc')}</p>
     </div>
   );
 
@@ -741,7 +814,7 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підписка</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.subscription')}</h2>
 
         <Card>
           <CardContent className="p-0">
@@ -756,26 +829,26 @@ export default function SettingsPage() {
               <div className="flex-1 text-left min-w-0">
                 <p className="text-sm font-medium">
                   {userTier && userTier !== 'free'
-                    ? TIER_INFO[userTier as SubscriptionTier]?.name ?? 'Підписка'
-                    : 'Оновити план'}
+                    ? TIER_INFO[userTier as SubscriptionTier]?.name ?? t('miniapp.settings.subscription')
+                    : t('miniapp.settings.upgrade_plan')}
                 </p>
                 <p className="text-xs text-muted-foreground truncate">
                   {userTier === 'free' || !userTier
-                    ? 'Розблокуй AI-функції та більше лімітів'
+                    ? t('miniapp.settings.subscription_unlock')
                     : (() => {
-                        if (!subscriptionEndsAt) return 'Керувати підпискою';
+                        if (!subscriptionEndsAt) return t('miniapp.settings.manage_subscription');
                         const isExpired = new Date(subscriptionEndsAt) < new Date();
-                        if (isExpired) return 'Підписка закінчилась';
+                        if (isExpired) return t('miniapp.settings.subscription_expired');
                         const daysLeft = Math.ceil((new Date(subscriptionEndsAt).getTime() - Date.now()) / 86400000);
-                        return `Активна · ${daysLeft} дн. залишилось`;
+                        return t('miniapp.settings.subscription_active', { days: String(daysLeft) });
                       })()}
                 </p>
               </div>
               {userTier && userTier !== 'free' && subscriptionEndsAt && (() => {
                 const isExpired = new Date(subscriptionEndsAt) < new Date();
                 return isExpired
-                  ? <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive shrink-0">Закінчилась</span>
-                  : <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400 shrink-0">Активна</span>;
+                  ? <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive shrink-0">{t('miniapp.settings.status_expired')}</span>
+                  : <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400 shrink-0">{t('miniapp.settings.status_active')}</span>;
               })()}
               {(!userTier || userTier === 'free') && (
                 <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
@@ -795,7 +868,7 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Запросити друзів</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.invite')}</h2>
         <Card>
           <CardContent className="p-0">
             <motion.button
@@ -807,8 +880,8 @@ export default function SettingsPage() {
                 <span className="text-base leading-none">🎁</span>
               </div>
               <div className="flex-1 text-left min-w-0">
-                <p className="text-sm font-medium">Запросити друга</p>
-                <p className="text-xs text-muted-foreground truncate">Отримай 30 днів Nova за кожного друга</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.invite_friend')}</p>
+                <p className="text-xs text-muted-foreground truncate">{t('miniapp.settings.invite_friend_desc')}</p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground shrink-0" />
             </motion.button>
@@ -823,7 +896,7 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Приватність та безпека</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.privacy')}</h2>
         <Card>
           <CardContent className="p-0">
             <motion.button
@@ -835,8 +908,8 @@ export default function SettingsPage() {
                 {hasPasscode ? <Icon name="password" size={16} className="text-primary" /> : <Icon name="lock" size={16} className="text-primary" />}
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">{hasPasscode ? 'Змінити код' : 'Увімкнути код'}</p>
-                <p className="text-xs text-muted-foreground">{hasPasscode ? 'Змінити 4-значний код доступу' : 'Захистити додаток кодом'}</p>
+                <p className="text-sm font-medium">{hasPasscode ? t('miniapp.settings.change_passcode') : t('miniapp.settings.enable_passcode')}</p>
+                <p className="text-xs text-muted-foreground">{hasPasscode ? t('miniapp.settings.change_passcode_desc') : t('miniapp.settings.enable_passcode_desc')}</p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
             </motion.button>
@@ -853,7 +926,7 @@ export default function SettingsPage() {
                     <Icon name="timer" size={16} className="text-primary" />
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="text-sm font-medium">Блокування</p>
+                    <p className="text-sm font-medium">{t('miniapp.settings.lock_timer')}</p>
                     <p className="text-xs text-muted-foreground">{LOCK_TIMER_LABELS[lockTimer]}</p>
                   </div>
                   <Icon name="chevron_right" size={16} className={cn('text-muted-foreground transition-transform', showTimerPicker && 'rotate-90')} />
@@ -905,8 +978,8 @@ export default function SettingsPage() {
                   <Icon name="lock_open" size={16} className="text-destructive" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-sm font-medium">Вимкнути код</p>
-                  <p className="text-xs text-destructive/60">Потрібно підтвердити поточний код</p>
+                  <p className="text-sm font-medium">{t('miniapp.settings.disable_passcode')}</p>
+                  <p className="text-xs text-destructive/60">{t('miniapp.settings.disable_passcode_desc')}</p>
                 </div>
               </motion.button>
             )}
@@ -921,8 +994,8 @@ export default function SettingsPage() {
                 <Icon name="download" size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Експортувати мої дані</p>
-                <p className="text-xs text-muted-foreground">Завантажити всі записи (ZIP)</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.export_data')}</p>
+                <p className="text-xs text-muted-foreground">{t('miniapp.settings.export_data_desc')}</p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
             </motion.button>
@@ -937,7 +1010,7 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Сповіщення</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.notifications')}</h2>
         <Card>
           <CardContent className="p-0">
             {/* Streak reminders toggle */}
@@ -946,11 +1019,11 @@ export default function SettingsPage() {
                 <Icon name="local_fire_department" size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Нагадування про серію</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.streak_reminder')}</p>
                 <p className="text-xs text-muted-foreground">
                   {notifMounted && !notifStreak
-                    ? 'Вимкнено'
-                    : 'Щодня о 20:00, якщо ще не записував'}
+                    ? t('miniapp.settings.disabled')
+                    : t('miniapp.settings.streak_reminder_desc')}
                 </p>
               </div>
               <button
@@ -976,11 +1049,11 @@ export default function SettingsPage() {
                 <Icon name="calendar_month" size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Щотижневий підсумок</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.weekly_summary')}</p>
                 <p className="text-xs text-muted-foreground">
                   {notifMounted && !notifWeekly
-                    ? 'Вимкнено'
-                    : 'Щопонеділка — AI-огляд твого тижня'}
+                    ? t('miniapp.settings.disabled')
+                    : t('miniapp.settings.weekly_summary_desc')}
                 </p>
               </div>
               <button
@@ -1010,7 +1083,7 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Категорії</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.categories_section')}</h2>
         <Card>
           <CardContent className="p-0">
             <motion.a
@@ -1023,8 +1096,8 @@ export default function SettingsPage() {
                 <Icon name="label" size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Категорії</p>
-                <p className="text-xs text-muted-foreground">Керуй та налаштовуй категорії</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.categories_manage')}</p>
+                <p className="text-xs text-muted-foreground">{t('miniapp.settings.categories_manage_desc')}</p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
             </motion.a>
@@ -1041,14 +1114,23 @@ export default function SettingsPage() {
         <SoundSection />
       </motion.div>
 
+      {/* ── Мова ───────────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <LanguageSection />
+      </motion.div>
+
       {/* ── Підтримка ─────────────────────────────────────────────────────── */}
       <motion.section
         id="support"
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.3, delay: 0.31, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Підтримка</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.support')}</h2>
         <Card>
           <CardContent className="p-0">
             <motion.a
@@ -1063,7 +1145,7 @@ export default function SettingsPage() {
                 <Icon name="support_agent" size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Написати в підтримку</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.support_chat')}</p>
                 <p className="text-xs text-muted-foreground">@get_memo_help</p>
               </div>
               <Icon name="open_in_new" size={16} className="text-muted-foreground" />
@@ -1081,8 +1163,8 @@ export default function SettingsPage() {
                 <Icon name="campaign" size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Канал оновлень</p>
-                <p className="text-xs text-muted-foreground">Новини та зміни</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.updates_channel')}</p>
+                <p className="text-xs text-muted-foreground">{t('miniapp.settings.updates_channel_desc')}</p>
               </div>
               <Icon name="open_in_new" size={16} className="text-muted-foreground" />
             </motion.a>
@@ -1097,7 +1179,7 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.31, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Про додаток</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.about')}</h2>
         <Card>
           <CardContent className="p-0">
             <motion.button
@@ -1109,8 +1191,8 @@ export default function SettingsPage() {
                 <Icon name="auto_stories" size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Як користуватись Memo</p>
-                <p className="text-xs text-muted-foreground">Переглянути онбординг ще раз</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.how_to_use')}</p>
+                <p className="text-xs text-muted-foreground">{t('miniapp.settings.how_to_use_desc')}</p>
               </div>
               <Icon name="chevron_right" size={16} className="text-muted-foreground" />
             </motion.button>
@@ -1120,7 +1202,7 @@ export default function SettingsPage() {
                 <Icon name="info" size={16} className="text-primary" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Версія</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.version')}</p>
                 <p className="text-xs text-muted-foreground">Memo 1.0</p>
               </div>
             </div>
@@ -1135,7 +1217,7 @@ export default function SettingsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.34, ease: [0.22, 1, 0.36, 1] }}
       >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Акаунт</h2>
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.account')}</h2>
         <Card>
           <CardContent className="p-0">
             <motion.button
@@ -1147,8 +1229,8 @@ export default function SettingsPage() {
                 <Icon name="delete_forever" size={16} className="text-destructive" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-medium">Видалити акаунт</p>
-                <p className="text-xs text-destructive/70">Всі дані будуть видалені назавжди</p>
+                <p className="text-sm font-medium">{t('miniapp.settings.delete_account')}</p>
+                <p className="text-xs text-destructive/70">{t('miniapp.settings.delete_account_desc')}</p>
               </div>
             </motion.button>
           </CardContent>
@@ -1221,9 +1303,9 @@ export default function SettingsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.12, duration: 0.25 }}
               >
-                <h3 className="mb-1 text-center text-base font-semibold">Видалити акаунт?</h3>
+                <h3 className="mb-1 text-center text-base font-semibold">{t('miniapp.delete.title')}</h3>
                 <p className="mb-4 text-center text-sm text-muted-foreground">
-                  Всі твої записи, категорії та налаштування будуть видалені назавжди. Це дію неможливо скасувати.
+                  {t('miniapp.delete.desc')}
                 </p>
 
                 {/* Subscription warning */}
@@ -1231,7 +1313,7 @@ export default function SettingsPage() {
                   <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-3">
                     <span className="text-lg leading-none shrink-0">⚠️</span>
                     <p className="text-[13px] text-amber-300 leading-snug">
-                      У тебе активна підписка <span className="font-semibold">{userTier === 'stars_pro' ? 'Memo Supernova' : 'Memo Nova'}</span>. Після видалення акаунту вона буде втрачена без відшкодування.
+                      {t('miniapp.delete.subscription_warning', { tier: userTier === 'stars_pro' ? 'Memo Supernova' : 'Memo Nova' })}
                     </p>
                   </div>
                 )}
@@ -1244,14 +1326,14 @@ export default function SettingsPage() {
                     disabled={deleteLoading}
                     className="w-full rounded-full bg-destructive py-3.5 text-sm font-semibold text-destructive-foreground disabled:opacity-50"
                   >
-                    {deleteLoading ? 'Видалення...' : 'Так, видалити все'}
+                    {deleteLoading ? t('miniapp.delete.deleting') : t('miniapp.delete.confirm')}
                   </motion.button>
                   <motion.button
                     whileTap={{ scale: 0.97 }}
                     onClick={() => { play('CLOSE'); setShowDeleteConfirm(false); setDeleteError(null); }}
                     className="w-full py-3 text-sm text-muted-foreground"
                   >
-                    Скасувати
+                    {t('miniapp.delete.cancel')}
                   </motion.button>
                 </div>
               </motion.div>

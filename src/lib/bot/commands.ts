@@ -6,9 +6,13 @@ import { sanitizeMarkdown } from "@/lib/utils";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import type { DashboardMetric } from "@/lib/classifier";
+import type { Locale } from "@/i18n/locales";
+import { SUPPORTED_LOCALES, LOCALE_META } from "@/i18n/locales";
+import { t } from "@/i18n/t";
 
 interface BotContext extends Context {
   profile?: Profile;
+  locale: Locale;
 }
 
 // UTC+3 offset
@@ -55,150 +59,87 @@ function localMonthBounds(): { from: Date; to: Date } {
 
 // ── Inline keyboards ──────────────────────────────────────────────────────────
 
-function miniappButton() {
-  return new InlineKeyboard().webApp("📱 Відкрити Memo", env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp");
+function miniappButton(locale?: Locale) {
+  const label = t('bot.miniapp.button', locale ?? 'uk');
+  return new InlineKeyboard().webApp(label, env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp");
 }
 
-// ── Welcome ───────────────────────────────────────────────────────────────────
+// ── Profile language update ───────────────────────────────────────────────────
 
-const WELCOME = `👋 Привіт\\! Я *Memo* — твій особистий AI\\-щоденник 📓
+async function updateProfileLanguage(profileId: string, locale: Locale): Promise<void> {
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
 
-Просто пиши або надсилай голосові — я сам розберусь що зберегти і як\\.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("settings")
+    .eq("id", profileId)
+    .single();
 
-━━━━━━━━━━━━━━━
-*🧠 Що я вмію:*
-🍽 Рахую калорії та БЖВ автоматично
-🏃 Трекаю тренування і активність
-💸 Веду облік витрат і покупок
-💧 Слідкую за водою, сном, вагою
-💭 Зберігаю думки і почуття
-📊 Будую дашборд з твоїми метриками
-🔍 Відповідаю на питання про твої записи
-🧠 Запам'ятовую твої правила назавжди
+  const currentSettings = (profile?.settings as Record<string, unknown>) ?? {};
+  const newSettings = { ...currentSettings, language: locale };
 
-━━━━━━━━━━━━━━━
-*✍️ Спробуй написати:*
-_"З'їв 200г курки і 50г рису"_
-_"Пробіг 5км за 28 хвилин"_
-_"Витратив 350 грн на продукти"_
-_"Мій стакан \\= 300мл"_ — запам'ятаю назавжди
+  await supabase
+    .from("profiles")
+    .update({ settings: newSettings })
+    .eq("id", profileId);
+}
 
-━━━━━━━━━━━━━━━
-*💎 Плани:*
-✨ *Spark* — безкоштовно назавжди
-  До 100 записів · 3 AI\\-віджети · 5 ретроспектив
+// ── Language selector ─────────────────────────────────────────────────────────
 
-🌟 *Nova* — 250 ⭐/міс
-  До 2000 записів · 15 AI\\-віджетів · AI ретроспективи · Граф зв'язків
+/**
+ * Builds an InlineKeyboard with 11 language buttons in a 2-column layout.
+ * Each button is labelled "{flag} {nativeName}" with callback data "lang:<locale>".
+ */
+export function buildLanguageSelectorKeyboard(): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  let col = 0;
+  for (const locale of SUPPORTED_LOCALES) {
+    const { nativeName, flag } = LOCALE_META[locale];
+    kb.text(`${flag} ${nativeName}`, `lang:${locale}`);
+    col++;
+    if (col % 2 === 0) kb.row();
+  }
+  return kb;
+}
 
-💫 *Supernova* — 500 ⭐/міс
-  Необмежено всього · Повна історія · Експорт даних
-
-Підписка оформлюється через міні\\-додаток \\(Telegram Stars\\)\\.
-
-━━━━━━━━━━━━━━━
-*📋 Команди:*
-/help — повна довідка
-/stats — зведення за сьогодні
-/invite — запросити друга та отримати 30 днів Nova 🎁
-/cancel — скинути стан бота`;
+export async function handleLanguage(ctx: BotContext): Promise<void> {
+  const keyboard = buildLanguageSelectorKeyboard();
+  await ctx.reply(t("bot.language.prompt", ctx.locale), {
+    reply_markup: keyboard,
+  });
+}
 
 // ── Help ──────────────────────────────────────────────────────────────────────
 
-const HELP = `📖 *Довідка Memo*
-
-━━━━━━━━━━━━━━━
-*Просто пиши або говори — я сам розберусь:*
-
-🍽 *Їжа та харчування*
-_"З'їв 150г лосося і салат"_
-_"Снідав вівсянкою з бананом"_
-_"Випив протеїн 30г"_
-
-💪 *Тренування та активність*
-_"Зробив 40 присідань, 30 хв залу"_
-_"Пробіг 5км за 28 хвилин"_
-_"Йога 45 хвилин"_
-
-💸 *Витрати та фінанси*
-_"Витратив 350 грн на продукти"_
-_"Кава 65 грн, обід 180 грн"_
-
-💧 *Вода, сон, вага, здоров'я*
-_"Випив 2 склянки води"_
-_"Спав 7 годин, прокинувся бадьорим"_
-_"Вага 78кг"_
-_"Тиск 120/80"_
-
-💭 *Думки і почуття*
-Просто пиши що думаєш — я збережу і не забуду
-
-━━━━━━━━━━━━━━━
-*❓ Питання про свої дані:*
-_"Скільки калорій я з'їв сьогодні?"_
-_"Що я їв вчора?"_
-_"Скільки витратив цього місяця?"_
-_"Розкажи про мої тренування цього тижня"_
-_"Який мій середній сон за останні 7 днів?"_
-
-━━━━━━━━━━━━━━━
-*✏️ Редагування і видалення:*
-_"Видали записи про сон за сьогодні"_
-_"Виправ останній запис — я пробіг 7км, не 5км"_
-
-━━━━━━━━━━━━━━━
-*🧠 Правила \\(запам'ятаю назавжди\\):*
-_"Мій стакан \\= 300мл"_
-_"Коли кажу зарядка — це 20 хв і 150 ккал"_
-_"Я веган"_
-_"Моя ціль — 2000 ккал на день"_
-
-━━━━━━━━━━━━━━━
-*📋 Команди:*
-/stats — зведення за сьогодні
-/report\\_daily — ретроспектива за сьогодні
-/report\\_weekly — за тиждень
-/report\\_monthly — за місяць
-/recommendations — розумні поради від AI
-/invite — запросити друга та отримати 30 днів Nova 🎁
-/cancel — скинути стан бота
-
-🎤 *Голосові:* просто надішли — я транскрибую і збережу
-
-━━━━━━━━━━━━━━━
-*💎 Плани та підписка:*
-
-✨ *Spark* — безкоштовно назавжди
-  До 100 записів · 3 AI\\-віджети · 5 ретроспектив
-
-🌟 *Nova* — 250 ⭐/міс \\(або 637 ⭐/квартал, 2100 ⭐/рік\\)
-  До 2000 записів · 15 AI\\-віджетів
-  AI ретроспективи · Граф зв'язків · Стрічка за 1 рік
-
-💫 *Supernova* — 500 ⭐/міс \\(або 1275 ⭐/квартал, 4200 ⭐/рік\\)
-  Необмежені записи та AI\\-віджети
-  Повна історія · Експорт даних · Пріоритетна обробка
-
-Підписка оформлюється через міні\\-додаток \\(Telegram Stars\\)\\.
-Поновлення вручну — без автосписання\\.
-
-🎁 *Реферальна програма:* запроси друга через /invite — обидва отримаєте \\+30 днів Nova при оформленні підписки\\.`;
-
 // ── /start ────────────────────────────────────────────────────────────────────
 
-export async function handleStart(ctx: BotContext): Promise<void> {
-  await ctx.reply(WELCOME, {
+async function sendWelcome(ctx: BotContext): Promise<void> {
+  await ctx.reply(t("bot.welcome", ctx.locale), {
     parse_mode: "MarkdownV2",
-    reply_markup: miniappButton(),
+    reply_markup: miniappButton(ctx.locale),
   });
+}
+
+export async function handleStart(ctx: BotContext): Promise<void> {
+  const isFirstRun = !ctx.profile?.settings?.language;
+  if (isFirstRun) {
+    const keyboard = buildLanguageSelectorKeyboard();
+    await ctx.reply(t("bot.language.prompt", "uk"), {
+      reply_markup: keyboard,
+    });
+    return;
+  }
+  await sendWelcome(ctx);
 }
 
 // ── /help ─────────────────────────────────────────────────────────────────────
 
 export async function handleHelp(ctx: BotContext): Promise<void> {
-  await ctx.reply(HELP, {
+  await ctx.reply(t('bot.help', ctx.locale), {
     parse_mode: "MarkdownV2",
-    reply_markup: miniappButton(),
+    reply_markup: miniappButton(ctx.locale),
   });
 }
 
@@ -224,8 +165,8 @@ export async function handleStats(ctx: BotContext): Promise<void> {
 
   if (!entries || entries.length === 0) {
     await ctx.reply(
-      "За сьогодні ще нічого немає 🙂\n\nНапиши що-небудь — і я почну трекати!",
-      { reply_markup: miniappButton() }
+      t('bot.stats.empty', ctx.locale),
+      { reply_markup: miniappButton(ctx.locale) }
     );
     return;
   }
@@ -286,7 +227,7 @@ export async function handleStats(ctx: BotContext): Promise<void> {
   await ctx.reply(lines, {
     parse_mode: "Markdown",
     reply_markup: new InlineKeyboard()
-      .webApp("📱 Відкрити дашборд", env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp")
+      .webApp(t('bot.miniapp.dashboard_button', ctx.locale), env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp")
       .row()
       .text("📋 Ретроспектива тижня", "report:weekly"),
   });
@@ -294,20 +235,24 @@ export async function handleStats(ctx: BotContext): Promise<void> {
 
 // ── /report (and /report_daily, /report_weekly, /report_monthly) ──────────────
 
-const REPORT_STATUS = [
-  "Збираю твої записи... 📂",
-  "Аналізую патерни... 🔍",
-  "Оцінюю прогрес... 📈",
-  "Шукаю інсайти... 💡",
-  "Формую ретроспективу... ✍️",
-  "Майже готово... ⏳",
-];
-
 async function runReport(ctx: BotContext, periodType: "daily" | "weekly" | "monthly"): Promise<void> {
   const profile = ctx.profile;
   if (!profile) return;
 
-  const periodLabels = { daily: "сьогодні", weekly: "тиждень", monthly: "місяць" };
+  const REPORT_STATUS = [
+    t('bot.report.status.0', ctx.locale),
+    t('bot.report.status.1', ctx.locale),
+    t('bot.report.status.2', ctx.locale),
+    t('bot.report.status.3', ctx.locale),
+    t('bot.report.status.4', ctx.locale),
+    t('bot.report.status.5', ctx.locale),
+  ];
+
+  const periodLabels = {
+    daily: t('bot.report.period.daily', ctx.locale),
+    weekly: t('bot.report.period.weekly', ctx.locale),
+    monthly: t('bot.report.period.monthly', ctx.locale),
+  };
   const thinkingMsg = await ctx.reply(`${REPORT_STATUS[0]}\n\nАналізую ${periodLabels[periodType]}...`);
 
   let statusIdx = 1;
@@ -327,14 +272,14 @@ async function runReport(ctx: BotContext, periodType: "daily" | "weekly" | "mont
   else if (periodType === "monthly") bounds = localMonthBounds();
   else bounds = localWeekBounds();
 
-  const report = await generateRetrospective(profile.id, periodType, bounds.from, bounds.to);
+  const report = await generateRetrospective(profile.id, periodType, bounds.from, bounds.to, ctx.locale);
   clearInterval(rotateInterval);
 
   if (!report) {
     await ctx.api.editMessageText(
       ctx.chat!.id,
       thinkingMsg.message_id,
-      "Записів за цей період замало для ретроспективи 🙂\n\nПродовжуй вести щоденник — і я зроблю повний аналіз!"
+      t('bot.report.empty', ctx.locale)
     );
     return;
   }
@@ -343,7 +288,7 @@ async function runReport(ctx: BotContext, periodType: "daily" | "weekly" | "mont
   const formatted = sanitizeMarkdown(formatReportForTelegram(report));
 
   const keyboard = new InlineKeyboard()
-    .webApp("📱 Відкрити в додатку", env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp");
+    .webApp(t('bot.miniapp.app_button', ctx.locale), env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp");
 
   if (formatted.length <= 4000) {
     await ctx.api.editMessageText(ctx.chat!.id, thinkingMsg.message_id, formatted, {
@@ -383,6 +328,23 @@ export async function handleCallbackQuery(ctx: BotContext): Promise<void> {
   const data = ctx.callbackQuery?.data;
   if (!data) return;
 
+  // Handle language selection callbacks before answering the query
+  if (data.startsWith("lang:")) {
+    const locale = data.slice(5) as Locale;
+    if (!(SUPPORTED_LOCALES as readonly string[]).includes(locale)) {
+      await ctx.answerCallbackQuery();
+      return;
+    }
+    if (ctx.profile?.id) {
+      await updateProfileLanguage(ctx.profile.id, locale);
+    }
+    ctx.locale = locale;
+    await ctx.answerCallbackQuery();
+    const { nativeName } = LOCALE_META[locale];
+    await ctx.reply(t("bot.language.changed", locale, { language: nativeName }));
+    return;
+  }
+
   await ctx.answerCallbackQuery();
 
   if (data === "report:daily") return runReport(ctx, "daily");
@@ -400,7 +362,7 @@ export async function handleRemind(ctx: BotContext): Promise<void> {
   // Parse: /remind <text> at <HH:MM>
   const match = text.match(/^\/remind (.+) at (\d{1,2}:\d{2})$/i);
   if (!match) {
-    await ctx.reply("Формат: /remind випити воду at 15:00");
+    await ctx.reply(t('bot.remind.format', ctx.locale));
     return;
   }
 
@@ -410,7 +372,7 @@ export async function handleRemind(ctx: BotContext): Promise<void> {
   const minutes = parseInt(minutesStr, 10);
 
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-    await ctx.reply("Невірний час. Формат: /remind випити воду at 15:00");
+    await ctx.reply(t('bot.remind.invalid_time', ctx.locale));
     return;
   }
 
@@ -441,13 +403,13 @@ export async function handleRemind(ctx: BotContext): Promise<void> {
 
   if (error) {
     console.error("[handleRemind] insert error:", error.message);
-    await ctx.reply("Не вдалося зберегти нагадування. Спробуй ще раз 🙏");
+    await ctx.reply(t('bot.remind.error', ctx.locale));
     return;
   }
 
   const timeLabel = scheduledAt.toISOString().slice(11, 16); // HH:MM UTC
   await ctx.reply(
-    `⏰ Нагадування встановлено!\n\n*${reminderText.trim()}*\n\nЧас: ${timeLabel} UTC`,
+    t('bot.remind.set', ctx.locale, { text: reminderText.trim(), time: timeLabel }),
     { parse_mode: "Markdown" }
   );
 }
@@ -488,7 +450,7 @@ export async function handleInvite(ctx: BotContext): Promise<void> {
 
     if (error) {
       console.error("[handleInvite] insert error:", error.message);
-      await ctx.reply("Не вдалося створити реферальне посилання. Спробуй ще раз 🙏");
+      await ctx.reply(t('bot.invite.error', ctx.locale));
       return;
     }
   }
@@ -497,12 +459,7 @@ export async function handleInvite(ctx: BotContext): Promise<void> {
   const deepLink = `https://t.me/${botUsername}?start=ref_${code}`;
 
   // Use plain text (no parse_mode) to avoid MarkdownV2 escaping issues with URLs
-  await ctx.reply(
-    `🎁 Запроси друга — отримай 30 днів Nova безкоштовно!\n\n` +
-      `Поділись своїм посиланням:\n${deepLink}\n\n` +
-      `Коли твій друг зареєструється і оформить підписку — ти автоматично отримаєш 30 днів Memo Nova у подарунок.\n\n` +
-      `Нагорода нараховується один раз за кожного нового користувача.`
-  );
+  await ctx.reply(t('bot.invite.message', ctx.locale, { link: deepLink }));
 }
 
 // ── /cancel — abort current bot context / hard reboot ────────────────────────
@@ -511,12 +468,9 @@ export async function handleCancel(ctx: BotContext): Promise<void> {
   // Clears any pending bot state for the user and sends a fresh start prompt.
   // Useful when the bot gets stuck mid-conversation or the user wants to reset.
   await ctx.reply(
-    "✅ Скинуто. Можеш починати з чистого аркуша!\n\nПросто напиши або надішли голосове — я готовий 📓",
+    t('bot.cancel.reply', ctx.locale),
     {
-      reply_markup: new InlineKeyboard().webApp(
-        "📱 Відкрити Memo",
-        process.env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp"
-      ),
+      reply_markup: miniappButton(ctx.locale),
     }
   );
 }
@@ -527,9 +481,9 @@ export async function handleRecommendations(ctx: BotContext): Promise<void> {
   const profile = ctx.profile;
   if (!profile) return;
 
-  const thinkingMsg = await ctx.reply("Аналізую твої записи та звички... 🧠");
+  const thinkingMsg = await ctx.reply(t('bot.recommendations.thinking', ctx.locale));
 
-  const recommendationsText = await getRecommendationsForUser(profile.id);
+  const recommendationsText = await getRecommendationsForUser(profile.id, ctx.locale);
 
   await ctx.api.editMessageText(ctx.chat!.id, thinkingMsg.message_id, recommendationsText, {
     parse_mode: "Markdown",
