@@ -777,6 +777,7 @@ function MetricEditSheet({ metric, sourceEntries, onSave, onDelete, onClose }: {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { bg, text } = metricColor(metric.key);
+  const { t } = useI18n();
 
   useEffect(() => {
     setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select(); }, 80);
@@ -887,6 +888,7 @@ function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { play } = useSound();
+  const { t } = useI18n();
 
   // Reset state when sheet opens
   useEffect(() => {
@@ -1008,7 +1010,7 @@ function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete
             Збереження...
           </span>
         ) : (
-          'Зберегти'
+          t('miniapp.dashboard.widget.save')
         )}
       </Button>
 
@@ -1018,7 +1020,7 @@ function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete
         onClick={onViewEntries}
         className="text-[13px] text-muted-foreground text-center min-h-[44px] w-full"
       >
-        Переглянути записи
+        {t('miniapp.dashboard.widget.view_entries')}
       </button>
       <ConfirmSheet
         open={confirmDelete}
@@ -1230,6 +1232,7 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
 // ── Goals tab ─────────────────────────────────────────────────────────────────
 
 function GoalsTab({ entries, customWidgets }: { entries: Entry[]; customWidgets: CustomWidget[] }) {
+  const { t } = useI18n();
   const entryGoals = aggregateGoals(entries);
   const metrics = aggregateMetrics(entries);
   const metricByKey = new Map(metrics.map(m => [m.key, m]));
@@ -1265,11 +1268,11 @@ function GoalsTab({ entries, customWidgets }: { entries: Entry[]; customWidgets:
         title={t('miniapp.dashboard.no_goals.title')}
         subtitle={t('miniapp.dashboard.no_goals.subtitle')}
         features={[
-          { emoji: '🏃', text: 'Пробігти 100 км цього місяця' },
-          { emoji: '💧', text: 'Пити 2 л води щодня' },
-          { emoji: '📚', text: 'Читати 20 сторінок на день' },
-          { emoji: '💪', text: 'Тренуватись 3 рази на тиждень' },
-          { emoji: '📈', text: 'Прогрес відстежується автоматично' },
+          { emoji: '🏃', text: t('miniapp.dashboard.goals.example1') },
+          { emoji: '💧', text: t('miniapp.dashboard.goals.example2') },
+          { emoji: '📚', text: t('miniapp.dashboard.goals.example3') },
+          { emoji: '💪', text: t('miniapp.dashboard.goals.example4') },
+          { emoji: '📈', text: t('miniapp.dashboard.goals.example5') },
         ]}
       />
     );
@@ -1292,11 +1295,11 @@ function GoalsTab({ entries, customWidgets }: { entries: Entry[]; customWidgets:
               </div>
               <div className="flex-1">
                 <p className="font-medium">{g.label}</p>
-                <p className="text-xs text-muted-foreground">Ціль: {g.target} {g.unit}{g.period ? ` / ${g.period}` : ''}</p>
+                <p className="text-xs text-muted-foreground">{t('miniapp.dashboard.goals.target', { target: String(g.target), unit: g.unit })}{g.period ? ` / ${g.period}` : ''}</p>
               </div>
               <div className="text-right">
                 <p className="text-lg font-bold">{actual?.value ?? 0}</p>
-                <p className="text-xs text-muted-foreground">з {g.target} {g.unit}</p>
+                <p className="text-xs text-muted-foreground">{t('miniapp.dashboard.goals.of', { target: String(g.target), unit: g.unit })}</p>
               </div>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
