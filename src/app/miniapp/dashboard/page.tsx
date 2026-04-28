@@ -1437,6 +1437,8 @@ function SpendBar({ label, pct, amount, currency }: { label: string; pct: number
 }
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
+type SectionKey = 'widgets' | 'metrics' | 'finance' | 'mood' | 'ideas';
+
 export default function DashboardPage() {
   const { accessToken } = useAuth();
   const { t } = useI18n();
@@ -1649,7 +1651,6 @@ export default function DashboardPage() {
 
   // ── Section filter chips ───────────────────────────────────────────────────
   // One chip per section that has data; controls which sections are visible
-  type SectionKey = 'widgets' | 'metrics' | 'finance' | 'mood' | 'ideas';
   const [sectionFilter, setSectionFilter] = useState<SectionKey | null>(null);
 
   const availableSections: { key: SectionKey; label: string; emoji: string }[] = [
