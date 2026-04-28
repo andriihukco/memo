@@ -19,6 +19,7 @@ import { PaywallModal } from '@/components/ui/paywall-modal';
 import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
+import { useI18n } from '@/lib/i18n/context';
 
 interface Entry {
   id: string;
@@ -42,6 +43,7 @@ function formatTime(iso: string) {
 
 function EntryContent({ content, className }: { content: string; className?: string }) {
   const [expanded, setExpanded] = useState(false);
+  const { t } = useI18n();
   const LIMIT = 180;
   const isLong = content.length > LIMIT;
   return (
@@ -54,7 +56,7 @@ function EntryContent({ content, className }: { content: string; className?: str
           onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
           className="mt-2 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
         >
-          {expanded ? 'Згорнути' : 'Показати більше'}
+          {expanded ? t('miniapp.feed.collapse') : t('miniapp.feed.show_more')}
         </button>
       )}
     </div>

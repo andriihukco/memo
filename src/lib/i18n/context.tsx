@@ -29,6 +29,13 @@ export function I18nProvider({
   const [catalog, setCatalog] = useState<Catalog>({});
   const [fallback, setFallback] = useState<Catalog>({});
 
+  // Sync locale when initialLocale changes (e.g. after async profile load)
+  useEffect(() => {
+    if ((SUPPORTED_LOCALES as readonly string[]).includes(initialLocale)) {
+      setLocaleState(initialLocale);
+    }
+  }, [initialLocale]);
+
   // Load the active locale catalog whenever locale changes
   useEffect(() => {
     import(`@/i18n/${locale}.json`)

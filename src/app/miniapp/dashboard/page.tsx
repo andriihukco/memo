@@ -22,6 +22,7 @@ import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
 import { TIER_INFO } from '@/lib/stars/paywall';
 import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
+import { useI18n } from '@/lib/i18n/context';
 
 // ── Full emoji library (10 categories × ~10 each) ────────────────────────────
 const EMOJI_LIBRARY = [
@@ -116,10 +117,21 @@ function rangeFor(r: DateRange): { from: Date; to: Date } {
 function fmtDate(d: Date) { return d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' }); }
 function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
 
-const RANGE_LABELS: Record<DateRange, string> = {
-  all: 'Весь час', today: 'Сьогодні', yesterday: 'Вчора', week: '7 днів', month: '30 днів',
-  '2weeks': '2 тижні', '3months': '3 місяці', year: 'Рік', ytd: 'З початку року', custom: 'Свій',
-};
+// RANGE_LABELS is now computed inside components using useI18n()
+function getRangeLabels(t: (key: string) => string): Record<DateRange, string> {
+  return {
+    all: t('miniapp.dashboard.range.all'),
+    today: t('miniapp.dashboard.range.today'),
+    yesterday: t('miniapp.dashboard.range.yesterday'),
+    week: t('miniapp.dashboard.range.week'),
+    month: t('miniapp.dashboard.range.month'),
+    '2weeks': t('miniapp.dashboard.range.2weeks'),
+    '3months': t('miniapp.dashboard.range.3months'),
+    year: t('miniapp.dashboard.range.year'),
+    ytd: t('miniapp.dashboard.range.ytd'),
+    custom: t('miniapp.dashboard.range.custom'),
+  };
+}
 
 // ── Metric aggregation ────────────────────────────────────────────────────────
 
@@ -323,31 +335,8 @@ interface MeasureOption {
   directWidget?: Omit<CustomWidget, 'created_at'>;
 }
 
-const MEASURE_OPTIONS: MeasureOption[] = [
-  { id: 'water',    emoji: '💧', label: 'Вода',        sublabel: 'мл, склянки',      defaultUnit: 'мл',    defaultAggregate: 'sum',  defaultEmoji: '💧', defaultColor: 'cyan',    category: 'health',    metricKey: 'water_ml',
-    directWidget: { id: 'water_ml', title: 'Вода', metric_key: 'water_ml', unit: 'мл', emoji: '💧', iconColor: 'cyan', aggregate: 'sum', category: 'health' } },
-  { id: 'calories', emoji: '🔥', label: 'Калорії',     sublabel: 'ккал, кДж',        defaultUnit: 'ккал',  defaultAggregate: 'sum',  defaultEmoji: '🔥', defaultColor: 'orange',  category: 'calories',  metricKey: 'kcal_intake',
-    directWidget: { id: 'kcal_intake', title: 'Калорії', metric_key: 'kcal_intake', unit: 'ккал', emoji: '🔥', iconColor: 'orange', aggregate: 'sum', category: 'calories' } },
-  { id: 'sleep',    emoji: '😴', label: 'Сон',         sublabel: 'год, якість',      defaultUnit: 'год',   defaultAggregate: 'avg',  defaultEmoji: '😴', defaultColor: 'indigo',  category: 'sleep',     metricKey: 'sleep_hours',
-    directWidget: { id: 'sleep_hours', title: 'Сон', metric_key: 'sleep_hours', unit: 'год', emoji: '😴', iconColor: 'indigo', aggregate: 'avg', category: 'sleep' } },
-  { id: 'steps',    emoji: '🏃', label: 'Кроки',       sublabel: 'кроків на день',   defaultUnit: 'кроків',defaultAggregate: 'sum',  defaultEmoji: '🏃', defaultColor: 'green',   category: 'workout',   metricKey: 'steps_count',
-    directWidget: { id: 'steps_count', title: 'Кроки', metric_key: 'steps_count', unit: 'кроків', emoji: '🏃', iconColor: 'green', aggregate: 'sum', category: 'workout' } },
-  { id: 'workout',  emoji: '💪', label: 'Тренування',  sublabel: 'хв, км, підходи',  defaultUnit: 'хв',    defaultAggregate: 'sum',  defaultEmoji: '💪', defaultColor: 'blue',    category: 'workout',   metricKey: 'active_min',
-    directWidget: { id: 'active_min', title: 'Тренування', metric_key: 'active_min', unit: 'хв', emoji: '💪', iconColor: 'blue', aggregate: 'sum', category: 'workout' } },
-  { id: 'weight',   emoji: '⚖️', label: 'Вага',        sublabel: 'кг, фунти',        defaultUnit: 'кг',    defaultAggregate: 'last', defaultEmoji: '⚖️', defaultColor: 'teal',    category: 'health',    metricKey: 'weight_kg',
-    directWidget: { id: 'weight_kg', title: 'Вага', metric_key: 'weight_kg', unit: 'кг', emoji: '⚖️', iconColor: 'teal', aggregate: 'last', category: 'health' } },
-  { id: 'mood',     emoji: '😊', label: 'Настрій',     sublabel: 'оцінка 1–10',      defaultUnit: '/10',   defaultAggregate: 'avg',  defaultEmoji: '😊', defaultColor: 'pink',    category: 'feelings',  metricKey: 'mood_score',
-    directWidget: { id: 'mood_score', title: 'Настрій', metric_key: 'mood_score', unit: '/10', emoji: '😊', iconColor: 'pink', aggregate: 'avg', category: 'feelings' } },
-  { id: 'expenses', emoji: '💸', label: 'Витрати',     sublabel: 'грн, $, €',        defaultUnit: 'грн',   defaultAggregate: 'sum',  defaultEmoji: '💸', defaultColor: 'emerald', category: 'expenses',  metricKey: 'expenses_day',
-    directWidget: { id: 'expenses_day', title: 'Витрати', metric_key: 'expenses_day', unit: 'грн', emoji: '💸', iconColor: 'emerald', aggregate: 'sum', category: 'expenses' } },
-  { id: 'protein',  emoji: '🥩', label: 'Білок',       sublabel: 'грам на день',     defaultUnit: 'г',     defaultAggregate: 'sum',  defaultEmoji: '🥩', defaultColor: 'red',     category: 'calories',  metricKey: 'protein_g',
-    directWidget: { id: 'protein_g', title: 'Білок', metric_key: 'protein_g', unit: 'г', emoji: '🥩', iconColor: 'red', aggregate: 'sum', category: 'calories' } },
-  { id: 'energy',   emoji: '⚡', label: 'Енергія',     sublabel: 'рівень 1–10',      defaultUnit: '/10',   defaultAggregate: 'avg',  defaultEmoji: '⚡', defaultColor: 'yellow',  category: 'feelings',  metricKey: 'energy_level',
-    directWidget: { id: 'energy_level', title: 'Енергія', metric_key: 'energy_level', unit: '/10', emoji: '⚡', iconColor: 'yellow', aggregate: 'avg', category: 'feelings' } },
-  { id: 'reading',  emoji: '📚', label: 'Читання',     sublabel: 'сторінок, хвилин', defaultUnit: 'стор',  defaultAggregate: 'sum',  defaultEmoji: '📚', defaultColor: 'amber',   category: 'books',     metricKey: 'pages_read',
-    directWidget: { id: 'pages_read', title: 'Читання', metric_key: 'pages_read', unit: 'стор', emoji: '📚', iconColor: 'amber', aggregate: 'sum', category: 'books' } },
-  { id: 'custom',   emoji: '✨', label: 'Своє',        sublabel: 'будь-яка метрика', defaultUnit: '',      defaultAggregate: 'sum',  defaultEmoji: '✨', defaultColor: 'violet',  category: 'health',    metricKey: 'custom' },
-];
+// MEASURE_OPTIONS is now built inside CreateWidgetSheet using useI18n()
+// (see MEASURE_OPTIONS_T inside the component)
 
 function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntries }: {
   onClose: () => void;
@@ -369,6 +358,34 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   const [error, setError] = useState<string | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const { play } = useSound();
+  const { t } = useI18n();
+
+  // Build translated measure options
+  const MEASURE_OPTIONS_T: MeasureOption[] = [
+    { id: 'water',    emoji: '💧', label: t('miniapp.dashboard.measure.water'),    sublabel: t('miniapp.dashboard.measure.water_sub'),    defaultUnit: 'ml',   defaultAggregate: 'sum',  defaultEmoji: '💧', defaultColor: 'cyan',    category: 'health',    metricKey: 'water_ml',
+      directWidget: { id: 'water_ml',     title: t('miniapp.dashboard.measure.water'),    metric_key: 'water_ml',     unit: 'ml',   emoji: '💧', iconColor: 'cyan',    aggregate: 'sum',  category: 'health' } },
+    { id: 'calories', emoji: '🔥', label: t('miniapp.dashboard.measure.calories'), sublabel: t('miniapp.dashboard.measure.calories_sub'), defaultUnit: 'kcal', defaultAggregate: 'sum',  defaultEmoji: '🔥', defaultColor: 'orange',  category: 'calories',  metricKey: 'kcal_intake',
+      directWidget: { id: 'kcal_intake',  title: t('miniapp.dashboard.measure.calories'), metric_key: 'kcal_intake',  unit: 'kcal', emoji: '🔥', iconColor: 'orange',  aggregate: 'sum',  category: 'calories' } },
+    { id: 'sleep',    emoji: '😴', label: t('miniapp.dashboard.measure.sleep'),    sublabel: t('miniapp.dashboard.measure.sleep_sub'),    defaultUnit: 'h',    defaultAggregate: 'avg',  defaultEmoji: '😴', defaultColor: 'indigo',  category: 'sleep',     metricKey: 'sleep_hours',
+      directWidget: { id: 'sleep_hours',  title: t('miniapp.dashboard.measure.sleep'),    metric_key: 'sleep_hours',  unit: 'h',    emoji: '😴', iconColor: 'indigo',  aggregate: 'avg',  category: 'sleep' } },
+    { id: 'steps',    emoji: '🏃', label: t('miniapp.dashboard.measure.steps'),    sublabel: t('miniapp.dashboard.measure.steps_sub'),    defaultUnit: '',     defaultAggregate: 'sum',  defaultEmoji: '🏃', defaultColor: 'green',   category: 'workout',   metricKey: 'steps_count',
+      directWidget: { id: 'steps_count',  title: t('miniapp.dashboard.measure.steps'),    metric_key: 'steps_count',  unit: '',     emoji: '🏃', iconColor: 'green',   aggregate: 'sum',  category: 'workout' } },
+    { id: 'workout',  emoji: '💪', label: t('miniapp.dashboard.measure.workout'),  sublabel: t('miniapp.dashboard.measure.workout_sub'),  defaultUnit: 'min',  defaultAggregate: 'sum',  defaultEmoji: '💪', defaultColor: 'blue',    category: 'workout',   metricKey: 'active_min',
+      directWidget: { id: 'active_min',   title: t('miniapp.dashboard.measure.workout'),  metric_key: 'active_min',   unit: 'min',  emoji: '💪', iconColor: 'blue',    aggregate: 'sum',  category: 'workout' } },
+    { id: 'weight',   emoji: '⚖️', label: t('miniapp.dashboard.measure.weight'),   sublabel: t('miniapp.dashboard.measure.weight_sub'),   defaultUnit: 'kg',   defaultAggregate: 'last', defaultEmoji: '⚖️', defaultColor: 'teal',    category: 'health',    metricKey: 'weight_kg',
+      directWidget: { id: 'weight_kg',    title: t('miniapp.dashboard.measure.weight'),   metric_key: 'weight_kg',    unit: 'kg',   emoji: '⚖️', iconColor: 'teal',    aggregate: 'last', category: 'health' } },
+    { id: 'mood',     emoji: '😊', label: t('miniapp.dashboard.measure.mood'),     sublabel: t('miniapp.dashboard.measure.mood_sub'),     defaultUnit: '/10',  defaultAggregate: 'avg',  defaultEmoji: '😊', defaultColor: 'pink',    category: 'feelings',  metricKey: 'mood_score',
+      directWidget: { id: 'mood_score',   title: t('miniapp.dashboard.measure.mood'),     metric_key: 'mood_score',   unit: '/10',  emoji: '😊', iconColor: 'pink',    aggregate: 'avg',  category: 'feelings' } },
+    { id: 'expenses', emoji: '💸', label: t('miniapp.dashboard.measure.expenses'), sublabel: t('miniapp.dashboard.measure.expenses_sub'), defaultUnit: '',     defaultAggregate: 'sum',  defaultEmoji: '💸', defaultColor: 'emerald', category: 'expenses',  metricKey: 'expenses_day',
+      directWidget: { id: 'expenses_day', title: t('miniapp.dashboard.measure.expenses'), metric_key: 'expenses_day', unit: '',     emoji: '💸', iconColor: 'emerald', aggregate: 'sum',  category: 'expenses' } },
+    { id: 'protein',  emoji: '🥩', label: t('miniapp.dashboard.measure.protein'),  sublabel: t('miniapp.dashboard.measure.protein_sub'),  defaultUnit: 'g',    defaultAggregate: 'sum',  defaultEmoji: '🥩', defaultColor: 'red',     category: 'calories',  metricKey: 'protein_g',
+      directWidget: { id: 'protein_g',    title: t('miniapp.dashboard.measure.protein'),  metric_key: 'protein_g',    unit: 'g',    emoji: '🥩', iconColor: 'red',     aggregate: 'sum',  category: 'calories' } },
+    { id: 'energy',   emoji: '⚡', label: t('miniapp.dashboard.measure.energy'),   sublabel: t('miniapp.dashboard.measure.energy_sub'),   defaultUnit: '/10',  defaultAggregate: 'avg',  defaultEmoji: '⚡', defaultColor: 'yellow',  category: 'feelings',  metricKey: 'energy_level',
+      directWidget: { id: 'energy_level', title: t('miniapp.dashboard.measure.energy'),   metric_key: 'energy_level', unit: '/10',  emoji: '⚡', iconColor: 'yellow',  aggregate: 'avg',  category: 'feelings' } },
+    { id: 'reading',  emoji: '📚', label: t('miniapp.dashboard.measure.reading'),  sublabel: t('miniapp.dashboard.measure.reading_sub'),  defaultUnit: '',     defaultAggregate: 'sum',  defaultEmoji: '📚', defaultColor: 'amber',   category: 'books',     metricKey: 'pages_read',
+      directWidget: { id: 'pages_read',   title: t('miniapp.dashboard.measure.reading'),  metric_key: 'pages_read',   unit: '',     emoji: '📚', iconColor: 'amber',   aggregate: 'sum',  category: 'books' } },
+    { id: 'custom',   emoji: '✨', label: t('miniapp.dashboard.measure.custom'),   sublabel: t('miniapp.dashboard.measure.custom_sub'),   defaultUnit: '',     defaultAggregate: 'sum',  defaultEmoji: '✨', defaultColor: 'violet',  category: 'health',    metricKey: 'custom' },
+  ];
 
   const goTo = (s: number) => { play('SLIDE'); setStep(s); setError(null); };
 
@@ -412,14 +429,14 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
         onClose();
         onPaywall(data.feature ?? 'widgets', data.current, data.limit, (data.required_tier as SubscriptionTier) ?? 'stars_basic');
       } else if (!res.ok) {
-        setError('Не вдалося створити віджет. Спробуй ще раз.');
+        setError(t('miniapp.dashboard.widget.error'));
       } else {
         onCreated(data.widget);
         play('CELEBRATION');
         setTimeout(onClose, 600);
       }
     } catch {
-      setError('Не вдалося створити віджет. Спробуй ще раз.');
+      setError(t('miniapp.dashboard.widget.error'));
     } finally {
       setCreating(false);
     }
@@ -442,10 +459,10 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   if (step === 0) return (
     <BottomSheet open onClose={onClose} className="px-4 pb-6">
       <StepDots />
-      <h3 className="text-[19px] font-bold mb-1">Що відстежувати?</h3>
-      <p className="text-[13px] text-muted-foreground mb-4">Оберіть метрику або створіть свою</p>
+      <h3 className="text-[19px] font-bold mb-1">{t('miniapp.dashboard.widget.what_to_track')}</h3>
+      <p className="text-[13px] text-muted-foreground mb-4">{t('miniapp.dashboard.widget.pick_metric')}</p>
       <div className="grid grid-cols-2 gap-2">
-        {MEASURE_OPTIONS.map(opt => (
+        {MEASURE_OPTIONS_T.map(opt => (
           <button
             key={opt.id}
             onClick={() => handleSelect(opt)}
@@ -479,8 +496,8 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
           </svg>
         </button>
         <div className="text-center">
-          <p className="text-[15px] font-semibold leading-tight">Іконка</p>
-          <p className="text-[12px] text-muted-foreground leading-tight">Оберіть емодзі та колір</p>
+          <p className="text-[15px] font-semibold leading-tight">{t('miniapp.dashboard.widget.icon_title')}</p>
+          <p className="text-[12px] text-muted-foreground leading-tight">{t('miniapp.dashboard.widget.icon_subtitle')}</p>
         </div>
       </div>
 
@@ -501,7 +518,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
               iconTab === 'color' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
             )}
           >
-            🎨 Колір
+            {t('miniapp.dashboard.widget.color_tab')}
           </button>
           <button
             onClick={() => setIconTab('emoji')}
@@ -510,7 +527,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
               iconTab === 'emoji' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
             )}
           >
-            😊 Емодзі
+            {t('miniapp.dashboard.widget.emoji_tab')}
           </button>
         </div>
       </div>
@@ -546,7 +563,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
 
       <div className="px-4 pt-2">
         <Button className="w-full min-h-[48px] rounded-full text-[15px] font-semibold" onClick={() => goTo(2)}>
-          Далі
+          {t('miniapp.dashboard.widget.next')}
         </Button>
       </div>
     </BottomSheet>
@@ -557,9 +574,9 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
     const goalNum = goal.trim() ? parseFloat(goal.replace(',', '.')) : null;
     const hasGoal = goalNum !== null && goalNum > 0;
     const PERIOD_OPTIONS = [
-      { key: 'day',   label: 'День' },
-      { key: 'week',  label: 'Тиждень' },
-      { key: 'month', label: 'Місяць' },
+      { key: 'day',   label: t('miniapp.dashboard.widget.period_day') },
+      { key: 'week',  label: t('miniapp.dashboard.widget.period_week') },
+      { key: 'month', label: t('miniapp.dashboard.widget.period_month') },
     ] as const;
 
     return (
@@ -599,42 +616,42 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
                 <div className={cn('h-full rounded-full w-0', color.bg)} />
               </div>
               <p className="mt-1 text-right text-[10px] text-muted-foreground">
-                0% · ціль {goalNum} {unit || selected.defaultUnit}
+                0% · {t('miniapp.dashboard.widget.goal_label').toLowerCase()} {goalNum} {unit || selected.defaultUnit}
                 {goalPeriod ? ` / ${PERIOD_OPTIONS.find(p => p.key === goalPeriod)?.label.toLowerCase()}` : ''}
               </p>
             </div>
           ) : (
-            <p className="mt-1 text-[11px] text-muted-foreground/50">Немає даних</p>
+            <p className="mt-1 text-[11px] text-muted-foreground/50">{t('miniapp.dashboard.widget.no_data')}</p>
           )}
         </div>
       </div>
 
       {/* Name */}
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Назва</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">{t('miniapp.dashboard.widget.name_label')}</p>
       <input
         ref={titleRef}
         type="text"
         value={title}
         onChange={e => setTitle(e.target.value)}
-        placeholder="Назва віджету"
+        placeholder={t('miniapp.dashboard.widget.name_placeholder')}
         className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] font-medium focus:outline-none focus:ring-1 focus:ring-ring mb-3"
       />
 
       {/* Unit + Goal side by side */}
       <div className="flex gap-2 mb-3">
         <div className="flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Одиниця</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">{t('miniapp.dashboard.widget.unit_label')}</p>
           <input
             type="text"
             value={unit}
             onChange={e => setUnit(e.target.value)}
-            placeholder={selected.defaultUnit || 'мл, кг...'}
+            placeholder={selected.defaultUnit || 'ml, kg...'}
             className="w-full rounded-2xl border border-input bg-background px-4 py-3 text-[15px] focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
         <div className="flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">
-            Ціль <span className="normal-case font-normal opacity-50">(опц.)</span>
+            {t('miniapp.dashboard.widget.goal_label')} <span className="normal-case font-normal opacity-50">{t('miniapp.dashboard.widget.goal_optional')}</span>
           </p>
           <input
             type="number"
@@ -650,7 +667,7 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
       {/* Goal period — only shown when goal is entered */}
       {hasGoal && (
         <div className="mb-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Період цілі</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">{t('miniapp.dashboard.widget.goal_period_label')}</p>
           <div className="flex gap-2">
             {PERIOD_OPTIONS.map(p => (
               <button
@@ -1421,6 +1438,8 @@ function SpendBar({ label, pct, amount, currency }: { label: string; pct: number
 
 export default function DashboardPage() {
   const { accessToken } = useAuth();
+  const { t } = useI18n();
+  const RANGE_LABELS = getRangeLabels(t);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [allEntries, setAllEntries] = useState<Entry[]>([]); // for goals tab — no date filter
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');

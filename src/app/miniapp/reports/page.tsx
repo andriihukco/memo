@@ -16,6 +16,7 @@ import { PaywallModal } from '@/components/ui/paywall-modal';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { type SubscriptionTier } from '@/lib/stars/paywall';
 import { useReportGeneration } from '@/lib/report-generation-context';
+import { useI18n } from '@/lib/i18n/context';
 
 interface ReportSummary {
   id: string;
@@ -35,16 +36,27 @@ interface ReportSummary {
 // ── Retro section config ──────────────────────────────────────────────────────
 
 const RETRO_SECTIONS = [
-  { key: 'went_well' as const,           emoji: '✅', label: 'Що пройшло добре',              accent: '#34d399', bg: 'rgba(52,211,153,0.06)',  border: 'rgba(52,211,153,0.2)'  },
-  { key: 'didnt_go_well' as const,       emoji: '🔴', label: 'Що не вийшло',                  accent: '#f87171', bg: 'rgba(248,113,113,0.06)', border: 'rgba(248,113,113,0.2)' },
-  { key: 'start_stop_continue' as const, emoji: '🔄', label: 'Почати / Зупинити / Продовжити', accent: '#60a5fa', bg: 'rgba(96,165,250,0.06)',  border: 'rgba(96,165,250,0.2)'  },
-  { key: 'experiment' as const,          emoji: '🧪', label: 'Експеримент',                    accent: '#a78bfa', bg: 'rgba(167,139,250,0.06)', border: 'rgba(167,139,250,0.2)' },
-  { key: 'lesson' as const,              emoji: '💡', label: 'Урок',                           accent: '#fbbf24', bg: 'rgba(251,191,36,0.06)',  border: 'rgba(251,191,36,0.2)'  },
+  { key: 'went_well' as const,           emoji: '✅', labelKey: 'miniapp.reports.retro.went_well',              accent: '#34d399', bg: 'rgba(52,211,153,0.06)',  border: 'rgba(52,211,153,0.2)'  },
+  { key: 'didnt_go_well' as const,       emoji: '🔴', labelKey: 'miniapp.reports.retro.didnt_go_well',          accent: '#f87171', bg: 'rgba(248,113,113,0.06)', border: 'rgba(248,113,113,0.2)' },
+  { key: 'start_stop_continue' as const, emoji: '🔄', labelKey: 'miniapp.reports.retro.start_stop_continue',    accent: '#60a5fa', bg: 'rgba(96,165,250,0.06)',  border: 'rgba(96,165,250,0.2)'  },
+  { key: 'experiment' as const,          emoji: '🧪', labelKey: 'miniapp.reports.retro.experiment',             accent: '#a78bfa', bg: 'rgba(167,139,250,0.06)', border: 'rgba(167,139,250,0.2)' },
+  { key: 'lesson' as const,              emoji: '💡', labelKey: 'miniapp.reports.retro.lesson',                 accent: '#fbbf24', bg: 'rgba(251,191,36,0.06)',  border: 'rgba(251,191,36,0.2)'  },
 ] as const;
 
-const PERIOD_LABELS: Record<string, string> = {
-  daily: 'Сьогодні', weekly: '7 днів', monthly: 'Місяць', custom: 'Звіт',
-};
+function getPeriodLabel(t: (key: string) => string, periodType: string): string {
+  const map: Record<string, string> = {
+    daily: t('miniapp.reports.period.daily'),
+    weekly: t('miniapp.reports.period.weekly'),
+    monthly: t('miniapp.reports.period.monthly'),
+    custom: t('miniapp.reports.period.custom'),
+    yesterday: t('miniapp.reports.period.yesterday'),
+    '3months': t('miniapp.reports.period.3months'),
+    year: t('miniapp.reports.period.year'),
+    ytd: t('miniapp.reports.period.ytd'),
+    all: t('miniapp.reports.period.all'),
+  };
+  return map[periodType] ?? t('miniapp.reports.period.custom');
+}
 
 // ── Strip AI-generated section header from content ───────────────────────────
 // The AI often starts section text with a repeated heading like "🧪 ОДИН ЕКСПЕРИМЕНТ"
@@ -181,18 +193,6 @@ function groupReportsByMonth(reports: ReportSummary[]): Array<{ label: string; r
 
 // ── New Report Sheet ──────────────────────────────────────────────────────────
 
-const PERIOD_OPTIONS = [
-  { type: 'daily',    label: 'Сьогодні',       icon: 'today',          paid: false, fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
-  { type: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false, fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
-  { type: 'weekly',   label: '7 днів',          icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: 'monthly',  label: 'Місяць',          icon: 'calendar_month', paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: 'year',     label: 'Рік',             icon: 'event_note',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { type: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true,  fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(),0,1)), to: endOfDay(n) }; } },
-  { type: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true,  fn: () => { return { from: new Date('2020-01-01'), to: endOfDay(new Date()) }; } },
-  { type: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true,  fn: null },
-] as const;
-
 function NewReportSheet({ open, onClose, onGenerate, generating, userTier, onPaywall }: {
   open: boolean; onClose: () => void;
   onGenerate: (periodType: string, from?: Date, to?: Date) => void;
@@ -206,6 +206,19 @@ function NewReportSheet({ open, onClose, onGenerate, generating, userTier, onPay
   const customExpanded = selected?.type === 'custom';
   const isPaid = userTier === 'stars_basic' || userTier === 'stars_pro';
   const { play } = useSound();
+  const { t } = useI18n();
+
+  const PERIOD_OPTIONS = [
+    { type: 'daily',    label: t('miniapp.reports.period.daily'),        icon: 'today',          paid: false, fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
+    { type: 'yesterday',label: t('miniapp.reports.period.yesterday'),     icon: 'history',        paid: false, fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
+    { type: 'weekly',   label: t('miniapp.reports.period.weekly'),        icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
+    { type: 'monthly',  label: t('miniapp.reports.period.monthly'),       icon: 'calendar_month', paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(1); return { from: startOfDay(f), to: endOfDay(n) }; } },
+    { type: '3months',  label: t('miniapp.reports.period.3months'),       icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
+    { type: 'year',     label: t('miniapp.reports.period.year'),          icon: 'event_note',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
+    { type: 'ytd',      label: t('miniapp.reports.period.ytd'),           icon: 'start',          paid: true,  fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(),0,1)), to: endOfDay(n) }; } },
+    { type: 'all',      label: t('miniapp.reports.period.all'),           icon: 'all_inclusive',  paid: true,  fn: () => { return { from: new Date('2020-01-01'), to: endOfDay(new Date()) }; } },
+    { type: 'custom',   label: t('miniapp.reports.period.custom_range'),  icon: 'tune',           paid: true,  fn: null },
+  ] as const;
 
   const handleSelectPreset = (opt: typeof PERIOD_OPTIONS[number]) => {
     if (opt.paid && !isPaid) {
@@ -242,8 +255,8 @@ function NewReportSheet({ open, onClose, onGenerate, generating, userTier, onPay
   return (
     <BottomSheet open={open} onClose={onClose}>
       <div className="px-4 pt-3 pb-2">
-        <h3 className="text-[17px] font-semibold">Нова ретроспектива</h3>
-        <p className="text-[13px] text-muted-foreground">Оберіть період для аналізу</p>
+        <h3 className="text-[17px] font-semibold">{t('miniapp.reports.new_retro')}</h3>
+        <p className="text-[13px] text-muted-foreground">{t('miniapp.reports.pick_period')}</p>
       </div>
       <div className="px-4">
         {PERIOD_OPTIONS.map((opt) => {
@@ -284,9 +297,9 @@ function NewReportSheet({ open, onClose, onGenerate, generating, userTier, onPay
           {generating ? (
             <span className="flex items-center gap-2">
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-              Генерується...
+              {t('miniapp.reports.generating')}
             </span>
-          ) : 'Згенерувати ретроспективу'}
+          ) : t('miniapp.reports.generate')}
         </Button>
       </div>
     </BottomSheet>
@@ -321,13 +334,12 @@ function scoreMoodText(t: string) {
   return Math.max(-2, Math.min(2, s));
 }
 
-const CAT_LABELS: Record<string, string> = {
-  thoughts: 'Думки', ideas: 'Ідеї', feelings: 'Почуття', expenses: 'Витрати',
-  calories: 'Калорії', workout: 'Тренування', goals: 'Цілі', sleep: 'Сон',
-  health: "Здоров'я", dreams: 'Сни', books: 'Книги', work: 'Робота',
-  relationships: 'Стосунки', travel: 'Подорожі', gratitude: 'Вдячність',
-  music: 'Музика', social: 'Соціальне',
-};
+function getCatLabel(t: (key: string) => string, name: string): string {
+  const key = `miniapp.reports.cat.${name}`;
+  const translated = t(key);
+  // If key not found, t() returns the key itself — fall back to raw name
+  return translated === key ? name : translated;
+}
 
 function computeStats(entries: Array<{ content: string; category: string; metadata: Record<string, unknown>; created_at: string }>, from: Date, to: Date): EntryStats {
   const totalDays = Math.max(1, Math.round((to.getTime() - from.getTime()) / 86400000));
@@ -429,6 +441,7 @@ function StatCard({ title, children, accent = '#4797FF' }: { title: string; chil
 // Activity heatmap — daily entry count as colored squares
 function ActivityHeatmap({ dailyVolume }: { dailyVolume: { date: string; count: number }[] }) {
   const max = Math.max(1, ...dailyVolume.map(d => d.count));
+  const { t } = useI18n();
   const weeks: { date: string; count: number }[][] = [];
   let week: { date: string; count: number }[] = [];
   for (const d of dailyVolume) {
@@ -438,7 +451,7 @@ function ActivityHeatmap({ dailyVolume }: { dailyVolume: { date: string; count: 
   if (week.length > 0) weeks.push(week);
 
   return (
-    <StatCard title="Активність" accent="#34d399">
+    <StatCard title={t('miniapp.reports.stat.activity')} accent="#34d399">
       <div className="flex gap-1 flex-wrap">
         {dailyVolume.map(({ date, count }) => {
           const intensity = count === 0 ? 0 : Math.max(0.15, count / max);
@@ -453,7 +466,7 @@ function ActivityHeatmap({ dailyVolume }: { dailyVolume: { date: string; count: 
         })}
       </div>
       <p className="text-[11px] text-muted-foreground mt-2">
-        {dailyVolume.filter(d => d.count > 0).length} з {dailyVolume.length} днів активних
+        {t('miniapp.reports.stat.active_of', { active: String(dailyVolume.filter(d => d.count > 0).length), total: String(dailyVolume.length) })}
       </p>
     </StatCard>
   );
@@ -462,13 +475,14 @@ function ActivityHeatmap({ dailyVolume }: { dailyVolume: { date: string; count: 
 // Category breakdown — horizontal bars
 function CategoryBreakdown({ breakdown }: { breakdown: { name: string; count: number; pct: number }[] }) {
   const COLORS = ['#4797FF', '#34d399', '#a78bfa', '#fbbf24', '#f87171', '#60a5fa'];
+  const { t } = useI18n();
   return (
-    <StatCard title="Категорії" accent="#a78bfa">
+    <StatCard title={t('miniapp.reports.stat.categories')} accent="#a78bfa">
       <div className="flex flex-col gap-2">
         {breakdown.map(({ name, count, pct }, i) => (
           <div key={name}>
             <div className="flex items-center justify-between mb-0.5">
-              <span className="text-[12px] text-foreground/80">{CAT_LABELS[name] ?? name}</span>
+              <span className="text-[12px] text-foreground/80">{getCatLabel(t, name)}</span>
               <span className="text-[11px] text-muted-foreground">{count}</span>
             </div>
             <div className="h-1.5 w-full rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -485,8 +499,9 @@ function CategoryBreakdown({ breakdown }: { breakdown: { name: string; count: nu
 function MetricHighlights({ metrics }: { metrics: { label: string; value: number; unit: string; icon: string }[] }) {
   if (metrics.length === 0) return null;
   const COLORS = ['#4797FF', '#34d399', '#fbbf24', '#f87171'];
+  const { t } = useI18n();
   return (
-    <StatCard title="Метрики" accent="#fbbf24">
+    <StatCard title={t('miniapp.reports.stat.metrics')} accent="#fbbf24">
       <div className="grid grid-cols-2 gap-2">
         {metrics.map((m, i) => (
           <div key={m.label} className="rounded-xl px-3 py-2.5" style={{ background: `${COLORS[i % COLORS.length]}12`, border: `1px solid ${COLORS[i % COLORS.length]}25` }}>
@@ -505,13 +520,14 @@ function MetricHighlights({ metrics }: { metrics: { label: string; value: number
 // Mood sparkline — bar chart of daily mood
 function MoodSparkline({ moodTrend }: { moodTrend: number[]; dailyVolume: { date: string; count: number }[] }) {
   const hasData = moodTrend.some(v => v !== 0);
+  const { t } = useI18n();
   if (!hasData) return null;
   const avg = moodTrend.filter(v => v !== 0).reduce((a, b) => a + b, 0) / (moodTrend.filter(v => v !== 0).length || 1);
-  const label = avg > 0.5 ? 'Позитивний' : avg < -0.5 ? 'Негативний' : 'Нейтральний';
+  const label = avg > 0.5 ? t('miniapp.reports.stat.mood_positive') : avg < -0.5 ? t('miniapp.reports.stat.mood_negative') : t('miniapp.reports.stat.mood_neutral');
   const labelColor = avg > 0.5 ? '#34d399' : avg < -0.5 ? '#f87171' : '#fbbf24';
 
   return (
-    <StatCard title="Настрій" accent={labelColor}>
+    <StatCard title={t('miniapp.reports.stat.mood')} accent={labelColor}>
       <div className="flex items-center gap-2 mb-3">
         <span className="text-[22px] font-bold" style={{ color: labelColor }}>{label}</span>
       </div>
@@ -522,7 +538,7 @@ function MoodSparkline({ moodTrend }: { moodTrend: number[]; dailyVolume: { date
           return <div key={i} className="flex-1 rounded-sm" style={{ height: h, backgroundColor: color }} />;
         })}
       </div>
-      <p className="text-[11px] text-muted-foreground mt-1.5">Динаміка настрою за період</p>
+      <p className="text-[11px] text-muted-foreground mt-1.5">{t('miniapp.reports.stat.mood_dynamics')}</p>
     </StatCard>
   );
 }
@@ -531,11 +547,12 @@ function MoodSparkline({ moodTrend }: { moodTrend: number[]; dailyVolume: { date
 function VolumeChart({ dailyVolume }: { dailyVolume: { date: string; count: number }[] }) {
   const max = Math.max(1, ...dailyVolume.map(d => d.count));
   const totalEntries = dailyVolume.reduce((a, b) => a + b.count, 0);
+  const { t } = useI18n();
   // Show only last 14 days if longer
   const slice = dailyVolume.length > 14 ? dailyVolume.slice(-14) : dailyVolume;
 
   return (
-    <StatCard title="Записи по днях" accent="#60a5fa">
+    <StatCard title={t('miniapp.reports.stat.entries_by_day')} accent="#60a5fa">
       <div className="flex items-end gap-0.5 mb-2" style={{ height: 48 }}>
         {slice.map(({ date, count }) => {
           const h = count === 0 ? 2 : Math.max(4, (count / max) * 44);
@@ -544,7 +561,7 @@ function VolumeChart({ dailyVolume }: { dailyVolume: { date: string; count: numb
           );
         })}
       </div>
-      <p className="text-[11px] text-muted-foreground">{totalEntries} записів за період</p>
+      <p className="text-[11px] text-muted-foreground">{t('miniapp.reports.stat.entries_in_period', { count: String(totalEntries) })}</p>
     </StatCard>
   );
 }
@@ -555,9 +572,10 @@ function HourlyChart({ hourlyVolume }: { hourlyVolume: number[] }) {
   const peakHour = hourlyVolume.indexOf(max);
   const fmt = (h: number) => `${h.toString().padStart(2,'0')}:00`;
   const total = hourlyVolume.reduce((a,b) => a+b, 0);
+  const { t } = useI18n();
   if (total === 0) return null;
   return (
-    <StatCard title="Активність по годинах" accent="#f472b6">
+    <StatCard title={t('miniapp.reports.stat.hourly')} accent="#f472b6">
       <div className="flex items-end gap-px mb-2" style={{ height: 44 }}>
         {hourlyVolume.map((v, h) => {
           const height = v === 0 ? 2 : Math.max(3, (v / max) * 40);
@@ -571,20 +589,27 @@ function HourlyChart({ hourlyVolume }: { hourlyVolume: number[] }) {
       <div className="flex justify-between text-[10px] text-muted-foreground/50 mb-1">
         <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
       </div>
-      <p className="text-[11px] text-muted-foreground">Пік активності: <span className="text-foreground/80 font-medium">{fmt(peakHour)}</span></p>
+      <p className="text-[11px] text-muted-foreground">{t('miniapp.reports.stat.peak_hour', { hour: fmt(peakHour) })}</p>
     </StatCard>
   );
 }
 
 // Weekday pattern — which days are most active?
 function WeekdayPattern({ weekdayVolume }: { weekdayVolume: number[] }) {
-  const DAYS = ['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+  const { t } = useI18n();
+  // Short weekday names — use locale-aware abbreviations
+  const DAYS = [t('miniapp.reports.stat.weekday').slice(0,2), 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+  // Actually use locale-specific short day names via Intl
+  const shortDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(2024, 0, 1 + i); // Jan 1 2024 is Monday
+    return d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 2);
+  });
   const max = Math.max(1, ...weekdayVolume);
   const total = weekdayVolume.reduce((a,b) => a+b, 0);
   if (total === 0) return null;
   const peakDay = weekdayVolume.indexOf(Math.max(...weekdayVolume));
   return (
-    <StatCard title="Активність по днях тижня" accent="#34d399">
+    <StatCard title={t('miniapp.reports.stat.weekday')} accent="#34d399">
       <div className="flex gap-1.5 items-end mb-2" style={{ height: 52 }}>
         {weekdayVolume.map((v, i) => {
           const h = v === 0 ? 3 : Math.max(4, (v / max) * 48);
@@ -599,8 +624,8 @@ function WeekdayPattern({ weekdayVolume }: { weekdayVolume: number[] }) {
         })}
       </div>
       <div className="flex gap-1.5">
-        {DAYS.map((d, i) => (
-          <div key={d} className="flex-1 text-center text-[10px]"
+        {shortDays.map((d, i) => (
+          <div key={d + i} className="flex-1 text-center text-[10px]"
             style={{ color: i === peakDay ? '#34d399' : 'rgba(255,255,255,0.3)' }}>{d}</div>
         ))}
       </div>
@@ -611,13 +636,14 @@ function WeekdayPattern({ weekdayVolume }: { weekdayVolume: number[] }) {
 // Streak card
 function StreakCard({ currentStreak, longestStreak, daysActive, totalDays }: { currentStreak: number; longestStreak: number; daysActive: number; totalDays: number }) {
   const consistency = totalDays > 0 ? Math.round((daysActive / totalDays) * 100) : 0;
+  const { t } = useI18n();
   return (
-    <StatCard title="Серія та постійність" accent="#fbbf24">
+    <StatCard title={t('miniapp.reports.stat.streak')} accent="#fbbf24">
       <div className="grid grid-cols-3 gap-2">
         {[
-          { label: 'Поточна серія', value: currentStreak, unit: 'дн', color: '#fbbf24' },
-          { label: 'Найдовша', value: longestStreak, unit: 'дн', color: '#fb923c' },
-          { label: 'Постійність', value: consistency, unit: '%', color: '#34d399' },
+          { label: t('miniapp.reports.stat.current_streak'), value: currentStreak, unit: t('miniapp.reports.stat.days_unit'), color: '#fbbf24' },
+          { label: t('miniapp.reports.stat.longest_streak'), value: longestStreak, unit: t('miniapp.reports.stat.days_unit'), color: '#fb923c' },
+          { label: t('miniapp.reports.stat.consistency'), value: consistency, unit: '%', color: '#34d399' },
         ].map(({ label, value, unit, color }) => (
           <div key={label} className="rounded-xl px-2.5 py-2.5 text-center" style={{ background: `${color}12`, border: `1px solid ${color}25` }}>
             <p className="text-[10px] text-muted-foreground mb-1 leading-tight">{label}</p>
@@ -634,10 +660,11 @@ function StreakCard({ currentStreak, longestStreak, daysActive, totalDays }: { c
 
 // Overview stat row
 function OverviewStats({ stats }: { stats: EntryStats }) {
+  const { t } = useI18n();
   const items = [
-    { label: 'Записів', value: stats.totalEntries, color: '#4797FF' },
-    { label: 'Активних днів', value: stats.daysActive, color: '#34d399' },
-    { label: 'Всього днів', value: stats.totalDays, color: '#a78bfa' },
+    { label: t('miniapp.reports.stat.entries'), value: stats.totalEntries, color: '#4797FF' },
+    { label: t('miniapp.reports.stat.active_days'), value: stats.daysActive, color: '#34d399' },
+    { label: t('miniapp.reports.stat.total_days'), value: stats.totalDays, color: '#a78bfa' },
   ];
   return (
     <div className="grid grid-cols-3 gap-2">
@@ -698,7 +725,7 @@ function ReportShareCard({ report, cardRef }: {
         <img src="/logo.png" alt="Memo" style={{ height: 36, width: 'auto' }} />
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            {PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}
+            {report.period_type}
           </div>
           <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{from} — {to}</div>
         </div>
@@ -760,11 +787,11 @@ async function shareReport(
   onTextFallback: () => void,
 ): Promise<void> {
   // Build a text-only share payload as fallback
-  const periodLabel = PERIOD_LABELS[report.period_type] ?? 'Ретроспектива';
-  const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-  const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const periodLabel = report.period_type;
+  const from = new Date(report.period_from).toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+  const to   = new Date(report.period_to).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
   const summaryText = report.summary.replace(/\*\*/g, '').replace(/\*/g, '').slice(0, 200);
-  const shareText = `📊 ${periodLabel} (${from} — ${to})\n\n${summaryText}\n\nВеди щоденник з Memo`;
+  const shareText = `📊 ${periodLabel} (${from} — ${to})\n\n${summaryText}`;
 
   // Try to generate image card
   if (cardRef.current) {
@@ -810,6 +837,7 @@ function ReportDetail({ report, onClose, accessToken }: {
   accessToken?: string | null;
 }) {
   const { play } = useSound();
+  const { t } = useI18n();
   const [stats, setStats] = useState<EntryStats | null>(null);
   const shareCardRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>;
   const [sharing, setSharing] = useState(false);
@@ -833,11 +861,11 @@ function ReportDetail({ report, onClose, accessToken }: {
   };
 
   const handleTextOnlyShare = () => {
-    const periodLabel = PERIOD_LABELS[report.period_type] ?? 'Ретроспектива';
-    const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-    const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+    const periodLabel = getPeriodLabel(t, report.period_type);
+    const from = new Date(report.period_from).toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+    const to   = new Date(report.period_to).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
     const summaryText = report.summary.replace(/\*\*/g, '').replace(/\*/g, '').slice(0, 200);
-    const shareText = `📊 ${periodLabel} (${from} — ${to})\n\n${summaryText}\n\nВеди щоденник з Memo`;
+    const shareText = `📊 ${periodLabel} (${from} — ${to})\n\n${summaryText}`;
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent('https://t.me/memo_diary_bot')}&text=${encodeURIComponent(shareText)}`;
     const twa = (window as Window & { Telegram?: { WebApp?: { openTelegramLink?: (url: string) => void } } }).Telegram?.WebApp;
     if (typeof twa?.openTelegramLink === 'function') {
@@ -849,8 +877,8 @@ function ReportDetail({ report, onClose, accessToken }: {
     setShowTextFallback(false);
   };
 
-  const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long' });
-  const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const from = new Date(report.period_from).toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+  const to   = new Date(report.period_to).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
   // Fetch entries for the report period to compute visual stats
   useEffect(() => {
@@ -879,7 +907,7 @@ function ReportDetail({ report, onClose, accessToken }: {
           <Icon name="arrow_back" size={20} />
         </button>
         <div className="flex-1 min-w-0">
-          <p className="text-[17px] font-semibold truncate">{PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}</p>
+          <p className="text-[17px] font-semibold truncate">{getPeriodLabel(t, report.period_type)}</p>
           <p className="text-[12px] text-muted-foreground">{from} — {to}</p>
         </div>
         {/* Share button */}
@@ -975,7 +1003,7 @@ function ReportDetail({ report, onClose, accessToken }: {
                 >
                   {/* Section header — label only, no emoji */}
                   <div className="mb-3">
-                    <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: s.accent }}>{s.label}</p>
+                    <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: s.accent }}>{t(s.labelKey)}</p>
                   </div>
                   <MarkdownText text={stripSectionHeader(text)} />
                 </motion.div>
@@ -1014,9 +1042,10 @@ function ReportRow({ report, onTap }: {
   onTap: () => void;
 }) {
   const { play } = useSound();
+  const { t } = useI18n();
 
-  const from = new Date(report.period_from).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
-  const to   = new Date(report.period_to).toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
+  const from = new Date(report.period_from).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const to   = new Date(report.period_to).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
   return (
     <div
@@ -1025,7 +1054,7 @@ function ReportRow({ report, onTap }: {
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5">
-          <span className="text-[15px] font-semibold">{PERIOD_LABELS[report.period_type] ?? 'Ретроспектива'}</span>
+          <span className="text-[15px] font-semibold">{getPeriodLabel(t, report.period_type)}</span>
           <span className="text-[12px] text-muted-foreground/60">{from} — {to}</span>
         </div>
         <p className="text-[13px] text-muted-foreground line-clamp-1 leading-snug">{report.summary.replace(/\*\*/g, '').replace(/\*/g, '')}</p>
