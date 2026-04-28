@@ -1136,8 +1136,8 @@ export default function ReportsPage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[28px] font-bold leading-tight">Інсайти</h1>
-          <p className="text-[13px] text-muted-foreground">Ретроспектива та аналіз</p>
+          <h1 className="text-[28px] font-bold leading-tight">{t('miniapp.reports.title')}</h1>
+          <p className="text-[13px] text-muted-foreground">{t('miniapp.reports.subtitle')}</p>
         </div>
         <button
           onClick={() => { if (generating) return; play('OPEN'); setShowNewReport(true); }}
@@ -1169,8 +1169,8 @@ export default function ReportsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-primary shrink-0" />
-                  <span className="text-[15px] font-semibold text-muted-foreground">{pendingLabel ?? 'Ретроспектива'}</span>
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">Генерується</span>
+                  <span className="text-[15px] font-semibold text-muted-foreground">{pendingLabel ?? t('miniapp.reports.period.weekly')}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{t('miniapp.reports.generating_badge')}</span>
                 </div>
                 <div className="h-2.5 w-3/4 rounded-full bg-muted/50 animate-pulse" />
                 <div className="h-2 w-1/2 rounded-full bg-muted/30 animate-pulse mt-1.5" />

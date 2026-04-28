@@ -31,7 +31,13 @@ function BillingPeriodSwitcher({
   onChange: (p: BillingPeriod) => void;
 }) {
   const { play } = useSound();
+  const { t } = useI18n();
   const periods: BillingPeriod[] = ['monthly', 'quarterly', 'annual'];
+  const billingLabels: Record<BillingPeriod, string> = {
+    monthly: t('miniapp.subs.billing.monthly'),
+    quarterly: t('miniapp.subs.billing.quarterly'),
+    annual: t('miniapp.subs.billing.annual'),
+  };
 
   return (
     <div className="flex rounded-2xl bg-white/10 p-1 gap-1">
@@ -55,7 +61,7 @@ function BillingPeriodSwitcher({
                 {info.badge}
               </span>
             )}
-            <span className="text-[13px] font-medium">{info.label}</span>
+            <span className="text-[13px] font-medium">{billingLabels[p]}</span>
           </button>
         );
       })}
@@ -137,6 +143,13 @@ function PlanCard({
     ? Math.round(starsPrice / BILLING_PERIODS[billingPeriod].months)
     : null;
 
+  const tierDescKey = tier === 'free' ? 'miniapp.subs.tier.free.description'
+    : tier === 'stars_basic' ? 'miniapp.subs.tier.basic.description'
+    : 'miniapp.subs.tier.pro.description';
+  const tierPrefix = tier === 'free' ? 'free' : tier === 'stars_basic' ? 'basic' : 'pro';
+  const featureKeys = Array.from({ length: 14 }, (_, i) => `miniapp.subs.tier.${tierPrefix}.f${i + 1}`);
+  const billingLabel = t(`miniapp.subs.billing.${billingPeriod}`);
+
   return (
     <div
       className={cn(
@@ -169,7 +182,7 @@ function PlanCard({
                 </span>
               )}
             </div>
-            <p className="text-[12px] text-muted-foreground">{info.description}</p>
+            <p className="text-[12px] text-muted-foreground">{t(tierDescKey)}</p>
           </div>
         </div>
         <div className="text-right shrink-0 ml-2">
@@ -179,7 +192,7 @@ function PlanCard({
             <>
               <p className="text-[18px] font-bold leading-tight text-foreground">{starsPrice} ⭐</p>
               <p className="text-[10px] text-muted-foreground">
-                {billingPeriod === 'monthly' ? t('miniapp.subs.per_month') : `/ ${BILLING_PERIODS[billingPeriod].label.toLowerCase()}`}
+                {billingPeriod === 'monthly' ? t('miniapp.subs.per_month') : `/ ${billingLabel.toLowerCase()}`}
               </p>
               {monthlyEquiv && (
                 <p className="text-[10px] text-green-400">{t('miniapp.subs.approx_monthly', { price: String(monthlyEquiv) })}</p>
@@ -198,7 +211,7 @@ function PlanCard({
             <span className={cn('text-[11px] font-bold w-3 shrink-0', f.included ? 'text-yellow-400/80' : 'text-muted-foreground')}>
               {f.included ? '✓' : '✗'}
             </span>
-            <span className="text-[13px] text-foreground/80">{f.label}</span>
+            <span className="text-[13px] text-foreground/80">{t(featureKeys[i])}</span>
           </div>
         ))}
       </div>
