@@ -246,6 +246,15 @@
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+/* Hide Material Symbols icons until font is loaded to prevent FOUT (flash of unstyled text) */
+.icons-hidden {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.fonts-loaded .icons-hidden {
+  opacity: 1;
+}
+
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }

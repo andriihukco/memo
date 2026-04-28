@@ -170,7 +170,7 @@ function getHandler(): (req: Request) => Promise<Response> {
   bot.use(async (ctx, next) => {
     const from = ctx.from;
     if (!from) return next();
-    ctx.locale = 'uk'; // default; overwritten after profile is resolved
+    ctx.locale = 'en'; // default; overwritten after profile is resolved
     try {
       ctx.profile = await resolveOrCreateProfile(BigInt(from.id), from.username ?? "");
       ctx.locale = getLocale(ctx.profile?.settings as Record<string, unknown> | undefined);

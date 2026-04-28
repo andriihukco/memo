@@ -894,7 +894,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const [locked, setLocked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showRenewalBanner, setShowRenewalBanner] = useState(false);
-  const [initialLocale, setInitialLocale] = useState<Locale>('uk');
+  const [initialLocale, setInitialLocale] = useState<Locale>('en');
   const [hasLanguageSet, setHasLanguageSet] = useState(false);
   const didInit = useRef(false);
 

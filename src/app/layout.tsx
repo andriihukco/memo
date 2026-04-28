@@ -44,6 +44,16 @@ export default function RootLayout({
           src="https://telegram.org/js/telegram-web-app.js"
           strategy="beforeInteractive"
         />
+        {/* Add fonts-loaded class once Material Symbols font is ready — prevents icon FOUT */}
+        <Script id="font-load-check" strategy="afterInteractive">{`
+          if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(function() {
+              document.documentElement.classList.add('fonts-loaded');
+            });
+          } else {
+            document.documentElement.classList.add('fonts-loaded');
+          }
+        `}</Script>
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

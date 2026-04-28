@@ -126,7 +126,7 @@ export async function handleStart(ctx: BotContext): Promise<void> {
   const isFirstRun = !ctx.profile?.settings?.language;
   if (isFirstRun) {
     const keyboard = buildLanguageSelectorKeyboard();
-    await ctx.reply(t("bot.language.prompt", "uk"), {
+    await ctx.reply(t("bot.language.prompt", "en"), {
       reply_markup: keyboard,
     });
     return;
@@ -342,6 +342,11 @@ export async function handleCallbackQuery(ctx: BotContext): Promise<void> {
     await ctx.answerCallbackQuery();
     const { nativeName } = LOCALE_META[locale];
     await ctx.reply(t("bot.language.changed", locale, { language: nativeName }));
+    // Send the full welcome message after language is set
+    await ctx.reply(t("bot.welcome", locale), {
+      parse_mode: "MarkdownV2",
+      reply_markup: new InlineKeyboard().webApp(t('bot.miniapp.button', locale), env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp"),
+    });
     return;
   }
 
