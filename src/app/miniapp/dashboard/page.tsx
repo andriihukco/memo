@@ -573,11 +573,11 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
   if (step === 2 && selected) {
     const goalNum = goal.trim() ? parseFloat(goal.replace(',', '.')) : null;
     const hasGoal = goalNum !== null && goalNum > 0;
-    const PERIOD_OPTIONS = [
+    const PERIOD_OPTIONS: { key: 'day' | 'week' | 'month'; label: string }[] = [
       { key: 'day',   label: t('miniapp.dashboard.widget.period_day') },
       { key: 'week',  label: t('miniapp.dashboard.widget.period_week') },
       { key: 'month', label: t('miniapp.dashboard.widget.period_month') },
-    ] as const;
+    ];
 
     return (
     <BottomSheet open onClose={onClose} className="px-4 pb-6">
@@ -1120,7 +1120,6 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
     '3months': 92, year: 365, ytd: 366, all: Infinity,
   };
 
-  type PresetOption = { range: DateRange; label: string; icon: string; paid: boolean };
   const PRESET_OPTIONS: PresetOption[] = [
     { range: 'today',    label: t('miniapp.dashboard.calendar.range.today'),     icon: 'today',          paid: false },
     { range: 'yesterday',label: t('miniapp.dashboard.calendar.range.yesterday'), icon: 'history',        paid: false },
@@ -1439,6 +1438,19 @@ function SpendBar({ label, pct, amount, currency }: { label: string; pct: number
 
 type SectionKey = 'widgets' | 'metrics' | 'finance' | 'mood' | 'ideas';
 
+type PresetOption = { range: DateRange; label: string; icon: string; paid: boolean };
+
+type DrillDownState = { title: string; entries: Entry[] };
+type MetricEditState = { metric: AggregatedMetric; sourceEntries: Entry[] };
+type LogEntryState = { widget: CustomWidget; drillEntries: Entry[] };
+
+type PaywallProps = {
+  feature: string;
+  current?: number;
+  limit?: number;
+  requiredTier: SubscriptionTier;
+};
+
 export default function DashboardPage() {
   const { accessToken } = useAuth();
   const { t } = useI18n();
@@ -1447,22 +1459,17 @@ export default function DashboardPage() {
   const [allEntries, setAllEntries] = useState<Entry[]>([]); // for goals tab — no date filter
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [filter, setFilter] = useState<DateFilter>({ range: 'today', ...rangeFor('today') });
-  const [drillDown, setDrillDown] = useState<{ title: string; entries: Entry[] } | null>(null);
-  const [metricEdit, setMetricEdit] = useState<{ metric: AggregatedMetric; sourceEntries: Entry[] } | null>(null);
+  const [drillDown, setDrillDown] = useState<DrillDownState | null>(null);
+  const [metricEdit, setMetricEdit] = useState<MetricEditState | null>(null);
   const [view, setView] = useState('actual');
   const [showCalendar, setShowCalendar] = useState(false);
   const [showCreateWidget, setShowCreateWidget] = useState(false);
   const [customWidgets, setCustomWidgets] = useState<CustomWidget[]>([]);
-  const [logEntry, setLogEntry] = useState<{ widget: CustomWidget; drillEntries: Entry[] } | null>(null);
+  const [logEntry, setLogEntry] = useState<LogEntryState | null>(null);
 
   // ── Paywall state ──────────────────────────────────────────────────────────
   const [paywallOpen, setPaywallOpen] = useState(false);
-  const [paywallProps, setPaywallProps] = useState<{
-    feature: string;
-    current?: number;
-    limit?: number;
-    requiredTier: SubscriptionTier;
-  }>({ feature: 'custom_widgets', requiredTier: 'stars_basic' });
+  const [paywallProps, setPaywallProps] = useState<PaywallProps>({ feature: 'custom_widgets', requiredTier: 'stars_basic' });
 
   // ── User tier (for "+" button intercept) ──────────────────────────────────
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
@@ -1736,6 +1743,7 @@ export default function DashboardPage() {
             )}
           >
             {t('miniapp.dashboard.filter.all')}
+          </button>
           {availableSections.map(s => (
             <button
               key={s.key}
