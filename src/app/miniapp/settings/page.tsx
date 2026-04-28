@@ -611,29 +611,6 @@ export default function SettingsPage() {
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [showInviteSheet, setShowInviteSheet] = useState(false);
 
-  const [notifStreak, setNotifStreak] = useState(true);
-  const [notifWeekly, setNotifWeekly] = useState(true);
-  const [notifMounted, setNotifMounted] = useState(false);
-
-  useEffect(() => {
-    setNotifStreak(localStorage.getItem('memo_notif_streak') !== 'false');
-    setNotifWeekly(localStorage.getItem('memo_notif_weekly') !== 'false');
-    setNotifMounted(true);
-  }, []);
-
-  const toggleNotifStreak = () => {
-    const next = !notifStreak;
-    setNotifStreak(next);
-    localStorage.setItem('memo_notif_streak', String(next));
-    play(next ? 'TOGGLE_ON' : 'TOGGLE_OFF');
-  };
-  const toggleNotifWeekly = () => {
-    const next = !notifWeekly;
-    setNotifWeekly(next);
-    localStorage.setItem('memo_notif_weekly', String(next));
-    play(next ? 'TOGGLE_ON' : 'TOGGLE_OFF');
-  };
-
   useEffect(() => {
     setHasPasscode(!!getPasscodeHash());
     setLockTimerState(getLockTimer());
@@ -642,7 +619,6 @@ export default function SettingsPage() {
   const { play } = useSound();
   const { t } = useI18n();
 
-  // ── Categories state ──────────────────────────────────────────────────────
   const { accessToken } = useAuth();
 
   // Delete account state
@@ -745,8 +721,8 @@ export default function SettingsPage() {
     <PasscodeScreen
       key="enter_current"
       mode="enter"
-      title="Поточний код"
-      subtitle="Введіть поточний код для продовження"
+      title={t('miniapp.passcode.current_title')}
+      subtitle={t('miniapp.passcode.current_subtitle')}
       stepCurrent={1} stepTotal={3}
       expectedHash={getPasscodeHash() ?? undefined}
       onSuccess={handleCurrentVerified}
@@ -757,8 +733,8 @@ export default function SettingsPage() {
     <PasscodeScreen
       key="enter_current_to_disable"
       mode="enter"
-      title="Підтвердіть код"
-      subtitle="Введіть поточний код, щоб вимкнути захист"
+      title={t('miniapp.passcode.confirm_disable_title')}
+      subtitle={t('miniapp.passcode.confirm_disable_subtitle')}
       expectedHash={getPasscodeHash() ?? undefined}
       onSuccess={handleCurrentVerifiedForDisable}
       onCancel={() => setStep('idle')}
@@ -768,8 +744,8 @@ export default function SettingsPage() {
     <PasscodeScreen
       key="set_new"
       mode="set"
-      title="Новий код"
-      subtitle="Введіть 4-значний код"
+      title={t('miniapp.passcode.new_title')}
+      subtitle={t('miniapp.passcode.new_subtitle')}
       stepCurrent={hasPasscode ? 2 : 1} stepTotal={hasPasscode ? 3 : 2}
       onSuccess={handleNewPin}
       onCancel={() => setStep('idle')}
@@ -779,8 +755,8 @@ export default function SettingsPage() {
     <PasscodeScreen
       key="confirm_new"
       mode="confirm"
-      title="Підтвердіть код"
-      subtitle="Введіть код ще раз"
+      title={t('miniapp.passcode.confirm_title')}
+      subtitle={t('miniapp.passcode.confirm_subtitle')}
       stepCurrent={hasPasscode ? 3 : 2} stepTotal={hasPasscode ? 3 : 2}
       mismatch={confirmMismatch}
       onSuccess={handleConfirmPin}
@@ -1003,113 +979,11 @@ export default function SettingsPage() {
         </Card>
       </motion.section>
 
-      {/* ── Сповіщення ──────────────────────────────────────────────────── */}
-      <motion.section
-        id="notifications"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.notifications')}</h2>
-        <Card>
-          <CardContent className="p-0">
-            {/* Streak reminders toggle */}
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <Icon name="local_fire_department" size={16} className="text-primary" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">{t('miniapp.settings.streak_reminder')}</p>
-                <p className="text-xs text-muted-foreground">
-                  {notifMounted && !notifStreak
-                    ? t('miniapp.settings.disabled')
-                    : t('miniapp.settings.streak_reminder_desc')}
-                </p>
-              </div>
-              <button
-                role="switch"
-                aria-checked={notifMounted ? notifStreak : true}
-                onClick={toggleNotifStreak}
-                className={cn(
-                  'relative flex-shrink-0 rounded-full transition-colors duration-200',
-                  notifMounted && notifStreak ? 'bg-[#4797FF]' : 'bg-[#335B7E]'
-                )}
-                style={{ width: 44, height: 26, minWidth: 44, minHeight: 26 }}
-              >
-                <span
-                  className="absolute top-[3px] rounded-full bg-white shadow-sm transition-all duration-200"
-                  style={{ width: 20, height: 20, left: notifMounted && notifStreak ? 21 : 3 }}
-                />
-              </button>
-            </div>
-            <Separator />
-            {/* Weekly summary toggle */}
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <Icon name="calendar_month" size={16} className="text-primary" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">{t('miniapp.settings.weekly_summary')}</p>
-                <p className="text-xs text-muted-foreground">
-                  {notifMounted && !notifWeekly
-                    ? t('miniapp.settings.disabled')
-                    : t('miniapp.settings.weekly_summary_desc')}
-                </p>
-              </div>
-              <button
-                role="switch"
-                aria-checked={notifMounted ? notifWeekly : true}
-                onClick={toggleNotifWeekly}
-                className={cn(
-                  'relative flex-shrink-0 rounded-full transition-colors duration-200',
-                  notifMounted && notifWeekly ? 'bg-[#4797FF]' : 'bg-[#335B7E]'
-                )}
-                style={{ width: 44, height: 26, minWidth: 44, minHeight: 26 }}
-              >
-                <span
-                  className="absolute top-[3px] rounded-full bg-white shadow-sm transition-all duration-200"
-                  style={{ width: 20, height: 20, left: notifMounted && notifWeekly ? 21 : 3 }}
-                />
-              </button>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.section>
-
-      {/* ── Категорії ──────────────────────────────────────────────────── */}
-      <motion.section
-        id="categories"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.categories_section')}</h2>
-        <Card>
-          <CardContent className="p-0">
-            <motion.a
-              whileTap={{ scale: 0.99 }}
-              href="/miniapp/categories"
-              onClick={() => play('OPEN')}
-              className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                <Icon name="label" size={16} className="text-primary" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">{t('miniapp.settings.categories_manage')}</p>
-                <p className="text-xs text-muted-foreground">{t('miniapp.settings.categories_manage_desc')}</p>
-              </div>
-              <Icon name="chevron_right" size={16} className="text-muted-foreground" />
-            </motion.a>
-          </CardContent>
-        </Card>
-      </motion.section>
-
       {/* ── Звук ───────────────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
       >
         <SoundSection />
       </motion.div>

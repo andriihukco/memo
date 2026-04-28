@@ -55,11 +55,12 @@ export async function POST(req: Request) {
   const { period_type = "weekly", from, to } = body;
 
   const db = userDb(token);
-  const { data: profile, error: profileErr } = await db.from("profiles").select("id").single();
+  const { data: profile, error: profileErr } = await db.from("profiles").select("id, settings").single();
   if (profileErr || !profile) {
     console.error("[reports POST] profile lookup failed:", profileErr?.message);
     return Response.json({ error: "Profile not found" }, { status: 404 });
   }
+  const userLocale = (profile.settings as Record<string, unknown>)?.language as string ?? 'uk';
 
   // Enforce tier limits — free tier gets 5 reports per month
   const tier = await getEffectiveTier(profile.id);
@@ -106,9 +107,9 @@ export async function POST(req: Request) {
   console.log(`[reports POST] generating ${period_type} for user ${profile.id}, from=${fromDate.toISOString()} to=${toDate.toISOString()}`);
 
   try {
-    const report = await generateRetrospective(profile.id, period_type, fromDate, toDate);
+    const report = await generateRetrospective(profile.id, period_type, fromDate, toDate, userLocale as import('@/i18n/locales').Locale);
     if (!report) {
-      return Response.json({ error: "Недостатньо записів за цей період" }, { status: 422 });
+      return Response.json({ error: "not_enough_entries" }, { status: 422 });
     }
 
     const id = await saveReport(profile.id, report);
@@ -116,7 +117,7 @@ export async function POST(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[reports POST] generation error:", message);
-    return Response.json({ error: `Помилка генерації: ${message}` }, { status: 500 });
+    return Response.json({ error: "generation_failed", detail: message }, { status: 500 });
   }
 }
 

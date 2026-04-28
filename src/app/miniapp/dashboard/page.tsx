@@ -860,9 +860,9 @@ function MetricEditSheet({ metric, sourceEntries, onSave, onDelete, onClose }: {
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
-        title="Видалити метрику?"
-        subtitle="Цю дію не можна скасувати."
-        confirmLabel="Видалити"
+        title={t('miniapp.dashboard.delete_metric.title')}
+        subtitle={t('miniapp.common.irreversible')}
+        confirmLabel={t('miniapp.common.delete')}
       />
     </BottomSheet>
   );
@@ -1024,9 +1024,9 @@ function LogEntrySheet({ open, onClose, widget, onSaved, onViewEntries, onDelete
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={() => { setConfirmDelete(false); onClose(); onDelete(widget.id); }}
-        title="Видалити віджет?"
-        subtitle="Цю дію не можна скасувати."
-        confirmLabel="Видалити"
+        title={t('miniapp.dashboard.delete_widget.title')}
+        subtitle={t('miniapp.common.irreversible')}
+        confirmLabel={t('miniapp.common.delete')}
       />
     </BottomSheet>
   );
@@ -1107,14 +1107,12 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
   const [toStr, setToStr] = useState(isoDate(filter.to));
   const [selected, setSelected] = useState<DateRange>(filter.range);
   const { play } = useSound();
+  const { t } = useI18n();
   const [paywallOpen, setPaywallOpen] = useState(false);
 
   const isPaid = userTier === 'stars_basic' || userTier === 'stars_pro';
-
-  // Compute historyDays limit for the current tier
   const historyDays = userTier ? TIER_INFO[userTier].limits.historyDays : 30;
 
-  // How many days back does each preset go?
   const PRESET_DAYS: Partial<Record<DateRange, number>> = {
     today: 1, yesterday: 1, week: 7, '2weeks': 14, month: 30,
     '3months': 92, year: 365, ytd: 366, all: Infinity,
@@ -1122,16 +1120,16 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
 
   type PresetOption = { range: DateRange; label: string; icon: string; paid: boolean };
   const PRESET_OPTIONS: PresetOption[] = [
-    { range: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false },
-    { range: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false },
-    { range: 'week',     label: '7 днів',          icon: 'date_range',     paid: false },
-    { range: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: false },
-    { range: 'month',    label: '30 днів',         icon: 'calendar_month', paid: false },
-    { range: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true  },
-    { range: 'year',     label: 'Рік',             icon: 'event_note',     paid: true  },
-    { range: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true  },
-    { range: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true  },
-    { range: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true  },
+    { range: 'today',    label: t('miniapp.dashboard.calendar.range.today'),     icon: 'today',          paid: false },
+    { range: 'yesterday',label: t('miniapp.dashboard.calendar.range.yesterday'), icon: 'history',        paid: false },
+    { range: 'week',     label: t('miniapp.dashboard.calendar.range.week'),      icon: 'date_range',     paid: false },
+    { range: '2weeks',   label: t('miniapp.dashboard.calendar.range.2weeks'),    icon: 'date_range',     paid: false },
+    { range: 'month',    label: t('miniapp.dashboard.calendar.range.month'),     icon: 'calendar_month', paid: false },
+    { range: '3months',  label: t('miniapp.dashboard.calendar.range.3months'),   icon: 'calendar_month', paid: true  },
+    { range: 'year',     label: t('miniapp.dashboard.calendar.range.year'),      icon: 'event_note',     paid: true  },
+    { range: 'ytd',      label: t('miniapp.dashboard.calendar.range.ytd'),       icon: 'start',          paid: true  },
+    { range: 'all',      label: t('miniapp.dashboard.calendar.range.all'),       icon: 'all_inclusive',  paid: true  },
+    { range: 'custom',   label: t('miniapp.dashboard.calendar.range.custom'),    icon: 'tune',           paid: true  },
   ];
 
   const handleSelectPreset = (opt: PresetOption) => {
@@ -1167,7 +1165,7 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
       <BottomSheet open onClose={onClose} style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
         {/* Header */}
         <div className="px-4 pt-3 pb-2">
-          <h3 className="text-[17px] font-semibold">Оберіть період</h3>
+          <h3 className="text-[17px] font-semibold">{t('miniapp.dashboard.calendar.title')}</h3>
         </div>
 
         {/* All presets — flat list */}
@@ -1214,7 +1212,7 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
             />
           </div>
           <div className="px-4 pt-2 pb-1">
-            <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
+            <Button className="w-full min-h-[44px]" onClick={applyCustom}>{t('miniapp.dashboard.calendar.apply')}</Button>
           </div>
         </div>
       </BottomSheet>
@@ -1264,8 +1262,8 @@ function GoalsTab({ entries, customWidgets }: { entries: Entry[]; customWidgets:
     return (
       <EmptyState
         icon="🎯"
-        title="Цілей ще немає"
-        subtitle="Скажи боту про свою ціль або створи віджет з ціллю"
+        title={t('miniapp.dashboard.no_goals.title')}
+        subtitle={t('miniapp.dashboard.no_goals.subtitle')}
         features={[
           { emoji: '🏃', text: 'Пробігти 100 км цього місяця' },
           { emoji: '💧', text: 'Пити 2 л води щодня' },
@@ -1652,11 +1650,11 @@ export default function DashboardPage() {
   const [sectionFilter, setSectionFilter] = useState<SectionKey | null>(null);
 
   const availableSections: { key: SectionKey; label: string; emoji: string }[] = [
-    ...(customWidgets.length > 0 ? [{ key: 'widgets' as SectionKey, label: 'Мої', emoji: '📊' }] : []),
-    ...(metrics.length > 0 ? [{ key: 'metrics' as SectionKey, label: 'Метрики', emoji: '📈' }] : []),
-    ...(expEntries.length > 0 ? [{ key: 'finance' as SectionKey, label: 'Фінанси', emoji: '💸' }] : []),
-    ...(feelEntries.length > 0 ? [{ key: 'mood' as SectionKey, label: 'Настрій', emoji: '😊' }] : []),
-    ...(ideaEntries.length > 0 ? [{ key: 'ideas' as SectionKey, label: 'Ідеї', emoji: '💡' }] : []),
+    ...(customWidgets.length > 0 ? [{ key: 'widgets' as SectionKey, label: t('miniapp.dashboard.section.my'), emoji: '📊' }] : []),
+    ...(metrics.length > 0 ? [{ key: 'metrics' as SectionKey, label: t('miniapp.dashboard.section.metrics'), emoji: '📈' }] : []),
+    ...(expEntries.length > 0 ? [{ key: 'finance' as SectionKey, label: t('miniapp.dashboard.section.finance'), emoji: '💸' }] : []),
+    ...(feelEntries.length > 0 ? [{ key: 'mood' as SectionKey, label: t('miniapp.dashboard.section.mood'), emoji: '😊' }] : []),
+    ...(ideaEntries.length > 0 ? [{ key: 'ideas' as SectionKey, label: t('miniapp.dashboard.section.ideas'), emoji: '💡' }] : []),
   ];
 
   const showSection = (key: SectionKey) => sectionFilter === null || sectionFilter === key;
@@ -1685,10 +1683,10 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button onClick={() => { setView('actual'); play('SLIDE'); }} className="flex items-center">
-            <h1 className={cn('text-[28px] font-bold leading-tight transition-all duration-200', view === 'actual' ? 'text-foreground' : 'text-foreground/30')}>Віджети</h1>
+            <h1 className={cn('text-[28px] font-bold leading-tight transition-all duration-200', view === 'actual' ? 'text-foreground' : 'text-foreground/30')}>{t('miniapp.dashboard.title.widgets')}</h1>
           </button>
           <button onClick={() => { setView('goals'); play('SLIDE'); }} className="flex items-center">
-            <h1 className={cn('text-[28px] font-bold leading-tight transition-all duration-200', view === 'goals' ? 'text-foreground' : 'text-foreground/30')}>Цілі</h1>
+            <h1 className={cn('text-[28px] font-bold leading-tight transition-all duration-200', view === 'goals' ? 'text-foreground' : 'text-foreground/30')}>{t('miniapp.dashboard.title.goals')}</h1>
           </button>
         </div>
         <div className="flex items-center gap-2">
@@ -1733,8 +1731,7 @@ export default function DashboardPage() {
                 : 'bg-muted/40 border-border/50 text-foreground/85'
             )}
           >
-            Всі
-          </button>
+            {t('miniapp.dashboard.filter.all')}
           {availableSections.map(s => (
             <button
               key={s.key}
@@ -1770,7 +1767,7 @@ export default function DashboardPage() {
             {/* >90%: dismissible banner with upgrade CTA */}
             {usagePct > 0.9 && !bannerDismissed && (
               <ErrorBanner
-                message={`Ти майже досяг ліміту записів (${entryCount}/${entryLimit}). Оновись до Nova щоб продовжити.`}
+                message={t('miniapp.dashboard.entry_limit_warning', { count: String(entryCount), limit: String(entryLimit) })}
                 onDismiss={() => setBannerDismissed(true)}
               />
             )}
@@ -1808,7 +1805,7 @@ export default function DashboardPage() {
           )}
           {status === 'error' && (
             <ErrorBanner
-              message="Не вдалося завантажити дані"
+              message={t('miniapp.dashboard.load_error')}
               onRetry={() => fetchEntries(filter.from, filter.to)}
               onDismiss={() => setStatus('ready')}
             />
@@ -1816,8 +1813,8 @@ export default function DashboardPage() {
           {status === 'ready' && entries.length === 0 && customWidgets.length === 0 && (
             <EmptyState
               icon="📊"
-              title="Немає даних за цей період"
-              subtitle="Записуй активність у боті — вона з'явиться тут"
+              title={t('miniapp.dashboard.no_data.title')}
+              subtitle={t('miniapp.dashboard.no_data.subtitle')}
               features={[
                 { emoji: '🔥', text: 'Калорії, кроки, тренування' },
                 { emoji: '😴', text: 'Сон, настрій, рівень енергії' },
@@ -1825,7 +1822,7 @@ export default function DashboardPage() {
                 { emoji: '💡', text: 'Ідеї та нотатки' },
                 { emoji: '➕', text: 'Створи власний AI-віджет' },
               ]}
-              ctaLabel="Новий віджет"
+              ctaLabel={t('miniapp.dashboard.new_widget')}
               onCta={handleAddWidgetTap}
             />
           )}

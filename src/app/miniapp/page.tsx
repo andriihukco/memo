@@ -398,6 +398,7 @@ function SwipeableThreadCard({ group, isSelectMode, selectedIds, onLongPress, on
   accessToken?: string | null;
 }) {
   const { play } = useSound();
+  const { t } = useI18n();
   const [offsetX, setOffsetX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0), startY = useRef(0);
@@ -484,9 +485,9 @@ function SwipeableThreadCard({ group, isSelectMode, selectedIds, onLongPress, on
         open={pendingDelete}
         onClose={() => { play('CLOSE'); setPendingDelete(false); setOffsetX(0); }}
         onConfirm={handleConfirmDelete}
-        title="Видалити тред?"
-        subtitle={`Буде видалено ${group.entries.length} повідомлень. Цю дію не можна скасувати.`}
-        confirmLabel="Видалити"
+        title={t('miniapp.feed.delete.thread_title')}
+        subtitle={t('miniapp.feed.delete.thread_subtitle', { count: String(group.entries.length) })}
+        confirmLabel={t('miniapp.feed.delete.confirm')}
       />
     </>
   );
@@ -500,6 +501,7 @@ function CategoryFilterBar({ entries, selected, onChange }: {
   onChange: (cat: string | null) => void;
 }) {
   const { play } = useSound();
+  const { t } = useI18n();
   // Collect unique categories, splitting comma-separated values
   const catMap = new Map<string, string | undefined>();
   for (const e of entries) {
@@ -512,7 +514,7 @@ function CategoryFilterBar({ entries, selected, onChange }: {
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
       <Button size="sm" variant={selected === null ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => { play('SELECT'); onChange(null); }}>
-        Всі
+        {t('miniapp.feed.filter.all')}
       </Button>
       {cats.map(([cat, label]) => (
         <Button key={cat} size="sm" variant={selected === cat ? 'default' : 'secondary'} className="shrink-0 rounded-full" onClick={() => { play('SELECT'); onChange(selected === cat ? null : cat); }}>
@@ -528,6 +530,7 @@ function CategoryFilterBar({ entries, selected, onChange }: {
 export default function FeedPage() {
   const { accessToken } = useAuth();
   const { play } = useSound();
+  const { t } = useI18n();
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -720,11 +723,11 @@ export default function FeedPage() {
       ) : (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
-            <h1 className="text-[28px] font-bold leading-tight">Стрічка</h1>
+            <h1 className="text-[28px] font-bold leading-tight">{t('miniapp.feed.title')}</h1>
             {/* Trial badge — shown when user is on an active free trial */}
             {isTrial && (
               <Badge className="shrink-0 rounded-full bg-amber-400/20 text-amber-400 border border-amber-400/30 text-[11px] font-semibold px-2.5 py-0.5">
-                Пробний · {trialDaysLeft} дн.
+                {t('miniapp.feed.trial_badge', { days: String(trialDaysLeft) })}
               </Badge>
             )}
           </div>
@@ -752,7 +755,7 @@ export default function FeedPage() {
 
       {status === 'error' && (
         <ErrorBanner
-          message={errorMsg || 'Не вдалося завантажити записи'}
+          message={errorMsg || t('miniapp.feed.load_error')}
           onRetry={() => { play('BUTTON'); fetchEntries(); }}
           onDismiss={() => setStatus('ready')}
         />
@@ -770,22 +773,22 @@ export default function FeedPage() {
         selectedCategory ? (
           <EmptyState
             icon="filter_list"
-            title="Немає записів у цій категорії"
-            subtitle="Спробуй іншу категорію або зніми фільтр"
-            ctaLabel="Зняти фільтр"
+            title={t('miniapp.feed.empty_cat.title')}
+            subtitle={t('miniapp.feed.empty_cat.subtitle')}
+            ctaLabel={t('miniapp.feed.empty_cat.cta')}
             onCta={() => setSelectedCategory(null)}
           />
         ) : (
           <EmptyState
             icon="📓"
-            title="Стрічка порожня"
-            subtitle="Надішли перше повідомлення боту, щоб почати"
+            title={t('miniapp.feed.empty.title')}
+            subtitle={t('miniapp.feed.empty.subtitle')}
             features={[
-              { emoji: '💬', text: 'Записуй думки, ідеї та події' },
-              { emoji: '🤖', text: 'AI автоматично категоризує записи' },
-              { emoji: '🔍', text: 'Фільтруй за категоріями' },
-              { emoji: '✏️', text: 'Редагуй та видаляй свайпом' },
-              { emoji: '🧵', text: 'Діалоги з ботом зберігаються як треди' },
+              { emoji: '💬', text: t('miniapp.feed.empty.feature1') },
+              { emoji: '🤖', text: t('miniapp.feed.empty.feature2') },
+              { emoji: '🔍', text: t('miniapp.feed.empty.feature3') },
+              { emoji: '✏️', text: t('miniapp.feed.empty.feature4') },
+              { emoji: '🧵', text: t('miniapp.feed.empty.feature5') },
             ]}
           />
         )
@@ -892,9 +895,9 @@ export default function FeedPage() {
         open={!!pendingDeleteIds}
         onClose={() => { play('CLOSE'); setPendingDeleteIds(null); }}
         onConfirm={isDeleting ? () => {} : confirmDelete}
-        title="Видалити запис?"
-        subtitle="Цю дію не можна скасувати."
-        confirmLabel="Видалити"
+        title={t('miniapp.feed.delete.title')}
+        subtitle={t('miniapp.common.irreversible')}
+        confirmLabel={t('miniapp.feed.delete.confirm')}
       />
 
       {/* Paywall Modal */}

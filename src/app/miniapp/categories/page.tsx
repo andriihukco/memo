@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { useSound } from '@/lib/sound/use-sound';
+import { useI18n } from '@/lib/i18n/context';
 import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -162,6 +163,7 @@ function EmojiPicker({ selected, onSelect }: { selected: string; onSelect: (emoj
 export default function CategoriesPage() {
   const { accessToken } = useAuth();
   const { play } = useSound();
+  const { t } = useI18n();
 
   const [dbCategories, setDbCategories] = useState<DbCategory[]>([]);
   const [loading, setLoading] = useState(false);
@@ -466,7 +468,7 @@ export default function CategoriesPage() {
             value={createName}
             onChange={e => setCreateName(e.target.value)}
             className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            placeholder="Назва категорії"
+            placeholder={t('miniapp.categories.name_placeholder')}
             autoFocus
             maxLength={40}
           />
@@ -501,7 +503,7 @@ export default function CategoriesPage() {
           value={renameValue}
           onChange={e => setRenameValue(e.target.value)}
           className="mb-3 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          placeholder="Нова назва"
+          placeholder={t('miniapp.categories.new_name_placeholder')}
           autoFocus
         />
         {renameError && <p className="mb-2 text-xs text-destructive">{renameError}</p>}
@@ -547,7 +549,7 @@ export default function CategoriesPage() {
         <div className="flex gap-3">
           <button onClick={() => { play('CLOSE'); setMergeSource(null); setMergeTarget(null); setMergeError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
           <button onClick={() => { play('BUTTON'); handleMerge(); }} disabled={mergeLoading || !mergeTarget} className="flex-1 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50">
-            {mergeLoading ? '...' : "Об'єднати"}
+            {mergeLoading ? '...' : t('miniapp.categories.merge_button')}
           </button>
         </div>
       </InlineSheet>

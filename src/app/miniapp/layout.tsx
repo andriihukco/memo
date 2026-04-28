@@ -401,14 +401,14 @@ function OnboardingPasscode({ onDone, play }: { onDone: () => void; play: (s: st
   if (step === 'set') {
     return (
       <div className="fixed inset-0 z-[102]" style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)' }}>
-        <PasscodeScreen mode="set" title="Новий код" subtitle="Введіть 4-значний код" stepCurrent={1} stepTotal={2} onSuccess={handleNewPin} onCancel={skip} />
+        <PasscodeScreen mode="set" title={t('miniapp.passcode.new_title')} subtitle={t('miniapp.passcode.new_subtitle')} stepCurrent={1} stepTotal={2} onSuccess={handleNewPin} onCancel={skip} />
       </div>
     );
   }
   if (step === 'confirm') {
     return (
       <div className="fixed inset-0 z-[102]" style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)', transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)' }}>
-        <PasscodeScreen mode="confirm" title="Підтвердіть код" subtitle="Введіть код ще раз" stepCurrent={2} stepTotal={2} mismatch={mismatch} onSuccess={handleConfirm} onCancel={skip} />
+        <PasscodeScreen mode="confirm" title={t('miniapp.passcode.confirm_title')} subtitle={t('miniapp.passcode.confirm_subtitle')} stepCurrent={2} stepTotal={2} mismatch={mismatch} onSuccess={handleConfirm} onCancel={skip} />
       </div>
     );
   }

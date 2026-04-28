@@ -10,6 +10,7 @@ import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
 import { Confetti } from '@/components/ui/confetti';
+import { useI18n } from '@/lib/i18n/context';
 
 interface ProfileData {
   id: string;
@@ -67,17 +68,18 @@ function BillingPeriodSwitcher({
 function UsageSection({ accessToken, currentTier }: { accessToken: string | null | undefined; currentTier: SubscriptionTier }) {
   const { counts } = useUsageCounts(accessToken);
   const limits = TIER_INFO[currentTier].limits;
+  const { t } = useI18n();
 
   const rows = [
-    { label: 'Записи', icon: '📝', current: counts?.entries ?? 0, limit: limits.entries },
-    { label: 'AI-віджети', icon: '📊', current: counts?.widgets ?? 0, limit: limits.ai_widgets },
-    { label: 'Звіти', icon: '💡', current: counts?.reports ?? 0, limit: limits.reports },
+    { label: t('miniapp.subs.usage.entries'), icon: '📝', current: counts?.entries ?? 0, limit: limits.entries },
+    { label: t('miniapp.subs.usage.widgets'), icon: '📊', current: counts?.widgets ?? 0, limit: limits.ai_widgets },
+    { label: t('miniapp.subs.usage.reports'), icon: '💡', current: counts?.reports ?? 0, limit: limits.reports },
   ];
 
   return (
     <div className="rounded-2xl bg-muted/20 overflow-hidden">
       <div className="px-4 pt-3.5 pb-1">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Використання</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('miniapp.subs.usage_title')}</p>
       </div>
       {rows.map((row, i) => {
         const isUnlimited = row.limit === Infinity;
@@ -125,6 +127,7 @@ function PlanCard({
 }) {
   const info = TIER_INFO[tier];
   const { play } = useSound();
+  const { t } = useI18n();
   const isBasic = tier === 'stars_basic';
   const isPro = tier === 'stars_pro';
   const showCTA = isUpgrade || isExpiredRenewal;
@@ -148,7 +151,7 @@ function PlanCard({
       {isBasic && !isCurrent && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
           <span className="rounded-full bg-yellow-400 px-3 py-0.5 text-[10px] font-semibold text-slate-950 whitespace-nowrap shadow-sm">
-            Рекомендовано
+            {t('miniapp.subs.recommended')}
           </span>
         </div>
       )}
@@ -162,7 +165,7 @@ function PlanCard({
               <p className="text-[16px] font-semibold text-foreground">{info.name}</p>
               {isCurrent && (
                 <span className="rounded-full bg-yellow-400/20 px-2 py-0.5 text-[10px] font-medium text-yellow-300">
-                  Активний
+                  {t('miniapp.subs.active_badge')}
                 </span>
               )}
             </div>
@@ -171,15 +174,15 @@ function PlanCard({
         </div>
         <div className="text-right shrink-0 ml-2">
           {tier === 'free' ? (
-            <p className="text-[14px] font-semibold text-muted-foreground">Безкоштовно</p>
+            <p className="text-[14px] font-semibold text-muted-foreground">{t('miniapp.subs.free_price')}</p>
           ) : (
             <>
               <p className="text-[18px] font-bold leading-tight text-foreground">{starsPrice} ⭐</p>
               <p className="text-[10px] text-muted-foreground">
-                {billingPeriod === 'monthly' ? '/ місяць' : `/ ${BILLING_PERIODS[billingPeriod].label.toLowerCase()}`}
+                {billingPeriod === 'monthly' ? t('miniapp.subs.per_month') : `/ ${BILLING_PERIODS[billingPeriod].label.toLowerCase()}`}
               </p>
               {monthlyEquiv && (
-                <p className="text-[10px] text-green-400">≈ {monthlyEquiv} ⭐/міс</p>
+                <p className="text-[10px] text-green-400">{t('miniapp.subs.approx_monthly', { price: String(monthlyEquiv) })}</p>
               )}
             </>
           )}
@@ -219,18 +222,18 @@ function PlanCard({
             {isLoading ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                Відкриваємо...
+                {t('miniapp.subs.opening')}
               </span>
             ) : isExpiredRenewal ? (
-              `Поновити — ${starsPrice} ⭐`
+              t('miniapp.subs.renew', { price: String(starsPrice) })
             ) : (
-              `Підписатися — ${starsPrice} ⭐`
+              t('miniapp.subs.subscribe', { price: String(starsPrice) })
             )}
           </button>
         </div>
       )}
       {isCurrent && tier !== 'free' && (
-        <p className="text-center text-[12px] text-muted-foreground pb-3">Підписка активна</p>
+        <p className="text-center text-[12px] text-muted-foreground pb-3">{t('miniapp.subs.active_message')}</p>
       )}
     </div>
   );
@@ -241,6 +244,7 @@ function PlanCard({
 export default function SubscriptionsPage() {
   const { accessToken } = useAuth();
   const { play } = useSound();
+  const { t } = useI18n();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState<SubscriptionTier | null>(null);
@@ -279,7 +283,7 @@ export default function SubscriptionsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? 'Не вдалося активувати пробний період.');
+        setError(data.error ?? t('miniapp.subs.error.trial'));
       } else {
         play('CELEBRATION');
         setConfetti(true);
@@ -288,7 +292,7 @@ export default function SubscriptionsPage() {
         await loadProfile();
       }
     } catch {
-      setError('Щось пішло не так. Спробуй ще раз.');
+      setError(t('miniapp.subs.error.generic'));
     } finally {
       setActivatingTrial(false);
     }
@@ -297,7 +301,7 @@ export default function SubscriptionsPage() {
   async function handleSubscribe(tier: SubscriptionTier) {
     if (!accessToken) return;
     if (!profile) {
-      setError('Профіль не завантажено. Спробуй ще раз.');
+      setError(t('miniapp.subs.error.profile'));
       return;
     }
     setPaying(tier);
@@ -306,7 +310,7 @@ export default function SubscriptionsPage() {
     // Check Telegram WebApp availability upfront
     const tg = window.Telegram?.WebApp;
     if (!tg?.openInvoice) {
-      setError('Відкрий у Telegram для оплати');
+      setError(t('miniapp.subs.error.open_telegram'));
       setPaying(null);
       return;
     }
@@ -317,9 +321,8 @@ export default function SubscriptionsPage() {
     if (isCurrentlyActive) {
       const periodDays = BILLING_PERIODS[billingPeriod].days;
       const newEndsAt = new Date(currentEndsAt!.getTime() + periodDays * 24 * 60 * 60 * 1000);
-      const fmtNewEnd = newEndsAt.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
-      // Show info — user confirmed by tapping the button, so proceed
-      setError(`ℹ️ Твоя підписка буде продовжена до ${fmtNewEnd}`);
+      const fmtNewEnd = newEndsAt.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+      setError(t('miniapp.subs.stacking_info', { date: fmtNewEnd }));
       // Small delay so user sees the message, then open invoice
       await new Promise(r => setTimeout(r, 1800));
       setError(null);
@@ -333,7 +336,7 @@ export default function SubscriptionsPage() {
       });
       const data = await res.json();
       if (!data.ok || !data.invoiceLink) {
-        setError(data.error ?? 'Не вдалося створити рахунок');
+        setError(data.error ?? t('miniapp.subs.error.invoice'));
         setPaying(null);
         return;
       }
@@ -347,13 +350,13 @@ export default function SubscriptionsPage() {
           setTimeout(() => setConfetti(false), 3500);
           await loadProfile();
         } else if (status === 'failed') {
-          setError('Оплата не вдалася. Спробуй ще раз.');
+          setError(t('miniapp.subs.error.payment_failed'));
         } else if (status === 'cancelled') {
           // user closed the payment sheet — no error needed, just reset
         }
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Щось пішло не так. Спробуй ще раз.');
+      setError(err instanceof Error ? err.message : t('miniapp.subs.error.generic'));
       setPaying(null);
     }
   }
@@ -372,7 +375,7 @@ export default function SubscriptionsPage() {
     : null;
   const effectiveTier: SubscriptionTier = (currentTier !== 'free' && isExpired) ? 'free' : currentTier;
 
-  const fmtDate = (d: Date) => d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' });
+  const fmtDate = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
 
   if (loading) {
     return (
@@ -424,13 +427,13 @@ export default function SubscriptionsPage() {
               {TIER_INFO[thankYouTier].icon}
             </motion.div>
             <motion.h1 initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.35 }} className="mb-2 text-[26px] font-bold">
-              Дякуємо! 🎉
+              {t('miniapp.subs.thankyou.title')}
             </motion.h1>
             <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.35 }} className="mb-1 text-[17px] font-semibold text-primary">
-              {TIER_INFO[thankYouTier].name} активовано
+              {t('miniapp.subs.thankyou.activated', { name: TIER_INFO[thankYouTier].name })}
             </motion.p>
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.35 }} className="text-[14px] text-muted-foreground">
-              Твоя підтримка дуже важлива для нас ❤️
+              {t('miniapp.subs.thankyou.message')}
             </motion.p>
             <motion.button
               initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.3 }}
@@ -438,7 +441,7 @@ export default function SubscriptionsPage() {
               onClick={() => setThankYouTier(null)}
               className="mt-8 rounded-full bg-primary px-8 py-3.5 text-[15px] font-semibold text-primary-foreground"
             >
-              Чудово →
+              {t('miniapp.subs.thankyou.cta')}
             </motion.button>
           </motion.div>
         )}
@@ -452,8 +455,8 @@ export default function SubscriptionsPage() {
       >
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-[28px] font-bold leading-tight text-foreground">Підписка</h1>
-          <p className="text-[13px] text-muted-foreground">Підтримай Memo та отримай більше</p>
+          <h1 className="text-[28px] font-bold leading-tight text-foreground">{t('miniapp.subs.title')}</h1>
+          <p className="text-[13px] text-muted-foreground">{t('miniapp.subs.subtitle')}</p>
         </div>
 
         {/* Current plan details card */}
@@ -468,22 +471,22 @@ export default function SubscriptionsPage() {
                 <p className="text-[15px] font-semibold">{TIER_INFO[effectiveTier].name}</p>
               </div>
               {isExpired ? (
-                <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive">Закінчилась</span>
+                <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-medium text-destructive">{t('miniapp.subs.expired_status')}</span>
               ) : isCanceling ? (
-                <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">Скасовується</span>
+                <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">{t('miniapp.subs.canceling_status')}</span>
               ) : (
-                <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">Активна</span>
+                <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">{t('miniapp.subs.active_status')}</span>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-2 mt-1">
               <div className="rounded-xl bg-muted/30 px-3 py-2">
-                <p className="text-[10px] text-muted-foreground mb-0.5">Початок</p>
+                <p className="text-[10px] text-muted-foreground mb-0.5">{t('miniapp.subs.start_label')}</p>
                 <p className="text-[12px] font-medium">{startsAt ? fmtDate(startsAt) : fmtDate(new Date())}</p>
               </div>
               {endsAt && (
                 <div className={cn('rounded-xl px-3 py-2', isExpired ? 'bg-destructive/10' : daysRemaining !== null && daysRemaining <= 7 ? 'bg-amber-400/10' : 'bg-muted/30')}>
-                  <p className="text-[10px] text-muted-foreground mb-0.5">{isExpired ? 'Закінчилась' : isCanceling ? 'Доступ до' : 'Діє до'}</p>
+                  <p className="text-[10px] text-muted-foreground mb-0.5">{isExpired ? t('miniapp.subs.expired_label') : isCanceling ? t('miniapp.subs.access_until') : t('miniapp.subs.end_label')}</p>
                   <p className={cn('text-[12px] font-medium', isExpired ? 'text-destructive' : daysRemaining !== null && daysRemaining <= 7 ? 'text-amber-300' : '')}>
                     {fmtDate(endsAt)}
                   </p>
@@ -491,7 +494,7 @@ export default function SubscriptionsPage() {
               )}
               {!endsAt && (
                 <div className="rounded-xl bg-muted/30 px-3 py-2">
-                  <p className="text-[10px] text-muted-foreground mb-0.5">Діє до</p>
+                  <p className="text-[10px] text-muted-foreground mb-0.5">{t('miniapp.subs.end_label')}</p>
                   <p className="text-[12px] font-medium">∞</p>
                 </div>
               )}
@@ -513,19 +516,19 @@ export default function SubscriptionsPage() {
                   )}
                 </div>
                 <span className={cn('text-[11px] font-medium shrink-0', daysRemaining <= 7 ? 'text-amber-300' : 'text-muted-foreground')}>
-                  {daysRemaining === 1 ? '1 день' : `${daysRemaining} дн.`}
+                  {daysRemaining === 1 ? t('miniapp.subs.one_day') : t('miniapp.subs.days_remaining', { days: String(daysRemaining) })}
                 </span>
               </div>
             )}
 
             {isExpired && endsAt && (
               <p className="text-[12px] text-destructive/70">
-                Закінчилась {fmtDate(endsAt)} · Поновіть вручну нижче
+                {t('miniapp.subs.expired_note', { date: fmtDate(endsAt) })}
               </p>
             )}
             {isCanceling && endsAt && !isExpired && (
               <p className="text-[12px] text-amber-300/80">
-                Підписка скасована · Доступ діє до {fmtDate(endsAt)}
+                {t('miniapp.subs.canceling_note', { date: fmtDate(endsAt) })}
               </p>
             )}
           </div>
@@ -537,7 +540,7 @@ export default function SubscriptionsPage() {
             <span className="text-2xl">{TIER_INFO['free'].icon}</span>
             <div>
               <p className="text-[14px] font-semibold">{TIER_INFO['free'].name}</p>
-              <p className="text-[12px] text-muted-foreground">Безкоштовно назавжди</p>
+              <p className="text-[12px] text-muted-foreground">{t('miniapp.subs.free_forever')}</p>
             </div>
           </div>
         )}
@@ -547,7 +550,7 @@ export default function SubscriptionsPage() {
 
         {/* Billing period switcher — shown below usage stats */}
         <div className="flex flex-col gap-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-1">Період</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-1">{t('miniapp.subs.period_label')}</p>
           <BillingPeriodSwitcher selected={billingPeriod} onChange={setBillingPeriod} />
 
         </div>
@@ -566,8 +569,8 @@ export default function SubscriptionsPage() {
             <div className="flex items-center gap-3">
               <span className="text-2xl leading-none">🎁</span>
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-semibold">Спробуй Nova безкоштовно</p>
-                <p className="text-[12px] text-muted-foreground">3 дні повного доступу — без оплати</p>
+                <p className="text-[15px] font-semibold">{t('miniapp.subs.trial.title')}</p>
+                <p className="text-[12px] text-muted-foreground">{t('miniapp.subs.trial.subtitle')}</p>
               </div>
             </div>
             <button
@@ -581,10 +584,10 @@ export default function SubscriptionsPage() {
               {activatingTrial ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
-                  Активуємо...
+                  {t('miniapp.subs.trial.activating')}
                 </span>
               ) : (
-                'Активувати 3 дні Nova безкоштовно'
+                t('miniapp.subs.trial.cta')
               )}
             </button>
           </motion.div>
@@ -599,8 +602,8 @@ export default function SubscriptionsPage() {
           >
             <span className="text-2xl">🎉</span>
             <div>
-              <p className="text-[14px] font-semibold text-green-400">Пробний період активовано!</p>
-              <p className="text-[12px] text-muted-foreground">Memo Nova доступна на 3 дні</p>
+              <p className="text-[14px] font-semibold text-green-400">{t('miniapp.subs.trial.success_title')}</p>
+              <p className="text-[12px] text-muted-foreground">{t('miniapp.subs.trial.success_subtitle')}</p>
             </div>
           </motion.div>
         )}
@@ -631,7 +634,7 @@ export default function SubscriptionsPage() {
 
 
         <p className="text-center text-[11px] text-muted-foreground">
-          Telegram Stars · Поновлення вручну · Без автосписання
+          {t('miniapp.subs.footer')}
         </p>
       </motion.div>
     </>

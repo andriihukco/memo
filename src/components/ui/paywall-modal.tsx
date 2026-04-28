@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/supabase/auth-context';
 import type { SubscriptionTier, BillingPeriod } from '@/lib/stars/paywall';
 import { TIER_INFO, BILLING_PERIODS, calcPrice } from '@/lib/stars/paywall';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n/context';
 
 // ── Feature copy map ──────────────────────────────────────────────────────────
 
@@ -135,6 +136,7 @@ export function PaywallModal({
   const router = useRouter();
   const { play } = useSound();
   const { accessToken } = useAuth();
+  const { t } = useI18n();
   const [paying, setPaying] = useState(false);
   const [activatingTrial, setActivatingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -170,14 +172,14 @@ export function PaywallModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? 'Не вдалося активувати пробний період.');
+        setError(data.error ?? t('miniapp.subs.error.trial'));
       } else {
         play('CELEBRATION');
         setSuccessType('trial');
         onTrialActivated?.();
       }
     } catch {
-      setError('Щось пішло не так. Спробуй ще раз.');
+      setError(t('miniapp.subs.error.generic'));
     } finally {
       setActivatingTrial(false);
     }
@@ -208,16 +210,16 @@ export function PaywallModal({
         body: JSON.stringify({ tier: selectedTier, billingPeriod }),
       });
       const data = await res.json();
-      if (!data.ok || !data.invoiceLink) throw new Error(data.error ?? 'Не вдалося створити рахунок');
+      if (!data.ok || !data.invoiceLink) throw new Error(data.error ?? t('miniapp.subs.error.invoice'));
 
       tg.openInvoice(data.invoiceLink, (status) => {
         setPaying(false);
         if (status === 'paid') { play('CELEBRATION'); setSuccessType('paid'); }
-        else if (status === 'failed') setError('Оплата не вдалася. Спробуй ще раз.');
+        else if (status === 'failed') setError(t('miniapp.subs.error.payment_failed'));
       });
     } catch (err) {
       setPaying(false);
-      setError(err instanceof Error ? err.message : 'Щось пішло не так. Спробуй ще раз.');
+      setError(err instanceof Error ? err.message : t('miniapp.subs.error.generic'));
     }
   };
 
@@ -247,20 +249,20 @@ export function PaywallModal({
           </motion.div>
           <div className="flex flex-col gap-1.5">
             <h2 className="text-[22px] font-bold">
-              {isTrial ? 'Пробний період активовано!' : 'Дякуємо! 🎉'}
+              {isTrial ? t('miniapp.paywall.success.trial_title') : t('miniapp.paywall.success.paid_title')}
             </h2>
             <p className="text-[15px] font-semibold text-yellow-400">
-              {isTrial ? 'Memo Nova — 3 дні безкоштовно' : `${TIER_INFO[selectedTier].name} активовано`}
+              {isTrial ? t('miniapp.paywall.success.trial_subtitle') : t('miniapp.paywall.success.paid_subtitle', { name: TIER_INFO[selectedTier].name })}
             </p>
             <p className="text-[14px] text-muted-foreground">
-              {isTrial ? 'Тепер у тебе є доступ до всіх функцій Nova. Насолоджуйся!' : 'Твоя підтримка дуже важлива для нас ❤️'}
+              {isTrial ? t('miniapp.paywall.success.trial_body') : t('miniapp.paywall.success.paid_body')}
             </p>
           </div>
           <button
             className="w-full min-h-[48px] rounded-2xl bg-yellow-400 py-3.5 text-[15px] font-semibold text-slate-950 active:scale-[0.98] transition-transform"
             onClick={() => { play('BUTTON'); onClose(); }}
           >
-            Чудово →
+            {t('miniapp.paywall.success.cta')}
           </button>
         </motion.div>
       </BottomSheet>
@@ -389,7 +391,7 @@ export function PaywallModal({
                 {starsPrice} ⭐
               </p>
               <p className="text-[10px] text-white/40">
-                {billingPeriod === 'monthly' ? '/ місяць' : `/ ${periodInfo.label.toLowerCase()}`}
+                {billingPeriod === 'monthly' ? t('miniapp.subs.per_month') : `/ ${periodInfo.label.toLowerCase()}`}
               </p>
               {billingPeriod !== 'monthly' && (
                 <p className="text-[10px] text-green-400 font-medium">
@@ -448,10 +450,10 @@ export function PaywallModal({
             {paying ? (
               <span className="flex items-center justify-center gap-2">
                 <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
-                Відкриваємо оплату...
+                {t('miniapp.paywall.opening')}
               </span>
             ) : (
-              `Підписатися — ${starsPrice} ⭐`
+              t('miniapp.paywall.subscribe', { price: String(starsPrice) })
             )}
           </motion.button>
 
@@ -470,10 +472,10 @@ export function PaywallModal({
                 {activatingTrial ? (
                   <span className="flex items-center justify-center gap-1.5">
                     <span className="h-3 w-3 animate-spin rounded-full border-2 border-yellow-400/30 border-t-yellow-400" />
-                    Активуємо...
+                    {t('miniapp.paywall.trial_activating')}
                   </span>
                 ) : (
-                  '🎁 Спробувати безкоштовно — 3 дні'
+                  t('miniapp.paywall.trial_cta')
                 )}
               </motion.button>
             )}
@@ -483,7 +485,7 @@ export function PaywallModal({
             onClick={() => { play('CLOSE'); onClose(); }}
             className="w-full py-2.5 text-[13px] text-white/30 hover:text-white/50 transition-colors"
           >
-            Не зараз
+            {t('miniapp.paywall.not_now')}
           </button>
         </div>
 

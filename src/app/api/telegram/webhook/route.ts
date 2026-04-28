@@ -11,6 +11,7 @@ import { createSubscription, recordTransaction } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import type { Locale } from "@/i18n/locales";
 import { getLocale } from "@/i18n/t";
+import { t } from "@/i18n/t";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -145,7 +146,7 @@ async function processReferralReward(referredUserId: string): Promise<void> {
         const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
         await bot.api.sendMessage(
           Number(referrerProfile.telegram_id),
-          `🎉 *Твій друг оформив підписку\\!*\n\nТи отримав *30 днів Memo Nova* безкоштовно як нагороду за запрошення\\. Дякуємо, що ділишся Memo\\! 🙏`,
+          t('bot.referral.reward_granted', 'uk'),
           { parse_mode: "MarkdownV2" }
         );
       } catch (notifyErr) {
@@ -177,7 +178,7 @@ function getHandler(): (req: Request) => Promise<Response> {
     } catch (err) {
       if (err instanceof ProfileError) {
         console.error("[webhook] ProfileError:", err.message, err.cause);
-        await ctx.reply("Щось пішло не так при налаштуванні профілю. Спробуй ще раз через хвилину 🙏");
+        await ctx.reply("Something went wrong setting up your profile. Please try again in a minute 🙏");
         return;
       }
       throw err;
@@ -271,17 +272,18 @@ function getHandler(): (req: Request) => Promise<Response> {
         stars_basic: "Memo Nova 🌟",
         stars_pro: "Memo Supernova 💫",
       };
+      const locale = ctx.locale ?? 'uk';
       const periodLabels: Record<string, string> = {
-        monthly: "1 місяць",
-        quarterly: "3 місяці",
-        annual: "1 рік",
+        monthly: t('bot.payment.period.monthly', locale),
+        quarterly: t('bot.payment.period.quarterly', locale),
+        annual: t('bot.payment.period.annual', locale),
       };
       const periodStr = payload.billingPeriod ? ` · ${periodLabels[payload.billingPeriod] ?? ""}` : "";
       await ctx.reply(
-        `✅ Оплата пройшла! Підписка *${tierNames[tier] ?? tier}*${periodStr} активована.\n\nДякуємо за підтримку — це дуже важливо для нас 🙏\n\nВідкрий міні-додаток щоб побачити всі нові функції.`,
+        t('bot.payment.success', locale, { tier: tierNames[tier] ?? tier, period: periodStr }),
         {
           parse_mode: "Markdown",
-          reply_markup: new InlineKeyboard().webApp("📱 Відкрити Memo", env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp"),
+          reply_markup: new InlineKeyboard().webApp(t('bot.miniapp.button', locale), env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp"),
         }
       );
     } catch (err) {

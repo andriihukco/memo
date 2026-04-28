@@ -198,11 +198,12 @@ export async function handleStats(ctx: BotContext): Promise<void> {
     catCount.set(e.category, (catCount.get(e.category) ?? 0) + 1);
   }
 
-  const today = localNow().toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" });
+  const localeCode = ctx.locale === 'uk' ? 'uk-UA' : ctx.locale === 'zh' ? 'zh-CN' : ctx.locale === 'ar' ? 'ar-SA' : ctx.locale;
+  const today = localNow().toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "long" });
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
   let lines = `📊 *${cap(today)}*\n\n`;
-  lines += `Записів за день: *${entries.length}*\n`;
+  lines += `${t('bot.stats.entries_today', ctx.locale)}: *${entries.length}*\n`;
 
   if (aggregated.length > 0) {
     lines += "\n";
@@ -212,16 +213,19 @@ export async function handleStats(ctx: BotContext): Promise<void> {
   }
 
   // Energy balance
-  const intake = aggregated.find(m => m.unit === "ккал" && !m.label.toLowerCase().includes("спален"));
-  const burned = aggregated.find(m => m.label.toLowerCase().includes("спален"));
+  const intake = aggregated.find(m => (m.unit === "ккал" || m.unit === "kcal") && !m.label.toLowerCase().includes("burn") && !m.label.toLowerCase().includes("спален"));
+  const burned = aggregated.find(m => m.label.toLowerCase().includes("burn") || m.label.toLowerCase().includes("спален"));
   if (intake && burned) {
     const net = Math.round(intake.value - burned.value);
-    lines += `\nБаланс: *${net > 0 ? "+" : ""}${net} ккал* (${net < 0 ? "дефіцит 🔥" : "профіцит"})\n`;
+    const balanceLabel = t('bot.stats.balance', ctx.locale);
+    const deficitLabel = t('bot.stats.deficit', ctx.locale);
+    const surplusLabel = t('bot.stats.surplus', ctx.locale);
+    lines += `\n${balanceLabel}: *${net > 0 ? "+" : ""}${net} ${intake.unit}* (${net < 0 ? `${deficitLabel} 🔥` : surplusLabel})\n`;
   }
 
   if (catCount.size > 0) {
     const catList = [...catCount.entries()].map(([c, n]) => `${c} (${n})`).join(", ");
-    lines += `\nКатегорії: ${catList}`;
+    lines += `\n${t('bot.stats.categories', ctx.locale)}: ${catList}`;
   }
 
   await ctx.reply(lines, {
@@ -229,7 +233,7 @@ export async function handleStats(ctx: BotContext): Promise<void> {
     reply_markup: new InlineKeyboard()
       .webApp(t('bot.miniapp.dashboard_button', ctx.locale), env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp")
       .row()
-      .text("📋 Ретроспектива тижня", "report:weekly"),
+      .text(t('bot.stats.weekly_retro', ctx.locale), "report:weekly"),
   });
 }
 
@@ -253,7 +257,7 @@ async function runReport(ctx: BotContext, periodType: "daily" | "weekly" | "mont
     weekly: t('bot.report.period.weekly', ctx.locale),
     monthly: t('bot.report.period.monthly', ctx.locale),
   };
-  const thinkingMsg = await ctx.reply(`${REPORT_STATUS[0]}\n\nАналізую ${periodLabels[periodType]}...`);
+  const thinkingMsg = await ctx.reply(`${REPORT_STATUS[0]}\n\n${t('bot.report.analyzing', ctx.locale, { period: periodLabels[periodType] })}`);
 
   let statusIdx = 1;
   const rotateInterval = setInterval(async () => {
@@ -262,7 +266,7 @@ async function runReport(ctx: BotContext, periodType: "daily" | "weekly" | "mont
       await ctx.api.editMessageText(
         ctx.chat!.id,
         thinkingMsg.message_id,
-        `${REPORT_STATUS[statusIdx++]}\n\nАналізую ${periodLabels[periodType]}...`
+        `${REPORT_STATUS[statusIdx++]}\n\n${t('bot.report.analyzing', ctx.locale, { period: periodLabels[periodType] })}`
       );
     } catch { /* ignore */ }
   }, 2800);

@@ -1066,6 +1066,7 @@ function ReportRow({ report, onTap }: {
 
 export default function ReportsPage() {
   const { accessToken } = useAuth();
+  const { t } = useI18n();
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNewReport, setShowNewReport] = useState(false);
@@ -1191,16 +1192,16 @@ export default function ReportsPage() {
       {!loading && reports.length === 0 && !generating && (
         <EmptyState
           icon="💡"
-          title="Ще немає ретроспектив"
-          subtitle="Проаналізуй свій прогрес за будь-який період"
+          title={t('miniapp.reports.empty.title')}
+          subtitle={t('miniapp.reports.empty.subtitle')}
           features={[
-            { emoji: '✅', text: 'Що пройшло добре цього тижня' },
-            { emoji: '❌', text: 'Що не вийшло і чому' },
-            { emoji: '🔄', text: 'Почати / Зупинити / Продовжити' },
-            { emoji: '🧪', text: 'Гіпотеза для наступного спринту' },
-            { emoji: '💡', text: 'Найважливіший урок періоду' },
+            { emoji: '✅', text: t('miniapp.reports.empty.feature1') },
+            { emoji: '❌', text: t('miniapp.reports.empty.feature2') },
+            { emoji: '🔄', text: t('miniapp.reports.empty.feature3') },
+            { emoji: '🧪', text: t('miniapp.reports.empty.feature4') },
+            { emoji: '💡', text: t('miniapp.reports.empty.feature5') },
           ]}
-          ctaLabel="Створити першу ретроспективу"
+          ctaLabel={t('miniapp.reports.empty.cta')}
           onCta={() => { play('OPEN'); setShowNewReport(true); }}
         />
       )}

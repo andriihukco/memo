@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Icon } from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
+import { useI18n } from '@/lib/i18n/context';
 
 interface PasscodeScreenProps {
   mode: 'enter' | 'set' | 'confirm';
@@ -52,6 +53,7 @@ export function PasscodeScreen({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const { play } = useSound();
+  const { t } = useI18n();
   const didMount = useRef(false);
 
   // Show mismatch error from parent (confirm step)
@@ -59,7 +61,7 @@ export function PasscodeScreen({
     if (mismatch && !didMount.current) return;
     if (mismatch) {
       play('CAUTION');
-      setError('Коди не збігаються. Спробуй ще раз.');
+      setError(t('miniapp.passcode.mismatch_error'));
       setShake(true);
       setTimeout(() => { setShake(false); setDigits([]); setError(''); }, 700);
     }
@@ -96,7 +98,7 @@ export function PasscodeScreen({
         } else {
           play('CAUTION');
           setShake(true);
-          setError('Невірний код. Спробуй ще раз.');
+          setError(t('miniapp.passcode.wrong_error'));
           setTimeout(() => { setShake(false); setDigits([]); setError(''); }, 700);
         }
       } else {
@@ -148,7 +150,7 @@ export function PasscodeScreen({
           'text-[22px] font-bold transition-colors duration-300',
           success ? 'text-green-400' : 'text-foreground'
         )}>
-          {success ? '✓ ' : ''}{title ?? 'Введіть код'}
+          {success ? '✓ ' : ''}{title ?? t('miniapp.passcode.default_title')}
         </h1>
         {subtitle && !error && (
           <p className="mt-1.5 text-[14px] text-muted-foreground">{subtitle}</p>
@@ -188,7 +190,7 @@ export function PasscodeScreen({
               d === '⌫' ? 'bg-transparent text-muted-foreground active:bg-muted/50' :
               'bg-secondary/80 hover:bg-secondary active:bg-secondary/60'
             )}
-            aria-label={d === '⌫' ? 'Видалити' : d === '' ? '' : d}
+            aria-label={d === '⌫' ? t('miniapp.passcode.backspace') : d === '' ? '' : d}
           >
             {d === '⌫' ? <Icon name="backspace" size={22} /> : d}
           </motion.button>

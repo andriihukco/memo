@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
 import { TIER_INFO } from '@/lib/stars/paywall';
 import { useSound } from '@/lib/sound/use-sound';
+import { useI18n } from '@/lib/i18n/context';
 
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? 'memo_r0bot';
 
@@ -257,16 +258,16 @@ interface DatePreset {
 }
 
 const DATE_PRESETS: DatePreset[] = [
-  { key: 'today',    label: 'Сьогодні',        icon: 'today',          paid: false, fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
-  { key: 'yesterday',label: 'Вчора',           icon: 'history',        paid: false, fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
-  { key: 'week',     label: '7 днів',          icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: '2weeks',   label: '2 тижні',         icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-13); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: 'month',    label: '30 днів',         icon: 'calendar_month', paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-29); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: '3months',  label: '3 місяці',        icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: 'year',     label: 'Рік',             icon: 'event_note',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
-  { key: 'ytd',      label: 'З початку року',  icon: 'start',          paid: true,  fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(), 0, 1)), to: endOfDay(n) }; } },
-  { key: 'all',      label: 'Весь час',        icon: 'all_inclusive',  paid: true,  fn: () => null },
-  { key: 'custom',   label: 'Свій діапазон',   icon: 'tune',           paid: true,  fn: null },
+  { key: 'today',    label: 'miniapp.graph.period.today',    icon: 'today',          paid: false, fn: () => { const n = new Date(); return { from: startOfDay(n), to: endOfDay(n) }; } },
+  { key: 'yesterday',label: 'miniapp.graph.period.yesterday', icon: 'history',        paid: false, fn: () => { const n = new Date(); const y = new Date(n); y.setDate(n.getDate()-1); return { from: startOfDay(y), to: endOfDay(y) }; } },
+  { key: 'week',     label: 'miniapp.graph.period.week',     icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-6); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: '2weeks',   label: 'miniapp.graph.period.2weeks',   icon: 'date_range',     paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-13); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: 'month',    label: 'miniapp.graph.period.month',    icon: 'calendar_month', paid: false, fn: () => { const n = new Date(); const f = new Date(n); f.setDate(n.getDate()-29); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: '3months',  label: 'miniapp.graph.period.3months',  icon: 'calendar_month', paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setMonth(n.getMonth()-3); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: 'year',     label: 'miniapp.graph.period.year',     icon: 'event_note',     paid: true,  fn: () => { const n = new Date(); const f = new Date(n); f.setFullYear(n.getFullYear()-1); return { from: startOfDay(f), to: endOfDay(n) }; } },
+  { key: 'ytd',      label: 'miniapp.graph.period.ytd',      icon: 'start',          paid: true,  fn: () => { const n = new Date(); return { from: startOfDay(new Date(n.getFullYear(), 0, 1)), to: endOfDay(n) }; } },
+  { key: 'all',      label: 'miniapp.graph.period.all',      icon: 'all_inclusive',  paid: true,  fn: () => null },
+  { key: 'custom',   label: 'miniapp.graph.period.custom',   icon: 'tune',           paid: true,  fn: null },
 ];
 
 function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
@@ -280,6 +281,7 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
   const [selected, setSelected] = useState<DatePresetKey | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const { play } = useSound();
+  const { t } = useI18n();
 
   const isPaid = userTier === 'stars_basic' || userTier === 'stars_pro';
 
@@ -328,7 +330,7 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
     <>
       <BottomSheet open={open} onClose={onClose} style={{ paddingBottom: 'calc(var(--tab-bar-h, 84px) + var(--bottom-inset, 0px) + 1rem)' }}>
         <div className="px-4 pt-3 pb-2">
-          <h3 className="text-[17px] font-semibold">Оберіть період</h3>
+          <h3 className="text-[17px] font-semibold">{t('miniapp.graph.period.sheet_title')}</h3>
         </div>
 
         {/* All presets — flat list */}
@@ -340,7 +342,7 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
             return (
               <button key={p.key} onClick={() => handlePreset(p)} className={cn('min-h-[44px] flex items-center gap-3 px-0 w-full', locked && 'opacity-60')}>
                 <Icon name={p.icon} size={20} className={locked ? 'text-muted-foreground/50 shrink-0' : 'text-primary/60 shrink-0'} />
-                <span className="flex-1 text-left text-[15px]">{p.label}</span>
+                <span className="flex-1 text-left text-[15px]">{t(p.label)}</span>
                 {locked
                   ? <Icon name="lock" size={16} className="text-yellow-400/70 shrink-0" />
                   : isSelected
@@ -362,7 +364,7 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
               className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring" />
           </div>
           <div className="px-4 pt-2 pb-1">
-            <Button className="w-full min-h-[44px]" onClick={applyCustom}>Застосувати</Button>
+            <Button className="w-full min-h-[44px]" onClick={applyCustom}>{t('miniapp.graph.period.apply')}</Button>
           </div>
         </div>
       </BottomSheet>
@@ -380,6 +382,7 @@ function DateFilterSheet({ open, onClose, value, onChange, userTier }: {
 export default function GraphPage() {
   const { accessToken } = useAuth();
   const { play } = useSound();
+  const { t } = useI18n();
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
@@ -771,9 +774,12 @@ export default function GraphPage() {
       for (const n of group) freq.set(n.category, (freq.get(n.category) ?? 0) + 1);
       const topCat = [...freq.entries()].sort((a, b) => b[1] - a[1])[0][0];
       const UA: Record<string, string> = {
-        thoughts: 'Думки', ideas: 'Ідеї', feelings: 'Почуття', expenses: 'Витрати',
-        calories: 'Калорії', workout: 'Тренування', dreams: 'Сни', relationships: 'Стосунки',
-        health: "Здоров'я", travel: 'Подорожі', books: 'Книги', goals: 'Цілі', sleep: 'Сон',
+        thoughts: t('graph.category.thoughts') || 'Thoughts', ideas: t('graph.category.ideas') || 'Ideas',
+        feelings: t('graph.category.feelings') || 'Feelings', expenses: t('graph.category.expenses') || 'Expenses',
+        calories: t('graph.category.calories') || 'Calories', workout: t('graph.category.workout') || 'Workout',
+        dreams: t('graph.category.dreams') || 'Dreams', relationships: t('graph.category.relationships') || 'Relationships',
+        health: t('miniapp.graph.category.health'), travel: t('miniapp.graph.category.travel'),
+        books: t('miniapp.graph.category.books'), goals: t('miniapp.graph.category.goals'), sleep: t('miniapp.graph.category.sleep'),
       };
       clusterLabels.push({ nodes: group, label: UA[topCat] ?? topCat });
     }
@@ -976,7 +982,7 @@ export default function GraphPage() {
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <h1 className="text-lg font-semibold">Графік</h1>
+            <h1 className="text-lg font-semibold">{t('miniapp.graph.title')}</h1>
             {!(tierLoaded && userTier === 'free') && (
               <button
                 onClick={() => { play('OPEN'); setShowInfo(true); }}
@@ -1132,9 +1138,9 @@ export default function GraphPage() {
           >
             <EmptyState
               icon="🕸️"
-              title="Граф ще порожній"
-              subtitle="Надішли перші записи боту — після кількох записів тут з'явиться граф зв'язків між ними."
-              ctaLabel="Відкрити бота"
+              title={t('miniapp.graph.empty.title')}
+              subtitle={t('miniapp.graph.empty.subtitle')}
+              ctaLabel={t('miniapp.graph.empty.cta')}
               onCta={() => window.open(`https://t.me/${BOT_USERNAME}`, '_blank')}
             />
           </motion.div>
@@ -1218,19 +1224,19 @@ export default function GraphPage() {
                 </motion.div>
 
                 {/* Title */}
-                <p className="text-[22px] font-bold leading-tight mb-1">Граф зв&apos;язків</p>
+                <p className="text-[22px] font-bold leading-tight mb-1">{t('miniapp.graph.paywall.title')}</p>
                 <p className="text-[14px] text-muted-foreground mb-5">
-                  Візуалізуй, як твої думки та записи пов&apos;язані між собою
+                  {t('miniapp.graph.paywall.subtitle')}
                 </p>
 
                 {/* Feature list */}
                 <div className="w-full rounded-2xl bg-muted/30 border border-border/30 px-4 py-3 mb-5 flex flex-col gap-2.5 text-left">
                   {[
-                    { emoji: '🔗', text: 'Зв\'язки між записами' },
-                    { emoji: '🎨', text: 'Кольорові кластери по категоріях' },
-                    { emoji: '🔍', text: 'Пошук патернів у думках' },
-                    { emoji: '✏️', text: 'Редагування записів прямо з графу' },
-                    { emoji: '🌐', text: 'Інтерактивна навігація' },
+                    { emoji: '🔗', text: t('miniapp.graph.paywall.feature1') },
+                    { emoji: '🎨', text: t('miniapp.graph.paywall.feature2') },
+                    { emoji: '🔍', text: t('miniapp.graph.paywall.feature3') },
+                    { emoji: '✏️', text: t('miniapp.graph.paywall.feature4') },
+                    { emoji: '🌐', text: t('miniapp.graph.paywall.feature5') },
                   ].map(({ emoji, text }, i) => (
                     <motion.div
                       key={text}
@@ -1253,7 +1259,7 @@ export default function GraphPage() {
                   className="flex items-center gap-2 mb-4"
                 >
                   <span className="text-lg">🌟</span>
-                  <span className="text-[13px] text-muted-foreground">Доступно з плану <span className="font-semibold text-foreground">Memo Nova</span></span>
+                  <span className="text-[13px] text-muted-foreground">{t('miniapp.graph.paywall.available_from')} <span className="font-semibold text-foreground">Memo Nova</span></span>
                 </motion.div>
 
                 {/* CTA */}
@@ -1267,7 +1273,7 @@ export default function GraphPage() {
                     className="w-full min-h-[48px] text-[15px] font-semibold"
                     onClick={() => { play('OPEN'); openPaywall('graph_full', undefined, undefined, 'stars_basic'); }}
                   >
-                    Перейти на Nova — 250 ⭐
+                    {t('miniapp.graph.paywall.cta')}
                   </Button>
                 </motion.div>
               </motion.div>
