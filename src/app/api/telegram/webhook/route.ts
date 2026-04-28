@@ -74,19 +74,14 @@ async function handleStartWithReferral(ctx: BotContext, code: string): Promise<v
   }
 
   if (referrerUsername) {
-    // Personalised referral welcome
+    // Personalised referral welcome — use the new user's language
     const miniappUrl = env.MINIAPP_URL ?? "https://project-mb7a5.vercel.app/miniapp";
+    const escapedUsername = referrerUsername.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
     await ctx.reply(
-      `👋 Привіт\\! Тебе запросив *@${referrerUsername.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&")}* 🎁\n\n` +
-      `Я *Memo* — твій особистий AI\\-щоденник у Telegram 📓\n\n` +
-      `*Як працює реферальна програма:*\n` +
-      `• Оформи підписку *Nova на 1 місяць* — 250 ⭐\n` +
-      `• Ти отримаєш *\\+30 днів Nova безкоштовно* зверху\n` +
-      `• @${referrerUsername.replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&")} теж отримає *\\+30 днів Nova*\n\n` +
-      `Відкрий Memo, щоб почати 👇`,
+      t('bot.referral.welcome', ctx.locale, { username: escapedUsername }),
       {
         parse_mode: "MarkdownV2",
-        reply_markup: new InlineKeyboard().webApp("📱 Відкрити Memo", miniappUrl),
+        reply_markup: new InlineKeyboard().webApp(t('bot.miniapp.button', ctx.locale), miniappUrl),
       }
     );
   } else {
@@ -137,16 +132,17 @@ async function processReferralReward(referredUserId: string): Promise<void> {
     // Notify referrer via bot
     const { data: referrerProfile } = await supabase
       .from("profiles")
-      .select("telegram_id")
+      .select("telegram_id, settings")
       .eq("id", referral.referrer_id)
       .single();
 
     if (referrerProfile?.telegram_id) {
       try {
         const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+        const referrerLocale = getLocale(referrerProfile.settings as Record<string, unknown> | undefined);
         await bot.api.sendMessage(
           Number(referrerProfile.telegram_id),
-          t('bot.referral.reward_granted', 'uk'),
+          t('bot.referral.reward_granted', referrerLocale),
           { parse_mode: "MarkdownV2" }
         );
       } catch (notifyErr) {
