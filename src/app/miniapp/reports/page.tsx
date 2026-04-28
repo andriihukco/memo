@@ -497,9 +497,9 @@ function CategoryBreakdown({ breakdown }: { breakdown: { name: string; count: nu
 
 // Metric highlights — 2×2 grid of big numbers
 function MetricHighlights({ metrics }: { metrics: { label: string; value: number; unit: string; icon: string }[] }) {
-  if (metrics.length === 0) return null;
   const COLORS = ['#4797FF', '#34d399', '#fbbf24', '#f87171'];
   const { t } = useI18n();
+  if (metrics.length === 0) return null;
   return (
     <StatCard title={t('miniapp.reports.stat.metrics')} accent="#fbbf24">
       <div className="grid grid-cols-2 gap-2">
@@ -519,8 +519,8 @@ function MetricHighlights({ metrics }: { metrics: { label: string; value: number
 
 // Mood sparkline — bar chart of daily mood
 function MoodSparkline({ moodTrend }: { moodTrend: number[]; dailyVolume: { date: string; count: number }[] }) {
-  const hasData = moodTrend.some(v => v !== 0);
   const { t } = useI18n();
+  const hasData = moodTrend.some(v => v !== 0);
   if (!hasData) return null;
   const avg = moodTrend.filter(v => v !== 0).reduce((a, b) => a + b, 0) / (moodTrend.filter(v => v !== 0).length || 1);
   const label = avg > 0.5 ? t('miniapp.reports.stat.mood_positive') : avg < -0.5 ? t('miniapp.reports.stat.mood_negative') : t('miniapp.reports.stat.mood_neutral');
@@ -568,11 +568,11 @@ function VolumeChart({ dailyVolume }: { dailyVolume: { date: string; count: numb
 
 // Hourly activity chart — when are you most active?
 function HourlyChart({ hourlyVolume }: { hourlyVolume: number[] }) {
+  const { t } = useI18n();
   const max = Math.max(1, ...hourlyVolume);
   const peakHour = hourlyVolume.indexOf(max);
   const fmt = (h: number) => `${h.toString().padStart(2,'0')}:00`;
   const total = hourlyVolume.reduce((a,b) => a+b, 0);
-  const { t } = useI18n();
   if (total === 0) return null;
   return (
     <StatCard title={t('miniapp.reports.stat.hourly')} accent="#f472b6">
@@ -597,11 +597,9 @@ function HourlyChart({ hourlyVolume }: { hourlyVolume: number[] }) {
 // Weekday pattern — which days are most active?
 function WeekdayPattern({ weekdayVolume }: { weekdayVolume: number[] }) {
   const { t } = useI18n();
-  // Short weekday names — use locale-aware abbreviations
-  const DAYS = [t('miniapp.reports.stat.weekday').slice(0,2), 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-  // Actually use locale-specific short day names via Intl
+  // Locale-specific short day names via Intl (Jan 1 2024 is Monday)
   const shortDays = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(2024, 0, 1 + i); // Jan 1 2024 is Monday
+    const d = new Date(2024, 0, 1 + i);
     return d.toLocaleDateString(undefined, { weekday: 'short' }).slice(0, 2);
   });
   const max = Math.max(1, ...weekdayVolume);
@@ -694,7 +692,7 @@ function ReportShareCard({ report, cardRef }: {
       const raw = stripSectionHeader(report[s.key]!);
       // Take first non-empty line as the highlight snippet
       const snippet = raw.split('\n').map(l => l.trim()).find(l => l.length > 0) ?? '';
-      highlights.push({ emoji: s.emoji, label: s.label, text: snippet.slice(0, 80) + (snippet.length > 80 ? '…' : '') });
+      highlights.push({ emoji: s.emoji, label: s.labelKey, text: snippet.slice(0, 80) + (snippet.length > 80 ? '…' : '') });
     }
   }
   // Fallback: use summary excerpt if no retro sections
