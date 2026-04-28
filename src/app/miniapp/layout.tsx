@@ -509,6 +509,7 @@ function OnboardingOverlay({ onDone, hasLanguageSet }: { onDone: () => void; has
   const startX = useRef(0);
   const startY = useRef(0);
   const isScrolling = useRef<boolean | null>(null);
+  const direction = useRef(1);
   const [dragOffset, setDragOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
   const { play } = useSound();
@@ -594,7 +595,6 @@ function OnboardingOverlay({ onDone, hasLanguageSet }: { onDone: () => void; has
   };
 
   const slide = SLIDES[index];
-  const direction = useRef(1);
 
   const slideVariants = {
     enter: (d: number) => ({ x: d > 0 ? 120 : -120, opacity: 0, scale: 0.95 }),
