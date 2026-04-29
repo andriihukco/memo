@@ -14,9 +14,11 @@ import { handleAction } from "@/lib/bot/handlers/action";
 import { sanitizeMarkdown } from "@/lib/utils";
 import { extractFacts, saveMemory } from "@/lib/bot/memory";
 import { deriveUserKey, encryptField } from "@/lib/crypto";
+import type { Locale } from "@/i18n/locales";
 
 interface BotContext extends Context {
   profile?: Profile;
+  locale: Locale;
 }
 
 function getServiceClient() {
