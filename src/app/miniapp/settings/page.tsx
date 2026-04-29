@@ -448,56 +448,36 @@ function InviteSheet({ accessToken, onClose }: { accessToken: string | null; onC
 
 // ── ExportSheet ───────────────────────────────────────────────────────────────
 
-type ExportState = 'idle' | 'loading' | 'ready' | 'error';
+type ExportState = 'idle' | 'sending' | 'sent' | 'error';
 
 function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onClose: () => void }) {
-  const [state, setState] = useState<ExportState>('loading');
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const [fileName, setFileName] = useState('');
+  const [state, setState] = useState<ExportState>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const { play } = useSound();
   const { t } = useI18n();
 
   useSheetBodyAttr(true);
 
-  useEffect(() => {
-    if (!accessToken) { setState('error'); setErrorMsg('Не авторизовано'); return; }
-    fetch('/api/profile/export', { headers: { Authorization: `Bearer ${accessToken}` } })
-      .then(async res => {
-        if (!res.ok) {
-          const d = await res.json().catch(() => ({}));
-          throw new Error(d.error ?? 'Помилка сервера');
-        }
-        return res.blob();
-      })
-      .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const name = `memo-export-${new Date().toISOString().slice(0, 10)}.zip`;
-        setDownloadUrl(url);
-        setFileName(name);
-        setState('ready');
-        play('CELEBRATION');
-      })
-      .catch(err => {
-        setErrorMsg(err instanceof Error ? err.message : 'Не вдалося завантажити дані');
-        setState('error');
-        play('CAUTION');
+  const handleSend = async () => {
+    if (!accessToken || state === 'sending') return;
+    play('BUTTON');
+    setState('sending');
+    setErrorMsg('');
+    try {
+      const res = await fetch('/api/profile/export/send', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
       });
-    // cleanup blob URL on unmount
-    return () => { if (downloadUrl) URL.revokeObjectURL(downloadUrl); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const handleOpen = () => {
-    if (!downloadUrl) return;
-    play('OPEN');
-    // Telegram miniapps block programmatic clicks — use openLink if available,
-    // otherwise fall back to window.open which opens in the system browser.
-    const tg = (window as { Telegram?: { WebApp?: { openLink?: (url: string) => void } } }).Telegram?.WebApp;
-    if (tg?.openLink) {
-      tg.openLink(downloadUrl);
-    } else {
-      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Помилка сервера');
+      }
+      play('CELEBRATION');
+      setState('sent');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Не вдалося надіслати дані');
+      setState('error');
+      play('CAUTION');
     }
   };
 
@@ -523,9 +503,9 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
         <div className="mb-4 flex justify-center">
           <div className={cn(
             'flex h-14 w-14 items-center justify-center rounded-full',
-            state === 'ready' ? 'bg-green-500/15' : state === 'error' ? 'bg-destructive/10' : 'bg-primary/10'
+            state === 'sent' ? 'bg-green-500/15' : state === 'error' ? 'bg-destructive/10' : 'bg-primary/10'
           )}>
-            {state === 'loading' && (
+            {state === 'sending' && (
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
@@ -533,26 +513,30 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
                 <Icon name="progress_activity" size={26} className="text-primary" />
               </motion.div>
             )}
-            {state === 'ready' && <Icon name="check_circle" size={26} className="text-green-400" />}
+            {state === 'sent' && <Icon name="check_circle" size={26} className="text-green-400" />}
             {state === 'error' && <Icon name="error" size={26} className="text-destructive" />}
+            {state === 'idle' && <Icon name="download" size={26} className="text-primary" />}
           </div>
         </div>
 
         {/* Title + body */}
         <div className="mb-6 text-center">
-          {state === 'loading' && (
+          {state === 'idle' && (
+            <>
+              <p className="text-base font-semibold">{t('miniapp.export.ready')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('miniapp.export.send_via_bot_desc')}</p>
+            </>
+          )}
+          {state === 'sending' && (
             <>
               <p className="text-base font-semibold">{t('miniapp.export.preparing')}</p>
               <p className="mt-1 text-sm text-muted-foreground">{t('miniapp.export.preparing_desc')}</p>
             </>
           )}
-          {state === 'ready' && (
+          {state === 'sent' && (
             <>
-              <p className="text-base font-semibold">{t('miniapp.export.ready')}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{fileName}</p>
-              <p className="mt-2 text-xs text-muted-foreground/70">
-                {t('miniapp.export.browser_note')}
-              </p>
+              <p className="text-base font-semibold text-green-400">{t('miniapp.export.sent_title')}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{t('miniapp.export.sent_desc')}</p>
             </>
           )}
           {state === 'error' && (
@@ -565,20 +549,20 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
-          {state === 'ready' && (
+          {state === 'idle' && (
             <motion.button
               whileTap={{ scale: 0.97 }}
-              onClick={handleOpen}
+              onClick={handleSend}
               className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
             >
-              <Icon name="open_in_new" size={16} />
-              {t('miniapp.export.open_browser')}
+              <Icon name="send" size={16} />
+              {t('miniapp.export.send_via_bot')}
             </motion.button>
           )}
           {state === 'error' && (
             <motion.button
               whileTap={{ scale: 0.97 }}
-              onClick={() => { setState('loading'); setErrorMsg(''); }}
+              onClick={handleSend}
               className="w-full rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground"
             >
               {t('miniapp.export.retry')}
@@ -589,7 +573,7 @@ function ExportSheet({ accessToken, onClose }: { accessToken: string | null; onC
             onClick={() => { play('CLOSE'); onClose(); }}
             className="w-full py-3 text-sm text-muted-foreground"
           >
-            {state === 'loading' ? t('miniapp.export.cancel') : t('miniapp.export.close')}
+            {t('miniapp.export.close')}
           </motion.button>
         </div>
       </motion.div>

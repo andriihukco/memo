@@ -104,9 +104,9 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
   const [trialDone, setTrialDone] = useState(false);
 
   const BILLING = {
-    monthly:   { label: 'Місяць',   months: 1,  days: 30,  discount: 0,   badge: null },
-    quarterly: { label: '3 місяці', months: 3,  days: 90,  discount: 15,  badge: '−15%' },
-    annual:    { label: 'Рік',      months: 12, days: 365, discount: 30,  badge: '−30%' },
+    monthly:   { label: t('miniapp.subs.billing.monthly'),   months: 1,  days: 30,  discount: 0,   badge: null },
+    quarterly: { label: t('miniapp.subs.billing.quarterly'), months: 3,  days: 90,  discount: 15,  badge: '−15%' },
+    annual:    { label: t('miniapp.subs.billing.annual'),    months: 12, days: 365, discount: 30,  badge: '−30%' },
   } as const;
 
   const calcPrice = (base: number) => {
