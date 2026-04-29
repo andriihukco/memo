@@ -181,7 +181,12 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       emoji: '🌟',
       name: 'Nova',
       basePrice: 250,
-      features: ['До 2 000 записів', '15 AI-віджетів', 'AI ретроспективи', 'Граф зв\'язків'],
+      features: [
+        t('miniapp.subs.tier.basic.f1'),
+        t('miniapp.subs.tier.basic.f2'),
+        t('miniapp.subs.tier.basic.f8'),
+        t('miniapp.subs.tier.basic.f12'),
+      ],
       recommended: true,
     },
     {
@@ -189,7 +194,12 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
       emoji: '💫',
       name: 'Supernova',
       basePrice: 500,
-      features: ['Необмежені записи', 'Необмежені AI-віджети', 'Повна історія', 'Експорт даних'],
+      features: [
+        t('miniapp.subs.tier.pro.f1'),
+        t('miniapp.subs.tier.pro.f2'),
+        t('miniapp.subs.tier.pro.f12'),
+        t('miniapp.subs.tier.pro.f13'),
+      ],
       recommended: false,
     },
   ];
@@ -249,7 +259,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
           <span className="text-xl">✨</span>
           <div className="flex-1">
             <p className="text-[14px] font-semibold text-white">Memo Spark</p>
-            <p className="text-[12px] text-white/40">До 100 записів · 3 AI-віджети · 5 ретроспектив</p>
+            <p className="text-[12px] text-white/40">{t('miniapp.subs.tier.free.f1')} · {t('miniapp.subs.tier.free.f2')} · {t('miniapp.subs.tier.free.f4')}</p>
           </div>
           <span className="text-[13px] text-white/40">{t('miniapp.onboarding.paywall.free_forever')}</span>
         </div>

@@ -76,6 +76,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
   userTier?: string | null;
 }) {
   const { play } = useSound();
+  const { t } = useI18n();
   const [offsetX, setOffsetX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const startX = useRef(0), startY = useRef(0);
@@ -119,7 +120,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
         <div className="absolute inset-0 flex items-center justify-end rounded-xl bg-destructive pr-5" style={{ opacity: revealRatio }}>
           <div className="flex flex-col items-center gap-0.5">
             <Icon name="delete" size={20} className="text-destructive-foreground" />
-            <span className="text-[10px] font-medium text-destructive-foreground">Видалити</span>
+            <span className="text-[10px] font-medium text-destructive-foreground">{t('miniapp.feed.delete_bg_label')}</span>
           </div>
         </div>
         <Card
@@ -144,12 +145,12 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
             <div className={cn('mb-1.5 flex flex-wrap items-center gap-1.5', isSelectMode && 'pl-7')}>
               {entryType === 'goal' && (
                 <span className="rounded-full bg-amber-400/20 border border-amber-400/40 text-amber-300 text-[10px] px-2 py-0.5">
-                  Ціль
+                  {t('miniapp.feed.goal_badge')}
                 </span>
               )}
               {entryType !== 'goal' && Array.isArray(entry.metadata?.dashboard_metrics) && (entry.metadata.dashboard_metrics as unknown[]).length > 0 && (
                 <span className="rounded-full bg-primary/20 border border-primary/40 text-primary text-[10px] px-2 py-0.5">
-                  Лог
+                  {t('miniapp.feed.log_badge')}
                 </span>
               )}
               {entry.category.split(',').map(c => c.trim()).filter(Boolean).map(cat => (
@@ -171,7 +172,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
                     </div>
                     <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
                       <Icon name="lock" size={10} />
-                      <span>Доступно з Basic</span>
+                      <span>{t('miniapp.feed.goal_locked')}</span>
                     </div>
                   </div>
                 );
@@ -295,7 +296,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
         {/* Thread meta row */}
         <div className="flex items-center gap-2 px-3 pt-3 pb-2">
           <span className="text-[11px] text-muted-foreground/60">
-            {entries.length} повідомлень
+            {t('miniapp.feed.thread.more', { count: String(entries.length) }).replace(' ↓', '')}
           </span>
           <span className="ml-auto flex gap-1 flex-wrap justify-end">
             {firstCats.map(cat => (
@@ -331,11 +332,11 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
                     'mt-1 h-5 w-5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold',
                     isUser ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground',
                   )}>
-                    {isUser ? 'Я' : <Icon name="smart_toy" size={11} />}
+                    {isUser ? t('miniapp.feed.thread.you_label') : <Icon name="smart_toy" size={11} />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-1.5 mb-0.5">
-                      <span className="text-[11px] font-medium text-muted-foreground">{isUser ? 'Ти' : 'Memo'}</span>
+                      <span className="text-[11px] font-medium text-muted-foreground">{isUser ? t('miniapp.feed.thread.you') : t('miniapp.feed.thread.bot')}</span>
                       <time className="text-[10px] text-muted-foreground/50">{formatTime(entry.created_at)}</time>
                     </div>
                     <p className="text-[14px] leading-snug text-foreground/90">{entry.content}</p>
@@ -362,7 +363,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
             onClick={() => { play('OPEN'); setShowAll(true); }}
             className="w-full py-2 text-[12px] text-primary/70 border-t border-border/20 active:bg-muted/10"
           >
-            Ще {hidden} {hidden === 1 ? 'повідомлення' : 'повідомлень'} ↓
+            {t('miniapp.feed.thread.more', { count: String(hidden) })}
           </button>
         )}
         {showAll && entries.length > PREVIEW && (
@@ -370,7 +371,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
             onClick={() => { play('CLOSE'); setShowAll(false); }}
             className="w-full py-2 text-[12px] text-muted-foreground border-t border-border/20 active:bg-muted/10"
           >
-            Згорнути ↑
+            {t('miniapp.feed.thread.collapse')}
           </button>
         )}
       </div>
@@ -464,7 +465,7 @@ function SwipeableThreadCard({ group, isSelectMode, selectedIds, onLongPress, on
         <div className="absolute inset-0 flex items-center justify-end rounded-2xl bg-destructive pr-5" style={{ opacity: revealRatio }}>
           <div className="flex flex-col items-center gap-0.5">
             <Icon name="delete" size={20} className="text-destructive-foreground" />
-            <span className="text-[10px] font-medium text-destructive-foreground">Видалити</span>
+            <span className="text-[10px] font-medium text-destructive-foreground">{t('miniapp.feed.delete_bg_label')}</span>
           </div>
         </div>
         {/* Card content shifted */}
@@ -886,7 +887,7 @@ export default function FeedPage() {
             className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-semibold text-destructive-foreground shadow-lg disabled:opacity-40 min-h-[44px]"
           >
             <Icon name="delete" size={15} />
-            Видалити {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+            {t('miniapp.feed.delete.button')} {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
           </button>
         </div>
       )}

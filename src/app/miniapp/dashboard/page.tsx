@@ -714,9 +714,9 @@ function CreateWidgetSheet({ onClose, onCreated, onPaywall, accessToken, hasEntr
         {creating ? (
           <span className="flex items-center gap-2">
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-            {selected.directWidget ? 'Створюємо...' : 'AI створює...'}
+            {selected.directWidget ? t('miniapp.dashboard.widget.creating_btn') : t('miniapp.dashboard.widget.creating_ai_btn')}
           </span>
-        ) : hasGoal ? 'Створити віджет + ціль' : 'Створити віджет'}
+        ) : hasGoal ? t('miniapp.dashboard.widget.create_with_goal') : t('miniapp.dashboard.widget.create_simple')}
       </Button>
     </BottomSheet>
     );
@@ -1828,11 +1828,11 @@ export default function DashboardPage() {
               title={t('miniapp.dashboard.no_data.title')}
               subtitle={t('miniapp.dashboard.no_data.subtitle')}
               features={[
-                { emoji: '🔥', text: 'Калорії, кроки, тренування' },
-                { emoji: '😴', text: 'Сон, настрій, рівень енергії' },
-                { emoji: '💸', text: 'Витрати по категоріях' },
-                { emoji: '💡', text: 'Ідеї та нотатки' },
-                { emoji: '➕', text: 'Створи власний AI-віджет' },
+                { emoji: '🔥', text: t('miniapp.dashboard.empty.feature1') },
+                { emoji: '😴', text: t('miniapp.dashboard.empty.feature2') },
+                { emoji: '💸', text: t('miniapp.dashboard.empty.feature3') },
+                { emoji: '💡', text: t('miniapp.dashboard.empty.feature4') },
+                { emoji: '➕', text: t('miniapp.dashboard.empty.feature5') },
               ]}
               ctaLabel={t('miniapp.dashboard.new_widget')}
               onCta={handleAddWidgetTap}

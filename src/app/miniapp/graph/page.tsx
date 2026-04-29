@@ -108,6 +108,7 @@ interface NodeDetailPanelProps {
 function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, accessToken }: NodeDetailPanelProps) {
   const [editEntry, setEditEntry] = useState<GraphNode | null>(null);
   const { play } = useSound();
+  const { t } = useI18n();
 
   if (!node) return null;
 
@@ -184,7 +185,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
             transition={{ delay: 0.18, duration: 0.25 }}
           >
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Пов&apos;язані записи ({linkedNodes.length}):
+              {t('miniapp.graph.linked_entries', { count: String(linkedNodes.length) })}
             </p>
             <div className="flex flex-col gap-2">
               {linkedNodes.map((n, i) => {
@@ -947,23 +948,23 @@ export default function GraphPage() {
   // Match the active date range to a preset label (like the widget date picker)
   // Only fall back to short date format for custom ranges
   function getDateLabel(range: { from: Date; to: Date } | null): string {
-    if (!range) return 'Весь час';
+    if (!range) return t('miniapp.graph.period.all');
     const now = new Date();
     const fromMs = range.from.getTime();
     const toMs = range.to.getTime();
     const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
     const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999);
     const diff = Math.round((toMs - fromMs) / 86400000);
-    if (Math.abs(fromMs - todayStart.getTime()) < 60000 && Math.abs(toMs - todayEnd.getTime()) < 60000) return 'Сьогодні';
+    if (Math.abs(fromMs - todayStart.getTime()) < 60000 && Math.abs(toMs - todayEnd.getTime()) < 60000) return t('miniapp.graph.period.today');
     const yest = new Date(now); yest.setDate(now.getDate() - 1);
     const yestStart = new Date(yest); yestStart.setHours(0,0,0,0);
     const yestEnd = new Date(yest); yestEnd.setHours(23,59,59,999);
-    if (Math.abs(fromMs - yestStart.getTime()) < 60000 && Math.abs(toMs - yestEnd.getTime()) < 60000) return 'Вчора';
-    if (diff === 6) return '7 днів';
-    if (diff === 13) return '2 тижні';
-    if (diff >= 28 && diff <= 31) return '30 днів';
-    if (diff >= 88 && diff <= 93) return '3 місяці';
-    if (diff >= 363 && diff <= 368) return 'Рік';
+    if (Math.abs(fromMs - yestStart.getTime()) < 60000 && Math.abs(toMs - yestEnd.getTime()) < 60000) return t('miniapp.graph.period.yesterday');
+    if (diff === 6) return t('miniapp.graph.period.week');
+    if (diff === 13) return t('miniapp.graph.period.2weeks');
+    if (diff >= 28 && diff <= 31) return t('miniapp.graph.period.month');
+    if (diff >= 88 && diff <= 93) return t('miniapp.graph.period.3months');
+    if (diff >= 363 && diff <= 368) return t('miniapp.graph.period.year');
     // Custom — short format without year
     const fmt = (d: Date) => d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' });
     return `${fmt(range.from)} – ${fmt(range.to)}`;
@@ -1343,9 +1344,9 @@ export default function GraphPage() {
                 <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 text-4xl shadow-lg shadow-indigo-500/10">
                   🕸️
                 </div>
-                <h3 className="text-[22px] font-bold leading-tight mb-1">Граф зв&apos;язків</h3>
+                <h3 className="text-[22px] font-bold leading-tight mb-1">{t('miniapp.graph.info.title')}</h3>
                 <p className="text-[14px] text-muted-foreground leading-relaxed max-w-xs mx-auto">
-                  Твої думки та записи — це не просто список. Це жива мережа ідей.
+                  {t('miniapp.graph.info.subtitle')}
                 </p>
               </div>
 
@@ -1356,43 +1357,43 @@ export default function GraphPage() {
                     emoji: '🔵',
                     bg: 'from-slate-500/20 to-slate-600/10',
                     accent: 'text-slate-300',
-                    title: 'Крапки — твої записи',
-                    body: 'Кожна крапка — один запис. Більша крапка = більше зв\'язків. Колір відповідає категорії.',
+                    title: t('miniapp.graph.info.dots_title'),
+                    body: t('miniapp.graph.info.dots_body'),
                   },
                   {
                     emoji: '🔗',
                     bg: 'from-indigo-500/20 to-blue-500/10',
                     accent: 'text-indigo-300',
-                    title: 'Три типи зв\'язків',
-                    body: 'Сині лінії — один діалог з ботом. Жовті — зв\'язок між категоріями. Пунктир — AI знайшов схожість.',
+                    title: t('miniapp.graph.info.links_title'),
+                    body: t('miniapp.graph.info.links_body'),
                   },
                   {
                     emoji: '🧠',
                     bg: 'from-violet-500/20 to-purple-500/10',
                     accent: 'text-violet-300',
-                    title: 'AI-семантика',
-                    body: 'Кожен запис перетворюється на числовий вектор. Близькі вектори = схожі думки, навіть різними словами.',
+                    title: t('miniapp.graph.info.ai_title'),
+                    body: t('miniapp.graph.info.ai_body'),
                   },
                   {
                     emoji: '🎨',
                     bg: 'from-pink-500/20 to-rose-500/10',
                     accent: 'text-pink-300',
-                    title: 'Кольори та кластери',
-                    body: 'Однакові кольори — одна категорія. Кластери — групи пов\'язаних записів з підписом домінуючої теми.',
+                    title: t('miniapp.graph.info.colors_title'),
+                    body: t('miniapp.graph.info.colors_body'),
                   },
                   {
                     emoji: '👆',
                     bg: 'from-cyan-500/20 to-teal-500/10',
                     accent: 'text-cyan-300',
-                    title: 'Навігація',
-                    body: 'Тап на чіп — виділяє категорію та наближає до неї. Зводь/розводь пальці для зуму. Тягни для переміщення.',
+                    title: t('miniapp.graph.info.nav_title'),
+                    body: t('miniapp.graph.info.nav_body'),
                   },
                   {
                     emoji: '✏️',
                     bg: 'from-amber-500/20 to-yellow-500/10',
                     accent: 'text-amber-300',
-                    title: 'Редагування',
-                    body: 'Тап на крапку — деталі запису та пов\'язані записи. Можна редагувати або видалити прямо звідси.',
+                    title: t('miniapp.graph.info.edit_title'),
+                    body: t('miniapp.graph.info.edit_body'),
                   },
                 ].map(({ emoji, bg, accent, title, body }, i) => (
                   <motion.div
