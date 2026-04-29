@@ -285,6 +285,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
   const hidden = entries.length - PREVIEW;
   const [editEntry, setEditEntry] = useState<Entry | null>(null);
   const { play } = useSound();
+  const { t } = useI18n();
 
   // Category badges from first entry — split multi-category strings
   const firstEntry = entries[0];
@@ -296,7 +297,7 @@ function ThreadCard({ group, isSelectMode, selectedIds, onLongPress, onToggleSel
         {/* Thread meta row */}
         <div className="flex items-center gap-2 px-3 pt-3 pb-2">
           <span className="text-[11px] text-muted-foreground/60">
-            {t('miniapp.feed.thread.more', { count: String(entries.length) }).replace(' ↓', '')}
+            {t('miniapp.feed.thread.count', { count: String(entries.length) })}
           </span>
           <span className="ml-auto flex gap-1 flex-wrap justify-end">
             {firstCats.map(cat => (

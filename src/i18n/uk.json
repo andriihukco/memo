@@ -302,6 +302,7 @@
   "miniapp.feed.thread.more": "Ще {count} повідомлень ↓",
   "miniapp.feed.thread.collapse": "Згорнути ↑",
   "miniapp.feed.thread.delete_bg": "Видалити",
+  "miniapp.feed.thread.count": "{count} повідомлень",
   "miniapp.dashboard.title.widgets": "Віджети",
   "miniapp.dashboard.title.goals": "Цілі",
   "miniapp.dashboard.filter.all": "Всі",

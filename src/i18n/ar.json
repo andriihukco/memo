@@ -302,6 +302,7 @@
   "miniapp.feed.thread.more": "{count} more messages ↓",
   "miniapp.feed.thread.collapse": "Collapse ↑",
   "miniapp.feed.thread.delete_bg": "Delete",
+  "miniapp.feed.thread.count": "{count} messages",
   "miniapp.dashboard.title.widgets": "Widgets",
   "miniapp.dashboard.title.goals": "Goals",
   "miniapp.dashboard.filter.all": "All",
