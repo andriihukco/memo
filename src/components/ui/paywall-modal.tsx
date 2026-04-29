@@ -11,95 +11,19 @@ import { TIER_INFO, BILLING_PERIODS, calcPrice } from '@/lib/stars/paywall';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n/context';
 
-// ── Feature copy map ──────────────────────────────────────────────────────────
+// ── Feature emoji map ─────────────────────────────────────────────────────────
 
-interface FeatureCopy {
-  emoji: string;
-  title: string;
-  subtitle: (current: number, limit: number) => string;
-  basicFeatures: string[];
-  proFeatures: string[];
-}
-
-const PAYWALL_COPY: Record<string, FeatureCopy> = {
-  ai_reports: {
-    emoji: '✨',
-    title: 'AI ретроспективи',
-    subtitle: () => 'Аналізуй свій прогрес за будь-який період',
-    basicFeatures: ['50 звітів на місяць', 'Щоденні, тижневі, місячні', 'Структурований аналіз'],
-    proFeatures: ['Необмежені звіти', 'Пріоритетна обробка', 'Повна аналітика'],
-  },
-  ai_recommendations: {
-    emoji: '💡',
-    title: 'AI рекомендації',
-    subtitle: () => 'Персоналізовані поради на основі твоїх даних',
-    basicFeatures: ['Щотижневі рекомендації', 'Аналіз патернів', 'Поради по здоров\'ю'],
-    proFeatures: ['Щоденні рекомендації', 'Пріоритетна обробка', 'Розширений аналіз'],
-  },
-  goal_tracking: {
-    emoji: '🎯',
-    title: 'Трекінг цілей',
-    subtitle: () => 'Ставь цілі та відстежуй прогрес',
-    basicFeatures: ['Необмежені цілі', 'Прогрес-бари', 'Нагадування'],
-    proFeatures: ['AI аналіз цілей', 'Пріоритетна обробка', 'Всі функції Basic'],
-  },
-  graph_full: {
-    emoji: '🕸️',
-    title: 'Граф зв\'язків',
-    subtitle: () => 'Візуалізуй, як твої думки та записи пов\'язані між собою',
-    basicFeatures: ['Інтерактивний граф', 'Кольорові кластери', 'Редагування з графу'],
-    proFeatures: ['Всі функції Nova', 'Пріоритетна обробка', 'Розширена аналітика'],
-  },
-  ai_widgets: {
-    emoji: '📊',
-    title: 'Ліміт AI-віджетів вичерпано',
-    subtitle: (c, l) => `Використано ${c} з ${l} AI-віджетів. Перейди на Nova для збільшення до 15.`,
-    basicFeatures: ['15 кастомних AI-віджетів', 'AI генерація метрик', 'Всі типи трекінгу'],
-    proFeatures: ['Необмежені AI-віджети', 'Пріоритетна обробка', 'Розширена аналітика'],
-  },
-  custom_widgets: {
-    emoji: '📊',
-    title: 'Ліміт AI-віджетів вичерпано',
-    subtitle: () => 'У безкоштовному плані доступно 3 AI-віджети. Перейди на Nova для збільшення до 15.',
-    basicFeatures: ['15 кастомних AI-віджетів', 'AI генерація метрик', 'Всі типи трекінгу'],
-    proFeatures: ['Необмежені AI-віджети', 'Пріоритетна обробка', 'Розширена аналітика'],
-  },
-  widgets: {
-    emoji: '📊',
-    title: 'Ліміт AI-віджетів вичерпано',
-    subtitle: (c, l) => `Використано ${c} з ${l} AI-віджетів. Перейди на Nova для збільшення до 15.`,
-    basicFeatures: ['15 кастомних AI-віджетів', 'AI генерація метрик', 'Всі типи трекінгу'],
-    proFeatures: ['Необмежені AI-віджети', 'Пріоритетна обробка', 'Розширена аналітика'],
-  },
-  entries: {
-    emoji: '📝',
-    title: 'Ліміт записів вичерпано',
-    subtitle: (c, l) => `${c} з ${l} записів використано`,
-    basicFeatures: ['До 2 000 записів', 'Повна стрічка', 'Всі категорії'],
-    proFeatures: ['Необмежені записи', 'Пріоритетна обробка', 'Повна аналітика'],
-  },
-  reports: {
-    emoji: '💡',
-    title: 'Ліміт ретроспектив вичерпано',
-    subtitle: (c, l) => `${c} з ${l} звітів цього місяця`,
-    basicFeatures: ['50 звітів на місяць', 'Всі типи аналізу', 'Структурований звіт'],
-    proFeatures: ['Необмежені звіти', 'Пріоритетна обробка', 'Повна аналітика'],
-  },
-  date_range: {
-    emoji: '📅',
-    title: 'Розширена історія',
-    subtitle: () => 'Аналізуй дані за 3 місяці, рік або весь час',
-    basicFeatures: ['3 місяці, рік, з початку року', 'Власний діапазон дат', '365 днів для Nova'],
-    proFeatures: ['Необмежена історія', 'Пріоритетна обробка', 'Повна аналітика'],
-  },
-};
-
-const FALLBACK_COPY: FeatureCopy = {
-  emoji: '🔒',
-  title: 'Функція недоступна',
-  subtitle: () => 'Перейди на платний план, щоб розблокувати',
-  basicFeatures: ['Розширені функції', 'AI аналітика', 'Більше лімітів'],
-  proFeatures: ['Необмежений доступ', 'Пріоритетна обробка', 'Всі функції'],
+const FEATURE_EMOJI: Record<string, string> = {
+  ai_reports: '✨',
+  ai_recommendations: '💡',
+  goal_tracking: '🎯',
+  graph_full: '🕸️',
+  ai_widgets: '📊',
+  custom_widgets: '📊',
+  widgets: '📊',
+  entries: '📝',
+  reports: '💡',
+  date_range: '📅',
 };
 
 // ── Warm elevation tokens (matches onboarding warm brown palette) ─────────────
@@ -146,7 +70,21 @@ export function PaywallModal({
   );
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('monthly');
 
-  const copy = PAYWALL_COPY[feature] ?? FALLBACK_COPY;
+  // Resolve feature copy from translation keys
+  const featureKey = feature in FEATURE_EMOJI ? feature : 'fallback';
+  const emoji = FEATURE_EMOJI[feature] ?? '🔒';
+  const title = t(`miniapp.paywall.${featureKey}.title`);
+  const subtitle = t(`miniapp.paywall.${featureKey}.subtitle`, { current: String(current), limit: String(limit) });
+  const basicFeatures = [
+    t(`miniapp.paywall.${featureKey}.basic_f1`),
+    t(`miniapp.paywall.${featureKey}.basic_f2`),
+    t(`miniapp.paywall.${featureKey}.basic_f3`),
+  ];
+  const proFeatures = [
+    t(`miniapp.paywall.${featureKey}.pro_f1`),
+    t(`miniapp.paywall.${featureKey}.pro_f2`),
+    t(`miniapp.paywall.${featureKey}.pro_f3`),
+  ];
 
   useEffect(() => {
     if (open) {
@@ -226,7 +164,7 @@ export function PaywallModal({
   const selectedInfo = TIER_INFO[selectedTier];
   const starsPrice = calcPrice(selectedInfo.priceStars, billingPeriod);
   const periodInfo = BILLING_PERIODS[billingPeriod];
-  const features = selectedTier === 'stars_basic' ? copy.basicFeatures : copy.proFeatures;
+  const features = selectedTier === 'stars_basic' ? basicFeatures : proFeatures;
   const showTrial = !trialUsed && selectedTier === 'stars_basic';
 
   // ── Success screen ──────────────────────────────────────────────────────────
@@ -281,7 +219,7 @@ export function PaywallModal({
         <button
           onClick={() => { play('CLOSE'); onClose(); }}
           className="absolute top-0 left-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70 active:bg-white/20 transition-colors"
-          aria-label="Закрити"
+          aria-label={t('miniapp.common.close')}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -296,7 +234,7 @@ export function PaywallModal({
             transition={{ type: 'spring', stiffness: 320, damping: 20, delay: 0.05 }}
             className="text-[52px] leading-none select-none"
           >
-            {copy.emoji}
+            {emoji}
           </motion.span>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -304,9 +242,9 @@ export function PaywallModal({
             transition={{ delay: 0.1, duration: 0.25 }}
             className="flex flex-col gap-1"
           >
-            <h2 className="text-[18px] font-bold tracking-tight text-white">{copy.title}</h2>
+            <h2 className="text-[18px] font-bold tracking-tight text-white">{title}</h2>
             <p className="text-[13px] text-white/50 leading-snug max-w-[260px] mx-auto">
-              {copy.subtitle(current, limit)}
+              {subtitle}
             </p>
           </motion.div>
         </div>
@@ -395,7 +333,7 @@ export function PaywallModal({
               </p>
               {billingPeriod !== 'monthly' && (
                 <p className="text-[10px] text-green-400 font-medium">
-                  ≈ {Math.round(starsPrice / periodInfo.months)} ⭐/міс
+                  ≈ {Math.round(starsPrice / periodInfo.months)} ⭐/{t('miniapp.subs.billing.monthly').toLowerCase()}
                 </p>
               )}
             </div>

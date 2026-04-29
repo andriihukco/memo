@@ -15,6 +15,7 @@ import { sanitizeMarkdown } from "@/lib/utils";
 import { extractFacts, saveMemory } from "@/lib/bot/memory";
 import { deriveUserKey, encryptField } from "@/lib/crypto";
 import type { Locale } from "@/i18n/locales";
+import { t } from "@/i18n/t";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -204,13 +205,13 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   // ── Questions ──────────────────────────────────────────────────────────────
   if (result.intent === "question") {
     const thinkingPhrases = [
-      "Хм, секунду... 🤔 Копаюсь у твоїх записах",
-      "Зачекай, шукаю в пам'яті... 🧠",
-      "Дай-но покопатись... 📖",
-      "Секунду, переглядаю твій щоденник... 🔍",
-    ];
+      t('bot.thinking.0', ctx.locale),
+      t('bot.thinking.1', ctx.locale),
+      t('bot.thinking.2', ctx.locale),
+      t('bot.thinking.3', ctx.locale),
+    ].filter(Boolean);
     const thinkingMsg = await ctx.reply(
-      thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)]
+      thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)] || '🤔'
     );
 
     const answer = await withTypingIndicator(ctx, () =>
@@ -325,6 +326,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
       userCtx,
       threadCtx,
       intent: result.intent as "save_entry" | "converse",
+      locale: ctx.locale,
     })
   );
   const finalReplyText = smartReply.text;

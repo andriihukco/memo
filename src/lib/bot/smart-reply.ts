@@ -1,5 +1,6 @@
 import type { EntryPayload, DashboardMetric } from "@/lib/classifier";
 import { generateConverseReply, type UserContext } from "@/lib/bot/converse";
+import type { Locale } from "@/i18n/locales";
 
 // ── Primary metric keys ───────────────────────────────────────────────────────
 
@@ -30,6 +31,8 @@ export interface SmartReplyOptions {
   threadCtx?: string;
   /** Classification intent — affects Conversational_Wrap placement for "converse" */
   intent: "save_entry" | "converse";
+  /** User's locale — used to instruct the AI to respond in the correct language */
+  locale?: Locale;
 }
 
 /** Result returned by generateSmartReply */
@@ -131,21 +134,21 @@ export function buildSmartReplyPrompt(options: SmartReplyOptions): string {
 
   // 1. Thread context (optional)
   if (threadCtx) {
-    prompt += `Контекст розмови:\n${threadCtx}\n\n`;
+    prompt += `Conversation context:\n${threadCtx}\n\n`;
   }
 
   // 2. User message
-  prompt += `Повідомлення користувача: ${userMessage}\n\n`;
+  prompt += `User message: ${userMessage}\n\n`;
 
   // 3. Saved entries block
-  prompt += `[ЗБЕРЕЖЕНО В ЩОДЕННИК]\n`;
+  prompt += `[SAVED TO DIARY]\n`;
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
     const summary = buildLogSummary(entry);
     if (summary) {
-      prompt += `Категорія: ${entry.category_label}\n${summary}\n`;
+      prompt += `Category: ${entry.category_label}\n${summary}\n`;
     } else {
-      prompt += `Категорія: ${entry.category_label}\n`;
+      prompt += `Category: ${entry.category_label}\n`;
     }
     // Separate entry blocks with a blank line (except after the last one)
     if (i < entries.length - 1) {
@@ -154,30 +157,30 @@ export function buildSmartReplyPrompt(options: SmartReplyOptions): string {
   }
 
   // 4. Instructions
-  prompt += `\nІНСТРУКЦІЇ ДЛЯ ВІДПОВІДІ:\n`;
-  prompt += `- Відповідай мовою користувача\n`;
+  prompt += `\nREPLY INSTRUCTIONS:\n`;
+  prompt += `- Respond in the user's language\n`;
 
   if (intent === "converse") {
-    prompt += `- Спочатку визнай емоційний стан, потім підтверди що записав\n`;
+    prompt += `- First acknowledge the emotional state, then confirm what was saved\n`;
   } else if (intent === "save_entry") {
-    prompt += `- Підтверди що записав, назви конкретні цифри\n`;
+    prompt += `- Confirm what was saved, mention specific numbers\n`;
   }
 
   if (entries.length > 1) {
-    prompt += `- Один абзац що охоплює всі записи (до 300 символів прози)\n`;
+    prompt += `- One paragraph covering all entries (up to 300 characters of prose)\n`;
   }
 
-  prompt += `- НЕ починай з "Записано", "Збережено", "Entry saved" або аналогів\n`;
-  prompt += `- НЕ більше одного питання\n`;
+  prompt += `- Do NOT start with "Saved", "Recorded", "Entry saved" or equivalents\n`;
+  prompt += `- No more than one question\n`;
 
   const hasMetrics = entries.some(
     (e) => e.dashboard_metrics && e.dashboard_metrics.length > 0
   );
   if (hasMetrics) {
-    prompt += `- Обов'язково згадай хоча б одну конкретну цифру\n`;
+    prompt += `- Must mention at least one specific number\n`;
   }
 
-  prompt += `- Після прози додай Log_Summary блок(и) нижче\n`;
+  prompt += `- After the prose add Log_Summary block(s) below\n`;
 
   return prompt;
 }
@@ -238,7 +241,8 @@ export async function generateSmartReply(
       undefined,
       undefined,
       undefined,
-      options.userCtx
+      options.userCtx,
+      options.locale ?? 'uk'
     );
     return { text: aiText, usedFallback: false };
   } catch (err) {

@@ -282,6 +282,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
       userCtx,
       threadCtx,
       intent: result.intent as "save_entry" | "converse",
+      locale: ctx.locale,
     })
   );
   const botReplyText = smartReply.text;
