@@ -99,13 +99,15 @@ export async function POST(req: Request): Promise<Response> {
   zip.file("transactions.csv", toCsv(transactionsResult.data ?? [], ["id", "amount", "currency", "description", "status", "created_at"]));
 
   const zipUint8 = await zip.generateAsync({ type: "uint8array" });
+  // Slice to get a plain ArrayBuffer (avoids SharedArrayBuffer type mismatch)
+  const zipBuffer = zipUint8.buffer.slice(zipUint8.byteOffset, zipUint8.byteOffset + zipUint8.byteLength) as ArrayBuffer;
   const filename = `memo-export-${new Date().toISOString().slice(0, 10)}.zip`;
 
   // Send via Telegram Bot API using multipart/form-data
   const botToken = env.TELEGRAM_BOT_TOKEN;
   const formData = new FormData();
   formData.append("chat_id", telegramId);
-  formData.append("document", new Blob([zipUint8], { type: "application/zip" }), filename);
+  formData.append("document", new Blob([zipBuffer], { type: "application/zip" }), filename);
   formData.append("caption", "📦 Your Memo data export is ready!");
 
   const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, {
