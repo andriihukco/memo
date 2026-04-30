@@ -9,6 +9,7 @@ import type { DashboardMetric } from "@/lib/classifier";
 import type { Locale } from "@/i18n/locales";
 import { SUPPORTED_LOCALES, LOCALE_META } from "@/i18n/locales";
 import { t } from "@/i18n/t";
+import { getMetricValueByKey } from "@/lib/nutrition";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -213,8 +214,21 @@ export async function handleStats(ctx: BotContext): Promise<void> {
   }
 
   // Energy balance
-  const intake = aggregated.find(m => (m.unit === "ккал" || m.unit === "kcal") && !m.label.toLowerCase().includes("burn") && !m.label.toLowerCase().includes("спален"));
-  const burned = aggregated.find(m => m.label.toLowerCase().includes("burn") || m.label.toLowerCase().includes("спален"));
+  const intake = aggregated.find(m => m.label.toLowerCase().includes("калор") || m.label.toLowerCase().includes("calor"))
+    ?? ((): { label: string; value: number; unit: string; icon: string } | undefined => {
+      const values = entries
+        .map((entry) => getMetricValueByKey(entry.metadata as Record<string, unknown>, "kcal_intake"))
+        .filter((value): value is number => value !== null);
+      if (values.length === 0) return undefined;
+      return { label: "Calories", value: Math.round(values.reduce((a, b) => a + b, 0) * 10) / 10, unit: "kcal", icon: "" };
+    })();
+  const burned = ((): { label: string; value: number; unit: string; icon: string } | undefined => {
+    const values = entries
+      .map((entry) => getMetricValueByKey(entry.metadata as Record<string, unknown>, "kcal_burned"))
+      .filter((value): value is number => value !== null);
+    if (values.length === 0) return undefined;
+    return { label: "Burned", value: Math.round(values.reduce((a, b) => a + b, 0) * 10) / 10, unit: "kcal", icon: "" };
+  })();
   if (intake && burned) {
     const net = Math.round(intake.value - burned.value);
     const balanceLabel = t('bot.stats.balance', ctx.locale);

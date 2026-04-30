@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { deriveUserKey, encryptField, decryptField } from "@/lib/crypto";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { applyCalorieCorrections } from "@/lib/nutrition";
+import { resolveCalorieMetrics } from "@/lib/nutrition";
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get("Authorization");
@@ -59,7 +59,7 @@ Entry: "${content.replace(/"/g, "'")}"`;
       .replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
     const parsed = JSON.parse(text);
     const parsedMetrics = Array.isArray(parsed) ? parsed as Record<string, unknown>[] : [];
-    const corrected = applyCalorieCorrections(content, {}, parsedMetrics);
+    const corrected = await resolveCalorieMetrics(content, {}, parsedMetrics);
     return {
       dashboard_metrics: corrected.metrics,
       metadata: corrected.metadata,

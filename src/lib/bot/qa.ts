@@ -393,7 +393,7 @@ const QA_SYSTEM_PROMPT = `Ти — Memo, особистий AI-асистент 
 ━━━ ХАРЧУВАННЯ / МАКРОСИ ━━━
 1. Знайди ВСІ записи з категорією "calories" або з dashboard_metrics що містять kcal_intake
 2. ПІДСУМУЙ значення (aggregate="sum" → додавай)
-3. Якщо є metadata.food_item але немає dashboard_metrics — РОЗРАХУЙ калорії сам
+3. Якщо є metadata.food_item але немає dashboard_metrics — скажи, що дані про харчування неповні, і НЕ розраховуй калорії сам
 4. Покажи підсумок: ккал, білки, жири, вуглеводи + що саме їв
 5. Для питань "скільки я з'їв цього тижня" / "what did I eat" — підсумуй всі записи calories за вказаний період
 
@@ -422,7 +422,7 @@ export async function synthesiseAnswer(
   const isBroadQuestion = entries.length > 0 && entries.every((e) => e.similarity === undefined);
 
   if (entries.length === 0) {
-    entriesText = "(Записів щоденника не знайдено — відповідай зі своїх загальних знань)";
+    entriesText = "(Записів щоденника не знайдено)";
   } else {
     entriesText = entries
       .map((e) => {

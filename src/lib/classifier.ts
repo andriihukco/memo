@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { env } from "./env";
-import { applyCalorieCorrections } from "./nutrition";
+import { resolveCalorieMetrics } from "./nutrition";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -211,7 +211,9 @@ EXTRACTION RULES:
 FOOD/CALORIES (category=calories):
 - Always extract: kcal_intake(sum), protein_g(sum), carbs_g(sum), fat_g(sum)
 - Per 100g: chicken_breast=165kcal/31p/0c/3.6f, rice_cooked=130/2.7/28/0.3, buckwheat=92/3.4/20/0.6, egg=155/13/1/11, salmon=208/20/0/13, oats=389/17/66/7, beef=250/26/0/17, banana=89/1.1/23/0.3, potato_fried=312/3.4/41/14.5
-- Estimate unknown foods. Scale by weight.
+- Do NOT invent nutrition for unknown foods.
+- Only return kcal/macros when the food and quantity are explicit enough to calculate.
+- If the meal is ambiguous (unknown dish, missing amount, unclear cooking oil), return no nutrition metrics for that item.
 - icons: utensils(kcal), beef(protein), wheat(carbs), droplets(fat)
 
 WATER (category=health, mentions water/вода/склянка/bottle):
@@ -339,7 +341,7 @@ async function classifyText(input: string | Array<unknown>): Promise<Classificat
         entry.dashboard_metrics = Array.isArray(metricsParsed.dashboard_metrics) ? metricsParsed.dashboard_metrics : [];
         entry.goal_metrics = Array.isArray(metricsParsed.goal_metrics) ? metricsParsed.goal_metrics : [];
         if (entry.category === "calories") {
-          const corrected = applyCalorieCorrections(entry.content, entry.metadata as Record<string, unknown>, entry.dashboard_metrics);
+          const corrected = await resolveCalorieMetrics(entry.content, entry.metadata as Record<string, unknown>, entry.dashboard_metrics);
           entry.metadata = corrected.metadata;
           entry.dashboard_metrics = corrected.metrics;
         }

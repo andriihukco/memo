@@ -126,8 +126,41 @@ describe('classify()', () => {
 
     const result = await classify('2 boiled eggs and 1 fried potato');
 
-    expect((result.entries[0].metadata as { estimated_calories?: number }).estimated_calories).toBe(336);
-    expect(result.entries[0].dashboard_metrics.find((metric) => metric.key === 'kcal_intake')?.value).toBe(336);
+    expect((result.entries[0].metadata as { estimated_calories?: number }).estimated_calories).toBe(342.2);
+    expect(result.entries[0].dashboard_metrics.find((metric) => metric.key === 'kcal_intake')?.value).toBe(342.2);
+  });
+
+  it('drops nutrition metrics for ambiguous calorie entries instead of inventing them', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      geminiResponse({
+        intent: 'save_entry',
+        entries: [
+          {
+            category: 'calories',
+            category_label: 'Calories',
+            is_new_category: false,
+            content: 'big bowl of pasta and sauce',
+            metadata: { food_item: 'big bowl of pasta and sauce', estimated_calories: 780 },
+          },
+        ],
+        action_type: 'none',
+        action_params: {},
+      })
+    );
+    mockGenerateContent.mockResolvedValueOnce(
+      geminiResponse({
+        dashboard_metrics: [
+          { key: 'kcal_intake', label: 'Calories', value: 780, unit: 'kcal', icon: 'utensils', aggregate: 'sum' },
+          { key: 'protein_g', label: 'Protein', value: 21, unit: 'g', icon: 'beef', aggregate: 'sum' },
+        ],
+        goal_metrics: [],
+      })
+    );
+
+    const result = await classify('big bowl of pasta and sauce');
+
+    expect(result.entries[0].dashboard_metrics).toHaveLength(0);
+    expect((result.entries[0].metadata as { estimated_calories?: number }).estimated_calories).toBeUndefined();
   });
 
   it('classifies a question about past diary data (question intent)', async () => {
