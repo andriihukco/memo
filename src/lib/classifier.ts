@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { env } from "./env";
+import { applyCalorieCorrections } from "./nutrition";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -337,6 +338,11 @@ async function classifyText(input: string | Array<unknown>): Promise<Classificat
         const metricsParsed = JSON.parse(metricsRaw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim());
         entry.dashboard_metrics = Array.isArray(metricsParsed.dashboard_metrics) ? metricsParsed.dashboard_metrics : [];
         entry.goal_metrics = Array.isArray(metricsParsed.goal_metrics) ? metricsParsed.goal_metrics : [];
+        if (entry.category === "calories") {
+          const corrected = applyCalorieCorrections(entry.content, entry.metadata as Record<string, unknown>, entry.dashboard_metrics);
+          entry.metadata = corrected.metadata;
+          entry.dashboard_metrics = corrected.metrics;
+        }
       } catch {
         entry.dashboard_metrics = [];
         entry.goal_metrics = [];

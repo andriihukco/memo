@@ -95,6 +95,41 @@ describe('classify()', () => {
     expect(result.entries[0].content).toBe('Поїв 200г курки та рис');
   });
 
+  it('corrects inflated count-based calorie estimates', async () => {
+    mockGenerateContent.mockResolvedValueOnce(
+      geminiResponse({
+        intent: 'save_entry',
+        entries: [
+          {
+            category: 'calories',
+            category_label: 'Calories',
+            is_new_category: false,
+            content: '2 boiled eggs and 1 fried potato',
+            metadata: { food_item: '2 boiled eggs and 1 fried potato', estimated_calories: 872 },
+          },
+        ],
+        action_type: 'none',
+        action_params: {},
+      })
+    );
+    mockGenerateContent.mockResolvedValueOnce(
+      geminiResponse({
+        dashboard_metrics: [
+          { key: 'kcal_intake', label: 'Calories', value: 872, unit: 'kcal', icon: 'utensils', aggregate: 'sum' },
+          { key: 'protein_g', label: 'Protein', value: 31, unit: 'g', icon: 'beef', aggregate: 'sum' },
+          { key: 'carbs_g', label: 'Carbs', value: 43, unit: 'g', icon: 'wheat', aggregate: 'sum' },
+          { key: 'fat_g', label: 'Fat', value: 36, unit: 'g', icon: 'droplets', aggregate: 'sum' },
+        ],
+        goal_metrics: [],
+      })
+    );
+
+    const result = await classify('2 boiled eggs and 1 fried potato');
+
+    expect((result.entries[0].metadata as { estimated_calories?: number }).estimated_calories).toBe(336);
+    expect(result.entries[0].dashboard_metrics.find((metric) => metric.key === 'kcal_intake')?.value).toBe(336);
+  });
+
   it('classifies a question about past diary data (question intent)', async () => {
     mockGenerateContent.mockResolvedValueOnce(
       geminiResponse({

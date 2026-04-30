@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import { getKcalIntakeFromMetadata } from "@/lib/nutrition";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ function buildCaloriesTodayWidget(entries: EntryRow[]): Widget {
         e.category === "calories" && new Date(e.created_at) >= today
     )
     .reduce((sum, e) => {
-      const kcal = Number(e.metadata?.estimated_calories ?? 0);
+      const kcal = getKcalIntakeFromMetadata(e.metadata);
       return sum + (isFinite(kcal) ? kcal : 0);
     }, 0);
 

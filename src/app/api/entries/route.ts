@@ -5,6 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { deriveUserKey, encryptField, decryptField } from "@/lib/crypto";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { applyCalorieCorrections } from "@/lib/nutrition";
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get("Authorization");
@@ -36,7 +37,7 @@ async function getTelegramProfile(jwt: string): Promise<{ telegramId: string; en
 }
 
 // Re-extract dashboard_metrics from updated content using Gemini
-async function recomputeMetrics(content: string): Promise<Record<string, unknown>[] | null> {
+async function recomputeMetrics(content: string): Promise<{ dashboard_metrics: Record<string, unknown>[]; metadata: Record<string, unknown> } | null> {
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({
@@ -56,7 +57,13 @@ Entry: "${content.replace(/"/g, "'")}"`;
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim()
       .replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-    return JSON.parse(text);
+    const parsed = JSON.parse(text);
+    const parsedMetrics = Array.isArray(parsed) ? parsed as Record<string, unknown>[] : [];
+    const corrected = applyCalorieCorrections(content, {}, parsedMetrics);
+    return {
+      dashboard_metrics: corrected.metrics,
+      metadata: corrected.metadata,
+    };
   } catch {
     return null;
   }
@@ -227,7 +234,7 @@ export async function PATCH(req: Request): Promise<Response> {
       const newMetrics = await recomputeMetrics(plainContent);
       if (newMetrics !== null) {
         const existingMeta = (existing?.metadata as Record<string, unknown>) ?? {};
-        updates.metadata = { ...existingMeta, dashboard_metrics: newMetrics };
+        updates.metadata = { ...existingMeta, ...newMetrics.metadata, dashboard_metrics: newMetrics.dashboard_metrics };
       }
       // Reset embedding so the cron job re-embeds the updated content.
       // This keeps semantic search and clustering accurate after edits.
