@@ -10,6 +10,8 @@ import type { SubscriptionTier, BillingPeriod } from '@/lib/stars/paywall';
 import { TIER_INFO, BILLING_PERIODS, calcPrice } from '@/lib/stars/paywall';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n/context';
+import { usePostHog } from 'posthog-js/react';
+import { hapticNotification } from '@/lib/haptics';
 
 // ── Feature emoji map ─────────────────────────────────────────────────────────
 
@@ -61,6 +63,7 @@ export function PaywallModal({
   const { play } = useSound();
   const { accessToken } = useAuth();
   const { t } = useI18n();
+  const posthog = usePostHog();
   const [paying, setPaying] = useState(false);
   const [activatingTrial, setActivatingTrial] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,8 +98,10 @@ export function PaywallModal({
       setSuccessType(null);
       setSelectedTier(requiredTier === 'stars_pro' ? 'stars_pro' : 'stars_basic');
       setBillingPeriod('monthly');
+      // Track paywall impression (fire-and-forget)
+      posthog?.capture('paywall_shown', { feature, tier: requiredTier });
     }
-  }, [open, play, requiredTier, feature]);
+  }, [open, play, requiredTier, feature, posthog]);
 
   const handleActivateTrial = async () => {
     if (!accessToken) return;
@@ -113,6 +118,7 @@ export function PaywallModal({
         setError(data.error ?? t('miniapp.subs.error.trial'));
       } else {
         play('CELEBRATION');
+        hapticNotification('success');
         setSuccessType('trial');
         onTrialActivated?.();
       }
@@ -152,8 +158,8 @@ export function PaywallModal({
 
       tg.openInvoice(data.invoiceLink, (status) => {
         setPaying(false);
-        if (status === 'paid') { play('CELEBRATION'); setSuccessType('paid'); }
-        else if (status === 'failed') setError(t('miniapp.subs.error.payment_failed'));
+        if (status === 'paid') { play('CELEBRATION'); hapticNotification('success'); setSuccessType('paid'); }
+        else if (status === 'failed') { hapticNotification('error'); setError(t('miniapp.subs.error.payment_failed')); }
       });
     } catch (err) {
       setPaying(false);

@@ -186,16 +186,23 @@ export async function autoIncrementStreaks(userId: string): Promise<void> {
     const newMetrics = streakMetrics.map(m => ({ ...m, value: m.value + 1 }));
     const newContent = entry.content.replace(/\d+/, String(streakMetrics[0].value + 1));
 
-    const { error: insertError } = await supabase.from("entries").insert({
-      user_id: userId,
-      content: newContent,
-      category: entry.category,
-      metadata: { ...entry.metadata, dashboard_metrics: newMetrics, auto_streak: true },
-      raw_media_url: null,
-    });
+    // Use upsert with ignoreDuplicates=true (ON CONFLICT DO NOTHING) so that if the
+    // cron fires twice on the same UTC day, the second insert is silently skipped
+    // without raising an error (idempotent). The unique index
+    // entries_auto_streak_unique_idx on (user_id, category, entries_created_at_utc_date(created_at))
+    // WHERE auto_streak = true enforces the constraint (Req 23.1).
+    const { error: insertError } = await supabase.from("entries").upsert(
+      {
+        user_id: userId,
+        content: newContent,
+        category: entry.category,
+        metadata: { ...entry.metadata, dashboard_metrics: newMetrics, auto_streak: true },
+        raw_media_url: null,
+      },
+      { ignoreDuplicates: true }
+    );
 
-    if (insertError && insertError.code !== "23505") {
-      // 23505 = unique_violation — expected when cron fires twice on the same day; ignore it.
+    if (insertError) {
       console.error(`[loop] autoIncrementStreaks: insert failed for user ${userId}, category ${entry.category}:`, insertError.message);
     }
   }

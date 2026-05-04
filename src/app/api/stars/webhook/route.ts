@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { createSubscription, recordTransaction } from "@/lib/stars/paywall";
+import { capture } from "@/lib/analytics";
 
 // ── Referral reward helper ────────────────────────────────────────────────────
 
@@ -206,6 +207,12 @@ async function handleSuccessfulPayment(payment: {
       console.error("[stars/webhook] referral reward error:", err);
       // Non-fatal
     }
+
+    // Track subscription started (fire-and-forget)
+    void capture('subscription_started', {
+      tier,
+      billing_period: payload.billingPeriod ?? 'monthly',
+    }, payment.chat.id);
 
     console.log(`[stars/webhook] Payment successful: ${payment.telegram_payment_charge_id}`);
   } catch (err) {

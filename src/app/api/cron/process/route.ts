@@ -1,4 +1,5 @@
 import { processUser, processAllUsers, processReminders, processStreakNotifications, processWeeklySummaries } from "@/lib/processing/loop";
+import { sendStreakReminders, sendExpiryReminders } from "@/lib/processing/notifications";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,8 @@ export async function GET(req: Request): Promise<Response> {
       await processAllUsers();
       await processReminders();
       await processStreakNotifications();
+      await sendStreakReminders();
+      await sendExpiryReminders();
       // Run weekly summaries on Mondays (day 1)
       if (new Date().getDay() === 1) {
         await processWeeklySummaries();

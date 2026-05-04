@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateRetrospective, saveReport, loadReports, deleteReport } from "@/lib/bot/retrospective";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { capture } from "@/lib/analytics";
 
 function jwt(req: Request) {
   const a = req.headers.get("Authorization");
@@ -23,6 +24,10 @@ function userDb(token: string) {
 export async function GET(req: Request) {
   const token = jwt(req);
   if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Rate limit: 60 reads/min per JWT
+  const rlGet = rateLimit(`reports:read:${token.slice(0, 16)}`, 60, 60_000);
+  if (!rlGet.allowed) return rateLimitResponse(rlGet.resetAt);
 
   const db = userDb(token);
   const { data: profile, error: profileErr } = await db.from("profiles").select("id").single();
@@ -47,15 +52,15 @@ export async function POST(req: Request) {
   const token = jwt(req);
   if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Rate limit: 30 writes/min per JWT
-  const rl = rateLimit(`reports:write:${token.slice(0, 16)}`, 30, 60_000);
+  // Rate limit: 10 writes/min per JWT
+  const rl = rateLimit(`reports:write:${token.slice(0, 16)}`, 10, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const body = await req.json().catch(() => ({}));
   const { period_type = "weekly", from, to } = body;
 
   const db = userDb(token);
-  const { data: profile, error: profileErr } = await db.from("profiles").select("id, settings").single();
+  const { data: profile, error: profileErr } = await db.from("profiles").select("id, settings, telegram_id").single();
   if (profileErr || !profile) {
     console.error("[reports POST] profile lookup failed:", profileErr?.message);
     return Response.json({ error: "Profile not found" }, { status: 404 });
@@ -113,6 +118,7 @@ export async function POST(req: Request) {
     }
 
     const id = await saveReport(profile.id, report);
+    void capture('report_generated', { period_type }, profile.telegram_id);
     return Response.json({ report: { ...report, id } }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

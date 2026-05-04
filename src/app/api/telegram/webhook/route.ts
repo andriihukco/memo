@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { Bot, Context, webhookCallback, InlineKeyboard } from "grammy";
 import { env } from "@/lib/env";
@@ -171,6 +172,12 @@ function getHandler(): (req: Request) => Promise<Response> {
     try {
       ctx.profile = await resolveOrCreateProfile(BigInt(from.id), from.username ?? "");
       ctx.locale = getLocale(ctx.profile?.settings as Record<string, unknown> | undefined);
+
+      // Set Sentry user context so all errors from this handler are tagged
+      // with the telegram_id. No-op when Sentry is not initialised.
+      if (process.env.SENTRY_DSN) {
+        Sentry.setUser({ id: String(from.id), username: from.username });
+      }
     } catch (err) {
       if (err instanceof ProfileError) {
         console.error("[webhook] ProfileError:", err.message, err.cause);

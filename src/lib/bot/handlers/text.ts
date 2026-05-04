@@ -16,6 +16,7 @@ import { extractFacts, saveMemory } from "@/lib/bot/memory";
 import { deriveUserKey, encryptField } from "@/lib/crypto";
 import type { Locale } from "@/i18n/locales";
 import { t } from "@/i18n/t";
+import { capture } from "@/lib/analytics";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -329,6 +330,15 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   const threadCtx = resolvedThreadId
     ? await loadThreadContext(supabase, resolvedThreadId, profile.id, savedIds[0])
     : undefined;
+
+  // Track entry_saved for each saved entry (fire-and-forget)
+  for (const entryPayload of entriesToSave) {
+    void capture('entry_saved', {
+      category: entryPayload.category,
+      intent: result.intent,
+      source: 'text',
+    }, profile.telegram_id);
+  }
 
   const smartReply = await withTypingIndicator(ctx, () =>
     generateSmartReply({

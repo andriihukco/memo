@@ -393,14 +393,14 @@ export const TIER_INFO: Record<SubscriptionTier, TierInfo> = {
     description: "Починай безкоштовно, назавжди",
     icon: "✨",
     limits: {
-      entries: 100,
+      entries: 300,
       ai_widgets: 3,
       widgets: 3,
       reports: 5,
       historyDays: 30,
     },
     features: [
-      { label: "До 100 записів",                  included: true  },
+      { label: "До 300 записів",                  included: true  },
       { label: "3 AI-віджети",                     included: true  },
       { label: "Необмежені preset-віджети",        included: true  },
       { label: "5 ретроспектив",                   included: true  },

@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
 import { useI18n } from '@/lib/i18n/context';
 import { SUPPORTED_LOCALES, LOCALE_META, type Locale } from '@/i18n/locales';
+import { hapticNotification, hapticImpact } from '@/lib/haptics';
 
 type SetupStep = 'idle' | 'enter_current' | 'enter_current_to_disable' | 'set_new' | 'confirm_new' | 'success';
 
@@ -194,6 +195,7 @@ function LanguageSection() {
 
   const handleSelect = async (newLocale: Locale) => {
     if (newLocale === optimisticLocale) return;
+    hapticImpact('light');
     const prev = optimisticLocale;
     setOptimisticLocale(newLocale);
     setLocale(newLocale);
@@ -668,6 +670,7 @@ export default function SettingsPage() {
     setHasPasscode(true);
     setPendingPin('');
     setStep('success');
+    hapticNotification('success');
     play('CELEBRATION');
     setTimeout(() => setStep('idle'), 1800);
   };
@@ -694,6 +697,7 @@ export default function SettingsPage() {
       window.location.reload();
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'Не вдалося видалити акаунт. Спробуйте ще раз.');
+      hapticNotification('error');
       play('CAUTION');
     } finally {
       setDeleteLoading(false);
@@ -1080,7 +1084,7 @@ export default function SettingsPage() {
           <CardContent className="p-0">
             <motion.button
               whileTap={{ scale: 0.99 }}
-              onClick={() => { play('CAUTION'); setShowDeleteConfirm(true); }}
+              onClick={() => { play('CAUTION'); hapticNotification('warning'); setShowDeleteConfirm(true); }}
               className="flex w-full items-center gap-3 px-4 py-3.5 text-destructive transition-colors hover:bg-destructive/5"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-destructive/10">

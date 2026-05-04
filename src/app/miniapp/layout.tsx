@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import posthog from 'posthog-js';
 import { AuthProvider, useAuth } from '@/lib/supabase/auth-context';
 import { Icon } from '@/components/ui/icon';
 import { SoundProvider } from '@/lib/sound/sound-context';
@@ -14,8 +15,19 @@ import { cn } from '@/lib/utils';
 import { SplashScreen } from '@/components/ui/splash-screen';
 import { ReportGenerationProvider } from '@/lib/report-generation-context';
 import { I18nProvider, useI18n } from '@/lib/i18n/context';
+import { PostHogProvider } from 'posthog-js/react';
 import type { Locale } from '@/i18n/locales';
 import { SUPPORTED_LOCALES, LOCALE_META } from '@/i18n/locales';
+
+// ── PostHog initialisation (client-side only) ─────────────────────────────────
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_POSTHOG_KEY) {
+  posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY, {
+    api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://eu.i.posthog.com',
+    person_profiles: 'identified_only',
+    capture_pageview: false, // We handle pageviews manually
+    capture_pageleave: true,
+  });
+}
 
 declare global {
   interface Window {
@@ -1227,12 +1239,14 @@ function MiniAppInner({
 
 export default function MiniAppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <SoundProvider>
-        <ReportGenerationProvider>
-          <MiniAppContent>{children}</MiniAppContent>
-        </ReportGenerationProvider>
-      </SoundProvider>
-    </AuthProvider>
+    <PostHogProvider client={posthog}>
+      <AuthProvider>
+        <SoundProvider>
+          <ReportGenerationProvider>
+            <MiniAppContent>{children}</MiniAppContent>
+          </ReportGenerationProvider>
+        </SoundProvider>
+      </AuthProvider>
+    </PostHogProvider>
   );
 }

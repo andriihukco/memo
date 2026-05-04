@@ -238,7 +238,10 @@ export async function PATCH(req: Request): Promise<Response> {
       }
       // Reset embedding so the cron job re-embeds the updated content.
       // This keeps semantic search and clustering accurate after edits.
+      // REQ-13: reset both status and attempts so the entry is picked up
+      // by reembedPendingEntries() on the next cron run.
       updates.embedding_status = "pending";
+      updates.embedding_attempts = 0;
     }
   }
 
@@ -316,8 +319,8 @@ export async function GET(req: Request): Promise<Response> {
     });
   }
 
-  // Rate limit: 120 reads/min per JWT
-  const rl = rateLimit(`entries:read:${jwt.slice(0, 16)}`, 120, 60_000);
+  // Rate limit: 60 reads/min per JWT (keyed on first 16 chars of token)
+  const rl = rateLimit(`entries:read:${jwt.slice(0, 16)}`, 60, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabase = makeSupabase(jwt);

@@ -17,9 +17,12 @@ import { ErrorBanner } from '@/components/ui/error-banner';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
+import { UsageWarningBanner } from '@/components/ui/usage-warning-banner';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
+import { TIER_INFO } from '@/lib/stars/paywall';
 import type { SubscriptionTier } from '@/lib/stars/paywall';
 import { useI18n } from '@/lib/i18n/context';
+import { hapticImpact, hapticNotification } from '@/lib/haptics';
 
 interface Entry {
   id: string;
@@ -87,9 +90,9 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
   const [editOpen, setEditOpen] = useState(false);
 
   const clearLP = () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } };
-  const startLP = () => { didLongPress.current = false; longPressTimer.current = setTimeout(() => { didLongPress.current = true; onLongPress(); }, 500); };
+  const startLP = () => { didLongPress.current = false; longPressTimer.current = setTimeout(() => { didLongPress.current = true; hapticImpact('heavy'); onLongPress(); }, 500); };
   const commit = () => {
-    if (Math.abs(offsetX) >= SWIPE_COMMIT) onSwipeDelete();
+    if (Math.abs(offsetX) >= SWIPE_COMMIT) { hapticNotification('warning'); onSwipeDelete(); }
     else if (Math.abs(offsetX) >= SWIPE_THRESHOLD) setOffsetX(-SWIPE_THRESHOLD);
     else setOffsetX(0);
     setDragging(false);
@@ -411,6 +414,7 @@ function SwipeableThreadCard({ group, isSelectMode, selectedIds, onLongPress, on
   const commit = () => {
     if (Math.abs(offsetX) >= SWIPE_COMMIT) {
       // delete all entries in the thread
+      hapticNotification('warning');
       play('OPEN');
       setPendingDelete(true);
     } else if (Math.abs(offsetX) >= SWIPE_THRESHOLD) {
@@ -588,7 +592,7 @@ export default function FeedPage() {
     setHasMore(false);
     setLoadMoreError(false);
     try {
-      const res = await fetch('/api/entries?limit=20', { headers: { Authorization: `Bearer ${accessToken}` } });
+      const res = await fetch('/api/entries?limit=30', { headers: { Authorization: `Bearer ${accessToken}` } });
       if (res.status === 402) {
         // Limit exceeded — open paywall
         const data = await res.json().catch(() => ({}));
@@ -617,7 +621,7 @@ export default function FeedPage() {
     setLoadingMore(true);
     setLoadMoreError(false);
     try {
-      const params = new URLSearchParams({ limit: '20', before: nextCursor });
+      const params = new URLSearchParams({ limit: '30', before: nextCursor });
       const res = await fetch(`/api/entries?${params}`, { headers: { Authorization: `Bearer ${accessToken}` } });
       if (!res.ok) throw new Error(`Request failed (${res.status})`);
       const { entries: data, has_more, next_cursor } = await res.json();
@@ -733,21 +737,48 @@ export default function FeedPage() {
               </Badge>
             )}
           </div>
-          {/* Usage counter chip — shown when Free tier and usage ≥ 70 (70% of 100) */}
-          {userTier === 'free' && usageCounts !== null && usageCounts.entries >= 70 && (
-            <UsageCounterChip
-              label={`${usageCounts.entries} / 100 записів`}
-              onClick={() => {
-                setPaywallProps({
-                  feature: 'entries',
-                  current: usageCounts.entries,
-                  limit: 100,
-                  requiredTier: 'stars_basic',
-                });
-                setPaywallOpen(true);
-              }}
-            />
-          )}
+          {/* Usage warning — shown when Free tier and usage ≥ 80% of entry limit */}
+          {userTier === 'free' && usageCounts !== null && (() => {
+            const entryLimit = TIER_INFO.free.limits.entries;
+            const pct = (usageCounts.entries / entryLimit) * 100;
+            if (pct >= 80 && pct < 90) {
+              // warning variant — compact chip
+              return (
+                <UsageCounterChip
+                  label={`${usageCounts.entries} / ${entryLimit} записів`}
+                  onClick={() => {
+                    setPaywallProps({
+                      feature: 'entries',
+                      current: usageCounts.entries,
+                      limit: entryLimit,
+                      requiredTier: 'stars_basic',
+                    });
+                    setPaywallOpen(true);
+                  }}
+                />
+              );
+            }
+            if (pct >= 90 && pct < 100) {
+              // critical variant — full banner
+              return (
+                <UsageWarningBanner
+                  current={usageCounts.entries}
+                  limit={entryLimit}
+                  onUpgrade={() => {
+                    setPaywallProps({
+                      feature: 'entries',
+                      current: usageCounts.entries,
+                      limit: entryLimit,
+                      requiredTier: 'stars_basic',
+                    });
+                    setPaywallOpen(true);
+                  }}
+                  dismissKey="usage-warning-entries-dismissed"
+                />
+              );
+            }
+            return null;
+          })()}
         </div>
       )}
 
@@ -856,10 +887,11 @@ export default function FeedPage() {
           {/* Sentinel div for IntersectionObserver — triggers next page load */}
           <div ref={sentinelRef} className="h-1" aria-hidden="true" />
 
-          {/* Loading spinner — shown while fetching next page */}
+          {/* Loading skeleton — shown while fetching next page */}
           {loadingMore && (
-            <div className="flex justify-center py-4" aria-label="Завантаження...">
-              <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted border-t-primary" />
+            <div className="flex flex-col gap-3" role="status" aria-label="Завантаження...">
+              <SkeletonEntryCard />
+              <SkeletonEntryCard />
             </div>
           )}
 
@@ -875,6 +907,13 @@ export default function FeedPage() {
               >
                 Спробувати ще раз
               </Button>
+            </div>
+          )}
+
+          {/* End-of-list message — shown when all entries have been loaded */}
+          {!hasMore && !loadingMore && allEntries.length > 0 && (
+            <div className="flex justify-center py-6">
+              <p className="text-[13px] text-muted-foreground/60">Це всі твої записи 🎉</p>
             </div>
           )}
         </motion.div>

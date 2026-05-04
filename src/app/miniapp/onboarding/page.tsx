@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { useI18n } from '@/lib/i18n/context';
+import { usePostHog } from 'posthog-js/react';
 
 interface Slide {
   emoji: string;
@@ -98,14 +99,21 @@ export default function OnboardingPage() {
   const [dragging, setDragging] = useState(false);
   const { accessToken } = useAuth();
   const { t } = useI18n();
+  const posthog = usePostHog();
   const [activatingTrial, setActivatingTrial] = useState(false);
   const [trialDone, setTrialDone] = useState(false);
   const [trialError, setTrialError] = useState<string | null>(null);
 
   const finish = () => {
     localStorage.setItem(ONBOARDING_KEY, '1');
+    posthog?.capture('onboarding_completed', { slides_seen: index + 1 });
     setExiting(true);
     setTimeout(() => router.replace('/miniapp'), 400);
+  };
+
+  const skip = () => {
+    posthog?.capture('onboarding_skipped', { slide_index: index });
+    finish();
   };
 
   const goNext = () => {
@@ -197,7 +205,7 @@ export default function OnboardingPage() {
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.3 }}
-        onClick={finish}
+        onClick={skip}
         className="absolute right-5 top-14 text-sm text-white/40 hover:text-white/70 transition-colors min-h-[44px] flex items-center"
       >
         {t('miniapp.onboarding.skip')}

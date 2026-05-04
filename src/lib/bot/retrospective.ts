@@ -242,6 +242,89 @@ export async function deleteReport(userId: string, reportId: string): Promise<vo
   await supabase.from("reports").delete().eq("id", reportId).eq("user_id", userId);
 }
 
+// ── Generate weekly summary (lighter version for free users) ─────────────────
+
+const WEEKLY_SUMMARY_SYSTEM_PROMPT = `Ти — дружній асистент для аналізу щоденника.
+Твоє завдання — скласти короткий тижневий підсумок на основі записів користувача.
+
+Підсумок має містити:
+1. Кількість записів за тиждень
+2. Топ-3 категорії (найчастіші)
+3. Один яскравий момент (highlight) — найцікавіший або найважливіший запис
+4. Один AI-інсайт — коротке спостереження або порада на основі патернів тижня
+
+Вимоги:
+- Максимум 300 слів
+- Без структурованих розділів — просто теплий, живий текст
+- Тон: дружній, підтримуючий, як повідомлення від друга
+- Відповідай мовою записів користувача
+- Використовуй Telegram Markdown: *жирний*, _курсив_, емодзі`;
+
+export interface WeeklySummary {
+  content: string;
+  entry_count: number;
+  top_categories: string[];
+}
+
+export async function generateWeeklySummary(
+  userId: string,
+  entries: Array<{ content: string; category: string; metadata: Record<string, unknown>; created_at: string }>,
+  locale: Locale = "uk"
+): Promise<WeeklySummary | null> {
+  if (entries.length === 0) return null;
+
+  // Compute top categories
+  const categoryCounts = new Map<string, number>();
+  for (const e of entries) {
+    categoryCounts.set(e.category, (categoryCounts.get(e.category) ?? 0) + 1);
+  }
+  const topCategories = [...categoryCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([cat]) => cat);
+
+  const entriesText = entries.map((e) => {
+    const date = new Date(e.created_at).toLocaleDateString("uk-UA", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const metrics = e.metadata?.dashboard_metrics as Array<{ label: string; value: number; unit: string }> | undefined;
+    const metricsStr =
+      Array.isArray(metrics) && metrics.length > 0
+        ? ` [${metrics.map((m) => `${m.label}: ${m.value}${m.unit}`).join(", ")}]`
+        : "";
+    return `[${date}] (${e.category}) ${e.content}${metricsStr}`;
+  }).join("\n");
+
+  const prompt = `Записи за тиждень (${entries.length} записів, топ категорії: ${topCategories.join(", ")}):
+
+${entriesText}
+
+Склади короткий тижневий підсумок. Максимум 300 слів. Відповідь — тільки текст підсумку, без JSON.`;
+
+  try {
+    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: MODEL,
+      systemInstruction: aiLanguageInstruction(locale) + "\n" + WEEKLY_SUMMARY_SYSTEM_PROMPT,
+    });
+
+    const result = await model.generateContent(prompt);
+    const content = result.response.text().trim();
+
+    return {
+      content,
+      entry_count: entries.length,
+      top_categories: topCategories,
+    };
+  } catch (err) {
+    console.error("[retrospective] generateWeeklySummary failed:", err);
+    return null;
+  }
+}
+
 // ── Format report for Telegram ────────────────────────────────────────────────
 
 export function formatReportForTelegram(report: Report): string {

@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { deriveUserKey, decryptField } from "@/lib/crypto";
 import { env } from "@/lib/env";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
+import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -78,6 +79,10 @@ export async function GET(req: Request): Promise<Response> {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Rate limit: 20 reads/min per JWT
+  const rl = rateLimit(`graph:read:${jwt.slice(0, 16)}`, 20, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabaseUrl = process.env.SUPABASE_URL ?? env.SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY;

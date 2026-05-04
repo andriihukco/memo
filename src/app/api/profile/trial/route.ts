@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import { capture } from "@/lib/analytics";
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get("Authorization");
@@ -107,6 +108,18 @@ export async function POST(req: Request): Promise<Response> {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  // Track trial activation (fire-and-forget, best-effort telegram_id lookup)
+  try {
+    const { data: profileForAnalytics } = await supabase
+      .from("profiles")
+      .select("telegram_id")
+      .eq("id", user.id)
+      .single();
+    if (profileForAnalytics?.telegram_id) {
+      void capture('trial_activated', {}, profileForAnalytics.telegram_id);
+    }
+  } catch { /* non-fatal */ }
 
   return new Response(JSON.stringify({ profile: updated }), {
     status: 200,

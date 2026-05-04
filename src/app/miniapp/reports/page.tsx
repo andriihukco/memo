@@ -13,10 +13,12 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { ErrorBanner as _ErrorBanner } from '@/components/ui/error-banner';
 import { PaywallModal } from '@/components/ui/paywall-modal';
+import { UsageWarningBanner } from '@/components/ui/usage-warning-banner';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
-import { type SubscriptionTier } from '@/lib/stars/paywall';
+import { type SubscriptionTier, TIER_INFO } from '@/lib/stars/paywall';
 import { useReportGeneration } from '@/lib/report-generation-context';
 import { useI18n } from '@/lib/i18n/context';
+import { hapticNotification } from '@/lib/haptics';
 
 interface ReportSummary {
   id: string;
@@ -223,6 +225,7 @@ function NewReportSheet({ open, onClose, onGenerate, generating, userTier, onPay
   const handleSelectPreset = (opt: typeof PERIOD_OPTIONS[number]) => {
     if (opt.paid && !isPaid) {
       play('CAUTION');
+      hapticNotification('warning');
       onPaywall();
       return;
     }
@@ -1075,7 +1078,7 @@ export default function ReportsPage() {
 
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [paywallProps, _setPaywallProps] = useState<{ feature: string; current?: number; limit?: number; requiredTier: SubscriptionTier }>({ feature: 'ai_reports', requiredTier: 'stars_basic' });
-  const { counts: _counts } = useUsageCounts(accessToken);
+  const { counts: usageCounts } = useUsageCounts(accessToken);
   const [userTier, setUserTier] = useState<SubscriptionTier | null>(null);
 
   // Use shared generation context — survives tab switches
@@ -1151,7 +1154,22 @@ export default function ReportsPage() {
         </button>
       </div>
 
-      {/* Usage counter removed — visible only on plans/subscriptions page */}
+      {/* Usage warning — shown when Free tier and reports usage ≥ 80% of limit */}
+      {userTier === 'free' && usageCounts !== null && (() => {
+        const reportLimit = TIER_INFO.free.limits.reports;
+        const pct = (usageCounts.reports / reportLimit) * 100;
+        if (pct >= 80 && pct < 100) {
+          return (
+            <UsageWarningBanner
+              current={usageCounts.reports}
+              limit={reportLimit}
+              onUpgrade={() => setPaywallOpen(true)}
+              dismissKey="usage-warning-reports-dismissed"
+            />
+          );
+        }
+        return null;
+      })()}
 
       {/* Error banner — now shown as persistent toast in layout */}
 

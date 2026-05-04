@@ -20,14 +20,14 @@ export function loadCatalog(locale: Locale): Catalog {
 
 /**
  * Reads settings?.language, validates it's a Supported_Locale,
- * returns 'en' as fallback for any invalid/absent value.
+ * returns 'uk' as fallback for any invalid/absent value.
  */
 export function getLocale(settings: Record<string, unknown> | null | undefined): Locale {
   const lang = settings?.language;
   if (typeof lang === 'string' && (SUPPORTED_LOCALES as readonly string[]).includes(lang)) {
     return lang as Locale;
   }
-  return 'en';
+  return 'uk';
 }
 
 /**
