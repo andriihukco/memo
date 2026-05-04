@@ -45,7 +45,7 @@ export async function calculateStreakLength(
     .select("created_at")
     .eq("user_id", userId)
     .gte("created_at", ninetyDaysAgo)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false }) as unknown as { data: Array<{ created_at: string }> | null; error: unknown };
 
   if (error || !entries || entries.length === 0) {
     return 0;
