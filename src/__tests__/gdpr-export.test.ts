@@ -228,7 +228,7 @@ describe('GET /api/profile/export', () => {
 
   it('rate-limited export returns 429', async () => {
     const { rateLimit } = await import('@/lib/rate-limit');
-    vi.mocked(rateLimit).mockReturnValueOnce({ allowed: false, resetAt: Date.now() + 3600_000 });
+    vi.mocked(rateLimit).mockReturnValueOnce({ allowed: false, resetAt: Date.now() + 3600_000, remaining: 0 });
     const { rateLimitResponse } = await import('@/lib/rate-limit');
     vi.mocked(rateLimitResponse).mockReturnValueOnce(
       new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429 })

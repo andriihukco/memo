@@ -69,9 +69,9 @@ export function capture(
   } catch { /* silent */ }
 }
 
-// ── Client-side re-exports (posthog-js/react) ────────────────────────────────
-// These are imported by the Mini App layout and components.
-// They are safe to import in client components because posthog-js is a
-// browser-only package and Next.js tree-shakes it from server bundles.
-
-export { PostHogProvider, usePostHog } from 'posthog-js/react';
+// ── Client-side usage ────────────────────────────────────────────────────────
+// In Mini App components, import directly from 'posthog-js/react':
+//   import { PostHogProvider, usePostHog } from 'posthog-js/react';
+// Do NOT re-export them here — this file is imported by server-side API routes
+// and re-exporting posthog-js/react would pull React browser context into the
+// server bundle, causing "createContext is not a function" at build time.
