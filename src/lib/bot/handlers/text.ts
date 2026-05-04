@@ -150,7 +150,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
 
   const profile = ctx.profile;
   if (!profile) {
-    await ctx.reply("Щось пішло не так з профілем. Спробуй ще раз або напиши /start 🙏");
+    await ctx.reply(t('bot.error.profile_missing', ctx.locale));
     return;
   }
 
@@ -161,7 +161,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   const trimmedLower = text.trim().toLowerCase();
   if (COMMAND_WORDS.includes(trimmedLower)) {
     await ctx.reply(
-      `Схоже, ти мав на увазі команду /${trimmedLower}?\n\nНапиши зі слешем: /${trimmedLower}`,
+      t('bot.error.mistyped_command', ctx.locale, { command: trimmedLower }),
     );
     return;
   }
@@ -189,14 +189,25 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
     classifierThreadCtx = await loadThreadContext(supabase, threadResolution.threadId, profile.id);
   }
 
-  const classifyResult = await classify(text, classifierThreadCtx).catch((err) => {
-    if (err instanceof ClassificationError) return err;
-    throw err;
-  });
+  const classifyResult = await classify(text, classifierThreadCtx)
+    .catch(async (err) => {
+      // First attempt failed — retry once for transient Gemini failures (requirement 2.2)
+      if (err instanceof ClassificationError) {
+        return classify(text, classifierThreadCtx).catch((retryErr) => {
+          if (retryErr instanceof ClassificationError) return retryErr;
+          console.error("[text handler] Unexpected error from classify() retry:", retryErr);
+          return new ClassificationError("Unexpected classification error on retry", retryErr);
+        });
+      }
+      // Wrap any other error type (TypeError, SyntaxError, ZodError, etc.) so the
+      // handler never crashes silently — requirement 2.3
+      console.error("[text handler] Unexpected error from classify():", err);
+      return new ClassificationError("Unexpected classification error", err);
+    });
 
   if (classifyResult instanceof ClassificationError) {
     console.error("[text handler] ClassificationError:", classifyResult.message, classifyResult.cause);
-    await ctx.reply("Не вдалося обробити повідомлення. Спробуй ще раз 🙏");
+    await ctx.reply(t('bot.error.classify_failed', ctx.locale));
     return;
   }
 
@@ -307,7 +318,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
           console.error("[text handler] rollback failed:", rollbackError);
         }
       }
-      await ctx.reply("Не вдалося зберегти запис. Спробуй ще раз 🙏");
+      await ctx.reply(t('bot.error.save_failed', ctx.locale));
       return;
     }
 

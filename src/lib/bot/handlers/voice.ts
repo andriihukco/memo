@@ -15,6 +15,7 @@ import { sanitizeMarkdown } from "@/lib/utils";
 import { extractFacts, saveMemory } from "@/lib/bot/memory";
 import { deriveUserKey, encryptField } from "@/lib/crypto";
 import type { Locale } from "@/i18n/locales";
+import { t } from "@/i18n/t";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -128,7 +129,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
 
   const profile = ctx.profile;
   if (!profile) {
-    await ctx.reply("Щось пішло не так з профілем. Спробуй ще раз або напиши /start 🙏");
+    await ctx.reply(t('bot.error.profile_missing', ctx.locale));
     return;
   }
 
@@ -144,7 +145,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
     audioBuffer = Buffer.from(await response.arrayBuffer());
   } catch (err) {
     console.error("[voice handler] Audio download failed:", err);
-    await ctx.reply("Не вдалося завантажити голосове. Спробуй ще раз 🙏");
+    await ctx.reply(t('bot.error.audio_download_failed', ctx.locale));
     return;
   }
 
@@ -162,18 +163,25 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
     ? await loadThreadContext(supabase, resolvedThreadId, profile.id)
     : undefined;
 
-  // Transcribe + classify audio
+  // Transcribe + classify audio (1 retry on ClassificationError for transient Gemini failures)
   let result: ClassificationResult;
   try {
     result = await classifyAudio(audioBuffer, "audio/ogg", threadCtx);
   } catch (err) {
-    audioBuffer = Buffer.alloc(0);
     if (err instanceof ClassificationError) {
-      console.error("[voice handler] ClassificationError:", err.message);
-      await ctx.reply("Не вдалося розпізнати голосове. Спробуй ще раз або напиши текстом 🙏");
-      return;
+      // One retry before surfacing the error to the user
+      try {
+        result = await classifyAudio(audioBuffer, "audio/ogg", threadCtx);
+      } catch (retryErr) {
+        audioBuffer = Buffer.alloc(0);
+        console.error("[voice handler] ClassificationError (after retry):", (retryErr as Error).message);
+        await ctx.reply(t('bot.error.voice_failed', ctx.locale));
+        return;
+      }
+    } else {
+      audioBuffer = Buffer.alloc(0);
+      throw err;
     }
-    throw err;
   } finally {
     audioBuffer = Buffer.alloc(0);
   }
@@ -270,13 +278,11 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
           console.error("[voice handler] rollback failed:", rollbackError);
         }
       }
-      await ctx.reply("Не вдалося зберегти запис. Спробуй ще раз 🙏");
+      await ctx.reply(t('bot.error.save_failed', ctx.locale));
       return;
     }
     if (entry) savedIds.push(entry.id);
   }
-
-  // ── Generate reply ─────────────────────────────────────────────────────────
   const smartReply = await withTypingIndicator(ctx, () =>
     generateSmartReply({
       entries: entriesToSave,

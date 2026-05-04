@@ -292,3 +292,40 @@ describe('classify()', () => {
     expect(result.entries[0].category).toBe('feelings');
   });
 });
+
+// ── attempt() retry helper ────────────────────────────────────────────────────
+
+describe('attempt() retry helper', () => {
+  it('returns the success value when the function fails once then succeeds (7.1)', async () => {
+    // First call to classifyText (attempt 1) throws a network error.
+    // Second call (attempt 2) returns a valid classification.
+    mockGenerateContent
+      .mockRejectedValueOnce(new Error('transient network error'))
+      .mockResolvedValueOnce(
+        geminiResponse({
+          intent: 'smalltalk',
+          entries: [],
+          action_type: 'none',
+          action_params: {},
+        })
+      );
+
+    // classify() wraps classifyText() in attempt(fn, 2), so one failure then
+    // one success should resolve without throwing.
+    const result = await classify('hello');
+
+    expect(result.intent).toBe('smalltalk');
+    // Gemini was called exactly twice: once failing, once succeeding.
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws ClassificationError after exhausting all retries when the function always fails (7.2)', async () => {
+    // attempt() defaults to retries=2, so both attempts must fail for the
+    // error to propagate out of classify() as a ClassificationError.
+    mockGenerateContent.mockRejectedValue(new Error('persistent API error'));
+
+    await expect(classify('hello')).rejects.toThrow(ClassificationError);
+    // Gemini was called exactly twice (retries=2).
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+  });
+});

@@ -4,9 +4,12 @@ import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
 import type { ClassificationResult } from "@/lib/classifier";
 import { deriveUserKey, decryptField } from "@/lib/crypto";
+import type { Locale } from "@/i18n/locales";
+import { t } from "@/i18n/t";
 
 interface BotContext extends Context {
   profile?: Profile;
+  locale: Locale;
 }
 
 function getServiceClient() {
@@ -92,18 +95,18 @@ export async function checkPendingDelete(ctx: BotContext): Promise<boolean> {
       if (!error) totalDeleted += batch.length;
     }
     await clearPendingSetting(profile.id, pendingKey);
-    await ctx.reply(`✅ Готово — видалено ${totalDeleted} записів.`);
+    await ctx.reply(t('bot.action.deleted', ctx.locale, { count: String(totalDeleted) }));
     return true;
   }
 
   if (["ні", "no", "скасувати", "скасуй", "cancel"].includes(text)) {
     await clearPendingSetting(profile.id, pendingKey);
-    await ctx.reply("Окей, нічого не видаляю 👍");
+    await ctx.reply(t('bot.action.cancel_delete', ctx.locale));
     return true;
   }
 
   await ctx.reply(
-    `⏳ Чекаю підтвердження — видалити ${ids.length} записів?\n\nНапиши *так* щоб видалити або *ні* щоб скасувати.`,
+    t('bot.action.pending_delete', ctx.locale, { count: String(ids.length) }),
     { parse_mode: "Markdown" }
   );
   return true;
@@ -139,7 +142,7 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       const ids = (toDelete ?? []).map((e: { id: string }) => e.id);
 
       if (ids.length === 0) {
-        await ctx.reply(`Не знайшов записів для видалення (${description}). Можливо, вони вже видалені або ти мав на увазі щось інше? 🤷`);
+        await ctx.reply(t('bot.action.not_found_delete', ctx.locale, { description }));
         return;
       }
 
@@ -178,7 +181,8 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       await setPendingSetting(profile.id, pendingKey, ids);
 
       await ctx.reply(
-        `🗑 Знайшов *${ids.length}* записів (${description}):\n${preview}${ids.length > 3 ? `\n_...і ще ${ids.length - 3}_` : ""}\n\nНапиши *так* щоб видалити або *ні* щоб скасувати.\n⚠️ Це незворотньо.`,
+        t('bot.action.pending_delete', ctx.locale, { count: String(ids.length) }) +
+          `\n\n${preview}${ids.length > 3 ? `\n_...і ще ${ids.length - 3}_` : ""}`,
         { parse_mode: "Markdown" }
       );
       break;
@@ -207,7 +211,7 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       }
 
       if (!targetId) {
-        await ctx.reply("Не знайшов запис для редагування. Уточни який саме — наприклад: _\"Виправ останній запис про їжу\"_", { parse_mode: "Markdown" });
+        await ctx.reply(t('bot.action.edit_not_found', ctx.locale), { parse_mode: "Markdown" });
         return;
       }
 
@@ -216,7 +220,7 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       if (newCategory) updates.category = newCategory;
 
       if (Object.keys(updates).length === 0) {
-        await ctx.reply("Не зрозумів що саме змінити. Скажи, наприклад: _\"Виправ останній запис про їжу — я з'їв 300г, не 200г\"_", { parse_mode: "Markdown" });
+        await ctx.reply(t('bot.action.edit_no_changes', ctx.locale), { parse_mode: "Markdown" });
         return;
       }
 
@@ -230,12 +234,12 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
 
       if (error || !updated) {
         console.error("[action] update_entry error:", error?.message);
-        await ctx.reply("Щось пішло не так при оновленні запису. Спробуй ще раз 🙏");
+        await ctx.reply(t('bot.action.edit_error', ctx.locale));
         return;
       }
 
       await ctx.reply(
-        `✅ Оновив!\n\n_${updated.content}_`,
+        t('bot.action.edit_success', ctx.locale, { content: updated.content }),
         { parse_mode: "Markdown" }
       );
 
@@ -258,7 +262,12 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       const description = (params.description as string) ?? "";
 
       await ctx.reply(
-        `✨ Зрозумів! Віджет *${label}* (${unit}) з'явиться на дашборді автоматично, як тільки ти почнеш записувати ${description}.\n\nПросто скажи, наприклад: _"Медитував 20 хвилин"_ — і я сам додам метрику \`${metricKey}\` до запису.`,
+        t('bot.action.widget_created', ctx.locale, {
+          label,
+          unit,
+          description,
+          metricKey,
+        }),
         { parse_mode: "Markdown" }
       );
       break;
@@ -269,7 +278,10 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
       const keys     = params.keys      as string[];
       const newLabel = params.new_label as string;
       await ctx.reply(
-        `🔗 Об'єднання *${keys.join(" + ")}* у *${newLabel}* — ця функція поки в розробці. Але я вже знаю про твоє бажання 😊`,
+        t('bot.action.merge_wip', ctx.locale, {
+          keys: keys.join(" + "),
+          newLabel,
+        }),
         { parse_mode: "Markdown" }
       );
       break;
@@ -299,22 +311,25 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
 
       // Build a human-readable confirmation
       const parts: string[] = [];
-      if (newSchedule.daily   === true)  parts.push("щоденний ✅");
-      if (newSchedule.daily   === false) parts.push("щоденний ❌");
-      if (newSchedule.weekly  === true)  parts.push("щотижневий ✅");
-      if (newSchedule.weekly  === false) parts.push("щотижневий ❌");
-      if (newSchedule.monthly === true)  parts.push("щомісячний ✅");
-      if (newSchedule.monthly === false) parts.push("щомісячний ❌");
+      if (newSchedule.daily   === true)  parts.push(t('bot.action.schedule.daily_on', ctx.locale));
+      if (newSchedule.daily   === false) parts.push(t('bot.action.schedule.daily_off', ctx.locale));
+      if (newSchedule.weekly  === true)  parts.push(t('bot.action.schedule.weekly_on', ctx.locale));
+      if (newSchedule.weekly  === false) parts.push(t('bot.action.schedule.weekly_off', ctx.locale));
+      if (newSchedule.monthly === true)  parts.push(t('bot.action.schedule.monthly_on', ctx.locale));
+      if (newSchedule.monthly === false) parts.push(t('bot.action.schedule.monthly_off', ctx.locale));
       const timeStr = newSchedule.time ? ` о *${newSchedule.time}*` : "";
 
       await ctx.reply(
-        `📅 Розклад звітів оновлено${timeStr}:\n${parts.join(", ") || "без змін"}`,
+        t('bot.action.schedule_updated', ctx.locale, {
+          time: timeStr,
+          parts: parts.join(", ") || t('bot.action.schedule.no_changes', ctx.locale),
+        }),
         { parse_mode: "Markdown" }
       );
       break;
     }
 
     default:
-      await ctx.reply("Не зрозумів яку дію виконати. Спробуй сформулювати інакше — або просто напиши що хочеш зробити 🙂");
+      await ctx.reply(t('bot.action.unknown', ctx.locale));
   }
 }

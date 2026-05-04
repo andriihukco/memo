@@ -73,6 +73,11 @@ export class ClassificationError extends Error {
   }
 }
 
+// ── Goal keyword detection ────────────────────────────────────────────────────
+// Exported so unit tests can assert against the regex directly (task 7).
+
+export const GOAL_KEYWORDS = /ціль|хочу|мета|планую|намір|маю ціль|цільовий|goal|target|want to|plan to|aim to|trying to|working on|прочита|пробіг|схудн|набра|зробит/i;
+
 // ── Built-in categories ───────────────────────────────────────────────────────
 
 export const BUILTIN_CATEGORIES: Record<string, { label_ua: string; color: string; icon: string }> = {
@@ -311,7 +316,6 @@ async function classifyText(input: string | Array<unknown>): Promise<Classificat
 
   // Pass 2: extract metrics for each entry (only for save_entry/converse)
   // Always run for entries that might have goals, even in non-metric categories
-  const GOAL_KEYWORDS = /ціль|хочу|мета|goal|target|want to|plan to|прочита|пробіг|схудн|набра|зробит/i;
   const NON_METRIC_CATEGORIES = new Set(["thoughts", "ideas", "dreams", "relationships", "travel", "gratitude", "music", "social"]);
   const needsMetrics = ["save_entry", "converse"].includes(classifyParsed.intent)
     && classifyParsed.entries.length > 0

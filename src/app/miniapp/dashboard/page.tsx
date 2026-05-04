@@ -23,6 +23,10 @@ import type { SubscriptionTier } from '@/lib/stars/paywall';
 import { TIER_INFO } from '@/lib/stars/paywall';
 import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
 import { useI18n } from '@/lib/i18n/context';
+import { filterEntriesByPeriod, startOfDay, endOfDay } from '@/lib/dashboard/period-filter';
+import type { Entry } from '@/lib/dashboard/period-filter';
+import { aggregateMetrics } from '@/lib/dashboard/aggregate-metrics';
+import type { AggregatedMetric } from '@/lib/dashboard/aggregate-metrics';
 
 // ── Full emoji library (10 categories × ~10 each) ────────────────────────────
 const EMOJI_LIBRARY = [
@@ -77,30 +81,12 @@ function getIconColor(id?: string) {
 
 // ── Data types ────────────────────────────────────────────────────────────────
 
-interface Entry {
-  id: string;
-  content: string;
-  category: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
+// Entry type is imported from @/lib/dashboard/period-filter
 
 type DateRange = 'all' | 'today' | 'yesterday' | 'week' | 'month' | '2weeks' | '3months' | 'year' | 'ytd' | 'custom';
 interface DateFilter { range: DateRange; from: Date; to: Date; }
 
-// UTC+3 aware helpers — all boundaries computed in user's local timezone
-const TZ_OFFSET_MS = 3 * 60 * 60 * 1000;
-
-function startOfDay(d: Date) {
-  const local = new Date(d.getTime() + TZ_OFFSET_MS);
-  local.setUTCHours(0, 0, 0, 0);
-  return new Date(local.getTime() - TZ_OFFSET_MS);
-}
-function endOfDay(d: Date) {
-  const local = new Date(d.getTime() + TZ_OFFSET_MS);
-  local.setUTCHours(23, 59, 59, 999);
-  return new Date(local.getTime() - TZ_OFFSET_MS);
-}
+// UTC+3 aware helpers — startOfDay and endOfDay are imported from @/lib/dashboard/period-filter
 function rangeFor(r: DateRange): { from: Date; to: Date } {
   const now = new Date();
   if (r === 'all') return { from: new Date('2020-01-01'), to: endOfDay(now) };
@@ -134,73 +120,7 @@ function getRangeLabels(t: (key: string) => string): Record<DateRange, string> {
 }
 
 // ── Metric aggregation ────────────────────────────────────────────────────────
-
-interface AggregatedMetric {
-  key: string;
-  label: string;
-  value: number;
-  unit: string;
-  icon?: string;
-  aggregate: 'sum' | 'avg' | 'last';
-  count: number;
-}
-
-function aggregateMetrics(entries: Entry[]): AggregatedMetric[] {
-  const map = new Map<string, { metric: DashboardMetric; values: number[] }>();
-
-  for (const entry of entries) {
-    const metrics = entry.metadata.dashboard_metrics as DashboardMetric[] | undefined;
-
-    if (Array.isArray(metrics) && metrics.length > 0) {
-      for (const m of metrics) {
-        if (!map.has(m.key)) map.set(m.key, { metric: m, values: [] });
-        map.get(m.key)!.values.push(m.value);
-        map.get(m.key)!.metric = m;
-      }
-    } else if (entry.category === 'sleep') {
-      // Fallback: parse sleep hours from content when dashboard_metrics is missing
-      // Handles: "8 годин", "8 hours", "8h", time ranges like "00:30→08:30"
-      const content = entry.content.toLowerCase();
-      let hours: number | null = null;
-
-      // Direct mention: "8 годин", "7.5 hours", "8h"
-      const directMatch = content.match(/(\d+(?:[.,]\d+)?)\s*(?:год(?:ин)?|hours?|h\b)/);
-      if (directMatch) {
-        hours = parseFloat(directMatch[1].replace(',', '.'));
-      }
-
-      // Time range: "00:30" to "08:30" — calculate difference
-      if (!hours) {
-        const times = content.match(/(\d{1,2}):(\d{2})/g);
-        if (times && times.length >= 2) {
-          const [h1, m1] = times[0].split(':').map(Number);
-          const [h2, m2] = times[times.length - 1].split(':').map(Number);
-          let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
-          if (diff < 0) diff += 24 * 60; // crossed midnight
-          hours = Math.round((diff / 60) * 10) / 10;
-        }
-      }
-
-      if (hours && hours > 0 && hours <= 24) {
-        const key = 'sleep_hours';
-        if (!map.has(key)) map.set(key, { metric: { key, label: 'Сон', value: hours, unit: 'год', icon: 'moon', aggregate: 'avg' }, values: [] });
-        map.get(key)!.values.push(hours);
-      }
-    }
-  }
-
-  const result: AggregatedMetric[] = [];
-  for (const [key, { metric, values }] of map) {
-    let value: number;
-    if (metric.aggregate === 'sum') value = values.reduce((a, b) => a + b, 0);
-    else if (metric.aggregate === 'avg') value = values.reduce((a, b) => a + b, 0) / values.length;
-    else value = values[values.length - 1];
-    result.push({ key, label: metric.label, value: Math.round(value * 10) / 10, unit: metric.unit, icon: metric.icon, aggregate: metric.aggregate, count: values.length });
-  }
-
-  const order = { sum: 0, avg: 1, last: 2 };
-  return result.sort((a, b) => order[a.aggregate] - order[b.aggregate]);
-}
+// aggregateMetrics and AggregatedMetric are imported from @/lib/dashboard/aggregate-metrics
 
 interface GoalMetricAgg {
   key: string;
@@ -1228,13 +1148,14 @@ function CalendarSheet({ filter, onChange, onClose, userTier }: {
   );
 }
 
+// ── Period filter helper ──────────────────────────────────────────────────────
+// filterEntriesByPeriod is imported from @/lib/dashboard/period-filter
+
 // ── Goals tab ─────────────────────────────────────────────────────────────────
 
 function GoalsTab({ entries, customWidgets }: { entries: Entry[]; customWidgets: CustomWidget[] }) {
   const { t } = useI18n();
   const entryGoals = aggregateGoals(entries);
-  const metrics = aggregateMetrics(entries);
-  const metricByKey = new Map(metrics.map(m => [m.key, m]));
 
   // Also include goals defined on custom widgets (widget.goal > 0)
   // Merge with entry-based goals — widget goal wins if same key
@@ -1280,7 +1201,8 @@ function GoalsTab({ entries, customWidgets }: { entries: Entry[]; customWidgets:
   return (
     <div className="flex flex-col gap-3">
       {goals.map(g => {
-        const actual = metricByKey.get(g.key);
+        const periodEntries = filterEntriesByPeriod(entries, g.period);
+        const actual = aggregateMetrics(periodEntries).find(m => m.key === g.key);
         const pct = actual ? Math.min(100, Math.round((actual.value / g.target) * 100)) : 0;
         const { bg, text } = metricColor(g.key);
         // Use widget emoji/color if available

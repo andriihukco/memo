@@ -60,6 +60,19 @@ export async function POST(req: Request): Promise<Response> {
 
   // Direct widget creation — client provides full definition, skip AI (preset widgets, no limit)
   if (direct && typeof direct === 'object' && direct.id) {
+    // Validate goal: must be a positive finite number if provided
+    if (direct.goal !== undefined && direct.goal !== null) {
+      const goalNum = Number(direct.goal);
+      if (!isFinite(goalNum) || goalNum <= 0) {
+        return new Response(JSON.stringify({ error: 'goal must be a positive number' }), { status: 400 });
+      }
+    }
+    // Validate period: must be one of the allowed values if provided
+    if (direct.period !== undefined && direct.period !== null) {
+      if (!['day', 'week', 'month'].includes(direct.period)) {
+        return new Response(JSON.stringify({ error: 'period must be one of: day, week, month' }), { status: 400 });
+      }
+    }
     const widget = { ...direct, is_ai: false, created_at: new Date().toISOString() };
     const filtered = (customWidgets as Array<{ id: string }>).filter((w: { id: string }) => w.id !== widget.id);
     filtered.push(widget as { id: string });
