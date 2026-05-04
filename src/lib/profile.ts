@@ -70,7 +70,8 @@ async function ensureAuthUser(telegramId: string, username: string): Promise<str
  * The Supabase JS admin SDK doesn't expose getUserByEmail directly, so we paginate.
  */
 async function findAuthUserByEmail(
-  supabase: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: { auth: { admin: { listUsers: (opts: { page: number; perPage: number }) => Promise<{ data: { users: Array<{ id: string; email?: string }> } | null; error: unknown }> } } },
   email: string
 ): Promise<string | null> {
   const PAGE_SIZE = 1000;

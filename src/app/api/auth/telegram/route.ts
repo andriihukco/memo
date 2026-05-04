@@ -36,7 +36,8 @@ function timingSafeEqual(a: string, b: string): boolean {
  * Using listUsers() without perPage only returns 50 users — broken at scale.
  */
 async function findAuthUserByEmail(
-  supabase: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: { auth: { admin: { listUsers: (opts: { page: number; perPage: number }) => Promise<{ data: { users: Array<{ id: string; email?: string }> } | null; error: unknown }> } } },
   email: string
 ): Promise<string | null> {
   const PAGE_SIZE = 1000;
