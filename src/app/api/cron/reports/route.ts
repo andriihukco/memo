@@ -340,7 +340,7 @@ async function deliverWeeklySummaries(results: { scheduled_reports: number; week
  * Returns an ISO week key in the format YYYY-Www (e.g. "2024-W03").
  * Used as the `date` value in notifications_log for weekly_summary deduplication.
  */
-export function getISOWeekKey(date: Date): string {
+function getISOWeekKey(date: Date): string {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   // ISO week: Thursday of the week determines the year
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
