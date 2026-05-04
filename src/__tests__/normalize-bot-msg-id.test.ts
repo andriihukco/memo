@@ -80,7 +80,6 @@ const eqCalls: Array<[string, unknown]> = [];
 
 const mockMaybeSingle = vi.fn();
 const mockSingle = vi.fn();
-const mockEq = vi.fn();
 const mockNeq = vi.fn();
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();

@@ -47,7 +47,7 @@ function makeQueryBuilder(resolvedValue: { data: unknown; error: unknown } = { d
 
 // ── Import after mocks ────────────────────────────────────────────────────────
 
-import { calculateStreakLength, sendStreakReminders } from "@/lib/processing/notifications";
+import { calculateStreakLength } from "@/lib/processing/notifications";
 import { createClient } from "@supabase/supabase-js";
 
 // ── calculateStreakLength tests ────────────────────────────────────────────────
@@ -199,12 +199,11 @@ describe("sendStreakReminders", () => {
    * @param opts.streakEntries - entries returned for streak calculation
    * @param opts.insertError - error to return on notifications_log insert
    */
-  function makeSupabaseMock(opts: {
+  function _makeSupabaseMock(opts: {
     activeEntries?: Array<{ user_id: string }>;
     todayEntries?: Array<{ user_id: string }>;
     profiles?: Array<{ id: string; telegram_id: number; settings: Record<string, unknown> | null }>;
     existingLog?: { id: string } | null;
-    recentNudge?: { id: string } | null;
     streakEntries?: Array<{ created_at: string }>;
     insertError?: { code: string; message: string } | null;
   }) {
@@ -213,7 +212,6 @@ describe("sendStreakReminders", () => {
       todayEntries = [],
       profiles = [],
       existingLog = null,
-      recentNudge = null,
       streakEntries = [],
       insertError = null,
     } = opts;
@@ -289,8 +287,7 @@ describe("sendStreakReminders", () => {
     vi.stubGlobal("fetch", mockFetch);
 
     // We need to mock createClient to return our controlled mock
-    const { createClient: mockCreateClient } = await import("@supabase/supabase-js");
-    vi.mocked(mockCreateClient);
+    await import("@supabase/supabase-js");
 
     // Instead, test calculateStreakLength directly and sendStreakReminders via
     // a more targeted approach — mock the module-level supabase client

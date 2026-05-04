@@ -69,7 +69,6 @@ function makeEntries(count: number, offsetMs = 0) {
 /** Build a minimal Supabase query chain that resolves to `result` */
 function makeQueryChain(result: { data: unknown; error: unknown }) {
   const chain: Record<string, unknown> = {};
-  const self = () => chain;
   chain.select = vi.fn().mockReturnValue(chain);
   chain.eq = vi.fn().mockReturnValue(chain);
   chain.gte = vi.fn().mockReturnValue(chain);
@@ -256,7 +255,7 @@ describe('GET /api/entries — cursor-based pagination', () => {
     const pageSize = 30;
     const expectedPages = totalEntries / pageSize; // 5 pages
 
-    let collectedEntries: string[] = [];
+    const collectedEntries: string[] = [];
     let cursor: string | null = null;
     let pageCount = 0;
 
