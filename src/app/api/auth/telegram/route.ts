@@ -28,6 +28,41 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 /**
+ * Find a Supabase Auth user by email, paginating through all users.
+ * Returns the user's UUID or null if not found.
+ *
+ * The Supabase JS admin SDK doesn't expose getUserByEmail directly, so we
+ * paginate. This is the reliable fallback when createUser returns "already exists".
+ * Using listUsers() without perPage only returns 50 users — broken at scale.
+ */
+async function findAuthUserByEmail(
+  supabase: ReturnType<typeof createClient>,
+  email: string
+): Promise<string | null> {
+  const PAGE_SIZE = 1000;
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: PAGE_SIZE,
+    });
+
+    if (error || !data?.users) break;
+
+    const found = data.users.find((u) => u.email === email);
+    if (found) return found.id;
+
+    // Fewer results than page size means we've reached the last page
+    if (data.users.length < PAGE_SIZE) break;
+
+    page++;
+  }
+
+  return null;
+}
+
+/**
  * Verify a Telegram Mini App `initData` string using HMAC-SHA256.
  *
  * **Verification process (per Telegram docs):**
@@ -179,29 +214,40 @@ export async function POST(req: Request): Promise<Response> {
   // This is server-side only and never exposed to the client
   const password = `tg_${telegramId}_${serviceRoleKey.slice(-8)}`;
 
-  // Try to find existing user first
-  const { data: listData } = await supabase.auth.admin.listUsers();
-  const existingUser = listData?.users?.find((u) => u.email === email);
+  // Try to create the auth user first (fast path for new users).
+  // If the user already exists, createUser returns an error — we then look up
+  // by email using paginated search to get their existing UUID.
+  // NOTE: listUsers() without perPage returns only 50 users — unreliable at scale.
+  const { data: createdUser, error: createError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { telegram_id: telegramId, username: username ?? "" },
+  });
 
-  if (!existingUser) {
-    const { error: createError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { telegram_id: telegramId, username: username ?? "" },
-    });
+  let existingUserId: string | null = null;
 
-    if (createError) {
-      console.error("[auth/telegram] createUser error:", createError.message);
+  if (createdUser?.user) {
+    // New user created successfully — nothing more to do
+    existingUserId = createdUser.user.id;
+  } else if (createError) {
+    // User likely already exists — paginate through all auth users to find them
+    existingUserId = await findAuthUserByEmail(supabase, email);
+
+    if (!existingUserId) {
+      console.error("[auth/telegram] createUser error and user not found:", createError.message);
       return new Response(JSON.stringify({ error: "Failed to create user" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
       });
     }
-  } else if (username) {
-    await supabase.auth.admin.updateUserById(existingUser.id, {
-      user_metadata: { telegram_id: telegramId, username },
-    });
+
+    // Update username metadata if it changed
+    if (username) {
+      await supabase.auth.admin.updateUserById(existingUserId, {
+        user_metadata: { telegram_id: telegramId, username },
+      });
+    }
   }
 
   // Sign in with email+password to get a real session JWT

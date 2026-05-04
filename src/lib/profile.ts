@@ -40,7 +40,8 @@ async function ensureAuthUser(telegramId: string, username: string): Promise<str
   const email = `telegram_${telegramId}@memo.app`;
   const password = `tg_${telegramId}_${env.SUPABASE_SERVICE_ROLE_KEY.slice(-8)}`;
 
-  // Try to create first — if it already exists, the error code will tell us
+  // Fast path: try to create the user first.
+  // If it succeeds, we're done. If it fails with "already exists", look up by email.
   const { data: created, error } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -50,15 +51,49 @@ async function ensureAuthUser(telegramId: string, username: string): Promise<str
 
   if (created?.user) return created.user.id;
 
-  // User already exists — look up by email
+  // User already exists — look up by email using paginated search.
+  // We iterate pages until we find the user or exhaust all pages.
   if (error) {
-    const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    const existing = listData?.users?.find((u) => u.email === email);
-    if (existing) return existing.id;
+    const found = await findAuthUserByEmail(supabase, email);
+    if (found) return found;
     throw new ProfileError(`Failed to create auth user for telegram_id ${telegramId}: ${error.message}`);
   }
 
   throw new ProfileError(`Failed to create auth user for telegram_id ${telegramId}: unknown error`);
+}
+
+/**
+ * Find a Supabase Auth user by email, paginating through all users.
+ * Returns the user's UUID or null if not found.
+ *
+ * This is the reliable fallback when createUser returns an "already exists" error.
+ * The Supabase JS admin SDK doesn't expose getUserByEmail directly, so we paginate.
+ */
+async function findAuthUserByEmail(
+  supabase: ReturnType<typeof createClient>,
+  email: string
+): Promise<string | null> {
+  const PAGE_SIZE = 1000;
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage: PAGE_SIZE,
+    });
+
+    if (error || !data?.users) break;
+
+    const found = data.users.find((u) => u.email === email);
+    if (found) return found.id;
+
+    // If we got fewer results than the page size, we've reached the last page
+    if (data.users.length < PAGE_SIZE) break;
+
+    page++;
+  }
+
+  return null;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
