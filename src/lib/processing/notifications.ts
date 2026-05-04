@@ -35,7 +35,8 @@ function getServiceClient() {
  */
 export async function calculateStreakLength(
   userId: string,
-  supabase: ReturnType<typeof createClient>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: ReturnType<typeof createClient<any>>
 ): Promise<number> {
   // Fetch entries from the last 90 days to cover any realistic streak
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
