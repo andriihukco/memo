@@ -1,11 +1,23 @@
 /**
- * In-memory sliding-window rate limiter.
+ * Sliding-window rate limiter.
  *
- * Works in both Edge and Node.js runtimes — no external dependency required.
- * Each Vercel Edge invocation is isolated, so this is per-instance; for
- * production at scale swap the store for Upstash Redis. For the current
- * traffic level (Telegram webhook + mini app) this is sufficient.
+ * Uses Upstash Redis when UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
+ * are set, so limits hold across Vercel instances. Without them (local dev,
+ * tests) it falls back to a per-instance in-memory store. If Redis errors at
+ * runtime, the request is checked against the in-memory store instead of
+ * failing open.
  */
+
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number; // unix ms
+}
+
+// ── In-memory fallback ────────────────────────────────────────────────────────
 
 interface Window {
   count: number;
@@ -25,20 +37,7 @@ function maybePrune() {
   }
 }
 
-export interface RateLimitResult {
-  allowed: boolean;
-  remaining: number;
-  resetAt: number; // unix ms
-}
-
-/**
- * Check and increment the rate limit counter for `key`.
- *
- * @param key      Unique identifier (e.g. IP address, telegram_id)
- * @param limit    Max requests allowed in the window
- * @param windowMs Window duration in milliseconds
- */
-export function rateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
+function limitInMemory(key: string, limit: number, windowMs: number): RateLimitResult {
   maybePrune();
 
   const now = Date.now();
@@ -54,6 +53,53 @@ export function rateLimit(key: string, limit: number, windowMs: number): RateLim
   const remaining = Math.max(0, limit - win.count);
 
   return { allowed, remaining, resetAt: win.resetAt };
+}
+
+// ── Upstash backend ───────────────────────────────────────────────────────────
+
+let redis: Redis | null | undefined;
+const upstashLimiters = new Map<string, Ratelimit>();
+
+function getRedis(): Redis | null {
+  if (redis !== undefined) return redis;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  redis = url && token ? new Redis({ url, token }) : null;
+  return redis;
+}
+
+function getUpstashLimiter(limit: number, windowMs: number, client: Redis): Ratelimit {
+  const cacheKey = `${limit}:${windowMs}`;
+  let limiter = upstashLimiters.get(cacheKey);
+  if (!limiter) {
+    limiter = new Ratelimit({
+      redis: client,
+      limiter: Ratelimit.slidingWindow(limit, `${windowMs} ms`),
+      prefix: "memo:rl",
+    });
+    upstashLimiters.set(cacheKey, limiter);
+  }
+  return limiter;
+}
+
+/**
+ * Check and increment the rate limit counter for `key`.
+ *
+ * @param key      Unique identifier (e.g. IP address, JWT prefix)
+ * @param limit    Max requests allowed in the window
+ * @param windowMs Window duration in milliseconds
+ */
+export async function rateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+  const client = getRedis();
+  if (!client) return limitInMemory(key, limit, windowMs);
+
+  try {
+    const res = await getUpstashLimiter(limit, windowMs, client).limit(key);
+    return { allowed: res.success, remaining: res.remaining, resetAt: res.reset };
+  } catch (err) {
+    console.error("[rate-limit] Upstash error, using in-memory fallback:", err instanceof Error ? err.message : err);
+    return limitInMemory(key, limit, windowMs);
+  }
 }
 
 /** Build a 429 response with Retry-After header. */
