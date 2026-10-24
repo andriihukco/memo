@@ -79,16 +79,13 @@ Generates a payment invoice for a subscription tier.
 }
 ```
 
-### `/api/stars/webhook`
+### Payment webhook
 
-Telegram's webhook endpoint for payment updates.
-
-**POST** `/api/stars/webhook`
-
-Handles:
-- `successful_payment` - Payment completed
+Payment updates arrive through the bot webhook, `POST /api/telegram/webhook`. That route verifies the `X-Telegram-Bot-Api-Secret-Token` header before handling:
 - `pre_checkout_query` - Pre-checkout verification
-- `shipping_query` - Shipping address verification
+- `message:successful_payment` - Payment completed; creates the subscription
+
+A separate, unauthenticated `/api/stars/webhook` route used to exist. It was removed because anyone could POST a fake `successful_payment` and grant a subscription.
 
 ## Frontend Components
 
@@ -152,14 +149,14 @@ await cancelSubscription(userId);
 2. **Configure environment variables:**
    ```env
    STARS_PROVIDER_TOKEN=your_stars_provider_token
-   STARS_WEBHOOK_SECRET=your_webhook_secret
+   TELEGRAM_WEBHOOK_SECRET=your_webhook_secret
    TELEGRAM_BOT_USERNAME=your_bot_username
    ```
 
 3. **Set up Telegram BotFather:**
    - Create a new bot or use existing
    - Configure payment provider with Telegram Stars
-   - Set webhook URL to your `/api/stars/webhook` endpoint
+   - Set the bot webhook URL to your `/api/telegram/webhook` endpoint, with `secret_token` set to `TELEGRAM_WEBHOOK_SECRET`
 
 4. **Deploy:**
    ```bash

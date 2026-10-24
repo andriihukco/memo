@@ -339,13 +339,7 @@ Create a Telegram Stars invoice link.
 
 ---
 
-### `POST /api/stars/webhook`
-**Runtime:** Node.js
-
-Handles Telegram `pre_checkout_query` and `successful_payment` webhooks.
-
-- `pre_checkout_query` → always answer OK
-- `successful_payment` → call `createSubscription()`, update profile tier
+Stars payments are handled by the bot webhook (`POST /api/telegram/webhook`, see *Telegram Webhook* below). There is no separate payments endpoint: `pre_checkout_query` and `message:successful_payment` are processed there, behind the `X-Telegram-Bot-Api-Secret-Token` check.
 
 ---
 

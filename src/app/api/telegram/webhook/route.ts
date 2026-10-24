@@ -310,7 +310,12 @@ export async function POST(req: Request): Promise<Response> {
   // Set TELEGRAM_WEBHOOK_SECRET in env and register it with Telegram:
   //   https://api.telegram.org/bot<TOKEN>/setWebhook?url=...&secret_token=<SECRET>
   // Telegram sends it as X-Telegram-Bot-Api-Secret-Token on every update.
+  // Fail closed in production: a missing secret must never mean an open webhook.
   const webhookSecret = env.TELEGRAM_WEBHOOK_SECRET;
+  if (!webhookSecret && process.env.NODE_ENV === "production") {
+    console.error("[webhook] TELEGRAM_WEBHOOK_SECRET is not set; rejecting update");
+    return new Response("Forbidden", { status: 403 });
+  }
   if (webhookSecret) {
     const incoming = req.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
     if (!timingSafeEqual(incoming, webhookSecret)) {

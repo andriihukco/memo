@@ -83,7 +83,7 @@ function calcPrice(baseMonthlyStars: number, period: BillingPeriod): number {
 5. User pays with Telegram Stars in native Telegram UI
         │
         ▼
-6. Telegram sends webhook to /api/stars/webhook:
+6. Telegram sends the update to the bot webhook (/api/telegram/webhook):
    - pre_checkout_query → answer OK immediately
    - successful_payment → process payment
         │
