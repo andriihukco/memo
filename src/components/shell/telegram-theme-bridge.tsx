@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTheme, useSetForcedTheme } from '@/lib/theme-provider';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { resolveTelegramTheme, tg, type ThemeChoice } from '@/lib/telegram';
+import { resolveTelegramTheme, tg, type Scheme, type ThemeChoice } from '@/lib/telegram';
 
 const isChoice = (v: unknown): v is ThemeChoice => v === 'light' || v === 'dark' || v === 'system';
 
@@ -25,29 +25,39 @@ export function TelegramThemeBridge() {
   const choice: ThemeChoice = isChoice(theme) ? theme : 'system';
   const lastChoice = useRef<ThemeChoice | undefined>(undefined);
   const synced = useRef(false);
+  const userChanged = useRef(false);
 
-  // Force Telegram's scheme only while the stored choice is 'system'; explicit choices always win.
+  const [tgScheme, setTgScheme] = useState<Scheme | undefined>();
+  const forced = resolveTelegramTheme(choice, tgScheme) ?? undefined;
+  // resolvedTheme ignores forcedTheme in next-themes, so derive the effective theme here.
+  const effective = forced ?? resolvedTheme;
+
+  // Track Telegram's scheme; 'system' follows it, explicit choices always win (see forced above).
   useEffect(() => {
-    const apply = () => setForced(resolveTelegramTheme(choice, tg()?.colorScheme) ?? undefined);
-    apply();
     const w = tg();
-    w?.onEvent('themeChanged', apply);
-    return () => w?.offEvent('themeChanged', apply);
-  }, [choice, setForced]);
+    const read = () => setTgScheme(tg()?.colorScheme);
+    read();
+    w?.onEvent('themeChanged', read);
+    return () => w?.offEvent('themeChanged', read);
+  }, []);
+  useEffect(() => setForced(forced), [forced, setForced]);
 
-  // Chrome colours follow the applied theme.
+  // Chrome colours follow the applied theme. rAF: the provider applies the class in its own effect, after ours.
   useEffect(() => {
-    const raw = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
-    if (!raw) return;
-    const hex = hslToHex(raw);
-    tg()?.setHeaderColor(hex);
-    tg()?.setBackgroundColor(hex);
-    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
-    const meta = document.createElement('meta');
-    meta.name = 'theme-color';
-    meta.content = hex;
-    document.head.appendChild(meta);
-  }, [resolvedTheme]);
+    const id = requestAnimationFrame(() => {
+      const raw = getComputedStyle(document.documentElement).getPropertyValue('--background').trim();
+      if (!raw) return;
+      const hex = hslToHex(raw);
+      tg()?.setHeaderColor(hex);
+      tg()?.setBackgroundColor(hex);
+      document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+      const meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      meta.content = hex;
+      document.head.appendChild(meta);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [effective]);
 
   // Read the profile once; adopt its theme without echoing it back.
   useEffect(() => {
@@ -56,7 +66,7 @@ export function TelegramThemeBridge() {
     fetch('/api/profile/settings', { headers: { Authorization: `Bearer ${accessToken}` } })
       .then((r) => (r.ok ? r.json() : null))
       .then((p) => {
-        if (isChoice(p?.theme)) {
+        if (isChoice(p?.theme) && !userChanged.current) {
           lastChoice.current = p.theme;
           setTheme(p.theme);
         }
@@ -70,6 +80,7 @@ export function TelegramThemeBridge() {
     if (lastChoice.current === undefined) lastChoice.current = choice;
     if (choice === lastChoice.current) return;
     lastChoice.current = choice;
+    userChanged.current = true;
     if (!accessToken) return;
     fetch('/api/profile/settings', {
       method: 'PATCH',
