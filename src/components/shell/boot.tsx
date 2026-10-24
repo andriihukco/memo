@@ -872,11 +872,23 @@ export function Boot({ children }: { children: React.ReactNode }) {
         }
 
         const initData = tg?.initData ?? '';
-        const res = await fetch('/api/auth/telegram', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ initData }),
-        });
+        // NODE_ENV is inlined by Next, so this branch is removed from production bundles.
+        const devAuth =
+          process.env.NODE_ENV === 'development' &&
+          !initData &&
+          ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
+        if (devAuth) console.info('[dev-auth] signed in as dev_tester');
+        const res = devAuth
+          ? await fetch('/api/auth/dev', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ seed: true }),
+            })
+          : await fetch('/api/auth/telegram', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ initData }),
+            });
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
