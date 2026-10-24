@@ -26,6 +26,16 @@ describe('format', () => {
     expect(formatDay(now.toISOString(), 'en', 'UTC', now)).toBe('Today');
   });
 
+  it('formatDay is calendar-based across Kyiv DST changes', () => {
+    // spring forward: now = 00:30 local on 03-30 (UTC+3), entry on 03-29 is Yesterday
+    const spring = new Date('2026-03-29T21:30:00Z');
+    expect(formatDay('2026-03-29T10:00:00Z', 'en', 'Europe/Kyiv', spring)).toBe('Yesterday');
+    // fall back: 10-25 has 25 hours; late on it, an early entry is still Today
+    const fall = new Date('2026-10-25T21:30:00Z'); // 23:30 local (UTC+2)
+    expect(formatDay('2026-10-24T21:30:00Z', 'en', 'Europe/Kyiv', fall)).toBe('Today'); // 00:30 local on 25th
+    expect(formatDay('2026-10-24T20:00:00Z', 'en', 'Europe/Kyiv', fall)).toBe('Yesterday');
+  });
+
   it('formatDay adds year only when it differs', () => {
     const now = new Date('2026-06-10T12:00:00Z');
     expect(formatDay('2026-05-01T12:00:00Z', 'en', 'UTC', now)).not.toContain('2026');

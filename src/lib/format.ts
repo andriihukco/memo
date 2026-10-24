@@ -7,7 +7,7 @@ export function dayKey(iso: string, timeZone: string): string {
 
 export function groupByDay<T extends { created_at: string }>(items: T[], timeZone: string): { key: string; items: T[] }[] {
   const map = new Map<string, T[]>();
-  for (const it of [...items].sort((a, b) => b.created_at.localeCompare(a.created_at))) {
+  for (const it of [...items].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))) {
     const k = dayKey(it.created_at, timeZone);
     (map.get(k) ?? map.set(k, []).get(k)!).push(it);
   }
@@ -19,7 +19,9 @@ export function formatDay(iso: string, locale: string, timeZone: string, now: Da
   const today = dayKey(now.toISOString(), timeZone);
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
   if (key === today) return cap(rtf.format(0, 'day'));
-  const yesterday = dayKey(new Date(now.getTime() - 86_400_000).toISOString(), timeZone);
+  // calendar arithmetic on the local date key; 24h subtraction breaks on DST days
+  const [y, m, d] = today.split('-').map(Number);
+  const yesterday = new Date(Date.UTC(y, m - 1, d - 1)).toISOString().slice(0, 10);
   if (key === yesterday) return cap(rtf.format(-1, 'day'));
   const sameYear = key.slice(0, 4) === today.slice(0, 4);
   return new Intl.DateTimeFormat(locale, {

@@ -18,7 +18,11 @@ async function run(key: string) {
   if (!p) return;
   clearTimeout(p.timer);
   pending.delete(key);
-  await p.commit();
+  try {
+    await p.commit();
+  } catch {
+    p.rollback();
+  }
 }
 
 export function schedule(key: string, commit: () => Promise<void>, rollback: () => void, ms = 5000): void {

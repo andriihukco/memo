@@ -58,7 +58,7 @@ const files = ['src/app', 'src/components']
   .filter((rel) => !SHADCN_FILES.has(rel) && !EXEMPT.some((e) => rel.endsWith(e)) && !allowed(rel));
 
 describe('ui style guards', () => {
-  it('scans some files', () => expect(files.length).toBeGreaterThanOrEqual(0));
+  it('scans some files', () => expect(files.length).toBeGreaterThan(0));
   for (const [name, re] of RULES) {
     it(`no ${name} (${re})`, () => {
       const bad = files.filter((rel) => re.test(readFileSync(path.join(ROOT, rel), 'utf8')));

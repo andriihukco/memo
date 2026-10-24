@@ -18,9 +18,11 @@ export function useUndoableDelete() {
   return useCallback(
     ({ key, label, remove, restore, commit }: Opts) => {
       remove();
+      const id = toast(label, { action: { label: t('shell.undo'), onClick: () => undo(key) } });
       schedule(
         key,
         async () => {
+          toast.dismiss(id); // after a visibility flush Undo would be a dead button
           try {
             await commit();
           } catch {
@@ -30,7 +32,6 @@ export function useUndoableDelete() {
         },
         restore,
       );
-      toast(label, { action: { label: t('shell.undo'), onClick: () => undo(key) } });
     },
     [t],
   );
