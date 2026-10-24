@@ -102,6 +102,35 @@
     --glass-border: 215 20% 90% / 0.3;
     /* Glassmorphism border */
   }
+
+  /* System dark mode — applied when device is in dark mode AND no .light override exists */
+  @media (prefers-color-scheme: dark) {
+    :root:not(.light) {
+      --background: 222 47% 6%;
+      --foreground: 210 40% 98%;
+      --card: 217 33% 12%;
+      --card-foreground: 210 40% 98%;
+      --popover: 217 33% 12%;
+      --popover-foreground: 210 40% 98%;
+      --primary: 217 91% 60%;
+      --primary-foreground: 222 47% 6%;
+      --secondary: 217 33% 17%;
+      --secondary-foreground: 210 40% 98%;
+      --muted: 217 33% 17%;
+      --muted-foreground: 215 20% 55%;
+      --accent: 217 91% 60%;
+      --accent-foreground: 222 47% 6%;
+      --destructive: 0 72% 51%;
+      --destructive-foreground: 210 40% 98%;
+      --border: 217 33% 20%;
+      --input: 217 33% 17%;
+      --ring: 217 91% 60%;
+      --surface-elevated: 217 33% 14%;
+      --surface-hover: 217 33% 20%;
+      --glass-bg: 217 33% 12% / 0.8;
+      --glass-border: 217 33% 25% / 0.3;
+    }
+  }
 }
 
 @layer base {
@@ -118,7 +147,8 @@
   body {
     @apply text-foreground antialiased;
     background: hsl(var(--background));
-    min-height: 100vh;
+    /* Use dvh so the body fills visible viewport (avoids iOS Safari 100vh bug) */
+    min-height: 100dvh;
     /* iOS SF Pro font stack with system fallbacks */
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
@@ -128,6 +158,10 @@
     text-rendering: optimizeLegibility;
     /* iOS momentum scrolling */
     -webkit-overflow-scrolling: touch;
+    /* Prevent overscroll bounce on the body itself */
+    overscroll-behavior-y: none;
+    /* Safe area bottom padding — accounts for home indicator on iOS */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* iOS Safe Touch Areas - minimum 44px touch targets */
@@ -136,6 +170,24 @@
   [role="button"] {
     min-height: 44px;
     min-width: 44px;
+    /* Eliminate 300ms click delay and double-tap zoom on all interactive elements */
+    touch-action: manipulation;
+  }
+
+  /* Wrap :hover styles so they don’t stick on touch devices */
+  @media (hover: hover) and (pointer: fine) {
+    button:hover,
+    a:hover,
+    [role="button"]:hover {
+      /* hover styles managed inside components via Tailwind */
+    }
+  }
+  /* Remove hover styles on touch-only devices */
+  @media (hover: none) {
+    button:hover,
+    a:hover {
+      /* revert to default — no sticky hover states */
+    }
   }
 
   /* Prevent iOS auto-zoom on input focus — requires font-size >= 16px */

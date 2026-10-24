@@ -16,12 +16,15 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Memo",
-  description: "Your AI diary",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-  },
+  title: "Memo – Your AI Diary",
+  description: "Memo is your private AI-powered diary inside Telegram. Log thoughts, track goals, and get insights — all encrypted.",
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
@@ -32,6 +35,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* theme-color — matches dark app background for browser chrome */}
+        <meta name="theme-color" content="#0B0F19" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}

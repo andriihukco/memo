@@ -7,7 +7,7 @@ import { ErrorBanner } from '@/components/ui/error-banner';
 import { useSound } from '@/lib/sound/use-sound';
 import { useI18n } from '@/lib/i18n/context';
 import { cn } from '@/lib/utils';
-import type { SubscriptionTier } from '@/lib/stars/paywall';
+import type { SubscriptionTier } from '@/lib/billing/plans';
 import { ICON_COLORS, EMOJI_LIBRARY } from './dashboard-constants';
 import { getIconColor } from './dashboard-helpers';
 import type { MeasureOption, CustomWidget } from './dashboard-types';

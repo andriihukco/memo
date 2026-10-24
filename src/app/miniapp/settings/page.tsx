@@ -14,7 +14,7 @@ import {
   getLockTimer, setLockTimer, type LockTimer, LOCK_TIMER_LABELS,
 } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
-import { TIER_INFO, type SubscriptionTier } from '@/lib/stars/paywall';
+import { TIER_INFO, type SubscriptionTier } from '@/lib/billing/plans';
 import { useI18n } from '@/lib/i18n/context';
 import { SUPPORTED_LOCALES, LOCALE_META, type Locale } from '@/i18n/locales';
 import { hapticNotification, hapticImpact } from '@/lib/haptics';

@@ -24,6 +24,7 @@ ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
 -- auth.uid() returns UUID but telegram_id is BIGINT — cannot cast directly.
 -- Instead, read telegram_id from the JWT user_metadata (stored as text) and
 -- cast to BIGINT for comparison against profiles.telegram_id.
+DROP POLICY IF EXISTS "Users can view their own referrals" ON referrals;
 CREATE POLICY "Users can view their own referrals"
   ON referrals FOR SELECT
   USING (

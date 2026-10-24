@@ -13,8 +13,8 @@ import { EditDrawer, getCategoryLabel, getCategoryColor } from '@/components/ui/
 import { EmptyState } from '@/components/ui/empty-state';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { cn } from '@/lib/utils';
-import type { SubscriptionTier } from '@/lib/stars/paywall';
-import { TIER_INFO } from '@/lib/stars/paywall';
+import type { SubscriptionTier } from '@/lib/billing/plans';
+import { TIER_INFO } from '@/lib/billing/plans';
 import { useSound } from '@/lib/sound/use-sound';
 import { useI18n } from '@/lib/i18n/context';
 

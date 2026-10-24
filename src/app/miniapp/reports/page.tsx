@@ -15,7 +15,7 @@ import { ErrorBanner as _ErrorBanner } from '@/components/ui/error-banner';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { UsageWarningBanner } from '@/components/ui/usage-warning-banner';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
-import { type SubscriptionTier, TIER_INFO } from '@/lib/stars/paywall';
+import { type SubscriptionTier, TIER_INFO } from '@/lib/billing/plans';
 import { useReportGeneration } from '@/lib/report-generation-context';
 import { useI18n } from '@/lib/i18n/context';
 import { hapticNotification } from '@/lib/haptics';

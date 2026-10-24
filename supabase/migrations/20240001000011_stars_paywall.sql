@@ -64,13 +64,18 @@ ALTER TABLE subscription_transactions  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription_invoices      ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (service role bypasses these; miniapp reads use auth.uid())
+DROP POLICY IF EXISTS subscriptions_owner ON subscriptions;
 CREATE POLICY subscriptions_owner ON subscriptions
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
 
+DROP POLICY IF EXISTS subscription_transactions_owner ON subscription_transactions;
+
 CREATE POLICY subscription_transactions_owner ON subscription_transactions
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS subscription_invoices_owner ON subscription_invoices;
 
 CREATE POLICY subscription_invoices_owner ON subscription_invoices
   USING (user_id = auth.uid())
@@ -90,6 +95,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_subscription_end_date ON subscriptions;
 CREATE TRIGGER trg_subscription_end_date
   BEFORE INSERT OR UPDATE ON subscriptions
   FOR EACH ROW EXECUTE FUNCTION update_subscription_end_date();

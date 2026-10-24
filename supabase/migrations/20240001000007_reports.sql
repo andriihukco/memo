@@ -15,6 +15,7 @@ CREATE INDEX IF NOT EXISTS reports_user_id_idx ON reports(user_id);
 CREATE INDEX IF NOT EXISTS reports_created_at_idx ON reports(created_at DESC);
 
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS reports_owner ON reports;
 CREATE POLICY reports_owner ON reports
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());

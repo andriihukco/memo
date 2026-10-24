@@ -987,6 +987,8 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   const { setAccessToken } = useAuth();
   const { play } = useSound();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [isColdLoad, setIsColdLoad] = useState(false);
+  useEffect(() => { setIsColdLoad(!sessionStorage.getItem('memo_auth_done')); }, []);
   const [errorMsg, setErrorMsg] = useState('');
   const pathname = usePathname();
   const router = useRouter();
@@ -1122,7 +1124,7 @@ function MiniAppContent({ children }: { children: React.ReactNode }) {
   if (status === 'loading') {
     // First cold load → full splash with constellation animation
     // Re-mount on tab navigation → instant blank (auth already done)
-    const isColdLoad = typeof window !== 'undefined' && !sessionStorage.getItem('memo_auth_done');
+    // Read sessionStorage after mount so server and client first render match
     if (isColdLoad) return <SplashScreen />;
     return <div className="flex h-screen bg-background" />;
   }

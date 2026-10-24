@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { TIER_INFO, BILLING_PERIODS, calcPrice, type SubscriptionTier, type BillingPeriod } from '@/lib/stars/paywall';
+import { TIER_INFO, BILLING_PERIODS, calcPrice, type SubscriptionTier, type BillingPeriod } from '@/lib/billing/plans';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { Separator } from '@/components/ui/separator';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';

@@ -18,9 +18,10 @@ import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { PaywallModal } from '@/components/ui/paywall-modal';
 import { UsageCounterChip } from '@/components/ui/usage-counter-chip';
 import { UsageWarningBanner } from '@/components/ui/usage-warning-banner';
+import { UndoToast, useUndoToast } from '@/components/ui/undo-toast';
 import { useUsageCounts } from '@/lib/hooks/use-usage-counts';
-import { TIER_INFO } from '@/lib/stars/paywall';
-import type { SubscriptionTier } from '@/lib/stars/paywall';
+import { TIER_INFO } from '@/lib/billing/plans';
+import type { SubscriptionTier } from '@/lib/billing/plans';
 import { useI18n } from '@/lib/i18n/context';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
 
@@ -547,7 +548,9 @@ export default function FeedPage() {
   const [pendingDeleteIds, setPendingDeleteIds] = useState<string[] | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // ── Cursor-based pagination state ──────────────────────────────────────────
+  const { toastState, showUndo, clearToast } = useUndoToast();
+
+  // ── Cursor-based pagination state ─────────────────────────────────────────
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -670,11 +673,19 @@ export default function FeedPage() {
     if (!pendingDeleteIds || !accessToken) return;
     play('CAUTION');
     setIsDeleting(true);
+    const count = pendingDeleteIds.length;
+    const deletedEntries = allEntries.filter((e) => pendingDeleteIds.includes(e.id));
     try {
       const res = await fetch('/api/entries', { method: 'DELETE', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ ids: pendingDeleteIds }) });
       if (!res.ok) throw new Error('Delete failed');
       setAllEntries((prev) => prev.filter((e) => !pendingDeleteIds.includes(e.id)));
       exitSelectMode();
+      showUndo({
+        message: `${count} ${count === 1 ? 'запис видалено' : 'записи видалено'}`,
+        onUndo: () => {
+          setAllEntries((prev) => [...deletedEntries, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+        },
+      });
     } catch { /* keep */ } finally { setIsDeleting(false); setPendingDeleteIds(null); }
   };
 
@@ -692,13 +703,28 @@ export default function FeedPage() {
 
   const handleDeleteSingle = async (id: string) => {
     if (!accessToken) return;
-    const res = await fetch('/api/entries', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ ids: [id] }),
-    });
-    if (!res.ok) throw new Error('Delete failed');
+    // Optimistically remove from UI and show undo toast
+    const deleted = allEntries.find((e) => e.id === id);
     setAllEntries((prev) => prev.filter((e) => e.id !== id));
+    showUndo({
+      message: '1 запис видалено',
+      onUndo: () => {
+        // Restore the entry in the local state (no re-fetch needed)
+        if (deleted) setAllEntries((prev) => [deleted, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      },
+    });
+    // Perform the actual deletion in the background
+    try {
+      const res = await fetch('/api/entries', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ ids: [id] }),
+      });
+      if (!res.ok) throw new Error('Delete failed');
+    } catch {
+      // On failure, silently restore — undo toast already gave user the option
+      if (deleted) setAllEntries((prev) => [deleted, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+    }
   };
 
   const allIds = entries.map((e) => e.id);
@@ -721,10 +747,22 @@ export default function FeedPage() {
     >
       {isSelectMode ? (
         <div className="flex items-center justify-between">
-          <button onClick={toggleSelectAll} className="text-sm font-medium underline-offset-2 hover:underline">
-            {allSelected ? 'Зняти все' : `${selectedIds.size} вибрано — Вибрати все`}
+          <button
+            onClick={toggleSelectAll}
+            className="text-sm font-medium underline-offset-2 hover:underline"
+          >
+            {allSelected
+              ? t('miniapp.feed.select.deselect')
+              : `${selectedIds.size} ${t('miniapp.feed.select.count')} — ${t('miniapp.feed.select.all')}`}
           </button>
-          <Button size="sm" variant="outline" className="min-h-[44px]" onClick={exitSelectMode}>Скасувати</Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="min-h-[44px]"
+            onClick={exitSelectMode}
+          >
+            {t('miniapp.feed.select.cancel')}
+          </Button>
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
@@ -920,14 +958,18 @@ export default function FeedPage() {
       )}
 
       {isSelectMode && (
-        <div className="fixed left-0 right-0 z-40 flex justify-center px-4 py-3" style={{ bottom: 'calc(var(--tab-bar-h, 60px) + var(--bottom-inset, 0px))' }}>
+        <div
+          className="fixed left-0 right-0 z-40 flex justify-center px-4 py-3"
+          style={{ bottom: 'calc(var(--tab-bar-h, 60px) + var(--bottom-inset, 0px))' }}
+        >
           <button
             disabled={selectedIds.size === 0}
             onClick={() => { play('OPEN'); setPendingDeleteIds([...selectedIds]); }}
+            aria-label={`${t('miniapp.feed.delete.button')} (${selectedIds.size})`}
             className="flex items-center gap-2 rounded-full bg-destructive px-5 py-2.5 text-sm font-semibold text-destructive-foreground shadow-lg disabled:opacity-40 min-h-[44px]"
           >
-            <Icon name="delete" size={15} />
-            {t('miniapp.feed.delete.button')} {selectedIds.size > 0 ? `(${selectedIds.size})` : ''}
+            <Icon name="delete" size={15} aria-hidden />
+            {t('miniapp.feed.delete.button')}{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
           </button>
         </div>
       )}
@@ -952,6 +994,15 @@ export default function FeedPage() {
           fetchUserTier(); // refresh tier + trial state
         }}
       />
+
+      {/* Undo toast — rendered above tab bar */}
+      {toastState && (
+        <UndoToast
+          key={toastState.key}
+          {...toastState.options}
+          onDismiss={clearToast}
+        />
+      )}
     </motion.div>
   );
 }

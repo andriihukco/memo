@@ -57,12 +57,16 @@ interface IconProps {
   name: string;
   size?: number;
   className?: string;
+  /** Accessible name. When provided, the icon is announced by screen readers. */
   'aria-label'?: string;
+  /** ARIA role override. Defaults to 'img' when aria-label is present. */
+  role?: string;
   filled?: boolean;
   style?: React.CSSProperties;
 }
 
 export function Icon({ name, size = 24, className, filled = false, style, ...props }: IconProps) {
+  const hasLabel = Boolean(props['aria-label']);
   return (
     <span
       className={cn('material-symbols-rounded select-none icons-hidden', className)}
@@ -75,8 +79,10 @@ export function Icon({ name, size = 24, className, filled = false, style, ...pro
         justifyContent: 'center',
         ...style,
       }}
-      aria-hidden={!props['aria-label']}
-      {...props}
+      // When an aria-label is supplied, expose as img; otherwise hide from screen readers entirely
+      role={props.role ?? (hasLabel ? 'img' : undefined)}
+      aria-hidden={!hasLabel}
+      aria-label={props['aria-label']}
     >
       {name}
     </span>

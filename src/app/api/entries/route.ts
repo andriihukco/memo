@@ -6,6 +6,32 @@ import { deriveUserKey, encryptField, decryptField } from "@/lib/crypto";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { resolveCalorieMetrics } from "@/lib/nutrition";
+import { parseBody, CreateEntrySchema, UpdateEntrySchema, DeleteEntriesSchema } from "@/lib/schemas";
+
+/** CSRF / Origin guard — state-changing edge routes only */
+function checkOrigin(req: Request): boolean {
+  const origin = req.headers.get("Origin");
+  const referer = req.headers.get("Referer");
+
+  // Telegram Mini Apps send requests from within the WebView; no Origin is present in that context.
+  // We allow requests without Origin if they also have a valid Authorization header (checked separately).
+  if (!origin && !referer) return true;
+
+  const allowed = [
+    process.env.NEXT_PUBLIC_APP_URL ?? "",
+    "https://web.telegram.org",
+    "https://k.web.telegram.org",
+    "https://a.web.telegram.org",
+  ].filter(Boolean);
+
+  if (origin) {
+    return allowed.some((a) => origin === a || origin.startsWith(a));
+  }
+  if (referer) {
+    return allowed.some((a) => referer.startsWith(a));
+  }
+  return false;
+}
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get("Authorization");
@@ -117,20 +143,11 @@ export async function POST(req: Request): Promise<Response> {
     }), { status: 402, headers: { "Content-Type": "application/json" } });
   }
 
-  // Parse body
-  let content: string, category: string | undefined, metadata: Record<string, unknown> | undefined;
-  try {
-    const body = await req.json();
-    content = body.content;
-    category = body.category;
-    metadata = body.metadata;
-    if (!content) throw new Error("content required");
-  } catch {
-    return new Response(JSON.stringify({ error: "content required" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  // Parse + validate body
+  const parsed = await parseBody(req, CreateEntrySchema);
+  if (!parsed.success) return parsed.error;
+
+  const { content, category, metadata } = parsed.data;
 
   // Encrypt content
   let storedContent = content.trim();
@@ -173,17 +190,9 @@ export async function PATCH(req: Request): Promise<Response> {
   const jwt = getUserJwt(req);
   if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
 
-  let id: string, content: string | undefined, category: string | undefined, metricOverride: { key: string; value: number } | undefined;
-  try {
-    const body = await req.json();
-    id = body.id;
-    content = body.content;
-    category = body.category;
-    metricOverride = body.metric_override;
-    if (!id || (!content && !category && !metricOverride)) throw new Error();
-  } catch {
-    return new Response(JSON.stringify({ error: "id and at least one of content/category/metric_override required" }), { status: 400, headers: { "Content-Type": "application/json" } });
-  }
+  const parsedPatch = await parseBody(req, UpdateEntrySchema);
+  if (!parsedPatch.success) return parsedPatch.error;
+  const { id, content, category, metric_override: metricOverride } = parsedPatch.data;
 
   const supabase = makeSupabase(jwt);
 
@@ -281,17 +290,9 @@ export async function DELETE(req: Request): Promise<Response> {
     });
   }
 
-  let ids: string[];
-  try {
-    const body = await req.json();
-    ids = body.ids;
-    if (!Array.isArray(ids) || ids.length === 0) throw new Error();
-  } catch {
-    return new Response(JSON.stringify({ error: "ids array required" }), {
-      status: 400,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
+  const parsedDelete = await parseBody(req, DeleteEntriesSchema);
+  if (!parsedDelete.success) return parsedDelete.error;
+  const { ids } = parsedDelete.data;
 
   const supabase = makeSupabase(jwt);
   const { error } = await supabase.from("entries").delete().in("id", ids);
@@ -440,7 +441,11 @@ export async function GET(req: Request): Promise<Response> {
     }),
     {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        // Private (user-specific data) — cache for 30s, stale-while-revalidate for 60s
+        "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+      },
     }
   );
 }
