@@ -6,6 +6,7 @@ import { ListGroup, ListRow } from '@/components/patterns/list-group';
 import { EmptyState } from '@/components/patterns/empty-state';
 import { ErrorState } from '@/components/patterns/error-state';
 import { CategoryBadge } from '@/components/patterns/category-badge';
+import { Switch } from '@/components/ui/switch';
 import { MetricPill } from '@/components/patterns/metric-pill';
 
 afterEach(cleanup);
@@ -28,7 +29,7 @@ describe('patterns', () => {
   });
   it('ErrorState calls onRetry', () => {
     const fn = vi.fn();
-    render(<ErrorState title="t" description="d" onRetry={fn} />);
+    render(<ErrorState title="t" description="d" onRetry={fn} retryLabel="Retry" />);
     fireEvent.click(screen.getByRole('button'));
     expect(fn).toHaveBeenCalled();
   });
@@ -36,5 +37,40 @@ describe('patterns', () => {
     render(<><CategoryBadge name="work" label="Work" /><MetricPill label="Streak" value="5" /></>);
     expect(screen.getByText('Work')).toBeTruthy();
     expect(screen.getByText('5')).toBeTruthy();
+  });
+
+  it('falsy children add no extra separators', () => {
+    const { container } = render(<ListGroup>{false}<ListRow label="a" onClick={() => {}} />{null}<ListRow label="b" onClick={() => {}} /></ListGroup>);
+    expect(container.querySelectorAll('[role="none"], [data-orientation]')).toHaveLength(1);
+  });
+  it('chevron only with href and no trailing', () => {
+    const { container, rerender } = render(<ListRow label="a" href="/x" />);
+    expect(container.querySelector('[data-chevron]')).toBeTruthy();
+    rerender(<ListRow label="a" href="/x" trailing={<span>t</span>} />);
+    expect(container.querySelector('[data-chevron]')).toBeNull();
+    rerender(<ListRow label="a" onClick={() => {}} />);
+    expect(container.querySelector('[data-chevron]')).toBeNull();
+  });
+  it('row without href/onClick is non-interactive and trailing Switch works', () => {
+    const fn = vi.fn();
+    render(<ListRow label="Notify" trailing={<Switch aria-label="Notify" onCheckedChange={fn} />} />);
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getAllByRole('switch')).toHaveLength(1);
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('switch'));
+    expect(fn).toHaveBeenCalledWith(true);
+  });
+  it('ErrorState without onRetry has no button', () => {
+    render(<ErrorState title="t" description="d" />);
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+  it('CategoryBadge sets --cat', () => {
+    render(<CategoryBadge name="work" label="Work" />);
+    const el = screen.getByText('Work');
+    expect(el.style.getPropertyValue('--cat')).toMatch(/^var\(--cat-\d+\)$/);
+  });
+  it('accessible name includes description and value', () => {
+    render(<ListRow label="Lang" description="Pick one" value="EN" onClick={() => {}} />);
+    expect(screen.getByRole('button', { name: /Lang.*Pick one.*EN/ })).toBeTruthy();
   });
 });
