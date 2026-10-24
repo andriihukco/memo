@@ -40,7 +40,7 @@ const categoryString = z
 export const CreateEntrySchema = z.object({
   content: safeString(8000).refine((s) => s.length > 0, { message: 'content is required' }),
   category: categoryString.optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type CreateEntryInput = z.infer<typeof CreateEntrySchema>;
@@ -77,7 +77,7 @@ export type DeleteEntriesInput = z.infer<typeof DeleteEntriesSchema>;
 
 export const UpdateProfileSchema = z.object({
   display_name: safeString(80).optional(),
-  settings: z.record(z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
@@ -137,7 +137,7 @@ export async function parseBody<T>(
     return {
       success: false,
       error: new Response(JSON.stringify({ error: 'Validation failed', issues }), {
-        status: 422,
+        status: 400,
         headers: { 'Content-Type': 'application/json' },
       }),
     };

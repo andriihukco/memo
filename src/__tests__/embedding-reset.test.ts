@@ -170,7 +170,7 @@ describe("PATCH /api/entries — embedding reset on content edit (REQ-13)", () =
     setupMocks("original content");
 
     const res = await callPatch({
-      id: "entry-uuid",
+      id: "11111111-1111-4111-8111-111111111111",
       content: "updated content",
     });
 
@@ -186,7 +186,7 @@ describe("PATCH /api/entries — embedding reset on content edit (REQ-13)", () =
     setupMocks("original content");
 
     const res = await callPatch({
-      id: "entry-uuid",
+      id: "11111111-1111-4111-8111-111111111111",
       content: "updated content",
     });
 
@@ -201,7 +201,7 @@ describe("PATCH /api/entries — embedding reset on content edit (REQ-13)", () =
     setupMocks("old text");
 
     await callPatch({
-      id: "entry-uuid",
+      id: "11111111-1111-4111-8111-111111111111",
       content: "new text",
     });
 
@@ -216,7 +216,7 @@ describe("PATCH /api/entries — embedding reset on content edit (REQ-13)", () =
     setupMocks("original content");
 
     const res = await callPatch({
-      id: "entry-uuid",
+      id: "11111111-1111-4111-8111-111111111111",
       category: "health",
     });
 
@@ -236,7 +236,7 @@ describe("PATCH /api/entries — embedding reset on content edit (REQ-13)", () =
     const req = new Request("http://localhost/api/entries", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: "entry-uuid", content: "test" }),
+      body: JSON.stringify({ id: "11111111-1111-4111-8111-111111111111", content: "test" }),
     });
     const res = await PATCH(req);
     expect(res.status).toBe(401);
@@ -250,7 +250,7 @@ describe("PATCH /api/entries — embedding reset on content edit (REQ-13)", () =
 
   it("returns 400 when neither content, category, nor metric_override is provided", async () => {
     setupMocks();
-    const res = await callPatch({ id: "entry-uuid" });
+    const res = await callPatch({ id: "11111111-1111-4111-8111-111111111111" });
     expect(res.status).toBe(400);
   });
 });
