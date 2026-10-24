@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@/components/ui/icon';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { useSound } from '@/lib/sound/use-sound';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/legacy/card';
 import { Separator } from '@/components/ui/separator';
 import { PasscodeScreen, createPinHash } from '@/components/ui/passcode-screen';
 import {

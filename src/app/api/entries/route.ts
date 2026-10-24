@@ -9,7 +9,7 @@ import { resolveCalorieMetrics } from "@/lib/nutrition";
 import { parseBody, CreateEntrySchema, UpdateEntrySchema, DeleteEntriesSchema } from "@/lib/schemas";
 
 /** CSRF / Origin guard — state-changing edge routes only */
-function checkOrigin(req: Request): boolean {
+function _checkOrigin(req: Request): boolean {
   const origin = req.headers.get("Origin");
   const referer = req.headers.get("Referer");
 

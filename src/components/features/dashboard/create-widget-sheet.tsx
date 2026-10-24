@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/legacy/button';
 import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { useSound } from '@/lib/sound/use-sound';

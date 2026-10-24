@@ -2,7 +2,7 @@
 
 import { motion, type Variants } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/legacy/button';
 
 interface FeatureItem {
   emoji: string;

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
-import { SubscriptionTier, BillingPeriod, BILLING_PERIODS, calcPrice, TierInfo, TIER_INFO, GRACE_PERIOD_DAYS } from "@/lib/billing/plans";
+import { SubscriptionTier, TIER_INFO, GRACE_PERIOD_DAYS } from "@/lib/billing/plans";
 export type { SubscriptionTier, BillingPeriod, BillingPeriodInfo } from "@/lib/billing/plans";
 export { BILLING_PERIODS, calcPrice, TIER_INFO, GRACE_PERIOD_DAYS } from "@/lib/billing/plans";
 export type { TierInfo } from "@/lib/billing/plans";
