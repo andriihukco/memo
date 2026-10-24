@@ -58,7 +58,9 @@ export async function GET(req: Request): Promise<Response> {
       ? (language as Locale)
       : null;
 
-  return new Response(JSON.stringify({ language: locale ?? "uk" }), {
+  const theme = ["light", "dark", "system"].includes(settings.theme as string) ? settings.theme : null;
+
+  return new Response(JSON.stringify({ language: locale ?? "uk", theme }), {
     status: 200,
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
@@ -82,17 +84,17 @@ export async function PATCH(req: Request): Promise<Response> {
     });
   }
 
-  const body = await req.json().catch(() => ({})) as { language?: string };
-  const { language } = body;
+  const body = await req.json().catch(() => ({})) as { language?: string; theme?: string };
+  const { language, theme } = body;
 
-  if (!language || !(SUPPORTED_LOCALES as readonly string[]).includes(language)) {
+  const validTheme = theme !== undefined && ["light", "dark", "system"].includes(theme);
+  const validLanguage = language !== undefined && (SUPPORTED_LOCALES as readonly string[]).includes(language);
+  if (!validTheme && !validLanguage) {
     return new Response(JSON.stringify({ error: "Invalid locale" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
   }
-
-  const locale = language as Locale;
 
   // Look up profile by telegram_id when available, fall back to id
   const telegramId = user.user_metadata?.telegram_id as string | undefined;
@@ -114,7 +116,8 @@ export async function PATCH(req: Request): Promise<Response> {
 
   const newSettings = {
     ...((profile.settings as Record<string, unknown>) ?? {}),
-    language: locale,
+    ...(validLanguage && { language: language as Locale }),
+    ...(validTheme && { theme }),
   };
 
   const { error: updateError } = await supabase

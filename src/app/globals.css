@@ -4,173 +4,133 @@
 
 @layer base {
   :root {
-    /* Elegant Dark Theme - Deep Navy & Slate */
-    --background: 222 47% 6%;
-    /* #0B0F19 - Deep navy background */
-    --foreground: 210 40% 98%;
-    /* #F8FAFC - Soft white text */
-    --card: 217 33% 12%;
-    /* #151B2B - Elevated surface */
-    --card-foreground: 210 40% 98%;
-    --popover: 217 33% 12%;
-    /* #151B2B - Modal/drawer surface */
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
-    /* #3B82F6 - Vibrant blue */
-    --primary-foreground: 222 47% 6%;
-    --secondary: 217 33% 17%;
-    /* #1E293B - Secondary surface */
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 17%;
-    /* #1E293B - Muted background */
-    --muted-foreground: 215 20% 55%;
-    /* #94A3B8 - Muted text */
-    --accent: 217 91% 60%;
-    /* #3B82F6 - Accent matches primary */
-    --accent-foreground: 222 47% 6%;
-    --destructive: 0 72% 51%;
-    /* #DC2626 - Error red */
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 20%;
-    /* #1E293B/30% - Subtle borders */
-    --input: 217 33% 17%;
-    /* #1E293B - Input background */
-    --ring: 217 91% 60%;
-    /* #3B82F6 - Focus ring */
-    --radius: 0.875rem;
-
-    /* Custom dark theme tokens */
-    --surface-elevated: 217 33% 14%;
-    /* #1A2234 - Cards, drawers */
-    --surface-hover: 217 33% 20%;
-    /* #243347 - Hover states */
-    --glass-bg: 217 33% 12% / 0.8;
-    /* Glassmorphism background */
-    --glass-border: 217 33% 25% / 0.3;
-    /* Glassmorphism border */
-  }
-
-  .light {
-    /* Elegant Light Theme - Clean White & Gray */
     --background: 0 0% 100%;
-    /* #FFFFFF - Pure white background */
-    --foreground: 222 47% 6%;
-    /* #0B0F19 - Deep navy text */
-    --card: 210 40% 98%;
-    /* #F8FAFC - Light gray surface */
-    --card-foreground: 222 47% 6%;
-    /* #0B0F19 - Deep navy text */
-    --popover: 210 40% 98%;
-    /* #F8FAFC - Modal/drawer surface */
-    --popover-foreground: 222 47% 6%;
-    /* #0B0F19 - Deep navy text */
-    --primary: 217 91% 60%;
-    /* #3B82F6 - Vibrant blue */
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 234 62% 52%;
     --primary-foreground: 0 0% 100%;
-    /* White text on primary */
-    --secondary: 210 40% 96%;
-    /* #F1F5F9 - Secondary surface */
-    --secondary-foreground: 222 47% 6%;
-    /* #0B0F19 - Deep navy text */
-    --muted: 210 40% 96%;
-    /* #F1F5F9 - Muted background */
-    --muted-foreground: 215 20% 45%;
-    /* #64748B - Secondary text */
-    --accent: 217 91% 60%;
-    /* #3B82F6 - Accent matches primary */
-    --accent-foreground: 0 0% 100%;
-    /* White text on accent */
-    --destructive: 0 84% 60%;
-    /* #EF4444 - Error red */
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 38%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 100%;
-    /* White text on destructive */
-    --border: 215 20% 90%;
-    /* #E2E8F0 - Light borders */
-    --input: 210 40% 96%;
-    /* #F1F5F9 - Input background */
-    --ring: 217 91% 60%;
-    /* #3B82F6 - Focus ring */
-    --radius: 0.875rem;
+    --success: 142 72% 25%;
+    --success-foreground: 0 0% 100%;
+    --warning: 30 95% 30%;
+    --warning-foreground: 0 0% 100%;
+    --border: 240 5.9% 90%;
+    --input: 240 4% 55%;
+    --ring: 234 62% 52%;
+    --radius: 0.75rem;
 
-    /* Custom light theme tokens */
-    --surface-elevated: 210 40% 99%;
-    /* #F8FAFC - Cards, drawers */
-    --surface-hover: 210 40% 95%;
-    /* #F3F4F6 - Hover states */
-    --glass-bg: 210 40% 98% / 0.8;
-    /* Glassmorphism background */
-    --glass-border: 215 20% 90% / 0.3;
-    /* Glassmorphism border */
+    --chart-1: 234 62% 52%;
+    --chart-2: 173 80% 30%;
+    --chart-3: 32 90% 40%;
+    --chart-4: 330 70% 48%;
+    --chart-5: 262 60% 52%;
+
+    --cat-1: 234 62% 52%;
+    --cat-2: 199 85% 38%;
+    --cat-3: 173 80% 30%;
+    --cat-4: 142 65% 33%;
+    --cat-5: 84 65% 32%;
+    --cat-6: 45 90% 40%;
+    --cat-7: 25 90% 45%;
+    --cat-8: 0 72% 50%;
+    --cat-9: 330 70% 48%;
+    --cat-10: 291 55% 48%;
+    --cat-11: 262 60% 52%;
+    --cat-12: 215 16% 47%;
+
+    /* legacy tokens, removed with the legacy screens in Phase 1 */
+    --surface-elevated: 240 4.8% 97%;
+    --surface-hover: 240 4.8% 93%;
+    --glass-bg: 0 0% 100% / 0.8;
+    --glass-border: 240 5.9% 90% / 0.3;
   }
 
-  /* System dark mode — applied when device is in dark mode AND no .light override exists */
-  @media (prefers-color-scheme: dark) {
-    :root:not(.light) {
-      --background: 222 47% 6%;
-      --foreground: 210 40% 98%;
-      --card: 217 33% 12%;
-      --card-foreground: 210 40% 98%;
-      --popover: 217 33% 12%;
-      --popover-foreground: 210 40% 98%;
-      --primary: 217 91% 60%;
-      --primary-foreground: 222 47% 6%;
-      --secondary: 217 33% 17%;
-      --secondary-foreground: 210 40% 98%;
-      --muted: 217 33% 17%;
-      --muted-foreground: 215 20% 55%;
-      --accent: 217 91% 60%;
-      --accent-foreground: 222 47% 6%;
-      --destructive: 0 72% 51%;
-      --destructive-foreground: 210 40% 98%;
-      --border: 217 33% 20%;
-      --input: 217 33% 17%;
-      --ring: 217 91% 60%;
-      --surface-elevated: 217 33% 14%;
-      --surface-hover: 217 33% 20%;
-      --glass-bg: 217 33% 12% / 0.8;
-      --glass-border: 217 33% 25% / 0.3;
-    }
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 6% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 6% 8%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 234 89% 72%;
+    --primary-foreground: 240 10% 3.9%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 66%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84% 66%;
+    --destructive-foreground: 240 10% 3.9%;
+    --success: 142 70% 50%;
+    --success-foreground: 240 10% 3.9%;
+    --warning: 38 92% 55%;
+    --warning-foreground: 240 10% 3.9%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 4% 40%;
+    --ring: 234 89% 72%;
+
+    --chart-1: 234 89% 72%;
+    --chart-2: 173 70% 50%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 330 80% 68%;
+    --chart-5: 262 83% 74%;
+
+    --cat-1: 234 89% 72%;
+    --cat-2: 199 89% 60%;
+    --cat-3: 173 70% 50%;
+    --cat-4: 142 70% 50%;
+    --cat-5: 84 65% 52%;
+    --cat-6: 48 95% 58%;
+    --cat-7: 25 95% 60%;
+    --cat-8: 0 84% 66%;
+    --cat-9: 330 80% 68%;
+    --cat-10: 291 65% 68%;
+    --cat-11: 262 83% 74%;
+    --cat-12: 215 20% 65%;
+
+    --surface-elevated: 240 6% 10%;
+    --surface-hover: 240 4% 18%;
+    --glass-bg: 240 6% 8% / 0.8;
+    --glass-border: 240 4% 25% / 0.3;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
   }
 
   html {
-    scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
   }
 
   body {
-    @apply text-foreground antialiased;
-    background: hsl(var(--background));
+    @apply bg-background text-foreground antialiased;
     /* Use dvh so the body fills visible viewport (avoids iOS Safari 100vh bug) */
     min-height: 100dvh;
-    /* iOS SF Pro font stack with system fallbacks */
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', 'Segoe UI', Roboto, sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-    /* iOS-style text rendering */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, "Segoe UI", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* iOS momentum scrolling */
     -webkit-overflow-scrolling: touch;
-    /* Prevent overscroll bounce on the body itself */
     overscroll-behavior-y: none;
-    /* Safe area bottom padding — accounts for home indicator on iOS */
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
-  /* iOS Safe Touch Areas - minimum 44px touch targets */
   button,
   a,
   [role="button"] {
-    min-height: 44px;
-    min-width: 44px;
-    /* Eliminate 300ms click delay and double-tap zoom on all interactive elements */
     touch-action: manipulation;
   }
 
@@ -220,6 +180,10 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+    }
+
+    html {
+      scroll-behavior: auto;
     }
   }
 }
@@ -360,15 +324,6 @@
 
 .animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
-}
-
-/* Hide Material Symbols icons until font is loaded to prevent FOUT (flash of unstyled text) */
-.icons-hidden {
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-.fonts-loaded .icons-hidden {
-  opacity: 1;
 }
 
 @keyframes shimmer {

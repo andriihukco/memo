@@ -1,57 +1,21 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
+import { ThemeProvider as NextThemesProvider } from 'next-themes';
 
-type Theme = 'dark' | 'light';
+export { useTheme } from 'next-themes';
 
-interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-}
+type Forced = 'light' | 'dark' | undefined;
+const ForcedSetter = createContext<(t: Forced) => void>(() => {});
 
-const ThemeContext = createContext<ThemeContextType | null>(null);
+/** Lets the Telegram bridge apply Telegram's scheme without touching the stored choice. */
+export const useSetForcedTheme = () => useContext(ForcedSetter);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark');
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    // Load theme from localStorage or default to dark
-    const savedTheme = (localStorage.getItem('theme') as Theme) || 'dark';
-    setTheme(savedTheme);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-
-    const root = document.documentElement;
-    if (theme === 'light') {
-      root.classList.add('light');
-    } else {
-      root.classList.remove('light');
-    }
-
-    // Save to localStorage
-    localStorage.setItem('theme', theme);
-  }, [theme, mounted]);
-
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return <>{children}</>;
-  }
-
+  const [forced, setForced] = useState<Forced>();
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
+    <NextThemesProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange forcedTheme={forced}>
+      <ForcedSetter.Provider value={setForced}>{children}</ForcedSetter.Provider>
+    </NextThemesProvider>
   );
 }
-
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-};

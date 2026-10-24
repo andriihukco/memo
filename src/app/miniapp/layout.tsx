@@ -16,6 +16,7 @@ import { SplashScreen } from '@/components/ui/splash-screen';
 import { ReportGenerationProvider } from '@/lib/report-generation-context';
 import { I18nProvider, useI18n } from '@/lib/i18n/context';
 import { PostHogProvider } from 'posthog-js/react';
+import { TelegramThemeBridge } from '@/components/shell/telegram-theme-bridge';
 import type { Locale } from '@/i18n/locales';
 import { SUPPORTED_LOCALES, LOCALE_META } from '@/i18n/locales';
 
@@ -943,7 +944,6 @@ function PillTabBar({ pathname, bottomInset }: { pathname: string; bottomInset: 
                   />
                   <span
                     style={{
-                      fontFamily: "'Comfortaa', 'Mulish', sans-serif",
                       fontWeight: 500,
                       fontSize: 11,
                       lineHeight: '14px',
@@ -1243,7 +1243,6 @@ function MiniAppInner({
       style={{
         '--bottom-inset': `${bottomInset}px`,
         '--tab-bar-h': `${tabBarH}px`,
-        fontFamily: "'Comfortaa', 'Mulish', sans-serif",
       } as React.CSSProperties}
     >
       {showOnboarding && (
@@ -1323,6 +1322,7 @@ export default function MiniAppLayout({ children }: { children: React.ReactNode 
   return (
     <PostHogProvider client={posthog}>
       <AuthProvider>
+        <TelegramThemeBridge />
         <SoundProvider>
           <ReportGenerationProvider>
             <MiniAppContent>{children}</MiniAppContent>
