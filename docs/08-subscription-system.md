@@ -7,7 +7,7 @@ Memo monetizes via **Telegram Stars** (XTR), Telegram's native in-app currency. 
 ## Tiers
 
 ### ✨ Memo Spark (Free)
-- 100 entries
+- 300 entries
 - 3 AI-generated custom widgets
 - Unlimited preset widgets
 - 5 retrospective reports

@@ -219,8 +219,8 @@ describe('POST /api/entries — integration tests', () => {
   });
 
   it('tier limit exceeded returns 402 with limit_exceeded error', async () => {
-    // Free tier limit is 100 entries
-    mockEntryCount = 100;
+    // Free tier limit is 300 entries (TIER_INFO.free.limits.entries)
+    mockEntryCount = 300;
     mockTier = 'free';
 
     const res = await callRoute({ content: 'One more entry' }, 'valid_jwt_token');
@@ -251,7 +251,7 @@ describe('POST /api/entries — integration tests', () => {
   });
 
   it('entry count at limit - 1 is allowed (not yet exceeded)', async () => {
-    mockEntryCount = 99; // one below free tier limit of 100
+    mockEntryCount = 299; // one below free tier limit of 300
     mockTier = 'free';
 
     const res = await callRoute({ content: 'Still allowed' }, 'valid_jwt_token');
