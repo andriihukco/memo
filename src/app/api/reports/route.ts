@@ -26,7 +26,7 @@ export async function GET(req: Request) {
   if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   // Rate limit: 60 reads/min per JWT
-  const rlGet = rateLimit(`reports:read:${token.slice(0, 16)}`, 60, 60_000);
+  const rlGet = await rateLimit(`reports:read:${token.slice(0, 16)}`, 60, 60_000);
   if (!rlGet.allowed) return rateLimitResponse(rlGet.resetAt);
 
   const db = userDb(token);
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
   if (!token) return Response.json({ error: "Unauthorized" }, { status: 401 });
 
   // Rate limit: 10 writes/min per JWT
-  const rl = rateLimit(`reports:write:${token.slice(0, 16)}`, 10, 60_000);
+  const rl = await rateLimit(`reports:write:${token.slice(0, 16)}`, 10, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const body = await req.json().catch(() => ({}));

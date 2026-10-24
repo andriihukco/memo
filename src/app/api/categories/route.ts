@@ -20,7 +20,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
 
   // Rate limit: 30 reads/min per JWT
-  const rlGet = rateLimit(`categories:read:${jwt.slice(0, 16)}`, 30, 60_000);
+  const rlGet = await rateLimit(`categories:read:${jwt.slice(0, 16)}`, 30, 60_000);
   if (!rlGet.allowed) return rateLimitResponse(rlGet.resetAt);
 
   const supabase = makeSupabase(jwt);
@@ -38,7 +38,7 @@ export async function POST(req: Request): Promise<Response> {
   if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
 
   // Rate limit: 30 writes/min per JWT
-  const rl = rateLimit(`categories:write:${jwt.slice(0, 16)}`, 30, 60_000);
+  const rl = await rateLimit(`categories:write:${jwt.slice(0, 16)}`, 30, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const { name, label_ua, label, color } = await req.json().catch(() => ({}));
@@ -72,7 +72,7 @@ export async function PATCH(req: Request): Promise<Response> {
   if (!jwt) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } });
 
   // Rate limit: 30 writes/min per JWT
-  const rl = rateLimit(`categories:write:${jwt.slice(0, 16)}`, 30, 60_000);
+  const rl = await rateLimit(`categories:write:${jwt.slice(0, 16)}`, 30, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const { name, label_ua } = await req.json().catch(() => ({}));

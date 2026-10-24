@@ -41,7 +41,7 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const rl = rateLimit(`export-send:${jwt.slice(0, 16)}`, 3, 60 * 60_000);
+  const rl = await rateLimit(`export-send:${jwt.slice(0, 16)}`, 3, 60 * 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabase = makeServiceClient();

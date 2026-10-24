@@ -27,7 +27,7 @@ vi.mock('@supabase/supabase-js', () => ({
 // ── Mock rate-limit (always allow) ────────────────────────────────────────────
 
 vi.mock('@/lib/rate-limit', () => ({
-  rateLimit: vi.fn(() => ({ allowed: true, resetAt: Date.now() + 60_000 })),
+  rateLimit: vi.fn(async () => ({ allowed: true, resetAt: Date.now() + 60_000, remaining: 100 })),
   rateLimitResponse: vi.fn(),
 }));
 
@@ -228,7 +228,7 @@ describe('GET /api/profile/export', () => {
 
   it('rate-limited export returns 429', async () => {
     const { rateLimit } = await import('@/lib/rate-limit');
-    vi.mocked(rateLimit).mockReturnValueOnce({ allowed: false, resetAt: Date.now() + 3600_000, remaining: 0 });
+    vi.mocked(rateLimit).mockResolvedValueOnce({ allowed: false, resetAt: Date.now() + 3600_000, remaining: 0 });
     const { rateLimitResponse } = await import('@/lib/rate-limit');
     vi.mocked(rateLimitResponse).mockReturnValueOnce(
       new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429 })

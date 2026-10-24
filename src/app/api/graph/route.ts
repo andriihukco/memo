@@ -81,7 +81,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   // Rate limit: 20 reads/min per JWT
-  const rl = rateLimit(`graph:read:${jwt.slice(0, 16)}`, 20, 60_000);
+  const rl = await rateLimit(`graph:read:${jwt.slice(0, 16)}`, 20, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabaseUrl = process.env.SUPABASE_URL ?? env.SUPABASE_URL;

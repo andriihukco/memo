@@ -36,9 +36,89 @@ declare global {
         initData: string;
         ready: () => void;
         expand: () => void;
+        close: () => void;
+        enableClosingConfirmation: () => void;
+        isClosingConfirmationEnabled: boolean;
+        onEvent: (eventType: string, callback: () => void) => void;
+        offEvent: (eventType: string, callback: () => void) => void;
+        HapticFeedback?: {
+          impactOccurred: (style: 'light' | 'medium' | 'heavy' | 'rigid' | 'soft') => void;
+          notificationOccurred: (type: 'success' | 'error' | 'warning') => void;
+          selectionChanged: () => void;
+        };
+        BackButton?: {
+          show: () => void;
+          hide: () => void;
+          onClick: (callback: () => void) => void;
+        };
+        MainButton?: {
+          text: string;
+          color: string;
+          textColor: string;
+          isVisible: boolean;
+          isActive: boolean;
+          isProgressVisible: boolean;
+          setText: (text: string) => void;
+          onClick: (callback: () => void) => void;
+          show: () => void;
+          hide: () => void;
+          enable: () => void;
+          disable: () => void;
+          showProgress: (leaveActive: boolean) => void;
+          hideProgress: () => void;
+          setParams: (params: { text?: string; color?: string; textColor?: string }) => void;
+        };
         openInvoice: (url: string, callback: (status: string) => void) => void;
-        safeAreaInset?: { top: number; bottom: number; left: number; right: number };
-        contentSafeAreaInset?: { top: number; bottom: number; left: number; right: number };
+        openLink: (url: string) => void;
+        openTelegramLink: (url: string) => void;
+        sendData: (data: string) => void;
+        switchInlineQuery: (query: string) => void;
+        requestContact: () => void;
+        showPopup: (params: { title?: string; message: string; buttons?: Array<{ text: string; url?: string }> }) => void;
+        showAlert: (message: string) => void;
+        showConfirm: (message: string, callback: (confirmed: boolean) => void) => void;
+        themeParams: {
+          bg_color: string;
+          text_color: string;
+          hint_color: string;
+          link_color: string;
+          button_color: string;
+          button_text_color: string;
+        };
+        colorScheme: 'dark' | 'light';
+        viewportHeight: number;
+        viewportStableHeight: number;
+        headerHeight: number;
+        safeAreaInset: { top: number; bottom: number; left: number; right: number };
+        contentSafeAreaInset: { top: number; bottom: number; left: number; right: number };
+        isExpanded: boolean;
+        initDataUnsafe: {
+          query_id?: string;
+          user?: {
+            id: number;
+            first_name: string;
+            last_name?: string;
+            username?: string;
+            language_code?: string;
+            is_premium?: boolean;
+          };
+          receiver?: {
+            id: number;
+            first_name: string;
+            last_name?: string;
+            username?: string;
+          };
+          start_param?: string;
+          chat?: {
+            id: number;
+            type: string;
+            title: string;
+            username?: string;
+            photo_url?: string;
+          };
+        };
+        version: string;
+        platform: string;
       };
     };
   }

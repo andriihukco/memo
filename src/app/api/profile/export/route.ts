@@ -50,7 +50,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   // Rate limit: 5 exports per hour (exports are expensive — full table scans)
-  const rl = rateLimit(`export:${jwt.slice(0, 16)}`, 5, 60 * 60_000);
+  const rl = await rateLimit(`export:${jwt.slice(0, 16)}`, 5, 60 * 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabase = makeServiceClient();

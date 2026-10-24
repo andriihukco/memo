@@ -24,7 +24,7 @@ export async function POST(req: Request): Promise<Response> {
   if (!jwt) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
 
   // Rate limit: 20 writes/min per JWT
-  const rl = rateLimit(`widgets:write:${jwt.slice(0, 16)}`, 20, 60_000);
+  const rl = await rateLimit(`widgets:write:${jwt.slice(0, 16)}`, 20, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const { prompt, answers, direct } = await req.json().catch(() => ({}));
@@ -148,7 +148,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!jwt) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
 
   // Rate limit: 60 reads/min per JWT
-  const rl = rateLimit(`widgets:read:${jwt.slice(0, 16)}`, 60, 60_000);
+  const rl = await rateLimit(`widgets:read:${jwt.slice(0, 16)}`, 60, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabase = makeSupabase(jwt);

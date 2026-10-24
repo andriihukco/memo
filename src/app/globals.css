@@ -49,6 +49,59 @@
     --glass-border: 217 33% 25% / 0.3;
     /* Glassmorphism border */
   }
+
+  .light {
+    /* Elegant Light Theme - Clean White & Gray */
+    --background: 0 0% 100%;
+    /* #FFFFFF - Pure white background */
+    --foreground: 222 47% 6%;
+    /* #0B0F19 - Deep navy text */
+    --card: 210 40% 98%;
+    /* #F8FAFC - Light gray surface */
+    --card-foreground: 222 47% 6%;
+    /* #0B0F19 - Deep navy text */
+    --popover: 210 40% 98%;
+    /* #F8FAFC - Modal/drawer surface */
+    --popover-foreground: 222 47% 6%;
+    /* #0B0F19 - Deep navy text */
+    --primary: 217 91% 60%;
+    /* #3B82F6 - Vibrant blue */
+    --primary-foreground: 0 0% 100%;
+    /* White text on primary */
+    --secondary: 210 40% 96%;
+    /* #F1F5F9 - Secondary surface */
+    --secondary-foreground: 222 47% 6%;
+    /* #0B0F19 - Deep navy text */
+    --muted: 210 40% 96%;
+    /* #F1F5F9 - Muted background */
+    --muted-foreground: 215 20% 45%;
+    /* #64748B - Secondary text */
+    --accent: 217 91% 60%;
+    /* #3B82F6 - Accent matches primary */
+    --accent-foreground: 0 0% 100%;
+    /* White text on accent */
+    --destructive: 0 84% 60%;
+    /* #EF4444 - Error red */
+    --destructive-foreground: 0 0% 100%;
+    /* White text on destructive */
+    --border: 215 20% 90%;
+    /* #E2E8F0 - Light borders */
+    --input: 210 40% 96%;
+    /* #F1F5F9 - Input background */
+    --ring: 217 91% 60%;
+    /* #3B82F6 - Focus ring */
+    --radius: 0.875rem;
+
+    /* Custom light theme tokens */
+    --surface-elevated: 210 40% 99%;
+    /* #F8FAFC - Cards, drawers */
+    --surface-hover: 210 40% 95%;
+    /* #F3F4F6 - Hover states */
+    --glass-bg: 210 40% 98% / 0.8;
+    /* Glassmorphism background */
+    --glass-border: 215 20% 90% / 0.3;
+    /* Glassmorphism border */
+  }
 }
 
 @layer base {
@@ -105,6 +158,17 @@
   :focus-visible {
     outline: 2px solid hsl(var(--primary) / 0.5);
     outline-offset: 2px;
+  }
+
+  /* Respect prefers-reduced-motion */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 

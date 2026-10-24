@@ -79,7 +79,7 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   // Rate limit: 30 writes/min per JWT (keyed on first 16 chars of token)
-  const rl = rateLimit(`entries:write:${jwt.slice(0, 16)}`, 30, 60_000);
+  const rl = await rateLimit(`entries:write:${jwt.slice(0, 16)}`, 30, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabase = makeSupabase(jwt);
@@ -320,7 +320,7 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   // Rate limit: 60 reads/min per JWT (keyed on first 16 chars of token)
-  const rl = rateLimit(`entries:read:${jwt.slice(0, 16)}`, 60, 60_000);
+  const rl = await rateLimit(`entries:read:${jwt.slice(0, 16)}`, 60, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl.resetAt);
 
   const supabase = makeSupabase(jwt);

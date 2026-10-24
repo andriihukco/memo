@@ -1,45 +1,47 @@
 // Haptic Feedback utilities
-// Uses Telegram WebApp HapticFeedback API as primary implementation.
-// Silently skips if the API is unavailable (desktop browser, non-Telegram context).
+// Uses Telegram WebApp HapticFeedback API via useTelegramAdapter hook.
+// Provides web fallback using navigator.vibrate when Telegram is unavailable.
 
 type HapticImpactStyle = 'light' | 'medium' | 'heavy' | 'rigid' | 'soft';
 type HapticNotificationType = 'success' | 'error' | 'warning';
 
-// Telegram WebApp HapticFeedback interface
-interface HapticFeedback {
-  impactOccurred: (style: HapticImpactStyle) => void;
-  notificationOccurred: (type: HapticNotificationType) => void;
-  selectionChanged: () => void;
-}
-
-function getTelegramHaptics(): HapticFeedback | null {
-  try {
-    const tg = (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: HapticFeedback } } }).Telegram?.WebApp;
-    return tg?.HapticFeedback ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * Trigger an impact haptic via the Telegram HapticFeedback API.
  * Use: light for subtle feedback, medium for buttons, heavy for destructive actions.
- * Silently skips if the Telegram HapticFeedback API is unavailable.
+ * Falls back to navigator.vibrate on web if Telegram is unavailable.
  */
 export function hapticImpact(style: 'light' | 'medium' | 'heavy' = 'medium') {
   try {
-    getTelegramHaptics()?.impactOccurred(style);
+    const tg = (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: { impactOccurred: (s: HapticImpactStyle) => void } } } }).Telegram?.WebApp;
+    if (tg?.HapticFeedback?.impactOccurred) {
+      tg.HapticFeedback.impactOccurred(style);
+    } else {
+      // Web fallback: use navigator.vibrate if available
+      if (navigator.vibrate) {
+        const duration = style === 'light' ? 10 : style === 'medium' ? 20 : 30;
+        navigator.vibrate(duration);
+      }
+    }
   } catch { /* silent */ }
 }
 
 /**
  * Trigger a notification haptic via the Telegram HapticFeedback API.
  * Use 'warning' for destructive action confirmations (delete).
- * Silently skips if the Telegram HapticFeedback API is unavailable.
+ * Falls back to navigator.vibrate on web if Telegram is unavailable.
  */
 export function hapticNotification(type: 'error' | 'success' | 'warning') {
   try {
-    getTelegramHaptics()?.notificationOccurred(type);
+    const tg = (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: { notificationOccurred: (t: HapticNotificationType) => void } } } }).Telegram?.WebApp;
+    if (tg?.HapticFeedback?.notificationOccurred) {
+      tg.HapticFeedback.notificationOccurred(type);
+    } else {
+      // Web fallback: use navigator.vibrate if available
+      if (navigator.vibrate) {
+        const pattern = type === 'success' ? [50] : type === 'error' ? [50, 50, 50] : [30];
+        navigator.vibrate(pattern);
+      }
+    }
   } catch { /* silent */ }
 }
 
@@ -49,7 +51,10 @@ export function hapticNotification(type: 'error' | 'success' | 'warning') {
  */
 export function hapticSelection() {
   try {
-    getTelegramHaptics()?.selectionChanged();
+    const tg = (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: { selectionChanged: () => void } } } }).Telegram?.WebApp;
+    if (tg?.HapticFeedback?.selectionChanged) {
+      tg.HapticFeedback.selectionChanged();
+    }
   } catch { /* silent */ }
 }
 
