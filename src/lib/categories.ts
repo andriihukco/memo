@@ -1,0 +1,105 @@
+
+export const ICON_LIBRARY: { name: string; label: string }[] = [
+  { name: 'tag', label: 'tag' },
+  { name: 'neurology', label: 'brain' },
+  { name: 'lightbulb', label: 'lightbulb' },
+  { name: 'favorite', label: 'heart' },
+  { name: 'account_balance_wallet', label: 'wallet' },
+  { name: 'local_fire_department', label: 'flame' },
+  { name: 'fitness_center', label: 'dumbbell' },
+  { name: 'my_location', label: 'target' },
+  { name: 'bedtime', label: 'moon' },
+  { name: 'auto_awesome', label: 'sparkles' },
+  { name: 'menu_book', label: 'book' },
+  { name: 'work', label: 'briefcase' },
+  { name: 'group', label: 'users' },
+  { name: 'location_on', label: 'map-pin' },
+  { name: 'music_note', label: 'music' },
+  { name: 'sentiment_satisfied', label: 'smile' },
+  { name: 'bolt', label: 'zap' },
+  { name: 'monitor_heart', label: 'activity' },
+  { name: 'water_drop', label: 'droplets' },
+  { name: 'scale', label: 'scale' },
+  { name: 'air', label: 'wind' },
+  { name: 'coffee', label: 'coffee' },
+  { name: 'restaurant', label: 'utensils' },
+  { name: 'photo_camera', label: 'camera' },
+  { name: 'edit', label: 'pen' },
+  { name: 'star', label: 'star' },
+  { name: 'wb_sunny', label: 'sun' },
+  { name: 'cloud', label: 'cloud' },
+  { name: 'eco', label: 'leaf' },
+  { name: 'home', label: 'home' },
+  { name: 'directions_car', label: 'car' },
+  { name: 'flight', label: 'plane' },
+  { name: 'shopping_bag', label: 'shopping-bag' },
+  { name: 'medication', label: 'pill' },
+  { name: 'child_care', label: 'baby' },
+  { name: 'pets', label: 'dog' },
+  { name: 'sports_esports', label: 'gamepad' },
+  { name: 'code', label: 'code' },
+  { name: 'palette', label: 'palette' },
+  { name: 'mic', label: 'mic' },
+  { name: 'headphones', label: 'headphones' },
+  { name: 'language', label: 'globe' },
+  { name: 'trending_up', label: 'trending-up' },
+  { name: 'schedule', label: 'clock' },
+  { name: 'emoji_events', label: 'award' },
+  { name: 'layers', label: 'layers' },
+  { name: 'visibility', label: 'eye' },
+  { name: 'anchor', label: 'anchor' },
+  { name: 'explore', label: 'compass' },
+];
+
+// Each entry: { id, bg (Tailwind), text (Tailwind), border (Tailwind), hex (for swatch) }
+
+export const COLOR_PALETTE = [
+  { id: 'slate',   bg: 'bg-slate-500/15',   text: 'text-slate-400',   border: 'border-slate-500/30',   hex: '#94a3b8' },
+  { id: 'gray',    bg: 'bg-gray-500/15',    text: 'text-gray-400',    border: 'border-gray-500/30',    hex: '#9ca3af' },
+  { id: 'zinc',    bg: 'bg-zinc-500/15',    text: 'text-zinc-400',    border: 'border-zinc-500/30',    hex: '#a1a1aa' },
+  { id: 'stone',   bg: 'bg-stone-500/15',   text: 'text-stone-400',   border: 'border-stone-500/30',   hex: '#a8a29e' },
+  { id: 'red',     bg: 'bg-red-500/15',     text: 'text-red-400',     border: 'border-red-500/30',     hex: '#f87171' },
+  { id: 'orange',  bg: 'bg-orange-500/15',  text: 'text-orange-400',  border: 'border-orange-500/30',  hex: '#fb923c' },
+  { id: 'amber',   bg: 'bg-amber-500/15',   text: 'text-amber-400',   border: 'border-amber-500/30',   hex: '#fbbf24' },
+  { id: 'yellow',  bg: 'bg-yellow-500/15',  text: 'text-yellow-400',  border: 'border-yellow-500/30',  hex: '#facc15' },
+  { id: 'lime',    bg: 'bg-lime-500/15',    text: 'text-lime-400',    border: 'border-lime-500/30',    hex: '#a3e635' },
+  { id: 'green',   bg: 'bg-green-500/15',   text: 'text-green-400',   border: 'border-green-500/30',   hex: '#4ade80' },
+  { id: 'emerald', bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', hex: '#34d399' },
+  { id: 'teal',    bg: 'bg-teal-500/15',    text: 'text-teal-400',    border: 'border-teal-500/30',    hex: '#2dd4bf' },
+  { id: 'cyan',    bg: 'bg-cyan-500/15',    text: 'text-cyan-400',    border: 'border-cyan-500/30',    hex: '#22d3ee' },
+  { id: 'sky',     bg: 'bg-sky-500/15',     text: 'text-sky-400',     border: 'border-sky-500/30',     hex: '#38bdf8' },
+  { id: 'blue',    bg: 'bg-blue-500/15',    text: 'text-blue-400',    border: 'border-blue-500/30',    hex: '#60a5fa' },
+  { id: 'indigo',  bg: 'bg-indigo-500/15',  text: 'text-indigo-400',  border: 'border-indigo-500/30',  hex: '#818cf8' },
+  { id: 'violet',  bg: 'bg-violet-500/15',  text: 'text-violet-400',  border: 'border-violet-500/30',  hex: '#a78bfa' },
+  { id: 'purple',  bg: 'bg-purple-500/15',  text: 'text-purple-400',  border: 'border-purple-500/30',  hex: '#c084fc' },
+  { id: 'fuchsia', bg: 'bg-fuchsia-500/15', text: 'text-fuchsia-400', border: 'border-fuchsia-500/30', hex: '#e879f9' },
+  { id: 'pink',    bg: 'bg-pink-500/15',    text: 'text-pink-400',    border: 'border-pink-500/30',    hex: '#f472b6' },
+  { id: 'rose',    bg: 'bg-rose-500/15',    text: 'text-rose-400',    border: 'border-rose-500/30',    hex: '#fb7185' },
+  // Deeper/richer variants
+  { id: 'red-d',     bg: 'bg-red-600/20',     text: 'text-red-300',     border: 'border-red-600/30',     hex: '#ef4444' },
+  { id: 'orange-d',  bg: 'bg-orange-600/20',  text: 'text-orange-300',  border: 'border-orange-600/30',  hex: '#ea580c' },
+  { id: 'amber-d',   bg: 'bg-amber-600/20',   text: 'text-amber-300',   border: 'border-amber-600/30',   hex: '#d97706' },
+  { id: 'green-d',   bg: 'bg-green-600/20',   text: 'text-green-300',   border: 'border-green-600/30',   hex: '#16a34a' },
+  { id: 'teal-d',    bg: 'bg-teal-600/20',    text: 'text-teal-300',    border: 'border-teal-600/30',    hex: '#0d9488' },
+  { id: 'blue-d',    bg: 'bg-blue-600/20',    text: 'text-blue-300',    border: 'border-blue-600/30',    hex: '#2563eb' },
+  { id: 'indigo-d',  bg: 'bg-indigo-600/20',  text: 'text-indigo-300',  border: 'border-indigo-600/30',  hex: '#4f46e5' },
+  { id: 'violet-d',  bg: 'bg-violet-600/20',  text: 'text-violet-300',  border: 'border-violet-600/30',  hex: '#7c3aed' },
+  { id: 'purple-d',  bg: 'bg-purple-600/20',  text: 'text-purple-300',  border: 'border-purple-600/30',  hex: '#9333ea' },
+  { id: 'pink-d',    bg: 'bg-pink-600/20',    text: 'text-pink-300',    border: 'border-pink-600/30',    hex: '#db2777' },
+  { id: 'rose-d',    bg: 'bg-rose-600/20',    text: 'text-rose-300',    border: 'border-rose-600/30',    hex: '#e11d48' },
+  { id: 'sky-d',     bg: 'bg-sky-600/20',     text: 'text-sky-300',     border: 'border-sky-600/30',     hex: '#0284c7' },
+  { id: 'cyan-d',    bg: 'bg-cyan-600/20',    text: 'text-cyan-300',    border: 'border-cyan-600/30',    hex: '#0891b2' },
+  { id: 'lime-d',    bg: 'bg-lime-600/20',    text: 'text-lime-300',    border: 'border-lime-600/30',    hex: '#65a30d' },
+  { id: 'emerald-d', bg: 'bg-emerald-600/20', text: 'text-emerald-300', border: 'border-emerald-600/30', hex: '#059669' },
+] as const;
+
+/** Stable 1..12 hue slot for a category name (maps to --cat-N tokens). */
+export function categoryHue(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return (h % 12) + 1;
+}
+
+export function categoryStyle(name: string): React.CSSProperties {
+  return { '--cat': `var(--cat-${categoryHue(name)})` } as React.CSSProperties;
+}

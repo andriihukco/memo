@@ -712,5 +712,12 @@
   "bot.action.schedule.weekly_off": "щотижневий ❌",
   "bot.action.schedule.monthly_on": "щомісячний ✅",
   "bot.action.schedule.monthly_off": "щомісячний ❌",
-  "bot.action.schedule.no_changes": "без змін"
+  "bot.action.schedule.no_changes": "без змін",
+  "shell.undo": "Скасувати",
+  "shell.deleted": "Видалено",
+  "shell.delete_failed": "Не вдалося видалити. Запис повернуто.",
+  "journal.entries.one": "{count} запис",
+  "journal.entries.few": "{count} записи",
+  "journal.entries.many": "{count} записів",
+  "journal.entries.other": "{count} запису"
 }

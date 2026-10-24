@@ -712,5 +712,12 @@
   "bot.action.schedule.weekly_off": "weekly ❌",
   "bot.action.schedule.monthly_on": "monthly ✅",
   "bot.action.schedule.monthly_off": "monthly ❌",
-  "bot.action.schedule.no_changes": "no changes"
+  "bot.action.schedule.no_changes": "no changes",
+  "shell.undo": "Undo",
+  "shell.deleted": "Deleted",
+  "shell.delete_failed": "Couldn't delete. Restored.",
+  "journal.entries.one": "{count} entry",
+  "journal.entries.few": "{count} entries",
+  "journal.entries.many": "{count} entries",
+  "journal.entries.other": "{count} entries"
 }
