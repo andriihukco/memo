@@ -2,6 +2,7 @@ export type Scheme = 'light' | 'dark';
 export type ThemeChoice = Scheme | 'system';
 
 export interface TelegramWebApp {
+  initData?: string;
   colorScheme: Scheme;
   themeParams: Record<string, string | undefined>;
   initDataUnsafe: { user?: { id: number; language_code?: string } };

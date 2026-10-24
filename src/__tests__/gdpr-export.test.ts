@@ -380,7 +380,7 @@ describe('Settings page — Export my data button', () => {
     const fs = await import('fs');
     const path = await import('path');
     const settingsSource = fs.readFileSync(
-      path.resolve(process.cwd(), 'src/app/miniapp/settings/page.tsx'),
+      path.resolve(process.cwd(), 'src/components/legacy/pages/settings.tsx'),
       'utf-8'
     );
     expect(settingsSource).toContain('ExportSheet');

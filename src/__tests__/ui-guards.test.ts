@@ -29,7 +29,8 @@ const EXEMPT = ['confetti.tsx', 'splash-screen.tsx'];
 export const LEGACY_ALLOWLIST: string[] = [
   'src/components/legacy/',
   'src/components/features/',
-  'src/app/miniapp/',
+  'src/app/miniapp/page.tsx',
+  'src/components/shell/boot.tsx', // rewritten in Phase 1 Task F
   'src/components/ui/bottom-sheet.tsx',
   'src/components/ui/confirm-sheet.tsx',
   'src/components/ui/edit-drawer.tsx',

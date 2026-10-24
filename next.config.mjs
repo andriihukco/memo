@@ -1,7 +1,20 @@
 import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {};
+const nextConfig = {
+  // Old 5-tab routes → 3-tab shell. Temporary so bot deep links can move again; Next keeps the incoming query.
+  async redirects() {
+    return [
+      ['/miniapp/dashboard', '/miniapp/insights?view=overview'],
+      ['/miniapp/reports', '/miniapp/insights?view=reports'],
+      ['/miniapp/graph', '/miniapp/insights?view=graph'],
+      ['/miniapp/settings', '/miniapp/you'],
+      ['/miniapp/subscriptions', '/miniapp/you/plan'],
+      ['/miniapp/categories', '/miniapp/you/categories'],
+      ['/miniapp/onboarding', '/miniapp'],
+    ].map(([source, destination]) => ({ source, destination, permanent: false }));
+  },
+};
 
 export default withSentryConfig(nextConfig, {
   // Sentry organisation and project — set these in your CI/CD environment

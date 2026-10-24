@@ -719,5 +719,22 @@
   "journal.entries.one": "{count} entry",
   "journal.entries.few": "{count} entries",
   "journal.entries.many": "{count} entries",
-  "journal.entries.other": "{count} entries"
+  "journal.entries.other": "{count} entries",
+  "shell.nav": "Main navigation",
+  "shell.journal": "Journal",
+  "shell.insights": "Insights",
+  "shell.you": "You",
+  "shell.compose": "New entry",
+  "shell.compose_draft": "New entry, draft saved",
+  "shell.compose_placeholder": "What's on your mind?",
+  "shell.send": "Send",
+  "shell.back": "Back",
+  "shell.offline_title": "You're offline",
+  "shell.offline": "Changes can't be saved until you reconnect.",
+  "shell.plan": "Plan & usage",
+  "shell.categories": "Categories",
+  "shell.privacy": "Privacy",
+  "shell.entry": "Entry",
+  "shell.report": "Report",
+  "shell.back_to_you": "Back to You"
 }

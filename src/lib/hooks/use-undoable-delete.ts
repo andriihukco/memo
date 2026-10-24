@@ -18,7 +18,8 @@ export function useUndoableDelete() {
   return useCallback(
     ({ key, label, remove, restore, commit }: Opts) => {
       remove();
-      const id = toast(label, { action: { label: t('shell.undo'), onClick: () => undo(key) } });
+      // duration matches the 5000ms commit; Sonner's 4000 default would hide Undo early
+      const id = toast(label, { duration: 5000, action: { label: t('shell.undo'), onClick: () => undo(key) } });
       schedule(
         key,
         async () => {

@@ -15,7 +15,7 @@ import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 
 // ── Pure logic extracted from graph page ──────────────────────────────────────
-// Mirrors the rendering condition in src/app/miniapp/graph/page.tsx
+// Mirrors the rendering condition in src/components/legacy/pages/graph.tsx
 
 type GraphStatus = 'loading' | 'ready' | 'error';
 

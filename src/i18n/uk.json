@@ -719,5 +719,22 @@
   "journal.entries.one": "{count} запис",
   "journal.entries.few": "{count} записи",
   "journal.entries.many": "{count} записів",
-  "journal.entries.other": "{count} запису"
+  "journal.entries.other": "{count} запису",
+  "shell.nav": "Головна навігація",
+  "shell.journal": "Щоденник",
+  "shell.insights": "Аналітика",
+  "shell.you": "Профіль",
+  "shell.compose": "Новий запис",
+  "shell.compose_draft": "Новий запис, є чернетка",
+  "shell.compose_placeholder": "Що у вас на думці?",
+  "shell.send": "Надіслати",
+  "shell.back": "Назад",
+  "shell.offline_title": "Немає з'єднання",
+  "shell.offline": "Зміни не збережуться, доки з'єднання не відновиться.",
+  "shell.plan": "План і використання",
+  "shell.categories": "Категорії",
+  "shell.privacy": "Конфіденційність",
+  "shell.entry": "Запис",
+  "shell.report": "Звіт",
+  "shell.back_to_you": "Назад до профілю"
 }
