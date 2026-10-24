@@ -10,14 +10,14 @@ import { TabBar } from './tab-bar';
 
 /**
  * Keeps Telegram's swipe-to-close off while any vaul drawer is open. Watching the DOM covers every
- * Drawer (new and legacy) without wrapping each onOpenChange: vaul marks its content `[vaul-drawer]`
+ * Drawer without wrapping each onOpenChange: vaul marks its content `[data-vaul-drawer]`
  * with data-state="open" | "closed" and portals it into body.
  */
-function DrawerOpenTracker() {
+export function DrawerOpenTracker() {
   useEffect(() => {
     let last = false;
     const sync = () => {
-      const open = !!document.querySelector('[vaul-drawer][data-state="open"]');
+      const open = !!document.querySelector('[data-vaul-drawer][data-state="open"]');
       if (open !== last) withVerticalSwipesDisabled((last = open));
     };
     const mo = new MutationObserver(sync);
@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     <ComposeProvider>
       <OfflineBanner />
       <main
-        className="relative min-h-0 flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom))]"
+        className="relative min-h-0 flex-1 overflow-y-auto pb-[calc(var(--tab-bar-h)+var(--bottom-inset))]"
         onClick={(e) => {
           // Legacy behaviour: TAP sound on empty-area clicks only
           const target = e.target as HTMLElement;

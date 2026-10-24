@@ -736,5 +736,8 @@
   "shell.privacy": "Конфіденційність",
   "shell.entry": "Запис",
   "shell.report": "Звіт",
-  "shell.back_to_you": "Назад до профілю"
+  "shell.back_to_you": "Назад до профілю",
+  "insights.view.overview": "Огляд",
+  "insights.view.reports": "Звіти",
+  "insights.view.graph": "Граф"
 }

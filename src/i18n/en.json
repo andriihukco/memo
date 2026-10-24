@@ -736,5 +736,8 @@
   "shell.privacy": "Privacy",
   "shell.entry": "Entry",
   "shell.report": "Report",
-  "shell.back_to_you": "Back to You"
+  "shell.back_to_you": "Back to You",
+  "insights.view.overview": "Overview",
+  "insights.view.reports": "Reports",
+  "insights.view.graph": "Graph"
 }

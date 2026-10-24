@@ -1086,7 +1086,7 @@ function MiniAppInner({
         <div
           className="fixed left-0 right-0 z-40 flex items-center gap-3 px-4 py-3 bg-amber-950/90 border-t border-amber-400/30 backdrop-blur-sm"
           style={{
-            bottom: 'calc(4rem + env(safe-area-inset-bottom))', // above the h-16 TabBar
+            bottom: 'calc(var(--tab-bar-h) + var(--bottom-inset))', // above the TabBar
           }}
         >
           <p className="flex-1 text-[13px] text-amber-200 leading-snug">

@@ -42,6 +42,7 @@ export function TabBar() {
       aria-label={t('shell.nav')}
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur"
     >
+      {/* h-16 must equal --tab-bar-h in globals.css */}
       <div className="mx-auto flex h-16 max-w-md items-center px-2">
         <Tab href="/miniapp" label={t('shell.journal')} icon={BookOpen} active={isTabActive('journal', pathname)} />
         <div className="flex flex-1 justify-center">

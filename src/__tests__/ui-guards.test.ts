@@ -28,7 +28,8 @@ const EXEMPT = ['confetti.tsx', 'splash-screen.tsx'];
 // Entries ending in "/" are directory prefixes. Phase 1 removes entries; Phase 2 empties it.
 export const LEGACY_ALLOWLIST: string[] = [
   'src/components/legacy/',
-  'src/components/features/',
+  'src/components/features/dashboard/',
+  'src/components/features/voice/',
   'src/app/miniapp/page.tsx',
   'src/components/shell/boot.tsx', // rewritten in Phase 1 Task F
   'src/components/ui/bottom-sheet.tsx',

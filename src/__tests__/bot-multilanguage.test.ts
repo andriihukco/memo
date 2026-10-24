@@ -191,7 +191,7 @@ describe('Property 5: System messages use the user\'s locale catalog', () => {
 // Validates: Requirements 8.2
 
 // UI revamp Phase 1 adds keys to en/uk only; Phase 2 translates the rest and removes this filter.
-const keysOf = (c: object) => Object.keys(c).filter((k) => !/^(shell|journal)\./.test(k));
+const keysOf = (c: object) => Object.keys(c).filter((k) => !/^(shell|journal|entry|compose|insights|you|paywall|onboarding)\./.test(k));
 
 describe('Property 8: All locale catalogs have the same key set as uk', () => {
   it(
