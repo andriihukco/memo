@@ -44,6 +44,21 @@ export const BILLING_PERIODS: Record<BillingPeriod, BillingPeriodInfo> = {
   },
 };
 
+/**
+ * Billing switch. While false, no paywall, subscription, trial or upgrade UI is
+ * shown and every account is treated as OPEN_ACCESS_TIER, so no limit or gate applies.
+ * Plan data, Stars payment code and tier logic stay in place; set to true to restore them.
+ */
+export const BILLING_ENABLED = false;
+
+/** Tier every account is treated as while BILLING_ENABLED is false. */
+export const OPEN_ACCESS_TIER: SubscriptionTier = "stars_pro";
+
+/** True when the tier unlocks paid features. Everyone counts as paid while billing is off. */
+export function hasPaidTier(tier: SubscriptionTier | null | undefined): boolean {
+  return !BILLING_ENABLED || tier === "stars_basic" || tier === "stars_pro";
+}
+
 /** Calculate Stars price for a tier + billing period, applying discount */
 export function calcPrice(baseMonthlyStars: number, period: BillingPeriod): number {
   const { months, discountPct } = BILLING_PERIODS[period];

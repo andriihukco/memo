@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { Button } from '@/components/legacy/button';
@@ -24,6 +24,8 @@ import { TIER_INFO } from '@/lib/billing/plans';
 import type { SubscriptionTier } from '@/lib/billing/plans';
 import { useI18n } from '@/lib/i18n/context';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
+import { entryTime, isShortNote, layoutTimeline } from '@/lib/timeline';
+import { ENTRIES_CHANGED_EVENT } from '@/components/features/compose/compose-drawer';
 
 interface Entry {
   id: string;
@@ -72,8 +74,8 @@ function EntryContent({ content, className }: { content: string; className?: str
 const SWIPE_THRESHOLD = 72;
 const SWIPE_COMMIT = 200;
 
-function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleSelect, onSwipeDelete, onUpdate, accessToken, userTier }: {
-  entry: Entry; isSelectMode: boolean; isSelected: boolean;
+function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleSelect, onSwipeDelete, onUpdate, accessToken, userTier, hideTime = false }: {
+  entry: Entry; isSelectMode: boolean; isSelected: boolean; hideTime?: boolean;
   onLongPress: () => void; onToggleSelect: () => void; onSwipeDelete: () => void;
   onUpdate: (id: string, content: string, category: string) => Promise<void>;
   accessToken?: string | null;
@@ -162,7 +164,7 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
                   {getCategoryLabel(cat, entry.category_label)}
                 </Badge>
               ))}
-              <time className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">{formatTime(entry.created_at)}</time>
+              {!hideTime && <time className="ml-auto shrink-0 text-[10px] text-muted-foreground/60">{formatTime(entryTime(entry))}</time>}
             </div>
             <EntryContent content={entry.content} className={cn(isSelectMode && 'pl-7')} />
             {entryType === 'goal' && (() => {
@@ -213,6 +215,29 @@ function SwipeableCard({ entry, isSelectMode, isSelected, onLongPress, onToggleS
 
 interface ThreadGroup { threadId: string; entries: Entry[]; }
 
+// ── Timeline ──────────────────────────────────────────────────────────────────
+
+/** When a feed item happened: a thread shows its first message's time. */
+function itemTime(item: Entry | ThreadGroup): string | undefined {
+  return 'threadId' in item ? (item.entries[0] && entryTime(item.entries[0])) : entryTime(item);
+}
+
+const isPlainShortNote = (item: Entry | ThreadGroup): boolean => !('threadId' in item) && isShortNote(item);
+
+/** One timeline row: time on the left, a dot on the rail, the content on the right. */
+function TimelineRow({ time, children }: { time: string; children: ReactNode }) {
+  return (
+    <div className="flex gap-3">
+      <time className="w-11 shrink-0 pt-4 text-right text-xs tabular-nums text-muted-foreground">{formatTime(time)}</time>
+      <div className="relative flex w-3 shrink-0 justify-center" aria-hidden="true">
+        <span className="absolute inset-y-0 w-px bg-border/60" />
+        <span className="relative mt-[18px] size-2.5 rounded-full bg-primary ring-4 ring-background" />
+      </div>
+      <div className="min-w-0 flex-1 pb-3">{children}</div>
+    </div>
+  );
+}
+
 // ── Date grouping ─────────────────────────────────────────────────────────────
 
 interface DateGroup {
@@ -229,7 +254,7 @@ function groupByDate(items: (Entry | ThreadGroup)[]): DateGroup[] {
 
   for (const item of items) {
     // Get the created_at from the item (Entry or ThreadGroup's first entry)
-    const createdAt = 'threadId' in item ? item.entries[0]?.created_at : item.created_at;
+    const createdAt = itemTime(item);
     if (!createdAt) continue;
 
     const utc3Date = new Date(new Date(createdAt).getTime() + TZ_OFFSET_MS);
@@ -663,6 +688,13 @@ export default function FeedPage() {
 
   useEffect(() => { fetchEntries(); fetchUserTier(); }, [fetchEntries, fetchUserTier]);
 
+  // The composer saves outside this page; reload so the new entry shows up on the timeline.
+  useEffect(() => {
+    const reload = () => { fetchEntries(); };
+    window.addEventListener(ENTRIES_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(ENTRIES_CHANGED_EVENT, reload);
+  }, [fetchEntries]);
+
   const exitSelectMode = () => { play('TOGGLE_OFF'); setIsSelectMode(false); setSelectedIds(new Set()); };
   const handleLongPress = (id: string) => { play('TOGGLE_ON'); setIsSelectMode(true); setSelectedIds(new Set([id])); };
   const handleToggleSelect = (id: string) => {
@@ -737,6 +769,41 @@ export default function FeedPage() {
   const trialDaysLeft = isTrial
     ? Math.max(1, Math.ceil((new Date(subscriptionEndsAt!).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
+
+
+  /** A single feed row: a thread or one entry card. Grid tiles keep their own time. */
+  const renderFeedItem = (item: Entry | ThreadGroup, inGrid: boolean) => {
+    if ('threadId' in item) {
+      return (
+        <SwipeableThreadCard
+          key={item.threadId}
+          group={item}
+          isSelectMode={isSelectMode}
+          selectedIds={selectedIds}
+          onLongPress={handleLongPress}
+          onToggleSelect={handleToggleSelect}
+          onUpdate={handleUpdate}
+          onDelete={handleDeleteSingle}
+          accessToken={accessToken}
+        />
+      );
+    }
+    return (
+      <SwipeableCard
+        key={item.id}
+        entry={item}
+        hideTime={!inGrid}
+        isSelectMode={isSelectMode}
+        isSelected={selectedIds.has(item.id)}
+        onLongPress={() => handleLongPress(item.id)}
+        onToggleSelect={() => handleToggleSelect(item.id)}
+        onSwipeDelete={() => { play('OPEN'); setPendingDeleteIds([item.id]); }}
+        onUpdate={handleUpdate}
+        accessToken={accessToken}
+        userTier={userTier}
+      />
+    );
+  };
 
   return (
     <motion.div
@@ -871,7 +938,7 @@ export default function FeedPage() {
           transition={{ duration: 0.3 }}
           className="flex flex-col gap-3 pb-4"
         >
-          {groupByDate(groupByThread(entries)).map((group, groupIdx) => (
+          {groupByDate(groupByThread([...entries].sort((a, b) => Date.parse(entryTime(b)) - Date.parse(entryTime(a))))).map((group, groupIdx) => (
             <motion.div
               key={group.dateKey}
               initial={{ opacity: 0, y: 16 }}
@@ -885,39 +952,21 @@ export default function FeedPage() {
                 </span>
               </div>
 
-              {/* Entries */}
-              <div className="flex flex-col gap-3">
-                {group.items.map((item) => {
-                  if ('threadId' in item) {
-                    return (
-                      <SwipeableThreadCard
-                        key={item.threadId}
-                        group={item}
-                        isSelectMode={isSelectMode}
-                        selectedIds={selectedIds}
-                        onLongPress={handleLongPress}
-                        onToggleSelect={handleToggleSelect}
-                        onUpdate={handleUpdate}
-                        onDelete={handleDeleteSingle}
-                        accessToken={accessToken}
-                      />
-                    );
-                  }
-                  return (
-                    <SwipeableCard
-                      key={item.id}
-                      entry={item}
-                      isSelectMode={isSelectMode}
-                      isSelected={selectedIds.has(item.id)}
-                      onLongPress={() => handleLongPress(item.id)}
-                      onToggleSelect={() => handleToggleSelect(item.id)}
-                      onSwipeDelete={() => { play('OPEN'); setPendingDeleteIds([item.id]); }}
-                      onUpdate={handleUpdate}
-                      accessToken={accessToken}
-                      userTier={userTier}
-                    />
-                  );
-                })}
+              {/* Entries, laid out as a timeline; short notes share a row */}
+              <div className="flex flex-col">
+                {layoutTimeline(group.items, isPlainShortNote).map((block) =>
+                  block.kind === 'grid' ? (
+                    <TimelineRow key={block.items.map((e) => ('threadId' in e ? e.threadId : e.id)).join('-')} time={itemTime(block.items[0]) ?? group.dateKey}>
+                      <div className="grid grid-cols-2 gap-2">
+                        {block.items.map((item) => renderFeedItem(item, true))}
+                      </div>
+                    </TimelineRow>
+                  ) : (
+                    <TimelineRow key={'threadId' in block.item ? block.item.threadId : block.item.id} time={itemTime(block.item) ?? group.dateKey}>
+                      {renderFeedItem(block.item, false)}
+                    </TimelineRow>
+                  )
+                )}
               </div>
             </motion.div>
           ))}

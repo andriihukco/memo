@@ -40,10 +40,23 @@ const categoryString = z
 export const CreateEntrySchema = z.object({
   content: safeString(8000).refine((s) => s.length > 0, { message: 'content is required' }),
   category: categoryString.optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: z
+    .object({ occurred_at: z.string().datetime({ offset: true }).optional() })
+    .catchall(z.unknown())
+    .optional(),
 });
 
 export type CreateEntryInput = z.infer<typeof CreateEntrySchema>;
+
+// ── Reminder schemas ──────────────────────────────────────────────────────────
+
+export const CreateReminderSchema = z.object({
+  text: safeString(500).refine((s) => s.length > 0, { message: 'text is required' }),
+  remind_at: z.string().datetime({ offset: true }),
+  repeat: z.enum(['none', 'daily', 'weekly']).default('none'),
+});
+
+export type CreateReminderInput = z.infer<typeof CreateReminderSchema>;
 
 export const UpdateEntrySchema = z
   .object({

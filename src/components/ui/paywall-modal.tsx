@@ -7,7 +7,7 @@ import { BottomSheet } from '@/components/ui/bottom-sheet';
 import { useSound } from '@/lib/sound/use-sound';
 import { useAuth } from '@/lib/supabase/auth-context';
 import type { SubscriptionTier, BillingPeriod } from '@/lib/billing/plans';
-import { TIER_INFO, BILLING_PERIODS, calcPrice } from '@/lib/billing/plans';
+import { TIER_INFO, BILLING_PERIODS, BILLING_ENABLED, calcPrice } from '@/lib/billing/plans';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n/context';
 import { usePostHog } from 'posthog-js/react';
@@ -49,7 +49,13 @@ interface PaywallModalProps {
   onTrialActivated?: () => void;
 }
 
-export function PaywallModal({
+/** Renders nothing while BILLING_ENABLED is false. The sheet stays in code for later. */
+export function PaywallModal(props: PaywallModalProps) {
+  if (!BILLING_ENABLED) return null;
+  return <PaywallSheet {...props} />;
+}
+
+function PaywallSheet({
   open,
   onClose,
   feature,

@@ -224,7 +224,7 @@ async function rerankEntries(
 ): Promise<RetrievedEntry[]> {
   if (entries.length <= topK) return entries;
 
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
   const model = genAI.getGenerativeModel({ model: QA_MODEL });
 
   const candidateList = entries
@@ -409,7 +409,7 @@ export async function synthesiseAnswer(
   question: string,
   entries: RetrievedEntry[]
 ): Promise<string> {
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
   const model = genAI.getGenerativeModel({
     model: QA_MODEL,
     systemInstruction: QA_SYSTEM_PROMPT,
@@ -499,7 +499,7 @@ export async function answerQuestion(ctx: QAContext): Promise<string> {
     console.error("[qa] answerQuestion failed:", err instanceof Error ? err.message : err);
     // Absolute last resort — answer as a conversational response
     try {
-      const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+      const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
       const model = genAI.getGenerativeModel({
         model: QA_MODEL,
         systemInstruction: `Ти — Memo, особистий AI-асистент. Відповідай як уважний друг. Відповідай мовою користувача.`,

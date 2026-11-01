@@ -8,14 +8,14 @@ import {
   Scale, ScrollText, Send, Share2, ShoppingBag, SlidersHorizontal, Smile, Sparkles, Star, Sun, Tag, Target,
   Timer, Trash2, TrendingDown, TrendingUp, TriangleAlert, Users, Utensils, Volume2, VolumeX, Wallet, Wind,
   Wheat, X, Zap, Baby, Gamepad2, Plane, ExternalLink, Headset, ArrowRightToLine, Moon, Beef,
-  CircleAlert, CalendarClock,
+  CircleAlert, CalendarClock, Monitor,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** Material Symbols name → lucide icon. Unknown names fall back to Tag. */
 const ICONS: Record<string, LucideIcon> = {
   add: Plus, arrow_back: ArrowLeft, auto_stories: BookOpen, backspace: Delete, calendar_today: Calendar,
-  campaign: Megaphone, check: Check, check_circle: CheckCircle, chevron_right: ChevronRight, close: X,
+  monitor: Monitor, sun: Sun, campaign: Megaphone, check: Check, check_circle: CheckCircle, chevron_right: ChevronRight, close: X,
   delete: Trash2, delete_forever: Trash2, download: Download, edit: Pencil, error: CircleAlert, info: Info,
   lightbulb: Lightbulb, wb_incandescent: Lightbulb, lock: Lock, lock_open: LockOpen, merge: Merge,
   monitor_heart: Activity, open_in_new: ExternalLink, password: RectangleEllipsis, progress_activity: Loader2,

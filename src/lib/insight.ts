@@ -99,7 +99,7 @@ export async function generateInsight(
   }
 
   // Generate insight text via gemini-2.5-flash
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
   const model = genAI.getGenerativeModel({ model: INSIGHT_MODEL });
 
   const prompt = buildInsightPrompt(newEntry, relevant);

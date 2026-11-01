@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { buildLocalRetro, dayKey, type Goal, type MetricPoint } from "@/lib/goals";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { deriveUserKey, decryptField } from "@/lib/crypto";
@@ -40,7 +41,7 @@ function getServiceClient() {
 
 // ── Load entries for period ───────────────────────────────────────────────────
 
-async function loadEntriesForPeriod(userId: string, from: Date, to: Date) {
+export async function loadEntriesForPeriod(userId: string, from: Date, to: Date) {
   const supabase = getServiceClient();
   const { data } = await supabase
     .from("entries")
@@ -56,13 +57,14 @@ async function loadEntriesForPeriod(userId: string, from: Date, to: Date) {
   try {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("telegram_id, encryption_salt")
+      .select("telegram_id, encryption_key_id, encryption_salt")
       .eq("id", userId)
       .single();
-    if (profile?.telegram_id) {
+    const keyId = profile?.encryption_key_id ?? (profile?.telegram_id ? String(profile.telegram_id) : null);
+    if (keyId) {
       const key = await deriveUserKey(
-        String(profile.telegram_id),
-        profile.encryption_salt ?? null
+        String(keyId),
+        profile!.encryption_salt ?? null
       );
       return Promise.all(
         raw.map(async (e) => ({
@@ -156,7 +158,7 @@ ${entriesText}
 Склади ретроспективний звіт. Відповідь — ТІЛЬКИ JSON.`;
 
   try {
-    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
     const model = genAI.getGenerativeModel({
       model: MODEL,
       systemInstruction: aiLanguageInstruction(locale) + '\n' + RETRO_SYSTEM_PROMPT,
@@ -187,6 +189,34 @@ ${entriesText}
 }
 
 // ── Save report to DB ─────────────────────────────────────────────────────────
+
+/**
+ * Retro without AI: numbers from the entries and the user's goals, see src/lib/goals.ts.
+ * Returns null when the period has no entries, like generateRetrospective.
+ */
+export async function generateLocalRetrospective(
+  userId: string,
+  from: Date,
+  to: Date,
+  goals: Goal[]
+): Promise<Report | null> {
+  const entries = await loadEntriesForPeriod(userId, from, to);
+  if (entries.length === 0) return null;
+
+  const points: MetricPoint[] = [];
+  for (const e of entries) {
+    const metrics = (e.metadata?.dashboard_metrics ?? []) as Array<{ key?: string; value?: unknown }>;
+    for (const m of metrics) {
+      if (typeof m.key === "string" && typeof m.value === "number") {
+        points.push({ date: new Date(e.created_at), key: m.key, value: m.value });
+      }
+    }
+  }
+
+  const entryDays = new Set(entries.map((e) => dayKey(new Date(e.created_at)))).size;
+  const retro = buildLocalRetro({ from, to, entryCount: entries.length, entryDays, points, goals }, to);
+  return { ...retro, insights: retro.insights as ReportInsight[] };
+}
 
 export async function saveReport(userId: string, report: Report): Promise<string | null> {
   const supabase = getServiceClient();
@@ -305,7 +335,7 @@ ${entriesText}
 Склади короткий тижневий підсумок. Максимум 300 слів. Відповідь — тільки текст підсумку, без JSON.`;
 
   try {
-    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
     const model = genAI.getGenerativeModel({
       model: MODEL,
       systemInstruction: aiLanguageInstruction(locale) + "\n" + WEEKLY_SUMMARY_SYSTEM_PROMPT,

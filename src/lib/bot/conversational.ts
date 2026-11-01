@@ -60,7 +60,7 @@ export async function generateConversationalReply(
   try {
     const filtered = similarEntries.filter((e) => e.similarity > SIMILARITY_THRESHOLD);
 
-    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
     const model = genAI.getGenerativeModel({
       model: MODEL_ID,
       systemInstruction: SYSTEM_PROMPT,

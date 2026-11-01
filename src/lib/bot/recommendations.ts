@@ -167,7 +167,7 @@ ${entriesText}
 Відповідь — ТІЛЬКИ JSON масив, без додаткового тексту.`;
 
   try {
-    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
     const model = genAI.getGenerativeModel({
       model: MODEL,
       systemInstruction: aiLanguageInstruction(locale) + '\n' + RECOMMENDATION_SYSTEM_PROMPT,

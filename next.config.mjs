@@ -2,6 +2,8 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Lets a second dev server run from the same folder without sharing .next (set MEMO_DIST_DIR).
+  distDir: process.env.MEMO_DIST_DIR || ".next",
   // Old 5-tab routes → 3-tab shell. Temporary so bot deep links can move again; Next keeps the incoming query.
   async redirects() {
     return [

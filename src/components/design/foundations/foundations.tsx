@@ -1,5 +1,9 @@
-import { DemoCard } from '../primitives/doc';
+'use client';
 
+import { useState } from 'react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { cn } from '@/lib/utils';
+import { DemoCard } from '../primitives/doc';
 const SURFACE_TOKENS = ['background', 'foreground', 'card', 'popover', 'secondary', 'muted', 'accent', 'border', 'input', 'ring'] as const;
 const INTENT_TOKENS = ['primary', 'destructive', 'success', 'warning'] as const;
 const CATEGORY_TOKENS = Array.from({ length: 12 }, (_, i) => `cat-${i + 1}`);
@@ -22,9 +26,26 @@ const TYPE_SCALE = [
 
 const SPACING = [4, 8, 12, 16, 24, 32, 48];
 
+type TokenSet = 'light' | 'dark';
+
+/** Light / dark token switch: .dark redefines the same token names, so the swatches below re-render in that set. */
 export function Foundations() {
+  const [tokenSet, setTokenSet] = useState<TokenSet>('light');
   return (
     <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm font-medium">Token set</p>
+        <ToggleGroup
+          type="single"
+          value={tokenSet}
+          onValueChange={(value) => value && setTokenSet(value as TokenSet)}
+          aria-label="Token set"
+        >
+          <ToggleGroupItem value="light" className="min-h-11 px-4" aria-label="Light tokens">Light</ToggleGroupItem>
+          <ToggleGroupItem value="dark" className="min-h-11 px-4" aria-label="Dark tokens">Dark</ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      <div data-token-set={tokenSet} className={cn('space-y-6 rounded-xl bg-background p-4 text-foreground', tokenSet === 'dark' && 'dark')}>
       <DemoCard title="Surfaces">
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">{SURFACE_TOKENS.map((t) => <Swatch key={t} token={t} />)}</div>
       </DemoCard>
@@ -58,6 +79,7 @@ export function Foundations() {
           </div>
         </div>
       </DemoCard>
+      </div>
     </div>
   );
 }

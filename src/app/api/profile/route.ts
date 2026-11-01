@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import { BILLING_ENABLED, OPEN_ACCESS_TIER } from "@/lib/billing/plans";
 
 function getUserJwt(req: Request): string | null {
   const auth = req.headers.get("Authorization");
@@ -64,7 +65,13 @@ export async function GET(req: Request): Promise<Response> {
     });
   }
 
-  return new Response(JSON.stringify({ profile }), {
+  // While billing is off, clients see the open-access tier and no subscription dates,
+  // so no paywall, renewal banner or tier-gated UI renders.
+  const visibleProfile = BILLING_ENABLED
+    ? profile
+    : { ...profile, subscription_tier: OPEN_ACCESS_TIER, subscription_status: null, subscription_ends_at: null };
+
+  return new Response(JSON.stringify({ profile: visibleProfile }), {
     status: 200,
     headers: {
       "Content-Type": "application/json",

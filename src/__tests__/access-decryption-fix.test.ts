@@ -41,6 +41,12 @@ vi.mock('@/lib/env', () => ({
   },
 }));
 
+// These tests check the real stored tier, so billing is switched on for this file.
+vi.mock('@/lib/billing/plans', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/billing/plans')>()),
+  BILLING_ENABLED: true,
+}));
+
 // ── Supabase mock for Bug 2 tests ─────────────────────────────────────────────
 
 const mockGetUser = vi.fn();

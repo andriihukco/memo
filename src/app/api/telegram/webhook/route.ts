@@ -139,7 +139,7 @@ async function processReferralReward(referredUserId: string): Promise<void> {
 
     if (referrerProfile?.telegram_id) {
       try {
-        const bot = new Bot(env.TELEGRAM_BOT_TOKEN);
+        const bot = new Bot(env.TELEGRAM_BOT_TOKEN!);
         const referrerLocale = getLocale(referrerProfile.settings as Record<string, unknown> | undefined);
         await bot.api.sendMessage(
           Number(referrerProfile.telegram_id),
@@ -162,7 +162,7 @@ let _handleUpdate: ((req: Request) => Promise<Response>) | null = null;
 function getHandler(): (req: Request) => Promise<Response> {
   if (_handleUpdate) return _handleUpdate;
 
-  const bot = new Bot<BotContext>(env.TELEGRAM_BOT_TOKEN);
+  const bot = new Bot<BotContext>(env.TELEGRAM_BOT_TOKEN!);
 
   // ── Profile middleware ──────────────────────────────────────────────────────
   bot.use(async (ctx, next) => {

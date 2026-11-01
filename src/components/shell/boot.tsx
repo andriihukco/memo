@@ -14,6 +14,8 @@ import { SplashScreen } from '@/components/ui/splash-screen';
 import { I18nProvider, useI18n } from '@/lib/i18n/context';
 import type { Locale } from '@/i18n/locales';
 import { SUPPORTED_LOCALES, LOCALE_META } from '@/i18n/locales';
+import { BILLING_ENABLED } from '@/lib/billing/plans';
+import { getBrowserAuthClient } from '@/lib/supabase/browser';
 
 
 declare global {
@@ -641,9 +643,13 @@ function OnboardingOverlay({ onDone, hasLanguageSet }: { onDone: () => void; has
     );
   }
 
-  // Flow: slides → passcode → paywall → done
+  // Flow: slides → passcode → paywall → done (paywall step skipped while billing is off)
   const openPasscode = () => setShowPasscode(true);
-  const openPaywall = () => { setShowPasscode(false); setShowPaywall(true); };
+  const openPaywall = () => {
+    setShowPasscode(false);
+    if (!BILLING_ENABLED) { finish(); return; }
+    setShowPaywall(true);
+  };
 
   const goNext = () => {
     if (index < SLIDES.length - 1) {
@@ -878,30 +884,43 @@ export function Boot({ children }: { children: React.ReactNode }) {
           !initData &&
           ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
         if (devAuth) console.info('[dev-auth] signed in as dev_tester');
-        const res = devAuth
-          ? await fetch('/api/auth/dev', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ seed: true }),
-            })
-          : await fetch('/api/auth/telegram', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ initData }),
-            });
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          if (res.status === 401 || res.status === 403 || res.status === 404) {
-            removePasscode();
-            localStorage.removeItem('memo_onboarding_done');
-            localStorage.removeItem('memo_renewal_banner_shown_date');
-          }
-          throw new Error(data.error ?? `Auth failed (${res.status})`);
+        // Web (no Telegram): use the Supabase session from email or Google sign-in, or the Telegram Login Widget.
+        const webSession = !initData && !devAuth
+          ? (await getBrowserAuthClient()?.auth.getSession())?.data.session ?? null
+          : null;
+        if (!initData && !devAuth && !webSession) {
+          window.location.replace('/login');
+          return;
         }
 
-        const authData = await res.json();
-        const { access_token } = authData;
+        let access_token: string;
+        if (webSession) {
+          access_token = webSession.access_token;
+        } else {
+          const res = devAuth
+            ? await fetch('/api/auth/dev', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ seed: true }),
+              })
+            : await fetch('/api/auth/telegram', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ initData }),
+              });
+
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            if (res.status === 401 || res.status === 403 || res.status === 404) {
+              removePasscode();
+              localStorage.removeItem('memo_onboarding_done');
+              localStorage.removeItem('memo_renewal_banner_shown_date');
+            }
+            throw new Error(data.error ?? `Auth failed (${res.status})`);
+          }
+
+          ({ access_token } = await res.json());
+        }
         setAccessToken(access_token);
         sessionStorage.setItem('memo_auth_done', '1');
 

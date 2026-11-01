@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
-import { SubscriptionTier, TIER_INFO, GRACE_PERIOD_DAYS } from "@/lib/billing/plans";
+import { SubscriptionTier, TIER_INFO, GRACE_PERIOD_DAYS, BILLING_ENABLED, OPEN_ACCESS_TIER } from "@/lib/billing/plans";
 export type { SubscriptionTier, BillingPeriod, BillingPeriodInfo } from "@/lib/billing/plans";
-export { BILLING_PERIODS, calcPrice, TIER_INFO, GRACE_PERIOD_DAYS } from "@/lib/billing/plans";
+export { BILLING_PERIODS, calcPrice, TIER_INFO, GRACE_PERIOD_DAYS, BILLING_ENABLED, OPEN_ACCESS_TIER, hasPaidTier } from "@/lib/billing/plans";
 export type { TierInfo } from "@/lib/billing/plans";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -67,8 +67,9 @@ export async function getSubscription(userId: string): Promise<Subscription | nu
 }
 
 export async function getUserTier(userId: string): Promise<SubscriptionTier> {
+  if (!BILLING_ENABLED) return OPEN_ACCESS_TIER;
   const supabase = getServiceClient();
-  
+
   const { data, error } = await supabase
     .from("profiles")
     .select("subscription_tier")
@@ -230,6 +231,7 @@ export async function recordTransaction(
  * If `subscription_ends_at` is set and in the past, returns "free".
  */
 export async function getEffectiveTier(userId: string): Promise<SubscriptionTier> {
+  if (!BILLING_ENABLED) return OPEN_ACCESS_TIER;
   const supabase = getServiceClient();
 
   const { data, error } = await supabase

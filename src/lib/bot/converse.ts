@@ -156,7 +156,7 @@ export async function generateConverseReply(
     ctx = { tone: "", memory: {} };
   }
 
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
   const model = genAI.getGenerativeModel({
     model: MODEL,
     systemInstruction: buildSystemPrompt(ctx, locale),

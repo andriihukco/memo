@@ -14,10 +14,11 @@ import {
   getLockTimer, setLockTimer, type LockTimer, LOCK_TIMER_LABELS,
 } from '@/lib/passcode';
 import { cn } from '@/lib/utils';
-import { TIER_INFO, type SubscriptionTier } from '@/lib/billing/plans';
+import { BILLING_ENABLED, TIER_INFO, type SubscriptionTier } from '@/lib/billing/plans';
 import { useI18n } from '@/lib/i18n/context';
 import { SUPPORTED_LOCALES, LOCALE_META, type Locale } from '@/i18n/locales';
 import { hapticNotification, hapticImpact } from '@/lib/haptics';
+import { AppearanceSection } from '@/components/features/settings/appearance-section';
 
 type SetupStep = 'idle' | 'enter_current' | 'enter_current_to_disable' | 'set_new' | 'confirm_new' | 'success';
 
@@ -772,6 +773,7 @@ export default function SettingsPage() {
     >
 
       {/* ── Підписка ────────────────────────────────────────────────────── */}
+      {BILLING_ENABLED && (
       <motion.section
         id="subscription"
         initial={{ opacity: 0, y: 16 }}
@@ -824,6 +826,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </motion.section>
+      )}
 
       {/* ── Запросити друзів ─────────────────────────────────────────────── */}
       <motion.section
@@ -966,6 +969,15 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </motion.section>
+
+      {/* ── Зовнішній вигляд ───────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <AppearanceSection />
+      </motion.div>
 
       {/* ── Звук ───────────────────────────────────────────────────────── */}
       <motion.div
@@ -1171,7 +1183,7 @@ export default function SettingsPage() {
                 </p>
 
                 {/* Subscription warning */}
-                {userTier && userTier !== 'free' && (
+                {BILLING_ENABLED && userTier && userTier !== 'free' && (
                   <div className="mb-4 flex items-start gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-3">
                     <span className="text-lg leading-none shrink-0">⚠️</span>
                     <p className="text-[13px] text-amber-300 leading-snug">

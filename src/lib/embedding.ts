@@ -36,7 +36,7 @@ function getServiceClient() {
  * Throws EmbeddingError on failure.
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
   const model = genAI.getGenerativeModel({ model: EMBEDDING_MODEL });
 
   const result = await model.embedContent({

@@ -270,7 +270,7 @@ Respond ONLY with JSON.`;
 const MODEL_ID = "gemini-2.5-flash";
 
 function getGenAI() {
-  return new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  return new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
 }
 
 // ── Two-pass classification ───────────────────────────────────────────────────

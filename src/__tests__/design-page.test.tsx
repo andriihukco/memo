@@ -33,6 +33,15 @@ describe('/design page', () => {
     expect(atoms.textContent).toContain('variant="destructive"');
   });
 
+  it('switches the foundations token set between light and dark', () => {
+    render(<DesignPage />);
+    const block = () => document.querySelector('[data-token-set]') as HTMLElement;
+    expect(block().dataset.tokenSet).toBe('light');
+    fireEvent.click(screen.getByRole('radio', { name: 'Dark tokens' }));
+    expect(block().dataset.tokenSet).toBe('dark');
+    expect(block().classList.contains('dark')).toBe(true);
+  });
+
   it('gives every wiki entry a source reference', () => {
     for (const category of Object.values(WIKI)) {
       for (const entry of category.entries) {

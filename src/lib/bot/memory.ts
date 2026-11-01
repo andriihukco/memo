@@ -112,7 +112,7 @@ Examples:
 Message: "${text.replace(/"/g, "'")}"`;
 
   try {
-    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
     const model = genAI.getGenerativeModel({ model: MODEL });
     const result = await model.generateContent(prompt);
     const raw = result.response.text().replace(/```json\n?|\n?```/g, "").trim();

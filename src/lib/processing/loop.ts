@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
+import { hasPaidTier } from "@/lib/billing/plans";
 
 function getServiceClient() {
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -296,7 +297,7 @@ export async function processReminders(): Promise<void> {
 
   const { data: due, error } = await supabase
     .from("reminders")
-    .select("id, user_id, text")
+    .select("id, user_id, text, repeat, scheduled_at")
     .eq("status", "pending")
     .lte("scheduled_at", new Date().toISOString());
 
@@ -325,7 +326,8 @@ export async function processReminders(): Promise<void> {
     return;
   }
 
-  for (const reminder of due as Array<{ id: string; user_id: string; text: string }>) {
+  type DueReminder = { id: string; user_id: string; text: string; repeat: string | null; scheduled_at: string };
+  for (const reminder of due as DueReminder[]) {
     const chatId = telegramIdByUserId.get(reminder.user_id);
     if (!chatId) {
       console.warn(`[loop] processReminders: no telegram_id for user ${reminder.user_id}`);
@@ -353,14 +355,37 @@ export async function processReminders(): Promise<void> {
       }
 
       // Conditionally update status to 'sent' only if still 'pending' (idempotent)
-      const { error: updateError } = await supabase
+      const { data: marked, error: updateError } = await supabase
         .from("reminders")
         .update({ status: "sent" })
         .eq("id", reminder.id)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .select("id");
 
       if (updateError) {
         console.error(`[loop] processReminders: update failed for reminder ${reminder.id}:`, updateError.message);
+        continue;
+      }
+
+      // Repeating reminders: queue the next occurrence only when this run did the marking,
+      // so a concurrent run cannot queue it twice.
+      const stepDays = reminder.repeat === "daily" ? 1 : reminder.repeat === "weekly" ? 7 : 0;
+      if (stepDays > 0 && marked && marked.length > 0) {
+        const next = new Date(reminder.scheduled_at);
+        next.setUTCDate(next.getUTCDate() + stepDays);
+        const nextIso = next.toISOString();
+        const { error: nextError } = await supabase.from("reminders").insert({
+          user_id: reminder.user_id,
+          text: reminder.text,
+          scheduled_at: nextIso,
+          remind_at: nextIso,
+          status: "pending",
+          repeat: reminder.repeat,
+          done: false,
+        });
+        if (nextError) {
+          console.error(`[loop] processReminders: could not queue next occurrence of ${reminder.id}:`, nextError.message);
+        }
       }
     } catch (err) {
       console.error(`[loop] processReminders: error for reminder ${reminder.id}:`, err);
@@ -613,10 +638,10 @@ export async function processWeeklySummaries(): Promise<void> {
         return `[${date}] (${e.category}) ${e.content}${metricsStr}`;
       }).join("\n");
 
-      const isPaid = profile.subscription_tier === "stars_basic" || profile.subscription_tier === "stars_pro";
+      const isPaid = hasPaidTier(profile.subscription_tier);
 
       // Generate summary via Gemini
-      const genAI = new GoogleGenerativeAI(appEnv.GEMINI_API_KEY);
+      const genAI = new GoogleGenerativeAI(appEnv.GEMINI_API_KEY ?? "");
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       let summaryText = "";

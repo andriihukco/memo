@@ -80,7 +80,7 @@ function startOfMonth(date: Date): Date {
 }
 
 async function generateText(prompt: string): Promise<string> {
-  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+  const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
   const model = genAI.getGenerativeModel({ model: SUMMARY_MODEL });
   const result = await model.generateContent(prompt);
   return result.response.text().trim();

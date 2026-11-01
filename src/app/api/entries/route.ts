@@ -6,6 +6,7 @@ import { deriveUserKey, encryptField, decryptField } from "@/lib/crypto";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { resolveCalorieMetrics } from "@/lib/nutrition";
+import { aiEnabled } from "@/lib/ai";
 import { parseBody, CreateEntrySchema, UpdateEntrySchema, DeleteEntriesSchema } from "@/lib/schemas";
 
 /** CSRF / Origin guard — state-changing edge routes only */
@@ -48,22 +49,27 @@ function makeSupabase(jwt: string) {
   });
 }
 
-/** Resolve the Telegram user ID and encryption salt from the JWT via the profiles table. */
+/**
+ * Key identity and salt for entry encryption, read via the profiles table.
+ * `telegramId` is the pinned key id: the Telegram id for Telegram users, the profile id for web-only users.
+ */
 async function getTelegramProfile(jwt: string): Promise<{ telegramId: string; encryptionSalt: string | null } | null> {
   const supabase = makeSupabase(jwt);
   const { data } = await supabase
     .from("profiles")
-    .select("telegram_id, encryption_salt")
+    .select("telegram_id, encryption_key_id, encryption_salt")
     .single();
-  if (!data?.telegram_id) return null;
+  const keyId = data?.encryption_key_id ?? (data?.telegram_id ? String(data.telegram_id) : null);
+  if (!keyId) return null;
   return {
-    telegramId: String(data.telegram_id),
-    encryptionSalt: data.encryption_salt ?? null,
+    telegramId: String(keyId),
+    encryptionSalt: data?.encryption_salt ?? null,
   };
 }
 
 // Re-extract dashboard_metrics from updated content using Gemini
 async function recomputeMetrics(content: string): Promise<{ dashboard_metrics: Record<string, unknown>[]; metadata: Record<string, unknown> } | null> {
+  if (!aiEnabled()) return null; // AI disconnected: keep the metrics the client sent
   try {
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
     const model = genAI.getGenerativeModel({

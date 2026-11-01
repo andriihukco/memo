@@ -2,7 +2,9 @@ export const runtime = "nodejs"; // needs more memory for AI generation
 export const maxDuration = 60; // allow up to 60s for Gemini generation
 
 import { createClient } from "@supabase/supabase-js";
-import { generateRetrospective, saveReport, loadReports, deleteReport } from "@/lib/bot/retrospective";
+import { generateRetrospective, generateLocalRetrospective, saveReport, loadReports, deleteReport } from "@/lib/bot/retrospective";
+import { aiEnabled } from "@/lib/ai";
+import type { Goal } from "@/lib/goals";
 import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { capture } from "@/lib/analytics";
@@ -112,7 +114,10 @@ export async function POST(req: Request) {
   console.log(`[reports POST] generating ${period_type} for user ${profile.id}, from=${fromDate.toISOString()} to=${toDate.toISOString()}`);
 
   try {
-    const report = await generateRetrospective(profile.id, period_type, fromDate, toDate, userLocale as import('@/i18n/locales').Locale);
+    const goals = (((profile.settings as Record<string, unknown>)?.goals ?? []) as Goal[]);
+    const report = aiEnabled()
+      ? await generateRetrospective(profile.id, period_type, fromDate, toDate, userLocale as import('@/i18n/locales').Locale)
+      : await generateLocalRetrospective(profile.id, fromDate, toDate, goals);
     if (!report) {
       return Response.json({ error: "not_enough_entries" }, { status: 422 });
     }
