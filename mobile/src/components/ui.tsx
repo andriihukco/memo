@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
+import { useThemed, type Palette } from '../theme/theme';
 
 /** Dark palette matched to the Mini App (globals.css dark tokens). */
 export const colors = {
@@ -18,15 +19,18 @@ export const colors = {
 export const TOUCH = 44;
 
 export function Title({ children }: { children: ReactNode }) {
+  const { styles } = useThemed(makeStyles);
   return <Text style={styles.largeTitle} accessibilityRole="header">{children}</Text>;
 }
 
 export function SectionHeader({ children }: { children: ReactNode }) {
+  const { styles } = useThemed(makeStyles);
   return <Text style={styles.sectionHeader}>{children}</Text>;
 }
 
 /** Inset grouped card, as used across the Mini App settings and lists. */
 export function Group({ children }: { children: ReactNode }) {
+  const { styles } = useThemed(makeStyles);
   return <View style={styles.group}>{children}</View>;
 }
 
@@ -36,6 +40,7 @@ export function Row({
   destructive,
   ...rest
 }: PressableProps & { label: string; value?: string; destructive?: boolean }) {
+  const { colors, styles } = useThemed(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -49,6 +54,7 @@ export function Row({
 }
 
 export function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  const { styles } = useThemed(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -62,6 +68,7 @@ export function PrimaryButton({ label, onPress, disabled }: { label: string; onP
 }
 
 export function Empty({ title, subtitle }: { title: string; subtitle?: string }) {
+  const { styles } = useThemed(makeStyles);
   return (
     <View style={styles.empty}>
       <Text style={styles.emptyTitle}>{title}</Text>
@@ -71,10 +78,12 @@ export function Empty({ title, subtitle }: { title: string; subtitle?: string })
 }
 
 export function Dot({ color }: { color: string }) {
+  const { styles } = useThemed(makeStyles);
   return <View style={[styles.dot, { backgroundColor: color }]} />;
 }
 
 export function Chip({ label, color, selected, onPress }: { label: string; color: string; selected?: boolean; onPress?: () => void }) {
+  const { styles } = useThemed(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -87,7 +96,7 @@ export function Chip({ label, color, selected, onPress }: { label: string; color
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   largeTitle: { fontSize: 34, fontWeight: '700', color: colors.label, paddingHorizontal: 16, paddingTop: 8 },
   sectionHeader: { fontSize: 13, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 32, paddingTop: 20, paddingBottom: 6 },
   group: { backgroundColor: colors.card, borderRadius: 12, marginHorizontal: 16, overflow: 'hidden' },

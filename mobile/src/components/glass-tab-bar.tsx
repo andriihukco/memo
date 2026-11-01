@@ -6,6 +6,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { t } from '../i18n';
 import { colors, TOUCH } from './ui';
 import { Symbol } from './symbol';
+import { useThemed, type Palette } from '../theme/theme';
 
 interface TabRoute {
   key: string;
@@ -38,6 +39,7 @@ const TABS: Record<string, { label: string; icon: string; iconActive: string }> 
  * so the selection moves instead of jumping. On iOS below 26 it falls back to a tinted fill.
  */
 export function GlassTabBar({ routes, activeIndex, onSelect, onCompose, onHoldStart, onHoldEnd }: Props) {
+  const { styles } = useThemed(makeStyles);
   const glass = isLiquidGlassAvailable();
   const [barWidth, setBarWidth] = useState(0);
   const slot = routes.length > 0 && barWidth > 0 ? (barWidth - PAD * 2) / routes.length : 0;
@@ -91,6 +93,7 @@ export function GlassTabBar({ routes, activeIndex, onSelect, onCompose, onHoldSt
 
 /** One tab. Presses shrink slightly and spring back. */
 function TabItem({ label, icon, selected, onPress }: { label: string; icon: string; selected: boolean; onPress: () => void }) {
+  const { colors, styles } = useThemed(makeStyles);
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
@@ -117,6 +120,7 @@ function TabItem({ label, icon, selected, onPress }: { label: string; icon: stri
 
 /** Separate round + on the right. Tap opens the sheet, hold records a voice entry. */
 function ComposeButton({ glass, onPress, onHoldStart, onHoldEnd }: { glass: boolean; onPress: () => void; onHoldStart?: () => void; onHoldEnd?: () => void }) {
+  const { colors, styles } = useThemed(makeStyles);
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const body = (
@@ -162,7 +166,7 @@ function ComposeButton({ glass, onPress, onHoldStart, onHoldEnd }: { glass: bool
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: { position: 'absolute', left: 16, right: 16, bottom: 28, flexDirection: 'row', alignItems: 'center', gap: 12 },
   pill: {
     flex: 1,

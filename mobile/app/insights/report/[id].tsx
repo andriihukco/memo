@@ -1,9 +1,11 @@
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEntries } from '../../../src/lib/entry-store';
-import { colors, Empty, TOUCH } from '../../../src/components/ui';
+import { Empty, TOUCH } from '../../../src/components/ui';
+import { useThemed, type Palette } from '../../../src/theme/theme';
 
 export default function ReportScreen() {
+  const { styles } = useThemed(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { reports } = useEntries();
   const report = reports.find((r) => r.id === id);
@@ -28,7 +30,7 @@ export default function ReportScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, paddingTop: 60, paddingBottom: 40, gap: 8 },
   back: { minHeight: TOUCH, justifyContent: 'center' },
   backText: { fontSize: 17, color: colors.tint },

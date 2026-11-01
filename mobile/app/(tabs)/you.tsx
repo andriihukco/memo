@@ -4,8 +4,9 @@ import { t } from '../../src/i18n';
 import { useSession } from '../../src/lib/session';
 import { hasPin } from '../../src/lib/app-state';
 import { useEffect, useState } from 'react';
-import { colors, TOUCH } from '../../src/components/ui';
+import { TOUCH } from '../../src/components/ui';
 import { Symbol } from '../../src/components/symbol';
+import { useThemed, type Palette } from '../../src/theme/theme';
 
 type Icon = string;
 
@@ -20,6 +21,7 @@ interface Item {
 
 /** You tab: settings sections and copy, as on web's /miniapp/you. */
 export default function YouScreen() {
+  const { colors, styles } = useThemed(makeStyles);
   const { live, signOut } = useSession();
   const [pinSet, setPinSet] = useState(false);
 
@@ -86,7 +88,7 @@ export default function YouScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, paddingTop: 8, paddingBottom: 40 },
   title: { fontSize: 34, fontWeight: '700', color: colors.label },
   section: { fontSize: 12, letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 4, paddingTop: 22, paddingBottom: 8 },

@@ -4,13 +4,15 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useEntries } from '../src/lib/entry-store';
 import { suggestCategory, metaFor, AUTO_META } from '../src/lib/category-meta';
-import { colors, Chip, PrimaryButton, TOUCH } from '../src/components/ui';
+import { Chip, PrimaryButton, TOUCH } from '../src/components/ui';
 import type { AutoCategory } from '../src/lib/auto-category';
+import { useThemed, type Palette } from '../src/theme/theme';
 
 const AUTO_KEYS = Object.keys(AUTO_META) as AutoCategory[];
 
 /** Entry sheet. Opened by a tap on + (empty) or by releasing a hold on + (prefilled with the voice transcript). */
 export default function ComposeScreen() {
+  const { colors, styles } = useThemed(makeStyles);
   const { add } = useEntries();
   const { text: initial } = useLocalSearchParams<{ text?: string }>();
   const [text, setText] = useState(initial ?? '');
@@ -74,7 +76,7 @@ export default function ComposeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerBtn: { minWidth: TOUCH, minHeight: TOUCH, justifyContent: 'center' },

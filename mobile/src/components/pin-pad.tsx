@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Symbol } from './symbol';
 import { colors, TOUCH } from './ui';
+import { useThemed, type Palette } from '../theme/theme';
 
 interface Props {
   title: string;
@@ -12,6 +13,7 @@ interface Props {
 
 /** 4-digit keypad. Every key is at least 44pt. */
 export function PinPad({ title, subtitle, error, onComplete }: Props) {
+  const { colors, styles } = useThemed(makeStyles);
   const [pin, setPin] = useState('');
 
   const press = (key: string) => {
@@ -66,7 +68,7 @@ export function PinPad({ title, subtitle, error, onComplete }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 12 },
   title: { fontSize: 24, fontWeight: '700', color: colors.label, textAlign: 'center' },
   sub: { fontSize: 15, color: colors.muted, textAlign: 'center' },

@@ -3,10 +3,12 @@ import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput,
 import { router } from 'expo-router';
 import { t } from '../src/i18n';
 import { useSession } from '../src/lib/session';
-import { colors, PrimaryButton, TOUCH } from '../src/components/ui';
+import { PrimaryButton, TOUCH } from '../src/components/ui';
+import { useThemed, type Palette } from '../src/theme/theme';
 
 /** Email and password for your Memo account (the same login the web app uses). */
 export default function SignInScreen() {
+  const { colors, styles } = useThemed(makeStyles);
   const { signIn, error } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,7 +62,7 @@ export default function SignInScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingTop: 16 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   headerBtn: { minWidth: TOUCH, minHeight: TOUCH, justifyContent: 'center' },

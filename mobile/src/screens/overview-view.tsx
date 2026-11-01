@@ -4,12 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { t } from '../i18n';
 import { useEntries } from '../lib/entry-store';
-import { colors, TOUCH } from '../components/ui';
+import { TOUCH } from '../components/ui';
+import { useThemed, type Palette } from '../theme/theme';
 
 type Segment = 'widgets' | 'goals';
 
 /** Widgets grid and Goals, same header controls as the Mini App. Widget data arrives with the API. */
 export function OverviewView() {
+  const { colors, styles } = useThemed(makeStyles);
   const [segment, setSegment] = useState<Segment>('widgets');
   const { widgets } = useEntries();
 
@@ -62,7 +64,7 @@ export function OverviewView() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, paddingBottom: 16 },
   segments: { flexDirection: 'row', gap: 16 },

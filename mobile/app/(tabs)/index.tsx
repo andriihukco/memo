@@ -6,7 +6,8 @@ import { useEntries } from '../../src/lib/entry-store';
 import { groupByDay } from '../../src/lib/entries';
 import { metaFor } from '../../src/lib/category-meta';
 import { t, locale } from '../../src/i18n';
-import { Chip, colors, Empty, TOUCH } from '../../src/components/ui';
+import { Chip, Empty, TOUCH } from '../../src/components/ui';
+import { useThemed, type Palette } from '../../src/theme/theme';
 
 const dayTitle = (key: string): string => {
   const [y, m, d] = key.split('-').map(Number);
@@ -14,6 +15,7 @@ const dayTitle = (key: string): string => {
 };
 
 export default function FeedScreen() {
+  const { colors, styles } = useThemed(makeStyles);
   const { entries, categories, loading, refresh } = useEntries();
   const [filter, setFilter] = useState<string | null>(null);
 
@@ -96,7 +98,7 @@ export default function FeedScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { paddingBottom: 40 },
   title: { fontSize: 34, fontWeight: '700', color: colors.label, paddingHorizontal: 20, paddingTop: 8 },
   chips: { paddingHorizontal: 16, paddingVertical: 14, gap: 8 },

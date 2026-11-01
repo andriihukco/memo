@@ -3,9 +3,11 @@ import { StyleSheet, View } from 'react-native';
 import { checkPin } from '../lib/app-state';
 import { colors } from './ui';
 import { PinPad } from './pin-pad';
+import { useThemed, type Palette } from '../theme/theme';
 
 /** Shown on launch when a passcode is set. Stays until the right code is entered. */
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+  const { styles } = useThemed(makeStyles);
   const [error, setError] = useState<string | null>(null);
 
   const attempt = async (pin: string) => {
@@ -23,6 +25,6 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingTop: 80 },
 });

@@ -2,13 +2,14 @@ import { useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Tabs, router, usePathname } from 'expo-router';
 import { GlassTabBar } from '../../src/components/glass-tab-bar';
-import { colors } from '../../src/components/ui';
 import { startLiveTranscription } from '../../src/lib/speech';
+import { useThemed, type Palette } from '../../src/theme/theme';
 
 /** Tabs whose + records a voice entry on hold. Other tabs have no hold action. */
 const VOICE_TABS = ['/'];
 
 export default function TabsLayout() {
+  const { colors, styles } = useThemed(makeStyles);
   const pathname = usePathname();
   const voice = VOICE_TABS.includes(pathname);
   // null = idle; otherwise the live transcript shown in the overlay.
@@ -91,7 +92,7 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     left: 16,

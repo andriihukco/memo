@@ -8,6 +8,7 @@ import { setPin, markOnboarded } from '../lib/app-state';
 import { colors, TOUCH } from './ui';
 import { Symbol } from './symbol';
 import { PinPad } from './pin-pad';
+import { useThemed, type Palette } from '../theme/theme';
 
 /** Six slides, same copy as the Mini App. Each has an SF Symbol and a tint. */
 const SLIDES = [
@@ -37,6 +38,7 @@ const SHOW_PLAN_STEP = false;
  * Order: language → slides → passcode (optional) → plan.
  */
 export function Onboarding({ onDone }: { onDone: () => void }) {
+  const { colors, styles } = useThemed(makeStyles);
   const [step, setStep] = useState<Step>('language');
   const [index, setIndex] = useState(0);
   const [firstPin, setFirstPin] = useState('');
@@ -197,6 +199,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
 /** Pill-shaped primary action. Springs on press. */
 function Cta({ label, onPress }: { label: string; onPress: () => void }) {
+  const { styles } = useThemed(makeStyles);
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
@@ -219,6 +222,7 @@ function Cta({ label, onPress }: { label: string; onPress: () => void }) {
 
 /** Dots where the active one stretches into a pill, animated. */
 function PageDots({ count, index }: { count: number; index: number }) {
+  const { styles } = useThemed(makeStyles);
   return (
     <View style={styles.dots} accessibilityLabel={`Page ${index + 1} of ${count}`}>
       {Array.from({ length: count }).map((_, i) => (
@@ -229,6 +233,7 @@ function PageDots({ count, index }: { count: number; index: number }) {
 }
 
 function Dot({ active }: { active: boolean }) {
+  const { styles } = useThemed(makeStyles);
   const width = useSharedValue(active ? 22 : 8);
   const opacity = useSharedValue(active ? 1 : 0.3);
   useEffect(() => {
@@ -239,7 +244,7 @@ function Dot({ active }: { active: boolean }) {
   return <Animated.View style={[styles.dot, style]} />;
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   page: { flex: 1, paddingHorizontal: 24, paddingTop: 72, paddingBottom: 40, gap: 16 },
   topRow: { flexDirection: 'row', position: 'absolute', top: 60, left: 0, right: 16, zIndex: 2 },

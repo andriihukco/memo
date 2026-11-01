@@ -2,9 +2,11 @@ import { Alert, ScrollView, StyleSheet, Text, View, Pressable } from 'react-nati
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEntries } from '../../src/lib/entry-store';
 import { metaFor } from '../../src/lib/category-meta';
-import { colors, Dot, Empty, Group, Row, SectionHeader, TOUCH } from '../../src/components/ui';
+import { Dot, Empty, Group, Row, SectionHeader, TOUCH } from '../../src/components/ui';
+import { useThemed, type Palette } from '../../src/theme/theme';
 
 export default function EntryScreen() {
+  const { styles } = useThemed(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { entries, remove } = useEntries();
   const entry = entries.find((e) => e.id === id);
@@ -74,6 +76,7 @@ export default function EntryScreen() {
 }
 
 function Back() {
+  const { styles } = useThemed(makeStyles);
   return (
     <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
       <Text style={styles.backText}>‹ Back</Text>
@@ -81,7 +84,7 @@ function Back() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingTop: 60 },
   content: { padding: 16, paddingTop: 60, paddingBottom: 40, gap: 8 },
   back: { minHeight: TOUCH, justifyContent: 'center' },

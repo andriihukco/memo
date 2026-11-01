@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { t } from '../i18n';
 import { useSession } from '../lib/session';
 import { colors, TOUCH } from './ui';
+import { useThemed, type Palette } from '../theme/theme';
 
 /**
  * Subscription notice above the tab bar, as in the Mini App.
@@ -11,6 +12,7 @@ import { colors, TOUCH } from './ui';
  * Renew does nothing yet: the Telegram Stars flow was removed from the app.
  */
 export function RenewalBanner() {
+  const { colors, styles } = useThemed(makeStyles);
   const { live } = useSession();
   const [dismissed, setDismissed] = useState(false);
   if (live || dismissed) return null;
@@ -28,7 +30,7 @@ export function RenewalBanner() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   bar: {
     position: 'absolute',
     left: 0,

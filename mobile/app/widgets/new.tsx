@@ -4,7 +4,8 @@ import { router } from 'expo-router';
 import { t } from '../../src/i18n';
 import { useEntries } from '../../src/lib/entry-store';
 import type { Widget } from '../../src/lib/api';
-import { colors, PrimaryButton, TOUCH } from '../../src/components/ui';
+import { PrimaryButton, TOUCH } from '../../src/components/ui';
+import { useThemed, type Palette } from '../../src/theme/theme';
 
 /** Same presets as the Mini App widget sheet. Custom lets you name your own metric. */
 const PRESETS: { id: string; emoji: string; key: string; metric_key: string; unit: string; aggregate: Widget['aggregate']; color: string }[] = [
@@ -22,6 +23,7 @@ const PRESETS: { id: string; emoji: string; key: string; metric_key: string; uni
 ];
 
 export default function NewWidgetScreen() {
+  const { colors, styles } = useThemed(makeStyles);
   const { addWidget } = useEntries();
   const [selected, setSelected] = useState<(typeof PRESETS)[number] | 'custom' | null>(null);
   const [title, setTitle] = useState('');
@@ -104,7 +106,7 @@ export default function NewWidgetScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
   title: { fontSize: 22, fontWeight: '700', color: colors.label, paddingVertical: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },

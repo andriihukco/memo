@@ -3,12 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { t } from '../../src/i18n';
 import { useEntries } from '../../src/lib/entry-store';
-import { colors, PrimaryButton, TOUCH } from '../../src/components/ui';
+import { PrimaryButton, TOUCH } from '../../src/components/ui';
+import { useThemed, type Palette } from '../../src/theme/theme';
 
 /** Period choices as in the Mini App retrospective sheet. */
 const PERIODS = ['daily', 'weekly', 'monthly', 'ytd'] as const;
 
 export default function NewRetroScreen() {
+  const { styles } = useThemed(makeStyles);
   const { addReport } = useEntries();
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>('weekly');
   const [busy, setBusy] = useState(false);
@@ -53,7 +55,7 @@ export default function NewRetroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 40 },
   title: { fontSize: 22, fontWeight: '700', color: colors.label, paddingVertical: 8 },
   group: { borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden' },

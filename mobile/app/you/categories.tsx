@@ -3,9 +3,11 @@ import { router } from 'expo-router';
 import { useEntries } from '../../src/lib/entry-store';
 import { metaFor } from '../../src/lib/category-meta';
 import { categoryCounts } from '../../src/lib/entries';
-import { colors, Dot, Empty, Group, SectionHeader, TOUCH } from '../../src/components/ui';
+import { Dot, Empty, Group, SectionHeader, TOUCH } from '../../src/components/ui';
+import { useThemed, type Palette } from '../../src/theme/theme';
 
 export default function CategoriesScreen() {
+  const { styles } = useThemed(makeStyles);
   const { categories, entries } = useEntries();
   const counts = new Map(categoryCounts(entries).map((c) => [c.category, c.count]));
 
@@ -37,7 +39,7 @@ export default function CategoriesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, paddingTop: 60, paddingBottom: 40 },
   back: { minHeight: TOUCH, justifyContent: 'center' },
   backText: { fontSize: 17, color: colors.tint },

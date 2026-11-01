@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { t } from '../../src/i18n';
-import { colors, TOUCH } from '../../src/components/ui';
+import { TOUCH } from '../../src/components/ui';
 import { OverviewView } from '../../src/screens/overview-view';
 import { ReportsView } from '../../src/screens/reports-view';
 import { GraphView } from '../../src/screens/graph-view';
+import { useThemed, type Palette } from '../../src/theme/theme';
 
 /** Same three views as web's /miniapp/insights?view=… */
 const VIEWS = ['overview', 'reports', 'graph'] as const;
@@ -14,6 +15,7 @@ type InsightsView = (typeof VIEWS)[number];
 const isView = (value: string | undefined): value is InsightsView => (VIEWS as readonly string[]).includes(value ?? '');
 
 export default function InsightsScreen() {
+  const { styles } = useThemed(makeStyles);
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<InsightsView>(isView(params.view) ? params.view : 'overview');
 
@@ -39,7 +41,7 @@ export default function InsightsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, paddingTop: 8, paddingBottom: 40 },
   title: { fontSize: 34, fontWeight: '700', color: colors.label },
   segments: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 16 },

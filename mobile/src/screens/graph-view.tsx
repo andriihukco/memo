@@ -1,12 +1,14 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { t } from '../i18n';
-import { colors, TOUCH } from '../components/ui';
+import { TOUCH } from '../components/ui';
+import { useThemed, type Palette } from '../theme/theme';
 
 /** Knowledge graph preview. No price or upgrade step while billing is off. Graph drawing is not ported yet. */
 const FEATURES = [1, 2, 3, 4, 5].map((n) => t(`miniapp.graph.paywall.feature${n}`));
 const ICONS = ['🔗', '🎨', '🔍', '✏️', '🌐'];
 
 export function GraphView() {
+  const { styles } = useThemed(makeStyles);
   return (
     <View style={styles.content}>
       <View style={styles.hero}>
@@ -28,7 +30,7 @@ export function GraphView() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   title: { fontSize: 34, fontWeight: '700', color: colors.label, paddingTop: 8 },
   hero: { alignItems: 'center', paddingTop: 36, gap: 10 },

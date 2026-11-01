@@ -2,12 +2,14 @@ import { StyleSheet, Text, View, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { useEntries } from '../lib/entry-store';
 import { t } from '../i18n';
-import { colors, TOUCH } from '../components/ui';
+import { TOUCH } from '../components/ui';
+import { useThemed, type Palette } from '../theme/theme';
 
 const EMPTY_FEATURES = [1, 2, 3, 4, 5].map((n) => t(`miniapp.reports.empty.feature${n}`));
 
 /** Insights > Reports: retrospectives list and empty state (as on web). */
 export function ReportsView() {
+  const { styles } = useThemed(makeStyles);
   const { reports } = useEntries();
 
   return (
@@ -45,7 +47,7 @@ export function ReportsView() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: Palette) => StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', paddingTop: 8, paddingBottom: 12 },
   title: { fontSize: 34, fontWeight: '700', color: colors.label },
