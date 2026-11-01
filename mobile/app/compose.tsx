@@ -8,7 +8,7 @@ import { suggestCategory, metaFor, AUTO_META } from '../src/lib/category-meta';
 import { Chip, PrimaryButton, TOUCH } from '../src/components/ui';
 import type { AutoCategory } from '../src/lib/auto-category';
 import type { RepeatRule } from '../src/lib/api';
-import { t, locale } from '../src/i18n';
+import { t, getLocale } from '../src/i18n';
 import { useTheme, useThemed, type Theme } from '../src/theme/theme';
 
 const AUTO_KEYS = Object.keys(AUTO_META) as AutoCategory[];
@@ -17,7 +17,7 @@ const REPEATS: RepeatRule[] = ['none', 'daily', 'weekly'];
 const PAST_GRACE_MS = 60_000;
 
 const stamp = (d: Date): string =>
-  d.toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  d.toLocaleString(getLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 type PickerKey = 'when' | 'remind';
 

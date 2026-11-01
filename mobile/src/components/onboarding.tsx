@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInRight, FadeOut, FadeOutLeft, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { t, setLocale, locale } from '../i18n';
-import { setPin, markOnboarded } from '../lib/app-state';
+import { t, setLocale, useLocale, LOCALES } from '../i18n';
+import { setPin, markOnboarded, storeLocale } from '../lib/app-state';
 import { TOUCH } from './ui';
 import { Symbol } from './symbol';
 import { PinPad } from './pin-pad';
@@ -20,11 +20,6 @@ const SLIDES = [
   { symbol: 'star.circle.fill', key: 'slide5', tint: '#FACC15' },
 ] as const;
 
-const LANGUAGES = [
-  { code: 'en', label: 'English' },
-  { code: 'uk', label: 'Українська' },
-];
-
 const SPRING = { damping: 22, stiffness: 240 };
 
 type Step = 'language' | 'slides' | 'passcode-ask' | 'passcode-set' | 'passcode-confirm' | 'paywall';
@@ -37,21 +32,24 @@ const SHOW_PLAN_STEP = false;
  * bottom, Skip always reachable, swipeable slides with page dots, and haptics.
  * Order: language → slides → passcode (optional) → plan.
  */
-export function Onboarding({ onDone }: { onDone: () => void }) {
+export function Onboarding({ onDone, tour = false }: { onDone: () => void; tour?: boolean }) {
   const { colors, styles } = useThemed(makeStyles);
-  const [step, setStep] = useState<Step>('language');
+  const locale = useLocale();
+  const [step, setStep] = useState<Step>(tour ? 'slides' : 'language');
   const [index, setIndex] = useState(0);
   const [firstPin, setFirstPin] = useState('');
   const [mismatch, setMismatch] = useState(false);
-  const [, rerender] = useState(0);
   const { width } = useWindowDimensions();
   const listRef = useRef<FlatList>(null);
 
+  // A tour replays the slides from Settings; it never touches the first-run flag or the passcode.
   const finish = async () => {
-    await markOnboarded();
+    if (!tour) await markOnboarded();
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     onDone();
   };
+
+  const endSlides = () => (tour ? void finish() : setStep('passcode-ask'));
 
   const afterPasscode = () => {
     if (SHOW_PLAN_STEP) setStep('paywall');
@@ -69,8 +67,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <Animated.View key="language" entering={FadeInRight.duration(280)} exiting={FadeOutLeft.duration(200)} style={styles.page}>
           <Text style={[styles.largeTitle, { fontFamily: colors.heading }]} accessibilityRole="header">{t('miniapp.onboarding.language_picker.title')}</Text>
           <Text style={styles.sub}>{t('miniapp.onboarding.language_picker.subtitle')}</Text>
-          <View style={styles.group}>
-            {LANGUAGES.map((l, i) => {
+          <ScrollView style={styles.langList} contentContainerStyle={styles.group}>
+            {LOCALES.map((l, i) => {
               const selected = locale === l.code;
               return (
                 <Pressable
@@ -79,18 +77,17 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
                   accessibilityState={{ selected }}
                   onPress={() => {
                     setLocale(l.code);
+                    void storeLocale(l.code);
                     void Haptics.selectionAsync();
-                    rerender((n) => n + 1);
                   }}
                   style={[styles.langRow, i > 0 && styles.border]}
                 >
-                  <Text style={styles.rowTitle}>{l.label}</Text>
+                  <Text style={styles.rowTitle}>{l.nativeName}</Text>
                   {selected ? <Symbol name="checkmark" size={18} color={colors.tint} /> : null}
                 </Pressable>
               );
             })}
-          </View>
-          <View style={{ flex: 1 }} />
+          </ScrollView>
           <Cta label={t('miniapp.onboarding.next')} onPress={() => setStep('slides')} />
         </Animated.View>
       ) : null}
@@ -99,7 +96,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <Animated.View key="slides" entering={FadeIn.duration(260)} exiting={FadeOut.duration(180)} style={styles.page}>
           <View style={styles.topRow}>
             <View style={{ flex: 1 }} />
-            <Pressable accessibilityRole="button" onPress={() => setStep('passcode-ask')} style={styles.skip} hitSlop={8}>
+            <Pressable accessibilityRole="button" onPress={endSlides} style={styles.skip} hitSlop={8}>
               <Text style={styles.skipLabel}>{t('miniapp.onboarding.skip')}</Text>
             </Pressable>
           </View>
@@ -131,7 +128,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           <PageDots count={SLIDES.length} index={index} />
           <Cta
             label={index === SLIDES.length - 1 ? t('miniapp.onboarding.start_free') : t('miniapp.onboarding.next')}
-            onPress={() => (index === SLIDES.length - 1 ? setStep('passcode-ask') : goSlide(index + 1))}
+            onPress={() => (index === SLIDES.length - 1 ? endSlides() : goSlide(index + 1))}
           />
         </Animated.View>
       ) : null}
@@ -157,7 +154,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <Animated.View key={step} entering={FadeInRight.duration(260)} exiting={FadeOutLeft.duration(160)} style={styles.page}>
           <PinPad
             title={t(step === 'passcode-confirm' ? 'miniapp.passcode.confirm_title' : 'miniapp.passcode.new_title')}
-            subtitle={mismatch ? 'Codes do not match, try again' : t(step === 'passcode-confirm' ? 'miniapp.passcode.confirm_subtitle' : 'miniapp.passcode.new_subtitle')}
+            subtitle={mismatch ? t('onboarding.mismatch') : t(step === 'passcode-confirm' ? 'miniapp.passcode.confirm_subtitle' : 'miniapp.passcode.new_subtitle')}
             onComplete={async (pin) => {
               if (step === 'passcode-set') {
                 setFirstPin(pin);
@@ -256,7 +253,8 @@ const makeStyles = (colors: Theme) => StyleSheet.create({
   largeTitle: { fontSize: colors.fs(32), fontWeight: '700', color: colors.label, textAlign: 'center', letterSpacing: -0.4 },
   sub: { fontSize: colors.fs(17), color: colors.muted, textAlign: 'center' },
   body: { fontSize: colors.fs(17), lineHeight: 24, color: colors.secondary, textAlign: 'center' },
-  group: { borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden', marginTop: 8 },
+  langList: { flexGrow: 0, marginTop: 8 },
+  group: { borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden' },
   langRow: { minHeight: TOUCH + 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   border: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
   rowTitle: { fontSize: colors.fs(17), color: colors.label },

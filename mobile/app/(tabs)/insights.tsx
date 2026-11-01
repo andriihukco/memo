@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { t } from '../../src/i18n';
 import { TOUCH } from '../../src/components/ui';
 import { OverviewView } from '../../src/screens/overview-view';
@@ -36,6 +36,11 @@ export default function InsightsScreen() {
         ))}
       </View>
 
+      <Pressable accessibilityRole="button" onPress={() => router.push('/goals')} style={styles.goalsLink}>
+        <Text style={styles.goalsText}>{t('insights.goals')}</Text>
+        <Text style={styles.goalsChevron}>›</Text>
+      </Pressable>
+
       {view === 'reports' ? <ReportsView /> : view === 'graph' ? <GraphView /> : <OverviewView />}
     </ScrollView>
   );
@@ -49,4 +54,7 @@ const makeStyles = (colors: Theme) => StyleSheet.create({
   segmentOn: { backgroundColor: colors.tintFill },
   segmentText: { fontSize: colors.fs(15), fontWeight: '500', color: colors.muted },
   segmentTextOn: { color: colors.onTint, fontWeight: '600' },
+  goalsLink: { minHeight: TOUCH, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, borderRadius: 12, backgroundColor: colors.card, marginBottom: 16 },
+  goalsText: { fontSize: colors.fs(16), color: colors.tint, fontWeight: '600' },
+  goalsChevron: { fontSize: colors.fs(20), color: colors.muted },
 });

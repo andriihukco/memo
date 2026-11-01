@@ -46,6 +46,19 @@ export interface Report {
   period: string;
   created_at: string;
   body: string;
+  /** Set by the server-built retro (weekly). */
+  summary?: string;
+  insights?: { type: string; text: string; emoji: string }[];
+}
+
+/** A goal is a daily or weekly target for one numeric metric. Same shape as the Mini App. */
+export interface Goal {
+  id: string;
+  name: string;
+  metric: string;
+  unit: string;
+  target: number;
+  period: 'day' | 'week';
 }
 
 export interface Widget {
@@ -133,4 +146,20 @@ export const api = {
   createReport: (token: string, periodType: string) =>
     request<{ report: Report }>('/api/reports', token, { method: 'POST', body: JSON.stringify({ period_type: periodType }) }),
   usage: (token: string) => request<Record<string, unknown>>('/api/profile/usage', token),
+  getSettings: (token: string) => request<{ language: string; theme: string }>('/api/profile/settings', token),
+  setLanguage: (token: string, language: string) =>
+    request<{ ok?: boolean }>('/api/profile/settings', token, { method: 'PATCH', body: JSON.stringify({ language }) }),
+  getReferral: (token: string) => request<{ link: string; code: string }>('/api/profile/referral', token),
+  sendExport: (token: string) => request<{ ok?: boolean }>('/api/profile/export/send', token, { method: 'POST' }),
+  deleteAccount: (token: string) => request<{ ok?: boolean }>('/api/profile/delete', token, { method: 'DELETE' }),
+  listGoals: (token: string) => request<{ goals: Goal[] }>('/api/goals', token),
+  saveGoals: (token: string, goals: Goal[]) =>
+    request<{ goals: Goal[] }>('/api/goals', token, { method: 'PUT', body: JSON.stringify({ goals }) }),
+  listEntriesBefore: (token: string, before: string | null) => {
+    const q = new URLSearchParams({ limit: '50' });
+    if (before) q.set('before', before);
+    return request<EntriesPage>(`/api/entries?${q}`, token);
+  },
+  updateEntry: (token: string, id: string, patch: { content?: string; category?: string }) =>
+    request<{ entry: Entry }>('/api/entries', token, { method: 'PATCH', body: JSON.stringify({ id, ...patch }) }),
 };

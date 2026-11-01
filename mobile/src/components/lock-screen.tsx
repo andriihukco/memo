@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { t } from '../i18n';
 import { checkPin } from '../lib/app-state';
 import { PinPad } from './pin-pad';
 import { useThemed, type Theme } from '../theme/theme';
@@ -13,13 +14,13 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     if (await checkPin(pin)) {
       onUnlock();
     } else {
-      setError('Wrong passcode');
+      setError(t('miniapp.passcode.wrong_error'));
     }
   };
 
   return (
     <View style={styles.screen}>
-      <PinPad title="Enter passcode" error={error} onComplete={(pin) => void attempt(pin)} />
+      <PinPad title={t('miniapp.passcode.default_title')} error={error} onComplete={(pin) => void attempt(pin)} />
     </View>
   );
 }

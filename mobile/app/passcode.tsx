@@ -19,7 +19,7 @@ export default function PasscodeScreen() {
   const onComplete = async (pin: string) => {
     if (stage === 'current') {
       if (!(await checkPin(pin))) {
-        setError('Wrong passcode');
+        setError(t('miniapp.passcode.wrong_error'));
         return;
       }
       if (mode === 'disable') {
@@ -38,7 +38,7 @@ export default function PasscodeScreen() {
       return;
     }
     if (pin !== first) {
-      setError('Codes do not match');
+      setError(t('miniapp.passcode.mismatch_error'));
       setStage('new');
       return;
     }

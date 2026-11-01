@@ -20,6 +20,7 @@
     "expo-speech-recognition": "^58.0.1",
     "expo-status-bar": "~58.0.4",
     "expo-symbols": "~58.0.4",
+    "expo-web-browser": "~58.0.7",
     "react": "19.3.0",
     "react-native": "0.88.1",
     "react-native-maps": "1.29.11",
@@ -40,7 +41,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "i18n:sync": "node scripts/sync-i18n.mjs"
   },
   "private": true
 }

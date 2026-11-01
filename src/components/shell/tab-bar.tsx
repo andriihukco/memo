@@ -22,16 +22,21 @@ function Tab({ href, label, icon: Icon, active }: { href: string; label: string;
       aria-current={active ? 'page' : undefined}
       onClick={() => play(active ? 'SELECT' : 'SLIDE')}
       className={cn(
-        'flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-md text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        active ? 'font-semibold text-foreground' : 'text-muted-foreground',
+        'flex h-full min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        active ? 'bg-secondary font-semibold text-foreground' : 'text-muted-foreground hover:text-foreground',
       )}
     >
-      <Icon className="size-6" strokeWidth={active ? 2.5 : 1.75} aria-hidden="true" />
+      <Icon className="size-5" strokeWidth={active ? 2.5 : 1.75} aria-hidden="true" />
       {label}
     </Link>
   );
 }
 
+/**
+ * Floating navigation: a pill with the three tabs, and a separate round +
+ * beside it. The + is not part of the tab row, so it keeps its own action.
+ * The outer layer ignores pointer events so taps still reach the page behind.
+ */
 export function TabBar() {
   const { t } = useI18n();
   const pathname = usePathname();
@@ -40,26 +45,26 @@ export function TabBar() {
   return (
     <nav
       aria-label={t('shell.nav')}
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]"
     >
-      {/* h-16 must equal --tab-bar-h in globals.css */}
-      <div className="mx-auto flex h-16 max-w-md items-center px-2">
-        <Tab href="/miniapp" label={t('shell.journal')} icon={BookOpen} active={isTabActive('journal', pathname)} />
-        <div className="flex flex-1 justify-center">
-          <Button
-            size="icon"
-            className="relative size-12 rounded-full"
-            aria-label={hasDraft ? t('shell.compose_draft') : t('shell.compose')}
-            onClick={open}
-          >
-            <Plus className="size-6" strokeWidth={2.5} aria-hidden="true" />
-            {hasDraft && (
-              <span aria-hidden="true" className="absolute right-0 top-0 size-3 rounded-full bg-destructive ring-2 ring-background" />
-            )}
-          </Button>
+      {/* Total height (pt-2 + h-14 + pb-3 = 76px) plus a little air must equal --tab-bar-h (5rem) in globals.css. */}
+      <div className="mx-auto flex max-w-md items-center gap-3 px-4 pb-3 pt-2">
+        <div className="pointer-events-auto flex h-14 flex-1 items-center rounded-full border bg-background/80 p-1 shadow-lg backdrop-blur-xl">
+          <Tab href="/miniapp" label={t('shell.journal')} icon={BookOpen} active={isTabActive('journal', pathname)} />
+          <Tab href="/miniapp/insights" label={t('shell.insights')} icon={Sparkles} active={isTabActive('insights', pathname)} />
+          <Tab href="/miniapp/you" label={t('shell.you')} icon={CircleUser} active={isTabActive('you', pathname)} />
         </div>
-        <Tab href="/miniapp/insights" label={t('shell.insights')} icon={Sparkles} active={isTabActive('insights', pathname)} />
-        <Tab href="/miniapp/you" label={t('shell.you')} icon={CircleUser} active={isTabActive('you', pathname)} />
+        <Button
+          size="icon"
+          className="pointer-events-auto relative size-14 shrink-0 rounded-full shadow-lg"
+          aria-label={hasDraft ? t('shell.compose_draft') : t('shell.compose')}
+          onClick={open}
+        >
+          <Plus className="size-6" strokeWidth={2.5} aria-hidden="true" />
+          {hasDraft && (
+            <span aria-hidden="true" className="absolute right-0 top-0 size-3 rounded-full bg-destructive ring-2 ring-background" />
+          )}
+        </Button>
       </div>
     </nav>
   );

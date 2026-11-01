@@ -1,3 +1,4 @@
+import { t } from '../../../src/i18n';
 import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEntries } from '../../../src/lib/entry-store';
@@ -12,7 +13,7 @@ export default function ReportScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
-      <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.back}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t('miniapp.common.back')} onPress={() => router.back()} style={styles.back}>
         <Text style={styles.backText}>‹ Insights</Text>
       </Pressable>
       {report ? (

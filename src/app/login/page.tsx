@@ -7,6 +7,9 @@ import { getBrowserAuthClient } from "@/lib/supabase/browser";
 
 const TELEGRAM_BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
 
+/** Native app return address. Only the app's own schemes are allowed, so the page cannot redirect elsewhere. */
+const NATIVE_RETURN = /^(memo|exp):\/\/[^\s]*$/;
+
 type TelegramUser = Record<string, string | number | undefined>;
 
 declare global {
@@ -52,6 +55,13 @@ export default function LoginPage() {
       });
       if (sessionErr) {
         setError("Could not start your session. Try again.");
+        return;
+      }
+      // Native app: hand the tokens back through its deep link (the app stores them in SecureStore).
+      const params = new URLSearchParams(window.location.search);
+      const nativeReturn = params.get("native") === "1" ? params.get("return") : null;
+      if (nativeReturn && NATIVE_RETURN.test(nativeReturn)) {
+        window.location.href = `${nativeReturn}#access_token=${encodeURIComponent(data.access_token)}&refresh_token=${encodeURIComponent(data.refresh_token)}`;
         return;
       }
       router.replace("/miniapp");

@@ -382,8 +382,8 @@
 .confetti-star-5 { animation: confetti-burst-5 0.8s ease-out forwards; }
 .confetti-star-6 { animation: confetti-burst-6 0.8s ease-out forwards; }
 .confetti-star-7 { animation: confetti-burst-7 0.8s ease-out forwards; }
-/* Shell geometry, read by AppShell and by legacy sheets/bars portaled into body. --tab-bar-h must equal TabBar's h-16. */
+/* Shell geometry, read by AppShell and by legacy sheets/bars portaled into body. --tab-bar-h must equal TabBar's total height (see tab-bar.tsx). */
 :root {
-  --tab-bar-h: 4rem;
+  --tab-bar-h: 5rem;
   --bottom-inset: env(safe-area-inset-bottom, 0px);
 }

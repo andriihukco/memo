@@ -21,6 +21,8 @@ interface EntryStore {
   refresh: () => Promise<void>;
   add: (content: string, category: string, extra?: NewEntryExtra) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  /** Edits an entry's text or category. */
+  update: (id: string, patch: { content?: string; category?: string }) => Promise<void>;
   /** Creates a category when `name` is omitted, otherwise renames its label and recolours it. */
   saveCategory: (input: { name?: string; label: string; color: string }) => Promise<void>;
   /** Deletes a category; its entries move to "uncategorized". */
@@ -111,6 +113,18 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
     [live, token, refresh],
   );
 
+  const update = useCallback(
+    async (id: string, patch: { content?: string; category?: string }) => {
+      if (!live || !token || id.startsWith('local-') || id.startsWith('d')) {
+        setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+        return;
+      }
+      const { entry } = await api.updateEntry(token, id, patch);
+      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...entry, content: entry.content ?? patch.content ?? e.content } : e)));
+    },
+    [live, token],
+  );
+
   const saveCategory = useCallback(
     async ({ name, label, color }: { name?: string; label: string; color: string }) => {
       if (!live || !token) {
@@ -194,11 +208,11 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      entries, categories, reports, widgets, loading, error, refresh, add, remove,
+      entries, categories, reports, widgets, loading, error, refresh, add, remove, update,
       saveCategory, removeCategory, mergeCategory, addWidget, addReport,
     }),
     [
-      entries, categories, reports, widgets, loading, error, refresh, add, remove,
+      entries, categories, reports, widgets, loading, error, refresh, add, remove, update,
       saveCategory, removeCategory, mergeCategory, addWidget, addReport,
     ],
   );
