@@ -36,3 +36,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local build output, logs and tool config
+/.next-local/
+*.log
+/.claude/
+/mobile/.claude/
+/mobile/expo-qr.png
