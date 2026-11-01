@@ -1,0 +1,13 @@
+{
+  "$comment": "Maps each shared colour role to its web CSS variable (src/app/globals.css) and its native palette key (mobile/src/theme/palettes.ts). Existence is enforced by src/__tests__/token-map.test.ts. Values may differ per platform until the drift listed in docs/design/00-revamp-spec.md is resolved.",
+  "roles": [
+    { "role": "background", "web": "--background", "native": "bg" },
+    { "role": "text", "web": "--foreground", "native": "label" },
+    { "role": "surface", "web": "--card", "native": "card" },
+    { "role": "text-muted", "web": "--muted-foreground", "native": "muted" },
+    { "role": "separator", "web": "--border", "native": "separator" },
+    { "role": "accent", "web": "--primary", "native": "tint" },
+    { "role": "destructive", "web": "--destructive", "native": "destructive" },
+    { "role": "warning", "web": "--warning", "native": "gold" }
+  ]
+}

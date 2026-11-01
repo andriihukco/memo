@@ -41,9 +41,28 @@ Current native values (dark / light):
 | destructive | #F87171 | #B91C1C |
 | gold | #FACC15 | #92400E |
 
-Contrast: the palettes test in `mobile/src/theme/__tests__/` is referenced in `palettes.ts` but the file does not exist yet. Phase 1 adds it.
+Contrast is already tested on both platforms:
+- Native: [mobile/src/theme/__tests__/palettes.test.ts](../../mobile/src/theme/__tests__/palettes.test.ts) (text tokens, filled button, light and dark keys match).
+- Web: [src/__tests__/contrast.test.ts](../../src/__tests__/contrast.test.ts) (`:root` and `.dark`).
 
-Known gap: `muted` on `card` was 4.14:1 in the start sheet, below 4.5:1. The new `muted` value must pass.
+Shared role map: [docs/design/tokens/color-map.json](tokens/color-map.json) links each role to its web variable and native key. [src/__tests__/token-map.test.ts](../../src/__tests__/token-map.test.ts) checks that both sides exist. It does not check values.
+
+**Value drift: resolved 2026-11-01. The web palette is the single palette.** Native values in `palettes.ts` now match the web values. The table below is the drift as measured before the change:
+
+| Role | Light web / native | Dark web / native |
+|---|---|---|
+| background | #FFFFFF / #F2F3F7 | #09090B / #090B12 |
+| text | #09090B / #0B0D14 | #FAFAFA / #F4F5F8 |
+| surface | #FFFFFF / #FFFFFF | #131316 / #131722 |
+| text-muted | #5D5D65 / #5B6478 | #A4A4AD / #7D889F |
+| separator | #E4E4E7 / #D9DDE7 | #27272A / #222838 |
+| accent | #3948D0 / #1D4ED8 | #7885F7 / #4C8DFF |
+| destructive | #C52020 / #B91C1C | #F15F5F / #F87171 |
+| warning | #954D04 / #92400E | #F6A823 / #FACC15 |
+
+Only `surface` matches. The web and native palettes are two different designs. Unifying them changes the look of one platform, so it needs a decision: which palette wins, or a new one for both.
+
+Known gap: `muted` on `card` was 4.14:1 in the start sheet, below 4.5:1. The existing palette test checks it, so the new `muted` value must pass.
 
 ## 4. Platform parity (CLAUDE.md §1)
 

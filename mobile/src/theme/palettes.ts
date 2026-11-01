@@ -1,32 +1,39 @@
 /**
- * Colour tokens for the native app. Dark matches the Mini App dark theme,
- * light matches its light theme (web: src/app/globals.css). Every value is
- * checked for WCAG AA contrast in src/theme/__tests__/palettes.test.ts.
+ * Colour tokens for the native app. Values are the web palette in
+ * src/app/globals.css, converted from HSL to hex. Mapping is listed in
+ * docs/design/tokens/color-map.json. Every value is checked for WCAG AA
+ * contrast in src/theme/__tests__/palettes.test.ts.
  */
 export const palettes = {
   dark: {
-    bg: '#090B12',
-    card: '#131722',
-    label: '#F4F5F8',
-    secondary: '#B4BBCB',
-    muted: '#7D889F',
-    separator: '#222838',
-    tint: '#4C8DFF',
-    onTint: '#FFFFFF',
-    destructive: '#F87171',
-    gold: '#FACC15',
+    bg: '#09090B', // --background
+    card: '#131316', // --card
+    label: '#FAFAFA', // --foreground
+    secondary: '#FAFAFA', // --secondary-foreground
+    muted: '#A4A4AD', // --muted-foreground
+    separator: '#27272A', // --border
+    tint: '#7885F7', // --primary
+    tintFill: '#7885F7', // --primary (web pairs it with dark text)
+    onTint: '#09090B', // --primary-foreground
+    glass: 'rgba(19,19,22,0.8)', // --glass-bg
+    glassBorder: 'rgba(61,61,66,0.3)', // --glass-border
+    destructive: '#F15F5F', // --destructive
+    gold: '#F6A823', // --warning
   },
   light: {
-    bg: '#F2F3F7',
-    card: '#FFFFFF',
-    label: '#0B0D14',
-    secondary: '#4A5268',
-    muted: '#5B6478',
-    separator: '#D9DDE7',
-    tint: '#1D4ED8',
-    onTint: '#FFFFFF',
-    destructive: '#B91C1C',
-    gold: '#92400E',
+    bg: '#FFFFFF', // --background
+    card: '#FFFFFF', // --card
+    label: '#09090B', // --foreground
+    secondary: '#18181B', // --secondary-foreground
+    muted: '#5D5D65', // --muted-foreground
+    separator: '#E4E4E7', // --border
+    tint: '#3948D0', // --primary
+    tintFill: '#3948D0', // --primary
+    onTint: '#FFFFFF', // --primary-foreground
+    glass: 'rgba(255,255,255,0.8)', // --glass-bg
+    glassBorder: 'rgba(228,228,231,0.3)', // --glass-border
+    destructive: '#C52020', // --destructive
+    gold: '#954D04', // --warning
   },
 } as const;
 
