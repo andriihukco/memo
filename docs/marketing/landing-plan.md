@@ -1,6 +1,6 @@
 # Landing plan: personas, AIDA, site map
 
-Status: draft for review, 2026-11-01. Nothing here is built yet.
+Status: phase 1 built 2026-11-01 (landing, pricing, blog, legal, 404). Phase 2: /for/<slug> pages, /features/*, og:image, testimonials.
 
 ## Facts the page may claim (verified in code)
 

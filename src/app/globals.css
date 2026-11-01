@@ -387,3 +387,34 @@
   --tab-bar-h: 5rem;
   --bottom-inset: env(safe-area-inset-bottom, 0px);
 }
+
+/* Marketing site text styles (landing skill B1). Headings step down one or two scale steps on small screens. */
+@layer components {
+  .heading-1 { @apply text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl; text-wrap: balance; }
+  .heading-2 { @apply text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl; text-wrap: balance; }
+  .heading-3 { @apply text-3xl font-semibold tracking-tight sm:text-4xl; text-wrap: balance; }
+  .heading-4 { @apply text-2xl font-semibold tracking-tight sm:text-3xl; text-wrap: balance; }
+  .heading-5 { @apply text-2xl font-semibold; text-wrap: balance; }
+  .heading-6 { @apply text-xl font-semibold; text-wrap: balance; }
+  .title-1 { @apply text-xl font-medium; }
+  .title-2 { @apply text-lg font-medium; }
+  .title-3 { @apply text-base font-medium; }
+  .title-4 { @apply text-sm font-medium; }
+  .body-2 { @apply text-base font-medium; text-wrap: pretty; }
+  .body-3 { @apply text-base; text-wrap: pretty; }
+  .body-5 { @apply text-sm font-medium; text-wrap: pretty; }
+  .body-6 { @apply text-sm; text-wrap: pretty; }
+  .button-md { @apply text-base font-semibold; }
+  .button-sm { @apply text-sm font-semibold; }
+  .caption-3 { @apply text-xs font-semibold; }
+  .caption-4 { @apply text-xs font-medium; }
+  .caption-5 { @apply text-xs; }
+  /* Hero heading: the one gradient allowed, on text only (B5). */
+  .hero-ink {
+    background-image: linear-gradient(90deg, #000000, #666666);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .dark .hero-ink { background-image: linear-gradient(90deg, #ffffff, #9b9b9b); }
+}

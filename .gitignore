@@ -39,6 +39,7 @@ next-env.d.ts
 
 # local build output, logs and tool config
 /.next-local/
+/.next-landing/
 *.log
 /.claude/
 /mobile/.claude/
