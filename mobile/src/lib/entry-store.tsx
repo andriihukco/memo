@@ -1,7 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { api, type Category, type Entry, type Report, type Widget } from './api';
+import { api, type Category, type Entry, type Report, type RepeatRule, type Widget } from './api';
 import { DEMO_CATEGORIES, DEMO_ENTRIES, DEMO_REPORTS } from './demo-data';
 import { useSession } from './session';
+
+/** Optional details the composer can set on top of text and category. */
+export interface NewEntryExtra {
+  /** When it happened, if different from now. */
+  occurredAt?: Date;
+  /** A reminder for the same text. */
+  reminder?: { at: Date; repeat: RepeatRule };
+}
 
 interface EntryStore {
   entries: Entry[];
@@ -11,7 +19,7 @@ interface EntryStore {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  add: (content: string, category: string) => Promise<void>;
+  add: (content: string, category: string, extra?: NewEntryExtra) => Promise<void>;
   remove: (id: string) => Promise<void>;
   addWidget: (widget: Widget) => Promise<void>;
   addReport: (periodType: string) => Promise<void>;
@@ -68,17 +76,21 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const add = useCallback(
-    async (content: string, category: string) => {
+    async (content: string, category: string, extra: NewEntryExtra = {}) => {
+      const metadata = extra.occurredAt ? { occurred_at: extra.occurredAt.toISOString() } : null;
       if (!live || !token) {
         const now = new Date().toISOString();
         setEntries((prev) => [
-          { id: `local-${Date.now()}`, content, category, metadata: null, bot_reply: null, thread_id: null, reply_to_entry_id: null, created_at: now },
+          { id: `local-${Date.now()}`, content, category, metadata, bot_reply: null, thread_id: null, reply_to_entry_id: null, created_at: now },
           ...prev,
         ]);
         return;
       }
-      const { entry } = await api.createEntry(token, content, category);
+      const { entry } = await api.createEntry(token, content, category, metadata);
       setEntries((prev) => [entry, ...prev]);
+      if (extra.reminder) {
+        await api.createReminder(token, content, extra.reminder.at.toISOString(), extra.reminder.repeat);
+      }
     },
     [live, token],
   );

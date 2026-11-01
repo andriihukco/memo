@@ -63,6 +63,6 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   emptySub: { fontSize: 15, color: colors.muted, textAlign: 'center' },
   features: { alignSelf: 'stretch', marginTop: 12, gap: 6, paddingHorizontal: 8 },
   feature: { fontSize: 15, color: colors.secondary },
-  cta: { marginTop: 16, minHeight: TOUCH + 4, paddingHorizontal: 24, borderRadius: 16, backgroundColor: colors.tint, justifyContent: 'center' },
-  ctaText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
+  cta: { marginTop: 16, minHeight: TOUCH + 4, paddingHorizontal: 24, borderRadius: 16, backgroundColor: colors.tintFill, justifyContent: 'center' },
+  ctaText: { color: colors.onTint, fontSize: 17, fontWeight: '600' },
 });

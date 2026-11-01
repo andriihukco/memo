@@ -2,19 +2,6 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
 import { useThemed, type Palette } from '../theme/theme';
 
-/** Dark palette matched to the Mini App (globals.css dark tokens). */
-export const colors = {
-  bg: '#090B12',
-  card: '#131722',
-  label: '#F4F5F8',
-  secondary: '#B4BBCB',
-  muted: '#6F7A90',
-  separator: '#222838',
-  tint: '#4C8DFF',
-  destructive: '#F87171',
-  gold: '#FACC15',
-};
-
 /** Apple HIG minimum touch target. */
 export const TOUCH = 44;
 
@@ -83,7 +70,7 @@ export function Dot({ color }: { color: string }) {
 }
 
 export function Chip({ label, color, selected, onPress }: { label: string; color: string; selected?: boolean; onPress?: () => void }) {
-  const { styles } = useThemed(makeStyles);
+  const { colors, styles } = useThemed(makeStyles);
   return (
     <Pressable
       accessibilityRole="button"
@@ -91,7 +78,7 @@ export function Chip({ label, color, selected, onPress }: { label: string; color
       onPress={onPress}
       style={[styles.chip, { backgroundColor: selected ? color : color + '26' }]}
     >
-      <Text style={[styles.chipText, { color: selected ? '#FFFFFF' : color }]}>{label}</Text>
+      <Text style={[styles.chipText, { color: selected ? colors.onTint : color }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -116,12 +103,12 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   primary: {
     minHeight: TOUCH + 4,
     borderRadius: 14,
-    backgroundColor: colors.tint,
+    backgroundColor: colors.tintFill,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 16,
   },
-  primaryText: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
+  primaryText: { color: colors.onTint, fontSize: 17, fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 32 },
   emptyTitle: { fontSize: 20, fontWeight: '600', color: colors.label, textAlign: 'center' },
   emptySub: { fontSize: 15, color: colors.muted, textAlign: 'center', marginTop: 6 },

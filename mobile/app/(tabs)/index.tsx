@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useEntries } from '../../src/lib/entry-store';
-import { groupByDay } from '../../src/lib/entries';
+import { entryTime, groupByDay } from '../../src/lib/entries';
+import { layoutTimeline, type TimelineBlock } from '../../src/lib/timeline';
+import type { Entry } from '../../src/lib/api';
 import { metaFor } from '../../src/lib/category-meta';
 import { t, locale } from '../../src/i18n';
-import { Chip, Empty } from '../../src/components/ui';
+import { Chip, Empty, TOUCH } from '../../src/components/ui';
+import { Symbol } from '../../src/components/symbol';
 import { useThemed, type Palette } from '../../src/theme/theme';
 
 const dayTitle = (key: string): string => {
@@ -14,13 +17,86 @@ const dayTitle = (key: string): string => {
   return new Date(y, m - 1, d).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
 };
 
+const clock = (iso: string): string => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+
+const newestFirst = (a: Entry, b: Entry): number => Date.parse(entryTime(b)) - Date.parse(entryTime(a));
+
 export default function FeedScreen() {
   const { colors, styles } = useThemed(makeStyles);
   const { entries, categories, loading, refresh } = useEntries();
   const [filter, setFilter] = useState<string | null>(null);
 
-  const filtered = useMemo(() => (filter ? entries.filter((e) => e.category === filter) : entries), [entries, filter]);
+  const filtered = useMemo(
+    () => (filter ? entries.filter((e) => e.category === filter) : entries).slice().sort(newestFirst),
+    [entries, filter],
+  );
   const sections = useMemo(() => groupByDay(filtered), [filtered]);
+
+  const categoryLabel = (category: string) => categories.find((c) => c.name === category)?.label_ua;
+
+  const renderCard = (e: Entry, idx: number) => {
+    const meta = metaFor(e.category, categoryLabel(e.category));
+    return (
+      <Animated.View key={e.id} entering={FadeInDown.delay(Math.min(idx, 10) * 45).duration(340).springify().damping(18)}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${meta.label}: ${e.content}`}
+          onPress={() => router.push(`/entry/${e.id}`)}
+          style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
+        >
+          <View style={[styles.iconWrap, { backgroundColor: meta.color + '22' }]}>
+            <Symbol name={meta.icon} size={18} color={meta.color} />
+          </View>
+          <View style={styles.cardBody}>
+            <Text style={styles.cardTitle}>{meta.label}</Text>
+            <Text style={styles.text} numberOfLines={3}>{e.content}</Text>
+            {e.bot_reply ? <Text style={styles.reply} numberOfLines={2}>{e.bot_reply}</Text> : null}
+          </View>
+        </Pressable>
+      </Animated.View>
+    );
+  };
+
+  const renderTile = (e: Entry) => {
+    const meta = metaFor(e.category, categoryLabel(e.category));
+    return (
+      <Pressable
+        key={e.id}
+        accessibilityRole="button"
+        accessibilityLabel={`${meta.label}: ${e.content}`}
+        onPress={() => router.push(`/entry/${e.id}`)}
+        style={({ pressed }) => [styles.tile, { borderColor: meta.color + '55' }, pressed && { opacity: 0.7 }]}
+      >
+        <View style={styles.tileTop}>
+          <Symbol name={meta.icon} size={16} color={meta.color} />
+          <Text style={styles.tileTime}>{clock(entryTime(e))}</Text>
+        </View>
+        <Text style={styles.tileText} numberOfLines={4}>{e.content}</Text>
+      </Pressable>
+    );
+  };
+
+  /** One timeline row: time on the left, a dot on the rail, content on the right. */
+  const row = (first: Entry, dotColor: string, body: ReactNode, key: string) => (
+    <View key={key} style={styles.row}>
+      <Text style={styles.rowTime}>{clock(entryTime(first))}</Text>
+      <View style={styles.rail}>
+        <View style={[styles.dot, { backgroundColor: dotColor }]} />
+        <View style={styles.line} />
+      </View>
+      <View style={styles.rowBody}>{body}</View>
+    </View>
+  );
+
+  const renderBlock = (block: TimelineBlock, key: string, idx: number) => {
+    if (block.kind === 'card') {
+      const meta = metaFor(block.entry.category, categoryLabel(block.entry.category));
+      return row(block.entry, meta.color, renderCard(block.entry, idx), key);
+    }
+    const lead = block.entries[0];
+    const meta = metaFor(lead.category, categoryLabel(lead.category));
+    return row(lead, meta.color, <View style={styles.grid}>{block.entries.map(renderTile)}</View>, key);
+  };
 
   return (
     <ScrollView
@@ -51,47 +127,19 @@ export default function FeedScreen() {
       ) : filtered.length === 0 ? (
         <Empty title={t('miniapp.feed.empty_cat.title')} subtitle={t('miniapp.feed.empty_cat.subtitle')} />
       ) : (
-        sections.map((section) => (
-          <View key={section.key}>
-            <Text style={styles.day}>{dayTitle(section.key)}</Text>
-            {section.entries.map((e, idx) => {
-              const meta = metaFor(e.category, categories.find((c) => c.name === e.category)?.label_ua);
-              const time = new Date(e.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
-              return (
-                <Animated.View key={e.id} entering={FadeInDown.delay(Math.min(idx, 10) * 45).duration(340).springify().damping(18)}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${meta.label}: ${e.content}`}
-                  onPress={() => router.push(`/entry/${e.id}`)}
-                  style={({ pressed }) => [styles.card, pressed && { opacity: 0.7 }]}
-                >
-                  <View style={styles.cardTop}>
-                    <Text style={styles.count}>{t('miniapp.feed.thread.count', { count: 1 })}</Text>
-                    <View style={[styles.badge, { borderColor: meta.color + '66', backgroundColor: meta.color + '22' }]}>
-                      <Text style={[styles.badgeText, { color: meta.color }]}>{meta.label}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.msg}>
-                    <View style={styles.avatar}>
-                      <Text style={styles.avatarText}>{t('miniapp.feed.thread.you').slice(0, 3)}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.meta}>
-                        <Text style={styles.who}>{t('miniapp.feed.thread.you')}</Text>
-                        <Text style={styles.time}>{time}</Text>
-                      </View>
-                      <Text style={styles.text}>{e.content}</Text>
-                      {e.bot_reply ? (
-                        <Text style={styles.reply} numberOfLines={2}>{e.bot_reply}</Text>
-                      ) : null}
-                    </View>
-                  </View>
-                </Pressable>
-                </Animated.View>
-              );
-            })}
-          </View>
-        ))
+        sections.map((section) => {
+          let cardIndex = 0;
+          return (
+            <View key={section.key}>
+              <Text style={styles.day}>{dayTitle(section.key)}</Text>
+              {layoutTimeline(section.entries).map((block, i) => {
+                const idx = cardIndex;
+                cardIndex += block.kind === 'card' ? 1 : 0;
+                return renderBlock(block, `${section.key}-${i}`, idx);
+              })}
+            </View>
+          );
+        })
       )}
       <View style={{ height: 150 }} />
     </ScrollView>
@@ -103,17 +151,21 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   title: { fontSize: 34, fontWeight: '700', color: colors.label, paddingHorizontal: 20, paddingTop: 8 },
   chips: { paddingHorizontal: 16, paddingVertical: 14, gap: 8 },
   day: { fontSize: 12, letterSpacing: 1, color: colors.muted, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
-  card: { marginHorizontal: 16, marginBottom: 12, padding: 14, borderRadius: 16, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.separator, gap: 10 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  count: { fontSize: 13, color: colors.muted },
-  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
-  badgeText: { fontSize: 12, fontWeight: '600' },
-  msg: { flexDirection: 'row', gap: 10 },
-  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.separator, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontSize: 11, color: colors.tint, fontWeight: '600' },
-  meta: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  who: { fontSize: 14, fontWeight: '600', color: colors.label },
-  time: { fontSize: 12, color: colors.muted },
-  text: { fontSize: 16, lineHeight: 23, color: colors.label, marginTop: 2 },
-  reply: { fontSize: 13, fontStyle: 'italic', color: colors.muted, marginTop: 6 },
+  row: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 12 },
+  rowTime: { width: 48, paddingTop: 16, fontSize: 13, color: colors.muted, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  rail: { width: 22, alignItems: 'center' },
+  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 20, zIndex: 1 },
+  line: { position: 'absolute', top: 0, bottom: 0, width: 2, left: 10, backgroundColor: colors.separator },
+  rowBody: { flex: 1, paddingLeft: 8 },
+  card: { flexDirection: 'row', gap: 12, padding: 14, borderRadius: 20, backgroundColor: colors.card, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.separator },
+  iconWrap: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  cardBody: { flex: 1, gap: 3 },
+  cardTitle: { fontSize: 15, fontWeight: '600', color: colors.label },
+  text: { fontSize: 15, lineHeight: 21, color: colors.secondary },
+  reply: { fontSize: 13, fontStyle: 'italic', color: colors.muted, marginTop: 4 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tile: { width: '48.5%', minHeight: TOUCH * 2, padding: 12, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, gap: 8 },
+  tileTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tileTime: { fontSize: 11, color: colors.muted, fontVariant: ['tabular-nums'] },
+  tileText: { fontSize: 14, lineHeight: 19, color: colors.label },
 });

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '../i18n';
 import { useSession } from '../lib/session';
-import { colors, TOUCH } from './ui';
+import { TOUCH } from './ui';
 import { useThemed, type Palette } from '../theme/theme';
 
 /**

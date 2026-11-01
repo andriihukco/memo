@@ -1,5 +1,10 @@
 import type { Entry } from './api';
 
+/** When the entry happened: the user's chosen time if set, otherwise when it was saved. */
+export function entryTime(e: Entry): string {
+  return e.metadata?.occurred_at ?? e.created_at;
+}
+
 /** Local calendar day key, so "today" follows the phone's timezone. */
 export function dayKey(iso: string): string {
   const d = new Date(iso);
@@ -11,11 +16,11 @@ export interface DaySection {
   entries: Entry[];
 }
 
-/** Groups entries (newest first) into local-day sections. */
+/** Groups entries (newest first by entryTime) into local-day sections. */
 export function groupByDay(entries: Entry[]): DaySection[] {
   const sections: DaySection[] = [];
   for (const e of entries) {
-    const key = dayKey(e.created_at);
+    const key = dayKey(entryTime(e));
     const last = sections[sections.length - 1];
     if (last && last.key === key) last.entries.push(e);
     else sections.push({ key, entries: [e] });

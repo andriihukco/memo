@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Symbol } from './symbol';
-import { colors, TOUCH } from './ui';
+import { TOUCH } from './ui';
 import { useThemed, type Palette } from '../theme/theme';
 
 interface Props {
@@ -74,7 +74,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   sub: { fontSize: 15, color: colors.muted, textAlign: 'center' },
   dots: { flexDirection: 'row', gap: 16, marginTop: 8 },
   dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: colors.muted },
-  dotOn: { backgroundColor: colors.tint, borderColor: colors.tint },
+  dotOn: { backgroundColor: colors.tintFill, borderColor: colors.tint },
   error: { color: colors.destructive, fontSize: 14, minHeight: 18 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', width: 280, justifyContent: 'space-between', rowGap: 14 },
   key: { width: 80, height: Math.max(80, TOUCH), borderRadius: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },

@@ -103,7 +103,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     gap: 10,
     padding: 14,
     borderRadius: 18,
-    backgroundColor: 'rgba(19,23,34,0.96)',
+    backgroundColor: colors.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.separator,
   },

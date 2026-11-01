@@ -46,7 +46,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   title: { fontSize: 34, fontWeight: '700', color: colors.label },
   segments: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 16 },
   segment: { flex: 1, minHeight: TOUCH, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.card },
-  segmentOn: { backgroundColor: colors.tint },
+  segmentOn: { backgroundColor: colors.tintFill },
   segmentText: { fontSize: 15, fontWeight: '500', color: colors.muted },
-  segmentTextOn: { color: '#FFFFFF', fontWeight: '600' },
+  segmentTextOn: { color: colors.onTint, fontWeight: '600' },
 });

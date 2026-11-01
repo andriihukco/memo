@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { checkPin } from '../lib/app-state';
-import { colors } from './ui';
 import { PinPad } from './pin-pad';
 import { useThemed, type Palette } from '../theme/theme';
 

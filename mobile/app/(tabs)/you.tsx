@@ -6,7 +6,8 @@ import { hasPin } from '../../src/lib/app-state';
 import { useEffect, useState } from 'react';
 import { TOUCH } from '../../src/components/ui';
 import { Symbol } from '../../src/components/symbol';
-import { useThemed, type Palette } from '../../src/theme/theme';
+import { THEME_CHOICES } from '../../src/theme/palettes';
+import { useTheme, useThemed, type Palette } from '../../src/theme/theme';
 
 type Icon = string;
 
@@ -16,12 +17,14 @@ interface Item {
   sub?: string;
   badge?: string;
   destructive?: boolean;
+  selected?: boolean;
   onPress?: () => void;
 }
 
 /** You tab: settings sections and copy, as on web's /miniapp/you. */
 export default function YouScreen() {
   const { colors, styles } = useThemed(makeStyles);
+  const { choice, setChoice } = useTheme();
   const { live, signOut } = useSession();
   const [pinSet, setPinSet] = useState(false);
 
@@ -29,7 +32,21 @@ export default function YouScreen() {
     void hasPin().then(setPinSet);
   }, []);
 
+  const appearanceLabel: Record<(typeof THEME_CHOICES)[number], string> = {
+    system: t('miniapp.settings.appearance.system'),
+    light: t('miniapp.settings.appearance.light'),
+    dark: t('miniapp.settings.appearance.dark'),
+  };
   const sections: { title: string; items: Item[] }[] = [
+    {
+      title: t('miniapp.settings.appearance'),
+      items: THEME_CHOICES.map((c) => ({
+        icon: 'circle.lefthalf.filled',
+        title: appearanceLabel[c],
+        selected: choice === c,
+        onPress: () => setChoice(c),
+      })),
+    },
     {
       title: t('miniapp.settings.invite'),
       items: [{ icon: 'gift.fill', title: t('miniapp.settings.invite_friend'), sub: t('miniapp.settings.invite_friend_desc') }],
@@ -78,7 +95,7 @@ export default function YouScreen() {
                   <Text style={[styles.rowTitle, item.destructive && { color: colors.destructive }]}>{item.title}</Text>
                   {item.sub ? <Text style={styles.rowSub}>{item.sub}</Text> : null}
                 </View>
-                {item.badge ? <Text style={styles.badge}>{item.badge}</Text> : item.onPress ? <Symbol name="chevron.right" size={14} color={colors.muted} weight="semibold" /> : null}
+                {item.badge ? <Text style={styles.badge}>{item.badge}</Text> : item.selected ? <Symbol name="checkmark" size={16} color={colors.tint} weight="semibold" /> : item.onPress ? <Symbol name="chevron.right" size={14} color={colors.muted} weight="semibold" /> : null}
               </Pressable>
             ))}
           </View>

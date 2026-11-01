@@ -17,11 +17,21 @@ export interface Entry {
   id: string;
   content: string;
   category: string;
-  metadata: { dashboard_metrics?: Metric[] } | null;
+  metadata: { dashboard_metrics?: Metric[]; occurred_at?: string } | null;
   bot_reply: string | null;
   thread_id: string | null;
   reply_to_entry_id: string | null;
   created_at: string;
+}
+
+export type RepeatRule = 'none' | 'daily' | 'weekly';
+
+export interface Reminder {
+  id: string;
+  text: string;
+  scheduled_at: string;
+  repeat: RepeatRule;
+  status: 'pending' | 'sent' | 'cancelled';
 }
 
 export interface Category {
@@ -86,10 +96,15 @@ export const api = {
     if (opts.before) q.set('before', opts.before);
     return request<EntriesPage>(`/api/entries?${q}`, token);
   },
-  createEntry: (token: string, content: string, category: string) =>
+  createEntry: (token: string, content: string, category: string, metadata?: Entry['metadata']) =>
     request<{ entry: Entry }>('/api/entries', token, {
       method: 'POST',
-      body: JSON.stringify({ content, category }),
+      body: JSON.stringify({ content, category, ...(metadata ? { metadata } : {}) }),
+    }),
+  createReminder: (token: string, text: string, remindAt: string, repeat: RepeatRule) =>
+    request<{ reminder: Reminder }>('/api/reminders', token, {
+      method: 'POST',
+      body: JSON.stringify({ text, remind_at: remindAt, repeat }),
     }),
   deleteEntry: (token: string, id: string) =>
     request<{ ok: true }>(`/api/entries?id=${encodeURIComponent(id)}`, token, { method: 'DELETE' }),
