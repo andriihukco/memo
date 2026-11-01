@@ -20,20 +20,20 @@ export const palettes = {
     destructive: '#F15F5F', // --destructive
     gold: '#F6A823', // --warning
   },
-  /** Sepia: paper background and brown ink. Values match the web :root tokens in src/app/globals.css. */
+  /** Daylight blue: pale sky background and blue ink. Values match the web :root tokens in src/app/globals.css. */
   light: {
-    bg: '#F4ECD8',
-    card: '#FBF6E9',
-    label: '#3B2F20',
-    secondary: '#4F3F2B',
-    muted: '#6B5A44',
-    separator: '#D9CBAE',
-    tint: '#7A4A1E',
-    tintFill: '#7A4A1E',
+    bg: '#E1F0FA',
+    card: '#F4FAFE',
+    label: '#16263B',
+    secondary: '#253956',
+    muted: '#41546C',
+    separator: '#AECAE0',
+    tint: '#0F6CBD',
+    tintFill: '#0F6CBD',
     onTint: '#FFFFFF',
-    glass: 'rgba(251,246,233,0.85)',
-    glassBorder: 'rgba(59,47,32,0.12)',
-    destructive: '#A3321E',
+    glass: 'rgba(244,250,254,0.85)',
+    glassBorder: 'rgba(22,38,59,0.12)',
+    destructive: '#A4321E',
     gold: '#8A5A00',
   },
 } as const;

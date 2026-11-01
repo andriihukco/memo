@@ -53,7 +53,7 @@ void main() {
 
   // Sky
   vec3 dayTop = vec3(0.50, 0.68, 0.90);
-  vec3 dayHor = vec3(0.98, 0.93, 0.85);
+  vec3 dayHor = vec3(0.90, 0.96, 1.00);
   vec3 nightTop = vec3(0.015, 0.02, 0.06);
   vec3 nightHor = vec3(0.10, 0.09, 0.20);
   float t = smoothstep(0.0, 1.0, uv.y);
@@ -108,7 +108,7 @@ void main() {
 
   // Haze behind the hero copy keeps the heading readable on any cloud.
   float haze = exp(-pow(length(gl_FragCoord.xy - uHaze.xy) / max(uHaze.z, 1.0), 2.0));
-  sky = mix(sky, mix(vec3(0.99, 0.96, 0.90), vec3(0.02, 0.025, 0.07), uNight), haze * 0.45);
+  sky = mix(sky, mix(vec3(0.93, 0.97, 1.00), vec3(0.02, 0.025, 0.07), uNight), haze * 0.45);
 
   // Dither against banding.
   sky += (hash(gl_FragCoord.xy + uTime) - 0.5) / 255.0;

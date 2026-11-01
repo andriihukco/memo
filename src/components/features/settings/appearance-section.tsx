@@ -81,7 +81,7 @@ function OptionCard<T extends string>({ label, options, value, onChange }: {
 }
 
 /**
- * Appearance: theme (light is the sepia palette, dark, or system), text size and
+ * Appearance: theme (light is the daylight blue palette, dark, or system), text size and
  * heading font. Theme goes through next-themes; size and font through appearance.ts.
  */
 export function AppearanceSection() {

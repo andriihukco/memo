@@ -5,11 +5,11 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const OPTIONS = [
   { value: 'system', label: 'System' },
-  { value: 'light', label: 'Sepia' },
+  { value: 'light', label: 'Day' },
   { value: 'dark', label: 'Dark' },
 ] as const;
 
-/** Light (sepia), dark or system. Same stored choice as Settings > Appearance. */
+/** Day (light), dark or system. Same stored choice as Settings > Appearance. */
 export function ThemeSwitch() {
   const { theme, setTheme } = useTheme();
   return (

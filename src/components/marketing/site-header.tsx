@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/lib/theme-provider';
+import { LogoMark } from './logo-mark';
 import type { Dict, SiteLocale } from '@/lib/marketing/dict';
 import { cn } from '@/lib/utils';
 
@@ -106,7 +106,7 @@ export function SiteHeader({ t, locale }: { t: Nav; locale: SiteLocale }) {
           className="pointer-events-auto flex w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-foreground/10 bg-background/70 p-1 pl-4 shadow-sm backdrop-blur-xl md:w-auto md:justify-start md:gap-4"
         >
           <Link href="/" aria-label={t.home} className={cn('flex min-h-11 items-center gap-2 rounded-full pr-2', FOCUS)}>
-            <Image src="/logo.png" alt="" width={24} height={24} className="size-6 rounded-md" priority />
+            <LogoMark className="size-6" />
             <span className="title-3">Memo</span>
           </Link>
 

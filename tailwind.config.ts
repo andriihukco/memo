@@ -35,8 +35,8 @@ const config: Config = {
         ring: "hsl(var(--ring))",
         // Landing scenes. Fixed palettes: the day band is always paper-light, the night band always dark.
         day: {
-          top: "hsl(40 80% 90%)",
-          bottom: "hsl(32 70% 96%)",
+          top: "hsl(204 80% 88%)",
+          bottom: "hsl(202 70% 95%)",
           card: "hsl(40 60% 99%)",
           ink: "hsl(28 30% 16%)",
           muted: "hsl(28 18% 38%)",
