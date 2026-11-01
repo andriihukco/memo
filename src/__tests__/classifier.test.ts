@@ -14,10 +14,12 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 // ── Mock @google/generative-ai ────────────────────────────────────────────────
 
 const mockGenerateContent = vi.fn();
+const mockGetGenerativeModel = vi.fn();
 
 vi.mock('@google/generative-ai', () => {
   class MockGoogleGenerativeAI {
-    getGenerativeModel() {
+    getGenerativeModel(options: unknown) {
+      mockGetGenerativeModel(options);
       return { generateContent: mockGenerateContent };
     }
   }
@@ -59,6 +61,17 @@ beforeEach(() => {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('classify()', () => {
+  it('offers the user\'s own categories to the model before built-ins', async () => {
+    mockGenerateContent.mockResolvedValueOnce(geminiResponse({ intent: 'smalltalk', entries: [] }));
+
+    await classify('привіт', undefined, [{ name: 'gym_days', label_ua: 'Спортзал' }]);
+
+    const { systemInstruction } = mockGetGenerativeModel.mock.calls[0][0] as { systemInstruction: string };
+    expect(systemInstruction).toContain('- gym_days — Спортзал');
+    expect(systemInstruction).toContain('CATEGORY CHOICE');
+    expect(systemInstruction).not.toContain('{{CATEGORIES}}');
+  });
+
   it('classifies a diary entry (save_entry intent)', async () => {
     // Pass 1: classification
     mockGenerateContent.mockResolvedValueOnce(

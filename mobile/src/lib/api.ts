@@ -109,6 +109,23 @@ export const api = {
   deleteEntry: (token: string, id: string) =>
     request<{ ok: true }>(`/api/entries?id=${encodeURIComponent(id)}`, token, { method: 'DELETE' }),
   listCategories: (token: string) => request<{ categories: Category[] }>('/api/categories', token),
+  createCategory: (token: string, label: string, color: string) =>
+    request<{ category: Category }>('/api/categories', token, {
+      method: 'POST',
+      body: JSON.stringify({ label_ua: label, color }),
+    }),
+  updateCategory: (token: string, name: string, patch: { label_ua?: string; color?: string }) =>
+    request<{ category: Category }>('/api/categories', token, {
+      method: 'PATCH',
+      body: JSON.stringify({ name, ...patch }),
+    }),
+  deleteCategory: (token: string, name: string) =>
+    request<{ ok: true; reassigned: number }>(`/api/categories/${encodeURIComponent(name)}`, token, { method: 'DELETE' }),
+  mergeCategories: (token: string, source: string, target: string) =>
+    request<{ ok: true; reassigned: number }>('/api/categories/merge', token, {
+      method: 'POST',
+      body: JSON.stringify({ source, target }),
+    }),
   listReports: (token: string) => request<{ reports: Report[] }>('/api/reports', token),
   listWidgets: (token: string) => request<{ widgets: Widget[] }>('/api/widgets', token),
   createWidget: (token: string, direct: Widget) =>

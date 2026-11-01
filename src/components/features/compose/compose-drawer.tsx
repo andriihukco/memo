@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/lib/i18n/context';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { detectCategory, type AutoCategory } from '@/lib/auto-category';
+import { isHexColor, swatchFor } from '@/lib/category-config';
 
 interface ComposeCtx {
   open(): void;
@@ -71,7 +72,8 @@ export function ComposeDrawer() {
   const { isOpen, close } = useCompose();
 
   const [text, setText] = useState('');
-  const [picked, setPicked] = useState<AutoCategory | null>(null);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [userCats, setUserCats] = useState<{ name: string; label_ua: string; color: string }[]>([]);
   const [when, setWhen] = useState(() => toLocalInput(new Date()));
   const [whenSet, setWhenSet] = useState(false);
   const [remind, setRemind] = useState(false);
@@ -79,6 +81,17 @@ export function ComposeDrawer() {
   const [repeat, setRepeat] = useState<Repeat>('none');
   const [note, setNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Refresh the user's categories each time the drawer opens, so new ones show up without a reload
+  useEffect(() => {
+    if (!isOpen || !accessToken) return;
+    fetch('/api/categories', { headers: { Authorization: `Bearer ${accessToken}` } })
+      .then((r) => r.json())
+      .then((d: { categories?: { name: string; label_ua: string; color: string }[] }) =>
+        setUserCats((d.categories ?? []).filter((c) => c.name !== 'uncategorized')),
+      )
+      .catch(() => {});
+  }, [isOpen, accessToken]);
 
   const fullText = text.trim();
   const category = picked ?? detectCategory(fullText).category;
@@ -161,6 +174,23 @@ export function ComposeDrawer() {
                   aria-pressed={category === c}
                 >
                   {t(`compose.cat.${c}`)}
+                </Button>
+              ))}
+              {userCats.map((c) => (
+                <Button
+                  key={c.name}
+                  size="sm"
+                  variant={category === c.name ? 'default' : 'secondary'}
+                  className="min-h-11 gap-2 rounded-full"
+                  onClick={() => setPicked(c.name)}
+                  aria-pressed={category === c.name}
+                >
+                  <span
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: isHexColor(c.color) ? c.color : swatchFor(c.name) }}
+                    aria-hidden
+                  />
+                  {c.label_ua}
                 </Button>
               ))}
             </div>

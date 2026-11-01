@@ -39,6 +39,7 @@ export function slugFromLabel(label: string): string {
     .replace(/^_+|_+$/g, "")
     .slice(0, 40);
   if (!ascii) return `cat_${Math.random().toString(36).slice(2, 8)}`;
+  if (ascii === "uncategorized") return "c_uncategorized"; // reserved for entries without a category
   return /^[a-z]/.test(ascii) ? ascii : `c_${ascii}`;
 }
 
@@ -53,11 +54,16 @@ export async function loadUserCategories(
   userId: string,
   limit = 100,
 ): Promise<KnownCategory[]> {
-  const { data } = await supabase
-    .from("categories")
-    .select("name, label_ua")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true })
-    .limit(limit);
-  return (data ?? []) as KnownCategory[];
+  try {
+    const { data } = await supabase
+      .from("categories")
+      .select("name, label_ua")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(limit);
+    return (data ?? []) as KnownCategory[];
+  } catch {
+    // Classification still works without the list; the model just cannot prefer existing names.
+    return [];
+  }
 }

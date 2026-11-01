@@ -21,6 +21,12 @@ interface EntryStore {
   refresh: () => Promise<void>;
   add: (content: string, category: string, extra?: NewEntryExtra) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  /** Creates a category when `name` is omitted, otherwise renames its label and recolours it. */
+  saveCategory: (input: { name?: string; label: string; color: string }) => Promise<void>;
+  /** Deletes a category; its entries move to "uncategorized". */
+  removeCategory: (name: string) => Promise<void>;
+  /** Moves every entry of `source` into `target`, then drops `source`. */
+  mergeCategory: (source: string, target: string) => Promise<void>;
   addWidget: (widget: Widget) => Promise<void>;
   addReport: (periodType: string) => Promise<void>;
 }
@@ -105,6 +111,54 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
     [live, token, refresh],
   );
 
+  const saveCategory = useCallback(
+    async ({ name, label, color }: { name?: string; label: string; color: string }) => {
+      if (!live || !token) {
+        if (name) {
+          setCategories((prev) => prev.map((c) => (c.name === name ? { ...c, label_ua: label, color } : c)));
+        } else {
+          const slug = label.trim().toLowerCase().replace(/\s+/g, '_');
+          setCategories((prev) => [...prev, { name: slug, label_ua: label, color }]);
+        }
+        return;
+      }
+      if (name) {
+        const { category } = await api.updateCategory(token, name, { label_ua: label, color });
+        setCategories((prev) => prev.map((c) => (c.name === name ? category : c)));
+      } else {
+        const { category } = await api.createCategory(token, label, color);
+        setCategories((prev) => [...prev, category]);
+      }
+    },
+    [live, token],
+  );
+
+  const removeCategory = useCallback(
+    async (name: string) => {
+      if (!live || !token) {
+        setCategories((prev) => prev.filter((c) => c.name !== name));
+        setEntries((prev) => prev.map((e) => (e.category === name ? { ...e, category: 'uncategorized' } : e)));
+        return;
+      }
+      await api.deleteCategory(token, name);
+      await refresh();
+    },
+    [live, token, refresh],
+  );
+
+  const mergeCategory = useCallback(
+    async (source: string, target: string) => {
+      if (!live || !token) {
+        setCategories((prev) => prev.filter((c) => c.name !== source));
+        setEntries((prev) => prev.map((e) => (e.category === source ? { ...e, category: target } : e)));
+        return;
+      }
+      await api.mergeCategories(token, source, target);
+      await refresh();
+    },
+    [live, token, refresh],
+  );
+
   const addWidget = useCallback(
     async (widget: Widget) => {
       if (!live || !token) {
@@ -139,8 +193,14 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ entries, categories, reports, widgets, loading, error, refresh, add, remove, addWidget, addReport }),
-    [entries, categories, reports, widgets, loading, error, refresh, add, remove, addWidget, addReport],
+    () => ({
+      entries, categories, reports, widgets, loading, error, refresh, add, remove,
+      saveCategory, removeCategory, mergeCategory, addWidget, addReport,
+    }),
+    [
+      entries, categories, reports, widgets, loading, error, refresh, add, remove,
+      saveCategory, removeCategory, mergeCategory, addWidget, addReport,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

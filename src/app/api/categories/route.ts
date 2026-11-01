@@ -53,7 +53,6 @@ export async function POST(req: Request): Promise<Response> {
 
   // The slug is derived from the name and never changes, so entries keep pointing at it
   const name = slugFromLabel(label);
-  if (name === "uncategorized") return json({ error: "Reserved name" }, 400);
 
   const supabase = makeSupabase(jwt);
 
