@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/shell/page-header';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -40,6 +41,9 @@ function Insights() {
           </TabsList>
         </Tabs>
       </PageHeader>
+      <div className="px-4 pt-3">
+        <Link href="/miniapp/goals" className="text-sm font-medium underline">Goals and weekly retro</Link>
+      </div>
       {view === 'reports' ? <LegacyReports /> : view === 'graph' ? <LegacyGraph /> : <LegacyDashboard />}
     </>
   );

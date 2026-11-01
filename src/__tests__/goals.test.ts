@@ -59,7 +59,7 @@ describe('buildLocalRetro', () => {
       'lesson',
     ]);
     expect(r.went_well).toContain('Steps: 9000 steps (target 8000)');
-    expect(r.summary).toBe('3 entries on 3 of 7 days. 1 of 1 goals met.');
+    expect(r.summary).toBe('3 entries on 3 of 7 days. 1 of 1 goal met.');
     expect(r.period_type).toBe('weekly');
   });
 

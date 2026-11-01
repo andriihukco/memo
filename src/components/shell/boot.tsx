@@ -879,15 +879,16 @@ export function Boot({ children }: { children: React.ReactNode }) {
 
         const initData = tg?.initData ?? '';
         // NODE_ENV is inlined by Next, so this branch is removed from production bundles.
+        // Web (no Telegram): a Supabase session from email or Google sign-in takes precedence over dev sign-in.
+        const webSession = !initData
+          ? (await getBrowserAuthClient()?.auth.getSession())?.data.session ?? null
+          : null;
         const devAuth =
           process.env.NODE_ENV === 'development' &&
           !initData &&
+          !webSession &&
           ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
         if (devAuth) console.info('[dev-auth] signed in as dev_tester');
-        // Web (no Telegram): use the Supabase session from email or Google sign-in, or the Telegram Login Widget.
-        const webSession = !initData && !devAuth
-          ? (await getBrowserAuthClient()?.auth.getSession())?.data.session ?? null
-          : null;
         if (!initData && !devAuth && !webSession) {
           window.location.replace('/login');
           return;

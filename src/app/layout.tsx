@@ -16,8 +16,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Memo – Your AI Diary",
-  description: "Memo is your private AI-powered diary inside Telegram. Log thoughts, track goals, and get insights — all encrypted.",
+  title: "Memo – Goals and weekly retros",
+  description: "Memo is a private log for your goals. Log steps, sleep and mood, track progress, and read a weekly retro.",
 };
 
 export const viewport = {

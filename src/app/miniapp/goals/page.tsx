@@ -34,6 +34,7 @@ export default function GoalsPage() {
   const [logValue, setLogValue] = useState('');
   const [report, setReport] = useState<Report | null>(null);
   const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => new Date());
 
   const headers = useMemo(
     () => (accessToken ? { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } : null),
@@ -68,6 +69,7 @@ export default function GoalsPage() {
         if (!body.has_more || !body.next_cursor) break;
         before = body.next_cursor;
       }
+      setNow(new Date());
       setPoints(collected);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -80,7 +82,6 @@ export default function GoalsPage() {
     void load();
   }, [load]);
 
-  const now = useMemo(() => new Date(), [points]);
   const progress = useMemo(
     () => goals.map((g) => ({ ...goalProgress(g, points, now), streak: dayStreak(g, points, now) })),
     [goals, points, now],

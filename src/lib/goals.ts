@@ -133,8 +133,9 @@ export function buildLocalRetro(input: RetroInput, now: Date = input.to): LocalR
   const continueText = met.length
     ? `Keep the routine behind ${met.map((p) => p.goal.name.toLowerCase()).join(", ")}.`
     : "Keep logging, even on days when the goal is missed.";
-  const startText = entryDays < days
-    ? `Log on the ${days - entryDays} day(s) with no entries.`
+  const skipped = days - entryDays;
+  const startText = skipped > 0
+    ? `Try to log on the ${skipped} day${skipped === 1 ? "" : "s"} you skipped.`
     : "Keep logging every day.";
 
   const experiment = missed.length
@@ -142,7 +143,7 @@ export function buildLocalRetro(input: RetroInput, now: Date = input.to): LocalR
     : "Next week, raise one target by 10%.";
 
   const lesson = `You logged ${entryCount} entries on ${entryDays} of ${days} days.`;
-  const summary = `${entryCount} entries on ${entryDays} of ${days} days. ${met.length} of ${progress.length} goals met.`;
+  const summary = `${entryCount} ${entryCount === 1 ? "entry" : "entries"} on ${entryDays} of ${days} days. ${met.length} of ${progress.length} ${progress.length === 1 ? "goal" : "goals"} met.`;
 
   const insights: RetroInsight[] = [
     { type: "went_well", text: wentWell, emoji: "✅" },
