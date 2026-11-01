@@ -1,0 +1,80 @@
+import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Symbol } from './symbol';
+import { colors, TOUCH } from './ui';
+
+interface Props {
+  title: string;
+  subtitle?: string;
+  error?: string | null;
+  onComplete: (pin: string) => void;
+}
+
+/** 4-digit keypad. Every key is at least 44pt. */
+export function PinPad({ title, subtitle, error, onComplete }: Props) {
+  const [pin, setPin] = useState('');
+
+  const press = (key: string) => {
+    if (key === 'back') {
+      setPin((p) => p.slice(0, -1));
+      return;
+    }
+    const next = pin + key;
+    setPin(next);
+    if (next.length === 4) {
+      setTimeout(() => {
+        onComplete(next);
+        setPin('');
+      }, 120);
+    }
+  };
+
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'back'];
+
+  return (
+    <View style={styles.wrap}>
+      <Text style={styles.title} accessibilityRole="header">{title}</Text>
+      {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
+      <View style={styles.dots} accessibilityLabel={`${pin.length} of 4 digits entered`}>
+        {[0, 1, 2, 3].map((i) => (
+          <View key={i} style={[styles.dot, i < pin.length && styles.dotOn]} />
+        ))}
+      </View>
+      <Text style={styles.error}>{error ?? ' '}</Text>
+      <View style={styles.grid}>
+        {keys.map((k, i) =>
+          k === '' ? (
+            <View key={i} style={styles.key} />
+          ) : (
+            <Pressable
+              key={i}
+              accessibilityRole="button"
+              accessibilityLabel={k === 'back' ? 'Delete' : k}
+              onPress={() => press(k)}
+              style={({ pressed }) => [styles.key, pressed && { opacity: 0.5 }]}
+            >
+              {k === 'back' ? (
+                <Symbol name="delete.left" size={26} color={colors.label} weight="regular" />
+              ) : (
+                <Text style={styles.keyText}>{k}</Text>
+              )}
+            </Pressable>
+          ),
+        )}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 12 },
+  title: { fontSize: 24, fontWeight: '700', color: colors.label, textAlign: 'center' },
+  sub: { fontSize: 15, color: colors.muted, textAlign: 'center' },
+  dots: { flexDirection: 'row', gap: 16, marginTop: 8 },
+  dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: colors.muted },
+  dotOn: { backgroundColor: colors.tint, borderColor: colors.tint },
+  error: { color: colors.destructive, fontSize: 14, minHeight: 18 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', width: 280, justifyContent: 'space-between', rowGap: 14 },
+  key: { width: 80, height: Math.max(80, TOUCH), borderRadius: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
+  keyText: { fontSize: 28, fontWeight: '500', color: colors.label },
+});
