@@ -4,30 +4,32 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 234 62% 52%;
+    --background: 43 56% 90.2%;
+    --foreground: 33 29.7% 17.8%;
+    --card: 43 69.2% 94.9%;
+    --card-foreground: 33 29.7% 17.8%;
+    --popover: 43 69.2% 94.9%;
+    --popover-foreground: 33 29.7% 17.8%;
+    --primary: 29 60.5% 29.8%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 38%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 72% 45%;
+    --secondary: 42 44.7% 85.1%;
+    --secondary-foreground: 33 30% 23%;
+    --muted: 42 44.7% 85.1%;
+    --muted-foreground: 34 22.3% 34.3%;
+    --accent: 42 44.7% 85.1%;
+    --accent-foreground: 33 29.7% 17.8%;
+    --destructive: 9 68.9% 37.8%;
     --destructive-foreground: 0 0% 100%;
-    --success: 142 72% 25%;
+    --success: 110 42% 28%;
     --success-foreground: 0 0% 100%;
-    --warning: 30 95% 30%;
+    --warning: 39 100% 27.1%;
     --warning-foreground: 0 0% 100%;
-    --border: 240 5.9% 90%;
-    --input: 240 4% 55%;
-    --ring: 234 62% 52%;
+    --border: 40 36.1% 76.7%;
+    --input: 36 17.6% 46.7%;
+    --ring: 29 60.5% 29.8%;
     --radius: 0.75rem;
+
+    /* Light palette is sepia (paper tones). Dark is set in .dark. */
 
     --chart-1: 234 62% 52%;
     --chart-2: 173 80% 30%;
@@ -49,10 +51,10 @@
     --cat-12: 215 16% 47%;
 
     /* legacy tokens, removed with the legacy screens in Phase 1 */
-    --surface-elevated: 240 4.8% 97%;
-    --surface-hover: 240 4.8% 93%;
-    --glass-bg: 0 0% 100% / 0.8;
-    --glass-border: 240 5.9% 90% / 0.3;
+    --surface-elevated: 43 64.1% 92.4%;
+    --surface-hover: 42 48.6% 86.3%;
+    --glass-bg: 43 69.2% 94.9% / 0.85;
+    --glass-border: 40 36.1% 76.7% / 0.3;
   }
 
   .dark {
@@ -113,6 +115,26 @@
 
   html {
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Appearance settings (src/lib/appearance.ts). Body text always keeps the system font. */
+  html[data-text-scale="small"] {
+    font-size: 90%;
+  }
+  html[data-text-scale="large"] {
+    font-size: 115%;
+  }
+  html[data-heading-font="serif"] {
+    --heading-font: ui-serif, "New York", Georgia, Cambria, "Times New Roman", serif;
+  }
+  html[data-heading-font="mono"] {
+    --heading-font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  h1,
+  h2,
+  h3,
+  [data-heading] {
+    font-family: var(--heading-font, inherit);
   }
 
   body {

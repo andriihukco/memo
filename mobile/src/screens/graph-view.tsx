@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { t } from '../i18n';
 import { TOUCH } from '../components/ui';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 /** Knowledge graph preview. No price or upgrade step while billing is off. Graph drawing is not ported yet. */
 const FEATURES = [1, 2, 3, 4, 5].map((n) => t(`miniapp.graph.paywall.feature${n}`));
@@ -30,16 +30,16 @@ export function GraphView() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
-  title: { fontSize: 34, fontWeight: '700', color: colors.label, paddingTop: 8 },
+  title: { fontSize: colors.fs(34), fontWeight: '700', color: colors.label, paddingTop: 8 },
   hero: { alignItems: 'center', paddingTop: 36, gap: 10 },
-  heroIcon: { fontSize: 44 },
-  heroTitle: { fontSize: 26, fontWeight: '700', color: colors.label },
-  heroSub: { fontSize: 15, color: colors.muted, textAlign: 'center', paddingHorizontal: 24 },
+  heroIcon: { fontSize: colors.fs(44) },
+  heroTitle: { fontSize: colors.fs(26), fontWeight: '700', color: colors.label },
+  heroSub: { fontSize: colors.fs(15), color: colors.muted, textAlign: 'center', paddingHorizontal: 24 },
   card: { marginTop: 28, borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden' },
   feature: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: TOUCH, paddingHorizontal: 16, paddingVertical: 10 },
   border: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
-  featureIcon: { fontSize: 18, width: 26, textAlign: 'center' },
-  featureText: { flex: 1, fontSize: 16, color: colors.label },
+  featureIcon: { fontSize: colors.fs(18), width: 26, textAlign: 'center' },
+  featureText: { flex: 1, fontSize: colors.fs(16), color: colors.label },
 });

@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { t } from '../i18n';
 import { useEntries } from '../lib/entry-store';
 import { TOUCH } from '../components/ui';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 type Segment = 'widgets' | 'goals';
 
@@ -64,22 +64,22 @@ export function OverviewView() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 8, paddingBottom: 16 },
   segments: { flexDirection: 'row', gap: 16 },
   segBtn: { minHeight: TOUCH, justifyContent: 'center' },
-  segText: { fontSize: 28, fontWeight: '700', color: colors.muted },
+  segText: { fontSize: colors.fs(28), fontWeight: '700', color: colors.muted },
   segOn: { color: colors.label },
   pill: { minHeight: TOUCH, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, borderRadius: 22, backgroundColor: colors.card },
-  pillText: { fontSize: 15, color: colors.muted },
-  emoji: { fontSize: 26 },
-  tileTitle: { fontSize: 15, fontWeight: '600', color: colors.label },
-  tileUnit: { fontSize: 13, color: colors.muted },
+  pillText: { fontSize: colors.fs(15), color: colors.muted },
+  emoji: { fontSize: colors.fs(26) },
+  tileTitle: { fontSize: colors.fs(15), fontWeight: '600', color: colors.label },
+  tileUnit: { fontSize: colors.fs(13), color: colors.muted },
   addTile: { width: '47%', aspectRatio: 1.25, borderRadius: 18, borderWidth: 1, borderStyle: 'dashed', borderColor: colors.tint, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  addText: { fontSize: 15, color: colors.tint, fontWeight: '500' },
+  addText: { fontSize: colors.fs(15), color: colors.tint, fontWeight: '500' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   tile: { width: '47%', aspectRatio: 1.25, borderRadius: 18, backgroundColor: colors.card, padding: 14, justifyContent: 'flex-end', gap: 4 },
   empty: { paddingVertical: 80, alignItems: 'center' },
-  emptyTitle: { fontSize: 17, color: colors.muted },
+  emptyTitle: { fontSize: colors.fs(17), color: colors.muted },
 });

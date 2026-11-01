@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { t } from '../src/i18n';
 import { useSession } from '../src/lib/session';
 import { PrimaryButton, TOUCH } from '../src/components/ui';
-import { useThemed, type Palette } from '../src/theme/theme';
+import { useThemed, type Theme } from '../src/theme/theme';
 
 /** Email and password for your Memo account (the same login the web app uses). */
 export default function SignInScreen() {
@@ -62,13 +62,13 @@ export default function SignInScreen() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingTop: 16 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   headerBtn: { minWidth: TOUCH, minHeight: TOUCH, justifyContent: 'center' },
-  cancel: { fontSize: 17, color: colors.tint },
-  title: { fontSize: 17, fontWeight: '600', color: colors.label },
+  cancel: { fontSize: colors.fs(17), color: colors.tint },
+  title: { fontSize: colors.fs(17), fontWeight: '600', color: colors.label },
   form: { padding: 16, gap: 12, marginTop: 24 },
-  input: { minHeight: TOUCH + 4, borderRadius: 14, backgroundColor: colors.card, color: colors.label, paddingHorizontal: 16, fontSize: 17 },
-  error: { color: colors.destructive, fontSize: 14, textAlign: 'center' },
+  input: { minHeight: TOUCH + 4, borderRadius: 14, backgroundColor: colors.card, color: colors.label, paddingHorizontal: 16, fontSize: colors.fs(17) },
+  error: { color: colors.destructive, fontSize: colors.fs(14), textAlign: 'center' },
 });

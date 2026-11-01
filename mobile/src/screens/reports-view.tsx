@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useEntries } from '../lib/entry-store';
 import { t } from '../i18n';
 import { TOUCH } from '../components/ui';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 const EMPTY_FEATURES = [1, 2, 3, 4, 5].map((n) => t(`miniapp.reports.empty.feature${n}`));
 
@@ -47,22 +47,22 @@ export function ReportsView() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', paddingTop: 8, paddingBottom: 12 },
-  title: { fontSize: 34, fontWeight: '700', color: colors.label },
-  subtitle: { fontSize: 15, color: colors.muted, marginTop: 2 },
+  title: { fontSize: colors.fs(34), fontWeight: '700', color: colors.label },
+  subtitle: { fontSize: colors.fs(15), color: colors.muted, marginTop: 2 },
   card: { borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden' },
   row: { minHeight: TOUCH, paddingHorizontal: 16, paddingVertical: 12 },
   border: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
-  rowTitle: { fontSize: 17, color: colors.label },
-  rowSub: { fontSize: 14, color: colors.muted, marginTop: 2 },
+  rowTitle: { fontSize: colors.fs(17), color: colors.label },
+  rowSub: { fontSize: colors.fs(14), color: colors.muted, marginTop: 2 },
   empty: { alignItems: 'center', paddingTop: 56, gap: 10 },
-  bulb: { fontSize: 44 },
-  emptyTitle: { fontSize: 20, fontWeight: '600', color: colors.label },
-  emptySub: { fontSize: 15, color: colors.muted, textAlign: 'center' },
+  bulb: { fontSize: colors.fs(44) },
+  emptyTitle: { fontSize: colors.fs(20), fontWeight: '600', color: colors.label },
+  emptySub: { fontSize: colors.fs(15), color: colors.muted, textAlign: 'center' },
   features: { alignSelf: 'stretch', marginTop: 12, gap: 6, paddingHorizontal: 8 },
-  feature: { fontSize: 15, color: colors.secondary },
+  feature: { fontSize: colors.fs(15), color: colors.secondary },
   cta: { marginTop: 16, minHeight: TOUCH + 4, paddingHorizontal: 24, borderRadius: 16, backgroundColor: colors.tintFill, justifyContent: 'center' },
-  ctaText: { color: colors.onTint, fontSize: 17, fontWeight: '600' },
+  ctaText: { color: colors.onTint, fontSize: colors.fs(17), fontWeight: '600' },
 });

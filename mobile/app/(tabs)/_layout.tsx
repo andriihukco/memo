@@ -3,7 +3,7 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { Tabs, router, usePathname } from 'expo-router';
 import { GlassTabBar } from '../../src/components/glass-tab-bar';
 import { startLiveTranscription } from '../../src/lib/speech';
-import { useThemed, type Palette } from '../../src/theme/theme';
+import { useThemed, type Theme } from '../../src/theme/theme';
 
 /** Tabs whose + records a voice entry on hold. Other tabs have no hold action. */
 const VOICE_TABS = ['/'];
@@ -92,7 +92,7 @@ export default function TabsLayout() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   overlay: {
     position: 'absolute',
     left: 16,
@@ -108,5 +108,5 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     borderColor: colors.separator,
   },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.destructive },
-  text: { flex: 1, color: colors.label, fontSize: 16 },
+  text: { flex: 1, color: colors.label, fontSize: colors.fs(16) },
 });

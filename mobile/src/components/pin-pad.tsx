@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Symbol } from './symbol';
 import { TOUCH } from './ui';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 interface Props {
   title: string;
@@ -35,7 +35,7 @@ export function PinPad({ title, subtitle, error, onComplete }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title} accessibilityRole="header">{title}</Text>
+      <Text style={[styles.title, { fontFamily: colors.heading }]} accessibilityRole="header">{title}</Text>
       {subtitle ? <Text style={styles.sub}>{subtitle}</Text> : null}
       <View style={styles.dots} accessibilityLabel={`${pin.length} of 4 digits entered`}>
         {[0, 1, 2, 3].map((i) => (
@@ -68,15 +68,15 @@ export function PinPad({ title, subtitle, error, onComplete }: Props) {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 12 },
-  title: { fontSize: 24, fontWeight: '700', color: colors.label, textAlign: 'center' },
-  sub: { fontSize: 15, color: colors.muted, textAlign: 'center' },
+  title: { fontSize: colors.fs(24), fontWeight: '700', color: colors.label, textAlign: 'center' },
+  sub: { fontSize: colors.fs(15), color: colors.muted, textAlign: 'center' },
   dots: { flexDirection: 'row', gap: 16, marginTop: 8 },
   dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 1.5, borderColor: colors.muted },
   dotOn: { backgroundColor: colors.tintFill, borderColor: colors.tint },
-  error: { color: colors.destructive, fontSize: 14, minHeight: 18 },
+  error: { color: colors.destructive, fontSize: colors.fs(14), minHeight: 18 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', width: 280, justifyContent: 'space-between', rowGap: 14 },
   key: { width: 80, height: Math.max(80, TOUCH), borderRadius: 40, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card },
-  keyText: { fontSize: 28, fontWeight: '500', color: colors.label },
+  keyText: { fontSize: colors.fs(28), fontWeight: '500', color: colors.label },
 });

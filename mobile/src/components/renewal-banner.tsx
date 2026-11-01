@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { t } from '../i18n';
 import { useSession } from '../lib/session';
 import { TOUCH } from './ui';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 /**
  * Subscription notice above the tab bar, as in the Mini App.
@@ -30,7 +30,7 @@ export function RenewalBanner() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   bar: {
     position: 'absolute',
     left: 0,
@@ -45,8 +45,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(250,204,21,0.35)',
   },
-  text: { flex: 1, color: '#FDE68A', fontSize: 14 },
+  text: { flex: 1, color: '#FDE68A', fontSize: colors.fs(14) },
   renew: { minHeight: TOUCH - 4, paddingHorizontal: 18, borderRadius: 22, backgroundColor: colors.gold, justifyContent: 'center' },
-  renewText: { color: '#1C1917', fontWeight: '600', fontSize: 15 },
+  renewText: { color: '#1C1917', fontWeight: '600', fontSize: colors.fs(15) },
   close: { width: TOUCH, height: TOUCH, alignItems: 'center', justifyContent: 'center' },
 });

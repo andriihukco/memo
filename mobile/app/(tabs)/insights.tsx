@@ -6,7 +6,7 @@ import { TOUCH } from '../../src/components/ui';
 import { OverviewView } from '../../src/screens/overview-view';
 import { ReportsView } from '../../src/screens/reports-view';
 import { GraphView } from '../../src/screens/graph-view';
-import { useThemed, type Palette } from '../../src/theme/theme';
+import { useThemed, type Theme } from '../../src/theme/theme';
 
 /** Same three views as web's /miniapp/insights?view=… */
 const VIEWS = ['overview', 'reports', 'graph'] as const;
@@ -15,13 +15,13 @@ type InsightsView = (typeof VIEWS)[number];
 const isView = (value: string | undefined): value is InsightsView => (VIEWS as readonly string[]).includes(value ?? '');
 
 export default function InsightsScreen() {
-  const { styles } = useThemed(makeStyles);
+  const { colors, styles } = useThemed(makeStyles);
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<InsightsView>(isView(params.view) ? params.view : 'overview');
 
   return (
     <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
-      <Text style={styles.title} accessibilityRole="header">{t('shell.insights')}</Text>
+      <Text style={[styles.title, { fontFamily: colors.heading }]} accessibilityRole="header">{t('shell.insights')}</Text>
       <View style={styles.segments} accessibilityRole="tablist">
         {VIEWS.map((key) => (
           <Pressable
@@ -41,12 +41,12 @@ export default function InsightsScreen() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, paddingTop: 8, paddingBottom: 40 },
-  title: { fontSize: 34, fontWeight: '700', color: colors.label },
+  title: { fontSize: colors.fs(34), fontWeight: '700', color: colors.label },
   segments: { flexDirection: 'row', gap: 8, marginTop: 12, marginBottom: 16 },
   segment: { flex: 1, minHeight: TOUCH, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: colors.card },
   segmentOn: { backgroundColor: colors.tintFill },
-  segmentText: { fontSize: 15, fontWeight: '500', color: colors.muted },
+  segmentText: { fontSize: colors.fs(15), fontWeight: '500', color: colors.muted },
   segmentTextOn: { color: colors.onTint, fontWeight: '600' },
 });

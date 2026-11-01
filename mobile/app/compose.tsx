@@ -9,7 +9,7 @@ import { Chip, PrimaryButton, TOUCH } from '../src/components/ui';
 import type { AutoCategory } from '../src/lib/auto-category';
 import type { RepeatRule } from '../src/lib/api';
 import { t, locale } from '../src/i18n';
-import { useTheme, useThemed, type Palette } from '../src/theme/theme';
+import { useTheme, useThemed, type Theme } from '../src/theme/theme';
 
 const AUTO_KEYS = Object.keys(AUTO_META) as AutoCategory[];
 const REPEATS: RepeatRule[] = ['none', 'daily', 'weekly'];
@@ -25,7 +25,7 @@ type PickerKey = 'when' | 'remind';
 export default function ComposeScreen() {
   const { colors, styles } = useThemed(makeStyles);
   const { scheme } = useTheme();
-  const { add } = useEntries();
+  const { add, categories } = useEntries();
   const { text: initial } = useLocalSearchParams<{ text?: string }>();
   const [text, setText] = useState(initial ?? '');
   const [picked, setPicked] = useState<string | null>(null);
@@ -126,6 +126,14 @@ export default function ComposeScreen() {
             <Chip key={key} label={meta.label} color={meta.color} selected={category === key} onPress={() => setPicked(key)} />
           );
         })}
+        {categories
+          .filter((c) => c.name !== 'uncategorized')
+          .map((c) => {
+            const meta = metaFor(c.name, c.label_ua, c.color);
+            return (
+              <Chip key={c.name} label={meta.label} color={meta.color} selected={category === c.name} onPress={() => setPicked(c.name)} />
+            );
+          })}
       </View>
       {!picked ? <Text style={styles.hint}>{t('compose.hint_auto')}</Text> : null}
 
@@ -171,15 +179,15 @@ export default function ComposeScreen() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 40 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerBtn: { minWidth: TOUCH, minHeight: TOUCH, justifyContent: 'center' },
-  cancel: { fontSize: 17, color: colors.tint },
-  title: { fontSize: 17, fontWeight: '600', color: colors.label },
+  cancel: { fontSize: colors.fs(17), color: colors.tint },
+  title: { fontSize: colors.fs(17), fontWeight: '600', color: colors.label },
   input: {
     minHeight: 160,
-    fontSize: 20,
+    fontSize: colors.fs(20),
     lineHeight: 28,
     color: colors.label,
     backgroundColor: colors.card,
@@ -187,13 +195,13 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     padding: 16,
     textAlignVertical: 'top',
   },
-  sectionLabel: { fontSize: 13, color: colors.muted, textTransform: 'uppercase' },
+  sectionLabel: { fontSize: colors.fs(13), color: colors.muted, textTransform: 'uppercase' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  hint: { fontSize: 13, color: colors.muted, marginTop: -8 },
+  hint: { fontSize: colors.fs(13), color: colors.muted, marginTop: -8 },
   group: { backgroundColor: colors.card, borderRadius: 14, overflow: 'hidden' },
   row: { minHeight: TOUCH, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10 },
-  rowLabel: { fontSize: 16, color: colors.label },
-  rowValue: { fontSize: 16, color: colors.tint, fontVariant: ['tabular-nums'] },
+  rowLabel: { fontSize: colors.fs(16), color: colors.label },
+  rowValue: { fontSize: colors.fs(16), color: colors.tint, fontVariant: ['tabular-nums'] },
   repeatRow: { paddingHorizontal: 16, paddingVertical: 12, gap: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
-  note: { fontSize: 15, color: colors.destructive, textAlign: 'center' },
+  note: { fontSize: colors.fs(15), color: colors.destructive, textAlign: 'center' },
 });

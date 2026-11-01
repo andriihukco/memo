@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEntries } from '../../src/lib/entry-store';
 import { metaFor } from '../../src/lib/category-meta';
 import { Dot, Empty, Group, Row, SectionHeader, TOUCH } from '../../src/components/ui';
-import { useThemed, type Palette } from '../../src/theme/theme';
+import { useThemed, type Theme } from '../../src/theme/theme';
 
 export default function EntryScreen() {
   const { styles } = useThemed(makeStyles);
@@ -84,14 +84,14 @@ function Back() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingTop: 60 },
   content: { padding: 16, paddingTop: 60, paddingBottom: 40, gap: 8 },
   back: { minHeight: TOUCH, justifyContent: 'center' },
-  backText: { fontSize: 17, color: colors.tint },
+  backText: { fontSize: colors.fs(17), color: colors.tint },
   headRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  cat: { fontSize: 17, fontWeight: '600', color: colors.label },
-  date: { fontSize: 13, color: colors.muted },
+  cat: { fontSize: colors.fs(17), fontWeight: '600', color: colors.label },
+  date: { fontSize: colors.fs(13), color: colors.muted },
   body: { backgroundColor: colors.card, borderRadius: 12, padding: 16, marginTop: 8 },
-  text: { fontSize: 17, lineHeight: 24, color: colors.label },
+  text: { fontSize: colors.fs(17), lineHeight: 24, color: colors.label },
 });

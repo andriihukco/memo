@@ -5,7 +5,7 @@ import { t } from '../../src/i18n';
 import { useEntries } from '../../src/lib/entry-store';
 import type { Widget } from '../../src/lib/api';
 import { PrimaryButton, TOUCH } from '../../src/components/ui';
-import { useThemed, type Palette } from '../../src/theme/theme';
+import { useThemed, type Theme } from '../../src/theme/theme';
 
 /** Same presets as the Mini App widget sheet. Custom lets you name your own metric. */
 const PRESETS: { id: string; emoji: string; key: string; metric_key: string; unit: string; aggregate: Widget['aggregate']; color: string }[] = [
@@ -106,15 +106,15 @@ export default function NewWidgetScreen() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 40 },
-  title: { fontSize: 22, fontWeight: '700', color: colors.label, paddingVertical: 8 },
+  title: { fontSize: colors.fs(22), fontWeight: '700', color: colors.label, paddingVertical: 8 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: { width: '47%', minHeight: 96, borderRadius: 16, backgroundColor: colors.card, padding: 12, justifyContent: 'center', gap: 6 },
-  emoji: { fontSize: 26 },
-  tileText: { fontSize: 15, color: colors.label, fontWeight: '500' },
+  emoji: { fontSize: colors.fs(26) },
+  tileText: { fontSize: colors.fs(15), color: colors.label, fontWeight: '500' },
   back: { minHeight: TOUCH, justifyContent: 'center' },
-  backText: { fontSize: 17, color: colors.tint },
-  input: { minHeight: TOUCH + 4, borderRadius: 14, backgroundColor: colors.card, color: colors.label, paddingHorizontal: 16, fontSize: 17 },
-  error: { color: colors.destructive, fontSize: 14 },
+  backText: { fontSize: colors.fs(17), color: colors.tint },
+  input: { minHeight: TOUCH + 4, borderRadius: 14, backgroundColor: colors.card, color: colors.label, paddingHorizontal: 16, fontSize: colors.fs(17) },
+  error: { color: colors.destructive, fontSize: colors.fs(14) },
 });

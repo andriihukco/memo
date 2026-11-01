@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { t } from '../../src/i18n';
 import { useEntries } from '../../src/lib/entry-store';
 import { PrimaryButton, TOUCH } from '../../src/components/ui';
-import { useThemed, type Palette } from '../../src/theme/theme';
+import { useThemed, type Theme } from '../../src/theme/theme';
 
 /** Period choices as in the Mini App retrospective sheet. */
 const PERIODS = ['daily', 'weekly', 'monthly', 'ytd'] as const;
@@ -55,13 +55,13 @@ export default function NewRetroScreen() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, gap: 16, paddingBottom: 40 },
-  title: { fontSize: 22, fontWeight: '700', color: colors.label, paddingVertical: 8 },
+  title: { fontSize: colors.fs(22), fontWeight: '700', color: colors.label, paddingVertical: 8 },
   group: { borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden' },
   row: { minHeight: TOUCH + 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   border: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
-  rowText: { fontSize: 17, color: colors.label },
-  check: { fontSize: 17, color: colors.tint, fontWeight: '600' },
-  error: { color: colors.destructive, fontSize: 14 },
+  rowText: { fontSize: colors.fs(17), color: colors.label },
+  check: { fontSize: colors.fs(17), color: colors.tint, fontWeight: '600' },
+  error: { color: colors.destructive, fontSize: colors.fs(14) },
 });

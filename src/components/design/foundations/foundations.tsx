@@ -41,7 +41,7 @@ export function Foundations() {
           onValueChange={(value) => value && setTokenSet(value as TokenSet)}
           aria-label="Token set"
         >
-          <ToggleGroupItem value="light" className="min-h-11 px-4" aria-label="Light tokens">Light</ToggleGroupItem>
+          <ToggleGroupItem value="light" className="min-h-11 px-4" aria-label="Sepia tokens">Sepia</ToggleGroupItem>
           <ToggleGroupItem value="dark" className="min-h-11 px-4" aria-label="Dark tokens">Dark</ToggleGroupItem>
         </ToggleGroup>
       </div>

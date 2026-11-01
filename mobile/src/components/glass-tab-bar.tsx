@@ -6,7 +6,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-na
 import { t } from '../i18n';
 import { TOUCH } from './ui';
 import { Symbol } from './symbol';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 interface TabRoute {
   key: string;
@@ -166,7 +166,7 @@ function ComposeButton({ glass, onPress, onHoldStart, onHoldEnd }: { glass: bool
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   wrap: { position: 'absolute', left: 16, right: 16, bottom: 28, flexDirection: 'row', alignItems: 'center', gap: 12 },
   pill: {
     flex: 1,
@@ -184,7 +184,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   indicatorFallback: { backgroundColor: colors.separator },
   tab: { flex: 1, minHeight: TOUCH, alignItems: 'center', justifyContent: 'center' },
   tabInner: { alignItems: 'center', justifyContent: 'center', gap: 2 },
-  label: { fontSize: 11, fontWeight: '500', color: colors.muted },
+  label: { fontSize: colors.fs(11), fontWeight: '500', color: colors.muted },
   labelActive: { color: colors.tint, fontWeight: '600' },
   compose: { width: 64, height: 64 },
   composeGlass: { flex: 1, borderRadius: 32, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },

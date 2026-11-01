@@ -8,7 +8,7 @@ import { setPin, markOnboarded } from '../lib/app-state';
 import { TOUCH } from './ui';
 import { Symbol } from './symbol';
 import { PinPad } from './pin-pad';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 /** Six slides, same copy as the Mini App. Each has an SF Symbol and a tint. */
 const SLIDES = [
@@ -67,7 +67,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
     <View style={styles.root}>
       {step === 'language' ? (
         <Animated.View key="language" entering={FadeInRight.duration(280)} exiting={FadeOutLeft.duration(200)} style={styles.page}>
-          <Text style={styles.largeTitle} accessibilityRole="header">{t('miniapp.onboarding.language_picker.title')}</Text>
+          <Text style={[styles.largeTitle, { fontFamily: colors.heading }]} accessibilityRole="header">{t('miniapp.onboarding.language_picker.title')}</Text>
           <Text style={styles.sub}>{t('miniapp.onboarding.language_picker.subtitle')}</Text>
           <View style={styles.group}>
             {LANGUAGES.map((l, i) => {
@@ -142,7 +142,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             <View style={[styles.heroCircle, { backgroundColor: colors.tintFill + '22' }]}>
               <Symbol name="lock.fill" size={72} color={colors.tint} weight="medium" />
             </View>
-            <Text style={styles.largeTitle} accessibilityRole="header">{t('miniapp.onboarding.passcode.title')}</Text>
+            <Text style={[styles.largeTitle, { fontFamily: colors.heading }]} accessibilityRole="header">{t('miniapp.onboarding.passcode.title')}</Text>
             <Text style={styles.body}>{t('miniapp.onboarding.passcode.desc')}</Text>
           </View>
           <View style={{ flex: 1 }} />
@@ -180,7 +180,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
 
       {step === 'paywall' ? (
         <Animated.View key="paywall" entering={FadeInRight.duration(280)} exiting={FadeOutLeft.duration(200)} style={styles.page}>
-          <Text style={styles.largeTitle} accessibilityRole="header">{t('miniapp.onboarding.paywall.title')}</Text>
+          <Text style={[styles.largeTitle, { fontFamily: colors.heading }]} accessibilityRole="header">{t('miniapp.onboarding.paywall.title')}</Text>
           <Text style={styles.sub}>{t('miniapp.onboarding.paywall.subtitle')}</Text>
           <LinearGradient colors={[colors.separator, colors.card]} style={styles.planCard}>
             <View style={{ flex: 1, gap: 4 }}>
@@ -244,29 +244,29 @@ function Dot({ active }: { active: boolean }) {
   return <Animated.View style={[styles.dot, style]} />;
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   page: { flex: 1, paddingHorizontal: 24, paddingTop: 72, paddingBottom: 40, gap: 16 },
   topRow: { flexDirection: 'row', position: 'absolute', top: 60, left: 0, right: 16, zIndex: 2 },
   skip: { minHeight: TOUCH, justifyContent: 'center', paddingHorizontal: 8, marginLeft: 'auto' },
-  skipLabel: { fontSize: 17, color: colors.tint },
+  skipLabel: { fontSize: colors.fs(17), color: colors.tint },
   hero: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
   slide: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 16 },
   heroCircle: { width: 176, height: 176, borderRadius: 88, alignItems: 'center', justifyContent: 'center' },
-  largeTitle: { fontSize: 32, fontWeight: '700', color: colors.label, textAlign: 'center', letterSpacing: -0.4 },
-  sub: { fontSize: 17, color: colors.muted, textAlign: 'center' },
-  body: { fontSize: 17, lineHeight: 24, color: colors.secondary, textAlign: 'center' },
+  largeTitle: { fontSize: colors.fs(32), fontWeight: '700', color: colors.label, textAlign: 'center', letterSpacing: -0.4 },
+  sub: { fontSize: colors.fs(17), color: colors.muted, textAlign: 'center' },
+  body: { fontSize: colors.fs(17), lineHeight: 24, color: colors.secondary, textAlign: 'center' },
   group: { borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden', marginTop: 8 },
   langRow: { minHeight: TOUCH + 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16 },
   border: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
-  rowTitle: { fontSize: 17, color: colors.label },
+  rowTitle: { fontSize: colors.fs(17), color: colors.label },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8 },
   dot: { height: 8, borderRadius: 4, backgroundColor: colors.label },
   cta: { minHeight: 54, borderRadius: 27, backgroundColor: colors.tintFill, alignItems: 'center', justifyContent: 'center' },
-  ctaLabel: { color: colors.onTint, fontSize: 17, fontWeight: '600' },
+  ctaLabel: { color: colors.onTint, fontSize: colors.fs(17), fontWeight: '600' },
   textAction: { minHeight: TOUCH, alignItems: 'center', justifyContent: 'center' },
-  textActionLabel: { fontSize: 17, color: colors.secondary },
+  textActionLabel: { fontSize: colors.fs(17), color: colors.secondary },
   planCard: { borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.separator },
-  planName: { fontSize: 20, fontWeight: '600', color: colors.label },
-  planSub: { fontSize: 15, color: colors.muted },
+  planName: { fontSize: colors.fs(20), fontWeight: '600', color: colors.label },
+  planSub: { fontSize: colors.fs(15), color: colors.muted },
 });

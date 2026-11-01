@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { TOUCH } from '../../src/components/ui';
 import { Symbol } from '../../src/components/symbol';
 import { THEME_CHOICES } from '../../src/theme/palettes';
-import { useTheme, useThemed, type Palette } from '../../src/theme/theme';
+import { HEADING_FONTS, TEXT_SCALES, useTheme, useThemed, type Theme } from '../../src/theme/theme';
 
 type Icon = string;
 
@@ -24,7 +24,7 @@ interface Item {
 /** You tab: settings sections and copy, as on web's /miniapp/you. */
 export default function YouScreen() {
   const { colors, styles } = useThemed(makeStyles);
-  const { choice, setChoice } = useTheme();
+  const { choice, setChoice, textScale, setTextScale, headingFont, setHeadingFont } = useTheme();
   const { live, signOut } = useSession();
   const [pinSet, setPinSet] = useState(false);
 
@@ -37,6 +37,7 @@ export default function YouScreen() {
     light: t('miniapp.settings.appearance.light'),
     dark: t('miniapp.settings.appearance.dark'),
   };
+  // Appearance: palette (light is sepia, dark or system), text size and heading font.
   const sections: { title: string; items: Item[] }[] = [
     {
       title: t('miniapp.settings.appearance'),
@@ -45,6 +46,24 @@ export default function YouScreen() {
         title: appearanceLabel[c],
         selected: choice === c,
         onPress: () => setChoice(c),
+      })),
+    },
+    {
+      title: t('miniapp.settings.appearance.text_size'),
+      items: TEXT_SCALES.map((k) => ({
+        icon: 'textformat.size',
+        title: t(`miniapp.settings.appearance.text_${k}`),
+        selected: textScale === k,
+        onPress: () => setTextScale(k),
+      })),
+    },
+    {
+      title: t('miniapp.settings.appearance.font'),
+      items: HEADING_FONTS.map((k) => ({
+        icon: 'textformat',
+        title: t(`miniapp.settings.appearance.font_${k}`),
+        selected: headingFont === k,
+        onPress: () => setHeadingFont(k),
       })),
     },
     {
@@ -77,7 +96,7 @@ export default function YouScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
-      <Text style={styles.title} accessibilityRole="header">{t('shell.you')}</Text>
+      <Text style={[styles.title, { fontFamily: colors.heading }]} accessibilityRole="header">{t('shell.you')}</Text>
 
       {sections.map((section) => (
         <View key={section.title}>
@@ -105,15 +124,15 @@ export default function YouScreen() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, paddingTop: 8, paddingBottom: 40 },
-  title: { fontSize: 34, fontWeight: '700', color: colors.label },
-  section: { fontSize: 12, letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 4, paddingTop: 22, paddingBottom: 8 },
+  title: { fontSize: colors.fs(34), fontWeight: '700', color: colors.label },
+  section: { fontSize: colors.fs(12), letterSpacing: 1, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 4, paddingTop: 22, paddingBottom: 8 },
   card: { borderRadius: 16, backgroundColor: colors.card, overflow: 'hidden' },
   row: { minHeight: TOUCH + 6, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10 },
   border: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.separator },
   icon: {},
-  rowTitle: { fontSize: 16, color: colors.label },
-  rowSub: { fontSize: 13, color: colors.muted, marginTop: 2 },
-  badge: { fontSize: 12, color: colors.destructive, backgroundColor: 'rgba(248,113,113,0.15)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden' },
+  rowTitle: { fontSize: colors.fs(16), color: colors.label },
+  rowSub: { fontSize: colors.fs(13), color: colors.muted, marginTop: 2 },
+  badge: { fontSize: colors.fs(12), color: colors.destructive, backgroundColor: 'rgba(248,113,113,0.15)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, overflow: 'hidden' },
 });

@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 /** Apple HIG minimum touch target. */
 export const TOUCH = 44;
 
 export function Title({ children }: { children: ReactNode }) {
-  const { styles } = useThemed(makeStyles);
-  return <Text style={styles.largeTitle} accessibilityRole="header">{children}</Text>;
+  const { colors, styles } = useThemed(makeStyles);
+  return <Text style={[styles.largeTitle, { fontFamily: colors.heading }]} accessibilityRole="header">{children}</Text>;
 }
 
 export function SectionHeader({ children }: { children: ReactNode }) {
@@ -83,9 +83,9 @@ export function Chip({ label, color, selected, onPress }: { label: string; color
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
-  largeTitle: { fontSize: 34, fontWeight: '700', color: colors.label, paddingHorizontal: 16, paddingTop: 8 },
-  sectionHeader: { fontSize: 13, color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 32, paddingTop: 20, paddingBottom: 6 },
+const makeStyles = (colors: Theme) => StyleSheet.create({
+  largeTitle: { fontSize: colors.fs(34), fontWeight: '700', color: colors.label, paddingHorizontal: 16, paddingTop: 8 },
+  sectionHeader: { fontSize: colors.fs(13), color: colors.muted, textTransform: 'uppercase', paddingHorizontal: 32, paddingTop: 20, paddingBottom: 6 },
   group: { backgroundColor: colors.card, borderRadius: 12, marginHorizontal: 16, overflow: 'hidden' },
   row: {
     minHeight: TOUCH,
@@ -97,8 +97,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.separator,
   },
-  rowLabel: { fontSize: 17, color: colors.label, flexShrink: 1 },
-  rowValue: { fontSize: 17, color: colors.muted, marginLeft: 12 },
+  rowLabel: { fontSize: colors.fs(17), color: colors.label, flexShrink: 1 },
+  rowValue: { fontSize: colors.fs(17), color: colors.muted, marginLeft: 12 },
   pressed: { opacity: 0.6 },
   primary: {
     minHeight: TOUCH + 4,
@@ -108,11 +108,11 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: 16,
   },
-  primaryText: { color: colors.onTint, fontSize: 17, fontWeight: '600' },
+  primaryText: { color: colors.onTint, fontSize: colors.fs(17), fontWeight: '600' },
   empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 20, fontWeight: '600', color: colors.label, textAlign: 'center' },
-  emptySub: { fontSize: 15, color: colors.muted, textAlign: 'center', marginTop: 6 },
+  emptyTitle: { fontSize: colors.fs(20), fontWeight: '600', color: colors.label, textAlign: 'center' },
+  emptySub: { fontSize: colors.fs(15), color: colors.muted, textAlign: 'center', marginTop: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   chip: { minHeight: TOUCH - 8, paddingHorizontal: 14, borderRadius: 18, justifyContent: 'center' },
-  chipText: { fontSize: 15, fontWeight: '600' },
+  chipText: { fontSize: colors.fs(15), fontWeight: '600' },
 });

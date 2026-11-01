@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { t } from '../src/i18n';
 import { checkPin, removePin, setPin } from '../src/lib/app-state';
 import { PinPad } from '../src/components/pin-pad';
-import { useThemed, type Palette } from '../src/theme/theme';
+import { useThemed, type Theme } from '../src/theme/theme';
 
 /** Enable, change or disable the 4-digit passcode. Each step asks for one code. */
 export default function PasscodeScreen() {
@@ -64,6 +64,6 @@ export default function PasscodeScreen() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingTop: 80 },
 });

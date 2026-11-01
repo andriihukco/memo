@@ -2,7 +2,7 @@ import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEntries } from '../../../src/lib/entry-store';
 import { Empty, TOUCH } from '../../../src/components/ui';
-import { useThemed, type Palette } from '../../../src/theme/theme';
+import { useThemed, type Theme } from '../../../src/theme/theme';
 
 export default function ReportScreen() {
   const { styles } = useThemed(makeStyles);
@@ -30,12 +30,12 @@ export default function ReportScreen() {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { padding: 16, paddingTop: 60, paddingBottom: 40, gap: 8 },
   back: { minHeight: TOUCH, justifyContent: 'center' },
-  backText: { fontSize: 17, color: colors.tint },
-  title: { fontSize: 34, fontWeight: '700', color: colors.label },
-  period: { fontSize: 15, color: colors.muted },
+  backText: { fontSize: colors.fs(17), color: colors.tint },
+  title: { fontSize: colors.fs(34), fontWeight: '700', color: colors.label },
+  period: { fontSize: colors.fs(15), color: colors.muted },
   card: { backgroundColor: colors.card, borderRadius: 12, padding: 16, marginTop: 12 },
-  body: { fontSize: 17, lineHeight: 24, color: colors.label },
+  body: { fontSize: colors.fs(17), lineHeight: 24, color: colors.label },
 });

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { checkPin } from '../lib/app-state';
 import { PinPad } from './pin-pad';
-import { useThemed, type Palette } from '../theme/theme';
+import { useThemed, type Theme } from '../theme/theme';
 
 /** Shown on launch when a passcode is set. Stays until the right code is entered. */
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
@@ -24,6 +24,6 @@ export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   );
 }
 
-const makeStyles = (colors: Palette) => StyleSheet.create({
+const makeStyles = (colors: Theme) => StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg, paddingTop: 80 },
 });
