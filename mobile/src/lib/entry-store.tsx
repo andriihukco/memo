@@ -62,6 +62,8 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
   }, [live, token]);
 
   useEffect(() => {
+    // Initial load: refresh() sets loading state before its await. Intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
 

@@ -6,7 +6,7 @@ import { useEntries } from '../../src/lib/entry-store';
 import { groupByDay } from '../../src/lib/entries';
 import { metaFor } from '../../src/lib/category-meta';
 import { t, locale } from '../../src/i18n';
-import { Chip, Empty, TOUCH } from '../../src/components/ui';
+import { Chip, Empty } from '../../src/components/ui';
 import { useThemed, type Palette } from '../../src/theme/theme';
 
 const dayTitle = (key: string): string => {
@@ -109,7 +109,7 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
   badgeText: { fontSize: 12, fontWeight: '600' },
   msg: { flexDirection: 'row', gap: 10 },
-  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#1E2A44', alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.separator, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 11, color: colors.tint, fontWeight: '600' },
   meta: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   who: { fontSize: 14, fontWeight: '600', color: colors.label },

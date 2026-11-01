@@ -5,7 +5,7 @@ import Animated, { FadeIn, FadeInRight, FadeOut, FadeOutLeft, useAnimatedStyle, 
 import * as Haptics from 'expo-haptics';
 import { t, setLocale, locale } from '../i18n';
 import { setPin, markOnboarded } from '../lib/app-state';
-import { colors, TOUCH } from './ui';
+import { TOUCH } from './ui';
 import { Symbol } from './symbol';
 import { PinPad } from './pin-pad';
 import { useThemed, type Palette } from '../theme/theme';
@@ -139,7 +139,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       {step === 'passcode-ask' ? (
         <Animated.View key="passcode-ask" entering={FadeInRight.duration(280)} exiting={FadeOutLeft.duration(200)} style={styles.page}>
           <View style={styles.hero}>
-            <View style={[styles.heroCircle, { backgroundColor: colors.tint + '22' }]}>
+            <View style={[styles.heroCircle, { backgroundColor: colors.tintFill + '22' }]}>
               <Symbol name="lock.fill" size={72} color={colors.tint} weight="medium" />
             </View>
             <Text style={styles.largeTitle} accessibilityRole="header">{t('miniapp.onboarding.passcode.title')}</Text>
@@ -182,7 +182,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <Animated.View key="paywall" entering={FadeInRight.duration(280)} exiting={FadeOutLeft.duration(200)} style={styles.page}>
           <Text style={styles.largeTitle} accessibilityRole="header">{t('miniapp.onboarding.paywall.title')}</Text>
           <Text style={styles.sub}>{t('miniapp.onboarding.paywall.subtitle')}</Text>
-          <LinearGradient colors={['#1E2A44', colors.card]} style={styles.planCard}>
+          <LinearGradient colors={[colors.separator, colors.card]} style={styles.planCard}>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={styles.planName}>{t('miniapp.onboarding.paywall.free_forever')}</Text>
               <Text style={styles.planSub}>{t('miniapp.onboarding.paywall.subtitle')}</Text>
@@ -207,10 +207,10 @@ function Cta({ label, onPress }: { label: string; onPress: () => void }) {
       accessibilityRole="button"
       onPress={onPress}
       onPressIn={() => {
-        scale.value = withSpring(0.97, SPRING);
+        scale.set(withSpring(0.97, SPRING));
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
+        scale.set(withSpring(1, SPRING));
       }}
     >
       <Animated.View style={[styles.cta, style]}>
@@ -262,8 +262,8 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
   rowTitle: { fontSize: 17, color: colors.label },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 8 },
   dot: { height: 8, borderRadius: 4, backgroundColor: colors.label },
-  cta: { minHeight: 54, borderRadius: 27, backgroundColor: colors.tint, alignItems: 'center', justifyContent: 'center' },
-  ctaLabel: { color: '#FFFFFF', fontSize: 17, fontWeight: '600' },
+  cta: { minHeight: 54, borderRadius: 27, backgroundColor: colors.tintFill, alignItems: 'center', justifyContent: 'center' },
+  ctaLabel: { color: colors.onTint, fontSize: 17, fontWeight: '600' },
   textAction: { minHeight: TOUCH, alignItems: 'center', justifyContent: 'center' },
   textActionLabel: { fontSize: 17, color: colors.secondary },
   planCard: { borderRadius: 20, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.separator },

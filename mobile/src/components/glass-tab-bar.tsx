@@ -4,7 +4,7 @@ import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { t } from '../i18n';
-import { colors, TOUCH } from './ui';
+import { TOUCH } from './ui';
 import { Symbol } from './symbol';
 import { useThemed, type Palette } from '../theme/theme';
 
@@ -103,10 +103,10 @@ function TabItem({ label, icon, selected, onPress }: { label: string; icon: stri
       accessibilityState={{ selected }}
       onPress={onPress}
       onPressIn={() => {
-        scale.value = withSpring(0.92, SPRING);
+        scale.set(withSpring(0.92, SPRING));
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
+        scale.set(withSpring(1, SPRING));
       }}
       style={styles.tab}
     >
@@ -125,7 +125,7 @@ function ComposeButton({ glass, onPress, onHoldStart, onHoldEnd }: { glass: bool
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   const body = (
     <Animated.View style={[styles.composeInner, style]}>
-      <Symbol name="plus" size={24} color="#FFFFFF" weight="semibold" />
+      <Symbol name="plus" size={24} color={colors.onTint} weight="semibold" />
     </Animated.View>
   );
   return (
@@ -146,10 +146,10 @@ function ComposeButton({ glass, onPress, onHoldStart, onHoldEnd }: { glass: bool
           : undefined
       }
       onPressIn={() => {
-        scale.value = withSpring(0.9, SPRING);
+        scale.set(withSpring(0.9, SPRING));
       }}
       onPressOut={() => {
-        scale.value = withSpring(1, SPRING);
+        scale.set(withSpring(1, SPRING));
         onHoldEnd?.();
       }}
       delayLongPress={250}
@@ -175,19 +175,19 @@ const makeStyles = (colors: Palette) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 32,
-    backgroundColor: 'rgba(12,15,24,0.72)',
+    backgroundColor: colors.glass,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.glassBorder,
   },
   indicator: { position: 'absolute', top: PAD, bottom: PAD, left: PAD },
   indicatorFill: { flex: 1, borderRadius: 28, overflow: 'hidden' },
-  indicatorFallback: { backgroundColor: 'rgba(255,255,255,0.14)' },
+  indicatorFallback: { backgroundColor: colors.separator },
   tab: { flex: 1, minHeight: TOUCH, alignItems: 'center', justifyContent: 'center' },
   tabInner: { alignItems: 'center', justifyContent: 'center', gap: 2 },
   label: { fontSize: 11, fontWeight: '500', color: colors.muted },
   labelActive: { color: colors.tint, fontWeight: '600' },
   compose: { width: 64, height: 64 },
   composeGlass: { flex: 1, borderRadius: 32, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
-  composeFallback: { backgroundColor: colors.tint },
+  composeFallback: { backgroundColor: colors.tintFill },
   composeInner: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' },
 });
