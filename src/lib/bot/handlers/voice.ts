@@ -2,8 +2,9 @@ import { Context } from "grammy";
 import { createClient } from "@supabase/supabase-js";
 import {
   classifyAudio, ClassificationError, ClassificationResult,
-  EntryPayload, BUILTIN_CATEGORIES, colorForNewCategory,
+  EntryPayload, BUILTIN_CATEGORIES,
 } from "@/lib/classifier";
+import { loadUserCategories, swatchFor } from "@/lib/category-config";
 import { embedEntry } from "@/lib/embedding";
 import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
@@ -47,18 +48,11 @@ async function upsertCategory(
   userId: string,
   entry: EntryPayload
 ): Promise<void> {
-  if (entry.is_new_category) {
-    await supabase.from("categories").upsert({
-      user_id: userId, name: entry.category, label_ua: entry.category_label,
-      color: colorForNewCategory(entry.category), icon: "tag",
-    }, { onConflict: "user_id,name", ignoreDuplicates: true });
-  } else if (!(entry.category in BUILTIN_CATEGORIES)) {
-    await supabase.from("categories").upsert({
-      user_id: userId, name: entry.category, label_ua: entry.category_label,
-      color: BUILTIN_CATEGORIES[entry.category]?.color ?? colorForNewCategory(entry.category),
-      icon: BUILTIN_CATEGORIES[entry.category]?.icon ?? "tag",
-    }, { onConflict: "user_id,name", ignoreDuplicates: true });
-  }
+  if (!entry.is_new_category && entry.category in BUILTIN_CATEGORIES) return;
+  await supabase.from("categories").upsert({
+    user_id: userId, name: entry.category, label_ua: entry.category_label,
+    color: swatchFor(entry.category), icon: "tag",
+  }, { onConflict: "user_id,name", ignoreDuplicates: true });
 }
 
 // ── Thread resolution (same as text handler) ──────────────────────────────────
@@ -154,9 +148,10 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
   const supabase = getServiceClient();
   const replyToMsgId = ctx.message?.reply_to_message?.message_id;
 
-  const [userCtx, { threadId: resolvedThreadId, parentEntryId }] = await Promise.all([
+  const [userCtx, { threadId: resolvedThreadId, parentEntryId }, knownCategories] = await Promise.all([
     loadUserContext(profile.id),
     resolveThread(supabase, profile.id, replyToMsgId),
+    loadUserCategories(supabase, profile.id),
   ]);
 
   // Load thread context if we're in a thread
@@ -167,12 +162,12 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
   // Transcribe + classify audio (1 retry on ClassificationError for transient Gemini failures)
   let result: ClassificationResult;
   try {
-    result = await classifyAudio(audioBuffer, "audio/ogg", threadCtx);
+    result = await classifyAudio(audioBuffer, "audio/ogg", threadCtx, knownCategories);
   } catch (err) {
     if (err instanceof ClassificationError) {
       // One retry before surfacing the error to the user
       try {
-        result = await classifyAudio(audioBuffer, "audio/ogg", threadCtx);
+        result = await classifyAudio(audioBuffer, "audio/ogg", threadCtx, knownCategories);
       } catch (retryErr) {
         audioBuffer = Buffer.alloc(0);
         console.error("[voice handler] ClassificationError (after retry):", (retryErr as Error).message);

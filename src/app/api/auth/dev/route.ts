@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createTelegramSession } from "@/lib/auth-session";
 import { isDevAuthAllowed } from "@/lib/dev-auth";
 import { deriveUserKey, encryptField } from "@/lib/crypto";
-import { colorForNewCategory } from "@/lib/classifier";
+import { swatchFor } from "@/lib/category-config";
 
 const DEV_TELEGRAM_ID = "999000001";
 
@@ -65,7 +65,7 @@ export async function POST(req: Request): Promise<Response> {
         const cats = [...new Map(SAMPLES.map((s) => [s.category, s.label])).entries()];
         await supabase.from("categories").upsert(
           cats.map(([name, label]) => ({
-            user_id: profile.id, name, label_ua: label, color: colorForNewCategory(name), icon: "tag",
+            user_id: profile.id, name, label_ua: label, color: swatchFor(name), icon: "tag",
           })),
           { onConflict: "user_id,name", ignoreDuplicates: true }
         );

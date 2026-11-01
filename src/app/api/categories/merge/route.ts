@@ -30,6 +30,9 @@ export async function POST(req: Request): Promise<Response> {
   if (source === 'uncategorized') {
     return new Response(JSON.stringify({ error: "Cannot merge system category" }), { status: 400, headers: { "Content-Type": "application/json" } });
   }
+  if (source === target) {
+    return new Response(JSON.stringify({ error: "Pick a different category to merge into" }), { status: 400, headers: { "Content-Type": "application/json" } });
+  }
 
   const supabase = makeSupabase(jwt);
 

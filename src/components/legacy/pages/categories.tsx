@@ -9,6 +9,7 @@ import { Icon } from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { hapticNotification } from '@/lib/haptics';
+import { CATEGORY_SWATCHES, isHexColor, swatchFor } from '@/lib/category-config';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 
@@ -51,34 +52,6 @@ const DEFAULT_CATEGORIES: { name: string; label_ua: string; emoji: string }[] = 
 const DEFAULT_NAMES = new Set(DEFAULT_CATEGORIES.map(c => c.name));
 DEFAULT_NAMES.add('uncategorized');
 
-// ── Full emoji library ────────────────────────────────────────────────────────
-
-const EMOJI_OPTIONS = [
-  // Health & Body
-  '💪','🏃','🧘','🚴','🏋️','🤸','🧗','🏊','⚽','🎾',
-  // Food & Drink
-  '🍎','🥗','🍕','☕','🧃','🍷','🥤','🍜','🥑','🍳',
-  // Mind & Mood
-  '🧠','💭','😊','😴','🎯','⚡','🔥','💡','✨','🌟',
-  // Nature
-  '🌿','🌸','🌊','☀️','🌙','🍀','🌺','🦋','🌈','❄️',
-  // Finance
-  '💰','💳','📈','💸','🏦','🛒','🎁','💎','🪙','📊',
-  // Work & Learning
-  '💻','📚','✏️','🎓','🔬','📝','🗂️','🏆','🎨','🎵',
-  // Travel & Places
-  '✈️','🏠','🗺️','🚗','🚂','⛵','🏔️','🌍','🏖️','🗼',
-  // People & Social
-  '❤️','🤝','👶','🐾','👥','🙏','🎉','🥂','💌','🫂',
-  // Tracking & Metrics
-  '⏱️','📏','🔢','📉','🎲','🔐','🧪','⚗️','🔭','🧬',
-  // Misc
-  '⭐','🏅','🎖️','🔑','💫','🌀','🎭','🎪','🎬','🎤',
-  // Extra
-  '🏷️','🔥','💎','🎸','🎹','🌻','🍁','🐉','🦄','🦅',
-  '🍔','🍣','🍰','🧁','🍩','🏡','🏰','📱','📷','🎥',
-  '🎮','🕹️','🎲','🎯','🥇','🏆','🎊','🎀','🎁','🎉',
-];
 
 interface DbCategory { name: string; label_ua: string; color: string; }
 
@@ -136,22 +109,24 @@ function InlineSheet({ open, onClose, children }: { open: boolean; onClose: () =
   );
 }
 
-// ── Emoji picker ──────────────────────────────────────────────────────────────
+// ── Colour picker ─────────────────────────────────────────────────────────────
 
-function EmojiPicker({ selected, onSelect }: { selected: string; onSelect: (emoji: string) => void }) {
+function ColorPicker({ selected, onSelect }: { selected: string; onSelect: (hex: string) => void }) {
   return (
-    <div className="grid grid-cols-10 gap-1 max-h-48 overflow-y-auto py-1">
-      {EMOJI_OPTIONS.map(emoji => (
+    <div className="grid grid-cols-6 gap-2 py-1">
+      {CATEGORY_SWATCHES.map(hex => (
         <button
-          key={emoji}
+          key={hex}
           type="button"
-          onClick={() => onSelect(emoji)}
+          onClick={() => onSelect(hex)}
+          aria-label={hex}
+          aria-pressed={selected === hex}
           className={cn(
-            'flex h-9 w-full items-center justify-center rounded-xl text-xl transition-colors',
-            selected === emoji ? 'bg-primary/20 ring-1 ring-primary' : 'hover:bg-muted/60'
+            'mx-auto flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-95',
+            selected === hex && 'ring-2 ring-foreground ring-offset-2 ring-offset-background'
           )}
         >
-          {emoji}
+          <span className="h-7 w-7 rounded-full" style={{ backgroundColor: hex }} />
         </button>
       ))}
     </div>
@@ -172,6 +147,7 @@ export default function CategoriesPage() {
   // Rename sheet
   const [renameTarget, setRenameTarget] = useState<DbCategory | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [renameColor, setRenameColor] = useState<string>(CATEGORY_SWATCHES[0]);
   const [renameLoading, setRenameLoading] = useState(false);
   const [renameError, setRenameError] = useState<string | null>(null);
 
@@ -189,7 +165,7 @@ export default function CategoriesPage() {
   // Create custom category sheet
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
-  const [createEmoji, setCreateEmoji] = useState('🏷️');
+  const [createColor, setCreateColor] = useState<string>(CATEGORY_SWATCHES[0]);
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -222,10 +198,10 @@ export default function CategoriesPage() {
       const res = await fetch('/api/categories', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ name: renameTarget.name, label_ua: renameValue }),
+        body: JSON.stringify({ name: renameTarget.name, label_ua: renameValue.trim(), color: renameColor }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
-      setDbCategories(prev => prev.map(c => c.name === renameTarget.name ? { ...c, label_ua: renameValue } : c));
+      setDbCategories(prev => prev.map(c => c.name === renameTarget.name ? { ...c, label_ua: renameValue.trim(), color: renameColor } : c));
       setRenameTarget(null);
     } catch (err) {
       setRenameError(err instanceof Error ? err.message : 'Помилка');
@@ -270,25 +246,19 @@ export default function CategoriesPage() {
   const handleCreate = async () => {
     if (!accessToken || !createName.trim()) return;
     setCreateLoading(true); setCreateError(null);
-    // Derive a slug-like name from the label
-    const slug = createName.trim()
-      .toLowerCase()
-      .replace(/\s+/g, '_')
-      .replace(/[^a-z0-9_а-яіїєґ]/gi, '')
-      .slice(0, 40) || `custom_${Date.now()}`;
     try {
       const res = await fetch('/api/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ name: slug, label_ua: createName.trim(), color: createEmoji }),
+        body: JSON.stringify({ label_ua: createName.trim(), color: createColor }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
       const d = await res.json();
-      setDbCategories(prev => [...prev, d.category ?? { name: slug, label_ua: createName.trim(), color: createEmoji }]);
+      setDbCategories(prev => [...prev, d.category]);
       play('CELEBRATION');
       setShowCreate(false);
       setCreateName('');
-      setCreateEmoji('🏷️');
+      setCreateColor(CATEGORY_SWATCHES[0]);
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Помилка');
       play('CAUTION');
@@ -298,11 +268,8 @@ export default function CategoriesPage() {
   // All DB cats available as merge targets (excluding source and uncategorized)
   const mergeTargets = dbCategories.filter(c => c.name !== mergeSource?.name && c.name !== 'uncategorized');
 
-  // Emoji for a custom category — stored in color field or fallback
-  const customEmoji = (cat: DbCategory) => {
-    if (cat.color && EMOJI_OPTIONS.includes(cat.color)) return cat.color;
-    return '🏷️';
-  };
+  // Colour for a category: the stored swatch, or a stable one for rows saved before colours
+  const swatchOf = (cat: DbCategory) => (isHexColor(cat.color) ? cat.color : swatchFor(cat.name));
 
   return (
     <motion.div
@@ -357,8 +324,8 @@ export default function CategoriesPage() {
                 {i > 0 && <Separator />}
                 <CategoryRow
                   label={cat.label_ua}
-                  emoji={customEmoji(cat)}
-                  onEdit={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); }}
+                  color={swatchOf(cat)}
+                  onEdit={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); setRenameColor(swatchOf(cat)); }}
                   onMerge={() => { play('OPEN'); setMergeSource(cat); }}
                   onDelete={() => { play('OPEN'); setDeleteTarget(cat); }}
                 />
@@ -400,8 +367,8 @@ export default function CategoriesPage() {
                   {i > 0 && <Separator />}
                   <CategoryRow
                     label={db.label_ua || cat.label_ua}
-                    emoji={cat.emoji}
-                    onEdit={() => { play('OPEN'); setRenameTarget(db); setRenameValue(db.label_ua); }}
+                    color={swatchOf(db)}
+                    onEdit={() => { play('OPEN'); setRenameTarget(db); setRenameValue(db.label_ua); setRenameColor(swatchOf(db)); }}
                     onMerge={() => { play('OPEN'); setMergeSource(db); }}
                     onDelete={() => { play('OPEN'); setDeleteTarget(db); }}
                   />
@@ -456,31 +423,25 @@ export default function CategoriesPage() {
       </motion.section>
 
       {/* ── Create custom category sheet ── */}
-      <InlineSheet open={showCreate} onClose={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateEmoji('🏷️'); }}>
+      <InlineSheet open={showCreate} onClose={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateColor(CATEGORY_SWATCHES[0]); }}>
         <h3 className="mb-3 text-sm font-semibold">Нова категорія</h3>
-        {/* Emoji + name row */}
-        <div className="mb-3 flex items-center gap-2">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-muted/60 text-2xl">
-            {createEmoji}
-          </div>
-          <input
-            type="text"
-            value={createName}
-            onChange={e => setCreateName(e.target.value)}
-            className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            placeholder={t('miniapp.categories.name_placeholder')}
-            autoFocus
-            maxLength={40}
-          />
-        </div>
-        {/* Emoji picker */}
-        <div className="mb-3 rounded-xl border border-border/40 bg-muted/20 p-2">
-          <EmojiPicker selected={createEmoji} onSelect={setCreateEmoji} />
+        <input
+          type="text"
+          value={createName}
+          onChange={e => setCreateName(e.target.value)}
+          className="mb-3 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          placeholder={t('miniapp.categories.name_placeholder')}
+          autoFocus
+          maxLength={40}
+        />
+        <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Колір</p>
+        <div className="mb-3">
+          <ColorPicker selected={createColor} onSelect={setCreateColor} />
         </div>
         {createError && <p className="mb-2 text-xs text-destructive">{createError}</p>}
         <div className="flex gap-3">
           <button
-            onClick={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateEmoji('🏷️'); }}
+            onClick={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateColor(CATEGORY_SWATCHES[0]); }}
             className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground"
           >
             Скасувати
@@ -497,7 +458,7 @@ export default function CategoriesPage() {
 
       {/* ── Rename sheet ── */}
       <InlineSheet open={!!renameTarget} onClose={() => { play('CLOSE'); setRenameTarget(null); setRenameError(null); }}>
-        <h3 className="mb-3 text-sm font-semibold">Перейменувати категорію</h3>
+        <h3 className="mb-3 text-sm font-semibold">Редагувати категорію</h3>
         <input
           type="text"
           value={renameValue}
@@ -506,6 +467,10 @@ export default function CategoriesPage() {
           placeholder={t('miniapp.categories.new_name_placeholder')}
           autoFocus
         />
+        <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Колір</p>
+        <div className="mb-3">
+          <ColorPicker selected={renameColor} onSelect={setRenameColor} />
+        </div>
         {renameError && <p className="mb-2 text-xs text-destructive">{renameError}</p>}
         <div className="flex gap-3">
           <button onClick={() => { play('CLOSE'); setRenameTarget(null); setRenameError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
@@ -559,9 +524,10 @@ export default function CategoriesPage() {
 
 // ── CategoryRow ───────────────────────────────────────────────────────────────
 
-function CategoryRow({ label, emoji, onEdit, onMerge, onDelete }: {
+function CategoryRow({ label, emoji, color, onEdit, onMerge, onDelete }: {
   label: string;
-  emoji: string;
+  emoji?: string;
+  color?: string;
   onEdit: () => void;
   onMerge: () => void;
   onDelete: () => void;
@@ -572,7 +538,13 @@ function CategoryRow({ label, emoji, onEdit, onMerge, onDelete }: {
       whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
       transition={{ duration: 0.15 }}
     >
-      <span className="text-xl leading-none w-7 text-center">{emoji}</span>
+      {color ? (
+        <span className="flex w-7 justify-center">
+          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: color }} aria-hidden />
+        </span>
+      ) : (
+        <span className="text-xl leading-none w-7 text-center">{emoji}</span>
+      )}
       <p className="flex-1 text-[14px] font-medium">{label}</p>
       <div className="flex items-center gap-0.5">
         <motion.button

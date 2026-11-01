@@ -2,8 +2,9 @@ import { Context } from "grammy";
 import { createClient } from "@supabase/supabase-js";
 import {
   classify, ClassificationError, ClassificationResult,
-  EntryPayload, BUILTIN_CATEGORIES, colorForNewCategory,
+  EntryPayload, BUILTIN_CATEGORIES,
 } from "@/lib/classifier";
+import { loadUserCategories, swatchFor } from "@/lib/category-config";
 import { embedEntry } from "@/lib/embedding";
 import { env } from "@/lib/env";
 import type { Profile } from "@/lib/profile";
@@ -46,28 +47,20 @@ async function withTypingIndicator<T>(ctx: BotContext, fn: () => Promise<T>): Pr
 
 // ── Category upsert ───────────────────────────────────────────────────────────
 
+/** Saves a category the AI created, or one the user has never had. Existing rows are left as they are. */
 async function upsertCategory(
   supabase: ReturnType<typeof getServiceClient>,
   userId: string,
   entry: EntryPayload
 ): Promise<void> {
-  if (entry.is_new_category) {
-    await supabase.from("categories").upsert({
-      user_id: userId,
-      name: entry.category,
-      label_ua: entry.category_label,
-      color: colorForNewCategory(entry.category),
-      icon: "tag",
-    }, { onConflict: "user_id,name", ignoreDuplicates: true });
-  } else if (!(entry.category in BUILTIN_CATEGORIES)) {
-    await supabase.from("categories").upsert({
-      user_id: userId,
-      name: entry.category,
-      label_ua: entry.category_label,
-      color: BUILTIN_CATEGORIES[entry.category]?.color ?? colorForNewCategory(entry.category),
-      icon: BUILTIN_CATEGORIES[entry.category]?.icon ?? "tag",
-    }, { onConflict: "user_id,name", ignoreDuplicates: true });
-  }
+  if (!entry.is_new_category && entry.category in BUILTIN_CATEGORIES) return;
+  await supabase.from("categories").upsert({
+    user_id: userId,
+    name: entry.category,
+    label_ua: entry.category_label,
+    color: swatchFor(entry.category),
+    icon: "tag",
+  }, { onConflict: "user_id,name", ignoreDuplicates: true });
 }
 
 // ── Thread resolution ─────────────────────────────────────────────────────────
@@ -179,9 +172,10 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
   const supabase = getServiceClient();
 
   // Resolve thread first so we can pass context to classifier (same as voice handler)
-  const [userCtx, threadResolution] = await Promise.all([
+  const [userCtx, threadResolution, knownCategories] = await Promise.all([
     loadUserContext(profile.id),
     resolveThread(supabase, profile.id, replyToMsgId),
+    loadUserCategories(supabase, profile.id),
   ]);
 
   // Load thread context for classifier (short replies like "2 ложки" need context)
@@ -190,11 +184,11 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
     classifierThreadCtx = await loadThreadContext(supabase, threadResolution.threadId, profile.id);
   }
 
-  const classifyResult = await classify(text, classifierThreadCtx)
+  const classifyResult = await classify(text, classifierThreadCtx, knownCategories)
     .catch(async (err) => {
       // First attempt failed — retry once for transient Gemini failures (requirement 2.2)
       if (err instanceof ClassificationError) {
-        return classify(text, classifierThreadCtx).catch((retryErr) => {
+        return classify(text, classifierThreadCtx, knownCategories).catch((retryErr) => {
           if (retryErr instanceof ClassificationError) return retryErr;
           console.error("[text handler] Unexpected error from classify() retry:", retryErr);
           return new ClassificationError("Unexpected classification error on retry", retryErr);

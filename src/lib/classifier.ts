@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { env } from "./env";
 import { resolveCalorieMetrics } from "./nutrition";
+import { type KnownCategory } from "./category-config";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 
@@ -100,17 +101,21 @@ export const BUILTIN_CATEGORIES: Record<string, { label_ua: string; color: strin
   social:        { label_ua: "Соціальне",  color: "bg-pink-100 text-pink-700",      icon: "users" },
 };
 
-const NEW_CATEGORY_COLORS = [
-  "bg-violet-100 text-violet-700", "bg-teal-100 text-teal-700",
-  "bg-rose-100 text-rose-700",     "bg-cyan-100 text-cyan-700",
-  "bg-lime-100 text-lime-700",     "bg-fuchsia-100 text-fuchsia-700",
-  "bg-sky-100 text-sky-700",       "bg-yellow-100 text-yellow-700",
-];
+/** Prompt text for the category step: the user's own categories first, built-ins as fallback. */
+function categoryRules(categories: KnownCategory[]): string {
+  const existing = categories.length
+    ? categories.map((c) => `- ${c.name} — ${c.label_ua}`).join("\n")
+    : "(none yet)";
+  return `CATEGORIES
+The user's existing categories (name — label):
+${existing}
 
-export function colorForNewCategory(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
-  return NEW_CATEGORY_COLORS[Math.abs(hash) % NEW_CATEGORY_COLORS.length];
+Built-in names you may use when no existing category fits: thoughts, ideas, feelings, expenses, calories, workout, goals, sleep, health, dreams, books, work, relationships, travel, gratitude, music, social
+
+CATEGORY CHOICE — apply in this order:
+1. If an existing category fits the entry, use its exact name with is_new_category=false. Do not create a near-duplicate of it.
+2. Otherwise, if a built-in name fits, use it with is_new_category=false.
+3. Only when neither fits, create one: is_new_category=true, a short lowercase snake_case name (ascii letters, digits and underscores, starting with a letter), and a category_label in the user's language.`;
 }
 
 // ── Prompt 1: Classification (intent + category + content) ───────────────────
@@ -165,8 +170,7 @@ CRITICAL DISTINCTION — save_entry vs question:
 - "моя активність" → question
 - "мої патерни" → question
 
-CATEGORIES (is_new_category=false for all listed):
-thoughts, ideas, feelings, expenses, calories, workout, goals, sleep, health, dreams, books, work, relationships, travel, gratitude, music, social
+{{CATEGORIES}}
 
 CATEGORY RULES:
 - coffee/кава/caffeine/кофеїн → health (extract caffeine_mg metric)
@@ -275,13 +279,13 @@ function getGenAI() {
 
 // ── Two-pass classification ───────────────────────────────────────────────────
 
-async function classifyText(input: string | Array<unknown>): Promise<ClassificationResult> {
+async function classifyText(input: string | Array<unknown>, categories: KnownCategory[]): Promise<ClassificationResult> {
   const genAI = getGenAI();
 
   // Pass 1: classify intent + category + content
   const classifyModel = genAI.getGenerativeModel({
     model: MODEL_ID,
-    systemInstruction: CLASSIFY_PROMPT,
+    systemInstruction: CLASSIFY_PROMPT.replace("{{CATEGORIES}}", categoryRules(categories)),
     generationConfig: {},
   });
 
@@ -405,24 +409,26 @@ async function attempt<T>(fn: () => Promise<T>, retries = 2): Promise<T> {
  * @param text - Raw message text sent by the user.
  * @param threadContext - Optional recent conversation context to help resolve
  *   short replies (e.g. "yes", "ok", "more").
+ * @param categories - The user's existing categories. The model reuses one
+ *   when it fits and creates a new one only when none does.
  * @returns A validated `ClassificationResult` containing intent, one or more
  *   entry payloads (with category, content, metadata, and extracted metrics),
  *   and optional action parameters.
  * @throws {ClassificationError} If all retry attempts fail or the Gemini API
  *   returns an unparseable response.
  */
-export async function classify(text: string, threadContext?: string): Promise<ClassificationResult> {
+export async function classify(text: string, threadContext?: string, categories: KnownCategory[] = []): Promise<ClassificationResult> {
   try {
     const input = threadContext
       ? `${text}\n\n[Conversation context for understanding short replies:\n${threadContext}]`
       : text;
-    return await attempt(() => classifyText(input));
+    return await attempt(() => classifyText(input, categories));
   } catch (err) {
     throw new ClassificationError("Classification failed", err);
   }
 }
 
-export async function classifyAudio(audioBytes: Buffer, mimeType: string, threadContext?: string): Promise<ClassificationResult> {
+export async function classifyAudio(audioBytes: Buffer, mimeType: string, threadContext?: string, categories: KnownCategory[] = []): Promise<ClassificationResult> {
   try {
     const contextNote = threadContext
       ? `\n\nConversation context (use this to understand short replies):\n${threadContext}\n\nNow transcribe and classify the audio:`
@@ -431,7 +437,7 @@ export async function classifyAudio(audioBytes: Buffer, mimeType: string, thread
     return await attempt(() => classifyText([
       { inlineData: { data: audioBytes.toString("base64"), mimeType } },
       { text: contextNote },
-    ]));
+    ], categories));
   } catch (err) {
     throw new ClassificationError("Audio classification failed", err);
   }
