@@ -223,6 +223,7 @@ export async function sendStreakReminders(): Promise<void> {
       }
 
       // Send via Telegram Bot API
+      if (!profile.telegram_id) continue; // web-only accounts have no Telegram chat
       const chatId = String(profile.telegram_id);
       const res = await fetch(
         `https://api.telegram.org/bot${botToken}/sendMessage`,
@@ -383,6 +384,7 @@ export async function sendExpiryReminders(): Promise<void> {
       }
 
       // Build the message payload with InlineKeyboard button → subscriptions page
+      if (!profile.telegram_id) continue; // web-only accounts have no Telegram chat
       const chatId = String(profile.telegram_id);
       const messagePayload: Record<string, unknown> = {
         chat_id: chatId,

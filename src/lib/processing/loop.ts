@@ -478,6 +478,7 @@ export async function processStreakNotifications(): Promise<void> {
       if (!logData) continue; // Should not happen, but guard anyway
 
       // Send the streak reminder via Telegram Bot API (Req 11.1, 11.3)
+      if (!profile.telegram_id) continue; // web-only accounts have no Telegram chat
       const chatId = String(profile.telegram_id);
       const res = await fetch(
         `https://api.telegram.org/bot${botToken}/sendMessage`,
@@ -731,6 +732,7 @@ ${entriesText}
         : `📝 *Підсумок тижня* · ${fromLabel} — ${toLabel}\n\n`;
 
       const messageText = header + summaryContent;
+      if (!profile.telegram_id) continue; // web-only accounts have no Telegram chat
       const chatId = String(profile.telegram_id);
 
       const res = await fetch(

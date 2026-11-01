@@ -132,6 +132,7 @@ async function deliverScheduledReports(results: { scheduled_reports: number; err
       const to = new Date(report.period_to).toLocaleDateString("uk-UA", { day: "numeric", month: "short" });
       const messageText = `${periodLabel} · ${from} — ${to}\n\n${report.content}`;
 
+      if (!profile.telegram_id) continue; // web-only accounts have no Telegram chat
       const res = await fetch(
         `https://api.telegram.org/bot${botToken}/sendMessage`,
         {
@@ -300,6 +301,7 @@ async function deliverWeeklySummaries(results: { scheduled_reports: number; week
       const header = `📝 *Підсумок тижня* · ${fromLabel} — ${toLabel}\n\n`;
       const messageText = header + summary.content;
 
+      if (!profile.telegram_id) continue; // web-only accounts have no Telegram chat
       const res = await fetch(
         `https://api.telegram.org/bot${botToken}/sendMessage`,
         {

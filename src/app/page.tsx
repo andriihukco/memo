@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { ThemeSwitch } from "@/components/shell/theme-switch";
+import { StartAnonymously } from "@/components/features/landing/start-anonymously";
 
 const TELEGRAM_BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
 
@@ -13,9 +15,12 @@ export default function Home() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-12 px-6 py-12">
       <header className="flex items-center justify-between">
         <span className="text-lg font-semibold">Memo</span>
-        <Link href="/login" className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-          Sign in
-        </Link>
+        <div className="flex items-center gap-3">
+          <ThemeSwitch />
+          <Link href="/login" className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
+            Sign in
+          </Link>
+        </div>
       </header>
 
       <section className="flex flex-col gap-5">
@@ -27,6 +32,9 @@ export default function Home() {
           <Link href="/login" className="rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground">
             Start free
           </Link>
+          <div className="w-full sm:w-auto">
+            <StartAnonymously />
+          </div>
           {TELEGRAM_BOT ? (
             <a
               href={`https://t.me/${TELEGRAM_BOT}`}
