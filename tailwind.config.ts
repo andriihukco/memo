@@ -79,6 +79,8 @@ const config: Config = {
         'lp-bob': 'lp-bob 7s ease-in-out infinite',
         'lp-breathe': 'lp-breathe 6s ease-in-out infinite',
         'lp-draw': 'lp-draw 2.2s cubic-bezier(0.16,1,0.3,1) both',
+        // Marketing site. Base curve from the landing skill (B7).
+        'mk-in': 'mk-in 0.6s cubic-bezier(0.22,1,0.36,1) both',
       },
       keyframes: {
         // Uses the `translate` property, so a rotate() set with `transform` survives the fill.
@@ -106,9 +108,14 @@ const config: Config = {
           from: { strokeDashoffset: '100' },
           to: { strokeDashoffset: '0' },
         },
+        'mk-in': {
+          from: { opacity: '0', translate: '0 16px' },
+          to: { opacity: '1', translate: '0 0' },
+        },
       },
       transitionTimingFunction: {
         'spring': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'base': 'cubic-bezier(0.22, 1, 0.36, 1)',
       },
     },
   },
