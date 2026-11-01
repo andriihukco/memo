@@ -18,6 +18,7 @@ import { Symbol } from '../../src/components/symbol';
 import { Onboarding } from '../../src/components/onboarding';
 import { THEME_CHOICES } from '../../src/theme/palettes';
 import { HEADING_FONTS, TEXT_SCALES, useTheme, useThemed, type Theme } from '../../src/theme/theme';
+import { ScreenEnter } from '../../src/motion';
 
 interface Item {
   icon: string;
@@ -44,6 +45,14 @@ const TELEGRAM_UPDATES = 'https://t.me/get_memo_updates';
 
 /** You tab: the same sections as the Mini App's settings, in the same order. */
 export default function YouScreen() {
+  return (
+    <ScreenEnter>
+      <YouScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function YouScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { choice, setChoice, textScale, setTextScale, headingFont, setHeadingFont } = useTheme();
   const { token, live, signOut } = useSession();

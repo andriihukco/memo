@@ -5,9 +5,18 @@ import { t } from '../src/i18n';
 import { checkPin, removePin, setPin } from '../src/lib/app-state';
 import { PinPad } from '../src/components/pin-pad';
 import { useThemed, type Theme } from '../src/theme/theme';
+import { ScreenEnter } from '../src/motion';
 
 /** Enable, change or disable the 4-digit passcode. Each step asks for one code. */
 export default function PasscodeScreen() {
+  return (
+    <ScreenEnter>
+      <PasscodeScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function PasscodeScreenBody() {
   const { styles } = useThemed(makeStyles);
   const { mode } = useLocalSearchParams<{ mode: 'enable' | 'change' | 'disable' }>();
   const [stage, setStage] = useState<'current' | 'new' | 'confirm'>(mode === 'enable' ? 'new' : 'current');

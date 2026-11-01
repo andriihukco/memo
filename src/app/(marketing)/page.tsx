@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { AdaptiveHero } from '@/components/marketing/adaptive-hero';
 import { TaglineReveal } from '@/components/marketing/reveal';
+import { TrySection } from '@/components/marketing/interactive-widgets';
 import { Benefits, Faq, FinalCta, HowItWorks, PricingTeaser, Privacy } from '@/components/marketing/landing-sections';
 import { BILLING_ENABLED } from '@/lib/billing/plans';
 import { isPersona } from '@/lib/marketing/dict';
@@ -38,6 +39,7 @@ export default function Home({ searchParams }: { searchParams: { for?: string } 
         billingOpen={billingOpen}
       />
       <TaglineReveal lines={t.tagline} />
+      <TrySection t={t.try} />
       <HowItWorks t={t.how} />
       <Benefits t={t.benefits} />
       <Privacy t={t.privacy} />

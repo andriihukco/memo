@@ -9,6 +9,7 @@ import { useSession } from '../src/lib/session';
 import { dayStreak, goalProgress, type GoalPeriod, type MetricPoint } from '../src/lib/goals';
 import { Empty, Group, PrimaryButton, SectionHeader, TOUCH } from '../src/components/ui';
 import { useThemed, type Theme } from '../src/theme/theme';
+import { AnimatedBar, Enter, ScreenEnter } from '../src/motion';
 
 interface Draft {
   name: string;
@@ -24,6 +25,14 @@ const PAGES_TO_LOAD = 4;
 
 /** Goals, logging against them, progress, and a weekly retro. Same rules as the Mini App. */
 export default function GoalsScreen() {
+  return (
+    <ScreenEnter>
+      <GoalsScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function GoalsScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { token, live } = useSession();
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -173,8 +182,8 @@ export default function GoalsScreen() {
             <SectionHeader>{t('goals.period_title')}</SectionHeader>
             {loading ? <Text style={styles.muted}>{t('goals.loading')}</Text> : null}
             {!loading && goals.length === 0 ? <Text style={styles.muted}>{t('goals.empty')}</Text> : null}
-            {progress.map((p) => (
-              <View key={p.goal.id} style={styles.card}>
+            {progress.map((p, i) => (
+              <Enter key={p.goal.id} index={i} style={styles.card}>
                 <View style={styles.cardTop}>
                   <Text style={styles.cardTitle}>{p.goal.name}</Text>
                   <Text style={styles.muted}>
@@ -185,9 +194,8 @@ export default function GoalsScreen() {
                   accessibilityRole="progressbar"
                   accessibilityLabel={`${p.goal.name} progress`}
                   accessibilityValue={{ min: 0, max: 100, now: Math.round(p.ratio * 100) }}
-                  style={styles.track}
                 >
-                  <View style={[styles.fill, { width: `${p.ratio * 100}%` }]} />
+                  <AnimatedBar progress={p.ratio} style={styles.track} fill={styles.fill} />
                 </View>
                 <View style={styles.cardTop}>
                   <Text style={styles.muted}>
@@ -198,7 +206,7 @@ export default function GoalsScreen() {
                     <Text style={styles.link}>{t('goals.remove')}</Text>
                   </Pressable>
                 </View>
-              </View>
+              </Enter>
             ))}
 
             {goals.length > 0 ? (

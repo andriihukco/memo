@@ -11,6 +11,7 @@ import { t, getLocale } from '../../src/i18n';
 import { Chip, Empty, TOUCH } from '../../src/components/ui';
 import { Symbol } from '../../src/components/symbol';
 import { useThemed, type Theme } from '../../src/theme/theme';
+import { PressScale, ScreenEnter } from '../../src/motion';
 
 const dayTitle = (key: string): string => {
   const [y, m, d] = key.split('-').map(Number);
@@ -22,6 +23,14 @@ const clock = (iso: string): string => new Date(iso).toLocaleTimeString(getLocal
 const newestFirst = (a: Entry, b: Entry): number => Date.parse(entryTime(b)) - Date.parse(entryTime(a));
 
 export default function FeedScreen() {
+  return (
+    <ScreenEnter>
+      <FeedScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function FeedScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { entries, categories, loading, refresh, remove } = useEntries();
   const [filter, setFilter] = useState<string | null>(null);
@@ -74,13 +83,13 @@ export default function FeedScreen() {
     const picked = selecting?.has(e.id) ?? false;
     return (
       <Animated.View key={e.id} entering={FadeInDown.delay(Math.min(idx, 10) * 45).duration(340).springify().damping(18)}>
-        <Pressable
+        <PressScale
           accessibilityRole="button"
           accessibilityLabel={`${meta.label}: ${e.content}`}
           accessibilityState={{ selected: picked }}
           onPress={() => openOrSelect(e.id)}
           onLongPress={() => toggleSelected(e.id)}
-          style={({ pressed }) => [styles.card, picked && { borderColor: colors.tint, borderWidth: 2 }, pressed && { opacity: 0.7 }]}
+          style={[styles.card, picked && { borderColor: colors.tint, borderWidth: 2 }]}
         >
           <View style={[styles.iconWrap, { backgroundColor: meta.color + '22' }]}>
             <Symbol name={meta.icon} size={18} color={meta.color} />
@@ -90,7 +99,7 @@ export default function FeedScreen() {
             <Text style={styles.text} numberOfLines={3}>{e.content}</Text>
             {e.bot_reply ? <Text style={styles.reply} numberOfLines={2}>{e.bot_reply}</Text> : null}
           </View>
-        </Pressable>
+        </PressScale>
       </Animated.View>
     );
   };
@@ -99,21 +108,21 @@ export default function FeedScreen() {
     const meta = metaOf(e.category);
     const picked = selecting?.has(e.id) ?? false;
     return (
-      <Pressable
+      <PressScale
         key={e.id}
         accessibilityRole="button"
         accessibilityLabel={`${meta.label}: ${e.content}`}
         accessibilityState={{ selected: picked }}
         onPress={() => openOrSelect(e.id)}
         onLongPress={() => toggleSelected(e.id)}
-        style={({ pressed }) => [styles.tile, { borderColor: picked ? colors.tint : meta.color + '55' }, picked && { borderWidth: 2 }, pressed && { opacity: 0.7 }]}
+        style={[styles.tile, { borderColor: picked ? colors.tint : meta.color + '55' }, picked && { borderWidth: 2 }]}
       >
         <View style={styles.tileTop}>
           <Symbol name={meta.icon} size={16} color={meta.color} />
           <Text style={styles.tileTime}>{clock(entryTime(e))}</Text>
         </View>
         <Text style={styles.tileText} numberOfLines={4}>{e.content}</Text>
-      </Pressable>
+      </PressScale>
     );
   };
 

@@ -4,8 +4,17 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEntries } from '../../../src/lib/entry-store';
 import { Empty, TOUCH } from '../../../src/components/ui';
 import { useThemed, type Theme } from '../../../src/theme/theme';
+import { ScreenEnter } from '../../../src/motion';
 
 export default function ReportScreen() {
+  return (
+    <ScreenEnter>
+      <ReportScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function ReportScreenBody() {
   const { styles } = useThemed(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { reports } = useEntries();

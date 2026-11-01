@@ -7,6 +7,7 @@ import { OverviewView } from '../../src/screens/overview-view';
 import { ReportsView } from '../../src/screens/reports-view';
 import { GraphView } from '../../src/screens/graph-view';
 import { useThemed, type Theme } from '../../src/theme/theme';
+import { ScreenEnter } from '../../src/motion';
 
 /** Same three views as web's /miniapp/insights?view=… */
 const VIEWS = ['overview', 'reports', 'graph'] as const;
@@ -15,6 +16,14 @@ type InsightsView = (typeof VIEWS)[number];
 const isView = (value: string | undefined): value is InsightsView => (VIEWS as readonly string[]).includes(value ?? '');
 
 export default function InsightsScreen() {
+  return (
+    <ScreenEnter>
+      <InsightsScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function InsightsScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const params = useLocalSearchParams<{ view?: string }>();
   const [view, setView] = useState<InsightsView>(isView(params.view) ? params.view : 'overview');

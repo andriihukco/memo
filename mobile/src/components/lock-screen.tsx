@@ -9,18 +9,20 @@ import { useThemed, type Theme } from '../theme/theme';
 export function LockScreen({ onUnlock }: { onUnlock: () => void }) {
   const { styles } = useThemed(makeStyles);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
 
   const attempt = async (pin: string) => {
     if (await checkPin(pin)) {
       onUnlock();
     } else {
       setError(t('miniapp.passcode.wrong_error'));
+      setTick((n) => n + 1);
     }
   };
 
   return (
     <View style={styles.screen}>
-      <PinPad title={t('miniapp.passcode.default_title')} error={error} onComplete={(pin) => void attempt(pin)} />
+      <PinPad title={t('miniapp.passcode.default_title')} error={error} errorTick={tick} onComplete={(pin) => void attempt(pin)} />
     </View>
   );
 }

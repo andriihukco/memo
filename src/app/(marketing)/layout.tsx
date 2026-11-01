@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { SiteHeader } from '@/components/marketing/site-header';
 import { SiteFooter } from '@/components/marketing/site-footer';
 import { getDict } from '@/lib/marketing/locale';
+import { SoundProvider } from '@/lib/sound/sound-context';
 
 export function generateMetadata(): Metadata {
   const { t, locale } = getDict();
@@ -18,11 +19,13 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
   const { t, locale } = getDict();
   return (
     <div lang={locale} className="min-h-screen overflow-x-clip bg-background text-foreground">
-      <SiteHeader t={t.nav} locale={locale} />
-      <main id="main" tabIndex={-1} className="outline-none">
-        {children}
-      </main>
-      <SiteFooter t={t} />
+      <SoundProvider>
+        <SiteHeader t={t.nav} locale={locale} />
+        <main id="main" tabIndex={-1} className="outline-none">
+          {children}
+        </main>
+        <SiteFooter t={t} />
+      </SoundProvider>
     </div>
   );
 }

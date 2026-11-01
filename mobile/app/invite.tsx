@@ -7,9 +7,18 @@ import { useSession } from '../src/lib/session';
 import { PrimaryButton, TOUCH } from '../src/components/ui';
 import { Symbol } from '../src/components/symbol';
 import { useThemed, type Theme } from '../src/theme/theme';
+import { ScreenEnter } from '../src/motion';
 
 /** Invite a friend: the Telegram referral link, shared through the system share sheet. */
 export default function InviteScreen() {
+  return (
+    <ScreenEnter>
+      <InviteScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function InviteScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { token, live } = useSession();
   const [link, setLink] = useState<string | null>(null);

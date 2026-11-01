@@ -6,6 +6,7 @@ import { useEntries } from '../../src/lib/entry-store';
 import type { Widget } from '../../src/lib/api';
 import { PrimaryButton, TOUCH } from '../../src/components/ui';
 import { useThemed, type Theme } from '../../src/theme/theme';
+import { ScreenEnter } from '../../src/motion';
 
 /** Same presets as the Mini App widget sheet. Custom lets you name your own metric. */
 const PRESETS: { id: string; emoji: string; key: string; metric_key: string; unit: string; aggregate: Widget['aggregate']; color: string }[] = [
@@ -23,6 +24,14 @@ const PRESETS: { id: string; emoji: string; key: string; metric_key: string; uni
 ];
 
 export default function NewWidgetScreen() {
+  return (
+    <ScreenEnter>
+      <NewWidgetScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function NewWidgetScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { addWidget } = useEntries();
   const [selected, setSelected] = useState<(typeof PRESETS)[number] | 'custom' | null>(null);

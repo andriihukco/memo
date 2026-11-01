@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View, type PressableProps } from 'react-native';
+import { StyleSheet, Text, View, type PressableProps } from 'react-native';
+import { PressScale } from '../motion';
 import { useThemed, type Theme } from '../theme/theme';
 
 /** Apple HIG minimum touch target. */
@@ -28,29 +29,21 @@ export function Row({
   ...rest
 }: PressableProps & { label: string; value?: string; destructive?: boolean }) {
   const { colors, styles } = useThemed(makeStyles);
+  const { onPress, ...others } = rest;
   return (
-    <Pressable
-      accessibilityRole="button"
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}
-      {...rest}
-    >
+    <PressScale accessibilityRole="button" accessibilityLabel={label} style={styles.row} onPress={onPress} {...others}>
       <Text style={[styles.rowLabel, destructive && { color: colors.destructive }]}>{label}</Text>
       {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-    </Pressable>
+    </PressScale>
   );
 }
 
 export function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   const { styles } = useThemed(makeStyles);
   return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [styles.primary, disabled && { opacity: 0.4 }, pressed && styles.pressed]}
-    >
+    <PressScale accessibilityRole="button" disabled={disabled} onPress={onPress} style={styles.primary}>
       <Text style={styles.primaryText}>{label}</Text>
-    </Pressable>
+    </PressScale>
   );
 }
 
@@ -72,14 +65,15 @@ export function Dot({ color }: { color: string }) {
 export function Chip({ label, color, selected, onPress }: { label: string; color: string; selected?: boolean; onPress?: () => void }) {
   const { colors, styles } = useThemed(makeStyles);
   return (
-    <Pressable
+    <PressScale
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
+      hapticOn="select"
       onPress={onPress}
       style={[styles.chip, { backgroundColor: selected ? color : color + '26' }]}
     >
       <Text style={[styles.chipText, { color: selected ? colors.onTint : color }]}>{label}</Text>
-    </Pressable>
+    </PressScale>
   );
 }
 

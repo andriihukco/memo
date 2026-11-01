@@ -6,12 +6,21 @@ import { useSession } from '../src/lib/session';
 import { PrimaryButton, TOUCH } from '../src/components/ui';
 import { THEME_CHOICES, type ThemeChoice } from '../src/theme/palettes';
 import { useTheme, useThemed, type Theme } from '../src/theme/theme';
+import { ScreenEnter } from '../src/motion';
 
 /**
  * Sign in to the same account as the web app: an emailed code (default), a password,
  * Google, Telegram, or start without an account. Also sets the theme.
  */
 export default function SignInScreen() {
+  return (
+    <ScreenEnter>
+      <SignInScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function SignInScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { signIn, sendEmailCode, verifyEmailCode, signInWithGoogle, signInWithTelegram, signInAnonymously, error } = useSession();
   const { choice, setChoice } = useTheme();

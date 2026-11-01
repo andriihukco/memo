@@ -7,10 +7,19 @@ import { AUTO_META, metaFor } from '../../src/lib/category-meta';
 import type { AutoCategory } from '../../src/lib/auto-category';
 import { Chip, Dot, Empty, Group, PrimaryButton, Row, SectionHeader, TOUCH } from '../../src/components/ui';
 import { useThemed, type Theme } from '../../src/theme/theme';
+import { ScreenEnter } from '../../src/motion';
 
 const AUTO_KEYS = Object.keys(AUTO_META) as AutoCategory[];
 
 export default function EntryScreen() {
+  return (
+    <ScreenEnter>
+      <EntryScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function EntryScreenBody() {
   const { styles } = useThemed(makeStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { entries, categories, remove, update } = useEntries();

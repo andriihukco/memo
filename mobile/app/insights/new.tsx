@@ -5,11 +5,20 @@ import { t } from '../../src/i18n';
 import { useEntries } from '../../src/lib/entry-store';
 import { PrimaryButton, TOUCH } from '../../src/components/ui';
 import { useThemed, type Theme } from '../../src/theme/theme';
+import { ScreenEnter } from '../../src/motion';
 
 /** Period choices as in the Mini App retrospective sheet. */
 const PERIODS = ['daily', 'weekly', 'monthly', 'ytd'] as const;
 
 export default function NewRetroScreen() {
+  return (
+    <ScreenEnter>
+      <NewRetroScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function NewRetroScreenBody() {
   const { styles } = useThemed(makeStyles);
   const { addReport } = useEntries();
   const [period, setPeriod] = useState<(typeof PERIODS)[number]>('weekly');

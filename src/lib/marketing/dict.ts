@@ -30,7 +30,7 @@ export type Dict = {
   meta: { title: string; description: string };
   nav: {
     home: string; product: string; pricing: string; blog: string; signIn: string; startFree: string;
-    menu: string; close: string; skip: string; theme: string; light: string; dark: string; language: string;
+    menu: string; close: string; skip: string; theme: string; light: string; dark: string; language: string; soundOn: string; soundOff: string;
   };
   hero: {
     h1: readonly string[]; sub: string;
@@ -40,6 +40,16 @@ export type Dict = {
   band: { eyebrow: string; magnet: string };
   personas: Record<PersonaSlug, PersonaCopy>;
   tagline: readonly string[];
+  try: {
+    eyebrow: string; title: string; sub: string;
+    checklist: { title: string; progress: string; items: readonly string[] };
+    sleep: { title: string; hours: string; goal: string; label: string };
+    week: { title: string; days: readonly string[]; stepsLabel: string; moodLabel: string };
+    steps: { title: string; caption: string };
+    reminders: { title: string; items: readonly (readonly [string, string])[] };
+    topics: { title: string; exampleLabel: string; note: string; groups: readonly { name: string; topics: readonly string[]; examples: readonly string[] }[] };
+    reflection: { title: string; summary: string; rows: readonly (readonly [string, string])[] };
+  };
   how: { eyebrow: string; title: string; steps: readonly Pair[] };
   benefits: { eyebrow: string; title: string; items: readonly Pair[] };
   privacy: { eyebrow: string; title: string; sub: string; items: readonly string[]; link: string };
@@ -71,7 +81,7 @@ const en: Dict = {
   nav: {
     home: 'Memo home', product: 'How it works', pricing: 'Pricing', blog: 'Blog', signIn: 'Sign in',
     startFree: 'Start free', menu: 'Open menu', close: 'Close menu', skip: 'Skip to content',
-    theme: 'Switch theme', light: 'Day', dark: 'Night', language: 'Language',
+    theme: 'Switch theme', light: 'Day', dark: 'Night', language: 'Language', soundOn: 'Turn sound on', soundOff: 'Turn sound off',
   },
   hero: {
     h1: ['One line about your day.', 'Charts, goals and a weekly retro.'],
@@ -180,6 +190,27 @@ const en: Dict = {
     },
   },
   tagline: ['Write it the way you would tell a friend.', 'Memo keeps the numbers.'],
+  try: {
+    eyebrow: 'Try it',
+    title: 'Touch the sample. Nothing is saved.',
+    sub: 'These are working demos with sample numbers. Tick a task, drag the sleep ring, pick a day.',
+    checklist: { title: 'Today', progress: '{done} of {total} done', items: ['Daily reminder', 'Stretch and water', 'Read 10 pages', 'Checklist'] },
+    sleep: { title: 'Hours of sleep', hours: '{h} h {m} min', goal: 'of 8 h goal', label: 'Drag to log last night' },
+    week: { title: 'This week', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], stepsLabel: 'Steps', moodLabel: 'Mood' },
+    steps: { title: 'Steps', caption: 'Tap a day to read it' },
+    reminders: { title: 'Reminders', items: [['Log your day', '8:45 pm'], ['Set one goal', '9:00 am']] },
+    topics: {
+      title: 'Explore what Memo counts',
+      exampleLabel: 'Example entry and what Memo counts',
+      note: 'Sample content for illustration.',
+      groups: [
+        { name: 'Health', topics: ['Steps and distance', 'Sleep and rest', 'Food and protein'], examples: ['“ran 5 km” gives 5 km and about 400 kcal burned.', '“slept 6 h, woke twice” gives 6 h of sleep.', '“200 g chicken” gives about 330 kcal and 62 g of protein.'] },
+        { name: 'Money', topics: ['Daily spending', 'Categories', 'Monthly totals'], examples: ['“150 UAH groceries” gives 150 UAH in Food.', '“90 UAH coffee” adds to the same Food total.', '“spent 240 UAH this week” sums your entries.'] },
+        { name: 'Reflection', topics: ['What went well', 'What did not', 'One experiment'], examples: ['“walks on three days” shows under what went well.', '“late screens on weekdays” shows under what did not.', '“lights down at 10 pm” becomes the experiment for next week.'] },
+      ],
+    },
+    reflection: { title: 'Weekly retro (sample)', summary: 'Built from a week of sample entries.', rows: [['Went well', 'Walks on three days.'], ['Did not work', 'Late screens on weekdays.'], ['Try next week', 'Lights down at 10 pm.']] },
+  },
   how: {
     eyebrow: 'How it works',
     title: 'Three steps, no forms.',
@@ -284,7 +315,7 @@ const uk: Dict = {
   nav: {
     home: 'Memo, головна', product: 'Як це працює', pricing: 'Ціни', blog: 'Блог', signIn: 'Увійти',
     startFree: 'Почати безкоштовно', menu: 'Відкрити меню', close: 'Закрити меню', skip: 'До змісту',
-    theme: 'Змінити тему', light: 'День', dark: 'Ніч', language: 'Мова',
+    theme: 'Змінити тему', light: 'День', dark: 'Ніч', language: 'Мова', soundOn: 'Увімкнути звук', soundOff: 'Вимкнути звук',
   },
   hero: {
     h1: ['Один рядок про твій день.', 'Графіки, цілі й тижневе ретро.'],
@@ -393,6 +424,27 @@ const uk: Dict = {
     },
   },
   tagline: ['Пиши так, як розповів би другові.', 'Цифри Memo збереже сам.'],
+  try: {
+    eyebrow: 'Спробуй',
+    title: 'Торкнись прикладу. Нічого не зберігається.',
+    sub: 'Це робочі демо з прикладними цифрами. Познач завдання, посувай кільце сну, обери день.',
+    checklist: { title: 'Сьогодні', progress: 'Зроблено {done} з {total}', items: ['Щоденне нагадування', 'Розтяжка і вода', 'Прочитати 10 сторінок', 'Чек-лист'] },
+    sleep: { title: 'Годин сну', hours: '{h} год {m} хв', goal: 'з цілі 8 год', label: 'Посунь, щоб записати минулу ніч' },
+    week: { title: 'Цей тиждень', days: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'], stepsLabel: 'Кроки', moodLabel: 'Настрій' },
+    steps: { title: 'Кроки', caption: 'Натисни день, щоб побачити' },
+    reminders: { title: 'Нагадування', items: [['Записати день', '20:45'], ['Поставити ціль', '9:00']] },
+    topics: {
+      title: 'Що рахує Memo',
+      exampleLabel: 'Приклад запису і що рахує Memo',
+      note: 'Прикладний вміст для ілюстрації.',
+      groups: [
+        { name: 'Здоровʼя', topics: ['Кроки й дистанція', 'Сон і відпочинок', 'Їжа й білок'], examples: ['«пробіг 5 км» дає 5 км і близько 400 ккал.', '«спав 6 год, прокидався двічі» дає 6 год сну.', '«200 г курки» дає близько 330 ккал і 62 г білка.'] },
+        { name: 'Гроші', topics: ['Щоденні витрати', 'Категорії', 'Підсумки за місяць'], examples: ['«150 грн продукти» дає 150 грн у категорії Їжа.', '«90 грн кава» додається до тієї ж суми.', '«витратив 240 грн цього тижня» сумує твої записи.'] },
+        { name: 'Рефлексія', topics: ['Що вдалося', 'Що ні', 'Один експеримент'], examples: ['«гуляв три дні» іде в те, що вдалося.', '«екрани ввечері в будні» іде в те, що ні.', '«світло о 22:00» стає експериментом на наступний тиждень.'] },
+      ],
+    },
+    reflection: { title: 'Тижнева ретро (приклад)', summary: 'Складено з прикладних записів за тиждень.', rows: [['Вдалося', 'Прогулянки три дні.'], ['Не спрацювало', 'Екрани ввечері в будні.'], ['Спробувати далі', 'Світло вимикати о 22:00.']] },
+  },
   how: {
     eyebrow: 'Як це працює',
     title: 'Три кроки, жодних форм.',

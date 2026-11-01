@@ -9,6 +9,7 @@ import type { Category } from '../../src/lib/api';
 import { Dot, Empty, Group, PrimaryButton, SectionHeader, TOUCH } from '../../src/components/ui';
 import { t } from '../../src/i18n';
 import { useThemed, type Theme } from '../../src/theme/theme';
+import { ScreenEnter } from '../../src/motion';
 
 const NAME_MAX = 40;
 const UNCATEGORIZED = 'uncategorized';
@@ -17,6 +18,14 @@ const UNCATEGORIZED = 'uncategorized';
 type Editing = { mode: 'new' } | { mode: 'edit'; category: Category };
 
 export default function CategoriesScreen() {
+  return (
+    <ScreenEnter>
+      <CategoriesScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function CategoriesScreenBody() {
   const { styles } = useThemed(makeStyles);
   const { categories, entries, saveCategory, removeCategory, mergeCategory } = useEntries();
   const counts = new Map(categoryCounts(entries).map((c) => [c.category, c.count]));

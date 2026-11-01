@@ -10,6 +10,7 @@ import type { AutoCategory } from '../src/lib/auto-category';
 import type { RepeatRule } from '../src/lib/api';
 import { t, getLocale } from '../src/i18n';
 import { useTheme, useThemed, type Theme } from '../src/theme/theme';
+import { ScreenEnter } from '../src/motion';
 
 const AUTO_KEYS = Object.keys(AUTO_META) as AutoCategory[];
 const REPEATS: RepeatRule[] = ['none', 'daily', 'weekly'];
@@ -23,6 +24,14 @@ type PickerKey = 'when' | 'remind';
 
 /** Entry sheet. Opened by a tap on + (empty) or by releasing a hold on + (prefilled with the voice transcript). */
 export default function ComposeScreen() {
+  return (
+    <ScreenEnter>
+      <ComposeScreenBody />
+    </ScreenEnter>
+  );
+}
+
+function ComposeScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { scheme } = useTheme();
   const { add, categories } = useEntries();

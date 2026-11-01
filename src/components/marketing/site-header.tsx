@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Sun, Volume2, VolumeX } from 'lucide-react';
 import { useTheme } from '@/lib/theme-provider';
+import { useSound } from '@/lib/sound/use-sound';
 import { LogoMark } from './logo-mark';
 import type { Dict, SiteLocale } from '@/lib/marketing/dict';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,24 @@ function ThemeToggle({ t }: { t: Nav }) {
     >
       <Sun className={cn('absolute size-5 transition-[transform,opacity] duration-500', EASE, dark ? 'rotate-90 scale-50 opacity-0' : 'opacity-100')} aria-hidden />
       <Moon className={cn('absolute size-5 transition-[transform,opacity] duration-500', EASE, dark ? 'opacity-100' : '-rotate-90 scale-50 opacity-0')} aria-hidden />
+    </button>
+  );
+}
+
+function SoundToggle({ t }: { t: Nav }) {
+  const { enabled, setEnabled, play } = useSound();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setEnabled(!enabled);
+        if (!enabled) play('TAP');
+      }}
+      aria-pressed={enabled}
+      aria-label={enabled ? t.soundOff : t.soundOn}
+      className={cn('grid size-11 place-items-center rounded-full transition-colors duration-300', HOVER, FOCUS)}
+    >
+      {enabled ? <Volume2 className="size-5" aria-hidden /> : <VolumeX className="size-5" aria-hidden />}
     </button>
   );
 }
@@ -131,6 +150,7 @@ export function SiteHeader({ t, locale }: { t: Nav; locale: SiteLocale }) {
           <div className="flex items-center gap-1">
             <div className="hidden items-center md:flex">
               <LangSwitch locale={locale} t={t} />
+              <SoundToggle t={t} />
               <ThemeToggle t={t} />
               <Link
                 href="/login"
@@ -189,7 +209,10 @@ export function SiteHeader({ t, locale }: { t: Nav; locale: SiteLocale }) {
         </ul>
         <div className="mt-auto flex items-center justify-between border-t border-foreground/10 pt-4">
           <LangSwitch locale={locale} t={t} />
-          <ThemeToggle t={t} />
+          <div className="flex items-center">
+            <SoundToggle t={t} />
+            <ThemeToggle t={t} />
+          </div>
         </div>
       </div>
     </>
