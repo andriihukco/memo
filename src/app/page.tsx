@@ -1,62 +1,70 @@
 import Link from "next/link";
 import { ThemeSwitch } from "@/components/shell/theme-switch";
 import { StartAnonymously } from "@/components/features/landing/start-anonymously";
+import { DayHero, NightHero } from "@/components/features/landing/hero";
+import { DayBand, NightBand } from "@/components/features/landing/widget-bands";
+import {
+  DataPlain,
+  FinalCta,
+  HowItWorks,
+  PrivacyOnLogs,
+  RetroPreview,
+} from "@/components/features/landing/story-sections";
 
 const TELEGRAM_BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME;
 
-const FEATURES = [
-  { title: "Log what you did", body: "Write a line or add a number: steps, minutes, hours of sleep." },
-  { title: "Track goals", body: "Set a daily or weekly target. See progress and your streak." },
-  { title: "Weekly retro", body: "A short review of the week: what went well, what did not, and one thing to try." },
-];
-
 export default function Home() {
+  const actions = (
+    <>
+      <Link
+        href="/login"
+        className="inline-flex min-h-11 items-center rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-transform active:scale-[0.97]"
+      >
+        Start free
+      </Link>
+      <div className="w-full sm:w-auto">
+        <StartAnonymously />
+      </div>
+      {TELEGRAM_BOT ? (
+        <a
+          href={`https://t.me/${TELEGRAM_BOT}`}
+          className="inline-flex min-h-11 items-center rounded-md border px-5 text-sm font-medium transition-colors hover:bg-muted"
+        >
+          Open in Telegram
+        </a>
+      ) : null}
+    </>
+  );
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-12 px-6 py-12">
-      <header className="flex items-center justify-between">
-        <span className="text-lg font-semibold">Memo</span>
-        <div className="flex items-center gap-3">
-          <ThemeSwitch />
-          <Link href="/login" className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted">
-            Sign in
-          </Link>
+    <main className="min-h-screen overflow-x-hidden">
+      <header className="fixed inset-x-0 top-0 z-50 bg-background/60 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
+          <span className="text-lg font-semibold">Memo</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <ThemeSwitch />
+            <Link
+              href="/login"
+              className="inline-flex min-h-11 items-center rounded-md border px-4 text-sm font-medium transition-colors hover:bg-muted"
+            >
+              Sign in
+            </Link>
+          </div>
         </div>
       </header>
 
-      <section className="flex flex-col gap-5">
-        <h1 className="text-4xl font-bold leading-tight tracking-tight">A private log for your goals and weekly retros</h1>
-        <p className="text-lg text-muted-foreground">
-          Log your steps, sleep and mood in a few taps. Memo shows how your week went, without any AI.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Link href="/login" className="rounded-md bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground">
-            Start free
-          </Link>
-          <div className="w-full sm:w-auto">
-            <StartAnonymously />
-          </div>
-          {TELEGRAM_BOT ? (
-            <a
-              href={`https://t.me/${TELEGRAM_BOT}`}
-              className="rounded-md border px-5 py-3 text-sm font-medium hover:bg-muted"
-            >
-              Open in Telegram
-            </a>
-          ) : null}
-        </div>
-      </section>
+      <DayHero actions={actions} />
+      <NightHero actions={actions} />
+      <DayBand />
+      <NightBand />
+      <HowItWorks />
+      <PrivacyOnLogs />
+      <DataPlain />
+      <RetroPreview />
+      <FinalCta actions={actions} />
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        {FEATURES.map((f) => (
-          <div key={f.title} className="rounded-lg border p-4">
-            <h2 className="mb-2 font-semibold">{f.title}</h2>
-            <p className="text-sm text-muted-foreground">{f.body}</p>
-          </div>
-        ))}
-      </section>
-
-      <footer className="text-xs text-muted-foreground">
-        Your entries are encrypted at rest on the server. They are not end-to-end encrypted yet.
+      <footer className="mx-auto max-w-6xl px-4 pb-12 pt-4 text-xs text-muted-foreground sm:px-6">
+        <p>Your entries are encrypted at rest on the server. They are not end-to-end encrypted yet.</p>
       </footer>
     </main>
   );

@@ -33,6 +33,26 @@ const config: Config = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        // Landing scenes. Fixed palettes: the day band is always paper-light, the night band always dark.
+        day: {
+          top: "hsl(40 80% 90%)",
+          bottom: "hsl(32 70% 96%)",
+          card: "hsl(40 60% 99%)",
+          ink: "hsl(28 30% 16%)",
+          muted: "hsl(28 18% 38%)",
+          sun: "hsl(38 95% 62%)",
+          line: "hsl(36 40% 82%)",
+        },
+        night: {
+          top: "hsl(232 60% 8%)",
+          bottom: "hsl(262 42% 20%)",
+          card: "hsl(232 40% 14% / 0.72)",
+          ink: "hsl(220 30% 96%)",
+          muted: "hsl(225 18% 72%)",
+          moon: "hsl(45 90% 84%)",
+          line: "hsl(230 30% 28%)",
+          accent: "hsl(250 90% 78%)",
+        },
         // Custom surface colors for dark theme
         surface: {
           DEFAULT: "hsl(var(--card))",
@@ -52,6 +72,40 @@ const config: Config = {
         'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
         'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
         'shake': 'shake 0.4s ease-in-out',
+        // Landing page. Motion is CSS only; every animation is switched off by motion-reduce.
+        'lp-rise': 'lp-rise 0.8s cubic-bezier(0.16,1,0.3,1) both',
+        'lp-drift': 'lp-drift 11s ease-in-out infinite',
+        'lp-twinkle': 'lp-twinkle 4s ease-in-out infinite',
+        'lp-bob': 'lp-bob 7s ease-in-out infinite',
+        'lp-breathe': 'lp-breathe 6s ease-in-out infinite',
+        'lp-draw': 'lp-draw 2.2s cubic-bezier(0.16,1,0.3,1) both',
+      },
+      keyframes: {
+        // Uses the `translate` property, so a rotate() set with `transform` survives the fill.
+        'lp-rise': {
+          from: { opacity: '0', translate: '0 24px' },
+          to: { opacity: '1', translate: '0 0' },
+        },
+        'lp-drift': {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '50%': { transform: 'translateX(18px)' },
+        },
+        'lp-twinkle': {
+          '0%, 100%': { opacity: '0.2' },
+          '50%': { opacity: '1' },
+        },
+        'lp-bob': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' },
+        },
+        'lp-breathe': {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.04)' },
+        },
+        'lp-draw': {
+          from: { strokeDashoffset: '100' },
+          to: { strokeDashoffset: '0' },
+        },
       },
       transitionTimingFunction: {
         'spring': 'cubic-bezier(0.16, 1, 0.3, 1)',
