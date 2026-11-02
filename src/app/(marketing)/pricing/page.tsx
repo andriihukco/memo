@@ -14,8 +14,8 @@ export default function PricingPage() {
   const billingOpen = !BILLING_ENABLED;
   return (
     <>
-      <section className="mx-auto max-w-6xl px-4 pb-8 pt-32 sm:px-6" aria-labelledby="pricing-title">
-        <h1 id="pricing-title" className="heading-1 hero-ink mx-auto max-w-[680px] pb-1 text-center">{t.pricing.title}</h1>
+      <section className="mx-auto max-w-6xl px-4 pb-16 pt-40 sm:px-6" aria-labelledby="pricing-title">
+        <h1 id="pricing-title" className="heading-1 mx-auto max-w-[680px] pb-1 text-center text-balance">{t.pricing.title}</h1>
         <p className="body-3 mx-auto mt-4 max-w-[680px] text-center text-muted-foreground">{t.pricing.sub}</p>
         {billingOpen ? (
           <p role="note" className="body-5 mx-auto mt-8 max-w-[680px] rounded-2xl border bg-card px-4 py-3 text-center">

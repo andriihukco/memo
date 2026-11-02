@@ -40,10 +40,11 @@ export function PricingTable({ t, billingOpen, locale }: { t: Dict['pricing']; b
   const [cost, setCost] = useState('');
 
   const currency = locale === 'uk' ? 'UAH' : 'USD';
-  const money = useMemo(
-    () => new Intl.NumberFormat(locale === 'uk' ? 'uk-UA' : 'en-US', { style: 'currency', currency, maximumFractionDigits: currency === 'UAH' ? 0 : 2 }),
-    [locale, currency],
-  );
+  // One fixed format on server and client, so the prices never differ between the two renders.
+  const money = useMemo(() => {
+    const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: currency === 'UAH' ? 0 : 2, minimumFractionDigits: 0 });
+    return { format: (n: number) => (currency === 'UAH' ? `${fmt.format(Math.round(n))} ₴` : `$${fmt.format(Number(n.toFixed(2)))}`) };
+  }, [currency]);
   /** Stars to the chosen currency. */
   const toMoney = (stars: number) => stars * starUsd * (currency === 'UAH' ? uahPerUsd : 1);
   const months = BILLING_PERIODS[period].months;
@@ -98,7 +99,7 @@ export function PricingTable({ t, billingOpen, locale }: { t: Dict['pricing']; b
           return (
             <article
               key={tier}
-              className={cn('flex flex-col rounded-4xl p-8 sm:p-10', featured ? 'bg-foreground text-background' : 'bg-muted')}
+              className={cn('flex flex-col rounded-4xl p-8 sm:p-10 lg:min-h-[36rem]', featured ? 'bg-foreground text-background' : 'bg-muted')}
               aria-labelledby={`plan-${tier}`}
             >
               <h2 id={`plan-${tier}`} className="title-1">{info.name}</h2>
@@ -106,7 +107,7 @@ export function PricingTable({ t, billingOpen, locale }: { t: Dict['pricing']; b
               <p className="mt-8 flex items-baseline gap-2">
                 {row ? (
                   <>
-                    <span className="heading-2 tabular-nums">{money.format(row.perMonthMoney)}</span>
+                    <span className="heading-1 tabular-nums tracking-tight">{money.format(row.perMonthMoney)}</span>
                     <span className={cn('body-6', featured ? 'text-background/70' : 'text-muted-foreground')}>{t.perMonth}</span>
                   </>
                 ) : (
@@ -145,9 +146,9 @@ export function PricingTable({ t, billingOpen, locale }: { t: Dict['pricing']; b
       </div>
 
       {/* Unit economics: the same numbers for you and for us, with the assumptions in view. */}
-      <div className="rounded-4xl bg-muted p-8 sm:p-12">
-        <h2 className="heading-4">{t.calc.title}</h2>
-        <p className="body-3 mt-3 max-w-2xl text-muted-foreground">{t.calc.sub}</p>
+      <div className="rounded-4xl bg-foreground p-8 text-background sm:p-14">
+        <h2 className="heading-2">{t.calc.title}</h2>
+        <p className="body-3 mt-4 max-w-2xl text-background/70">{t.calc.sub}</p>
 
         <div className="mt-10 grid gap-8 md:grid-cols-2">
           <div className="flex flex-col gap-4">
@@ -215,8 +216,8 @@ export function PricingTable({ t, billingOpen, locale }: { t: Dict['pricing']; b
         </div>
 
         <div className="mt-10 grid gap-3 md:grid-cols-2">
-          <p className="body-5 rounded-2xl bg-background p-5">{t.calc.bestUser}</p>
-          <p className="body-5 rounded-2xl bg-background p-5">{t.calc.bestDev}</p>
+          <p className="body-5 rounded-2xl bg-background p-6 text-foreground">{t.calc.bestUser}</p>
+          <p className="body-5 rounded-2xl bg-background p-6 text-foreground">{t.calc.bestDev}</p>
         </div>
       </div>
     </div>

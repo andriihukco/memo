@@ -177,40 +177,40 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-svh flex-col bg-day-bottom dark:bg-night-top">
-      <header className="flex items-center justify-between px-4 py-4 sm:px-6">
+      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5">
         <Link href="/" aria-label={a.home} className={cn("flex min-h-11 items-center gap-2 rounded-full pr-2", FOCUS)}>
-          <LogoMark className="size-8" />
-          <span className="title-3">Memo</span>
+          <LogoMark className="size-9" />
+          <span className="title-2">Memo</span>
         </Link>
         {step === "email" ? (
-          <Link href="/" className={cn("body-5 inline-flex min-h-11 items-center rounded-full px-3 text-muted-foreground hover:text-foreground", FOCUS)}>
+          <Link href="/" className={cn("body-5 inline-flex min-h-11 items-center rounded-full px-3 text-foreground/70 transition-colors hover:text-foreground", FOCUS)}>
             ‹ {a.back}
           </Link>
         ) : (
-          <button type="button" onClick={back} className={cn("body-5 inline-flex min-h-11 items-center rounded-full px-3 text-muted-foreground hover:text-foreground", FOCUS)}>
+          <button type="button" onClick={back} className={cn("body-5 inline-flex min-h-11 items-center rounded-full px-3 text-foreground/70 transition-colors hover:text-foreground", FOCUS)}>
             ‹ {a.back}
           </button>
         )}
       </header>
 
-      <main className="flex flex-1 items-center justify-center px-4 pb-12 pt-4 sm:px-6">
-        <section className="w-full max-w-md rounded-4xl border border-foreground/10 bg-background/80 p-6 shadow-2xl backdrop-blur-xl sm:p-10">
-          <h1 className="heading-4 text-center">{heading}</h1>
-          {step === "email" ? <p className="body-6 mt-3 text-center text-muted-foreground">{a.signInSub}</p> : null}
+      <main className="flex flex-1 items-center justify-center px-6 pb-16 pt-6">
+        <div className="flex w-full max-w-sm flex-col items-center text-center motion-safe:animate-mk-fade-in">
+          <h1 className="heading-2">{heading}</h1>
+          {step === "email" ? <p className="body-3 mt-4 text-foreground/70">{a.signInSub}</p> : null}
 
           {!supabase ? (
-            <p role="alert" className="caption-4 mt-6 text-center text-destructive">{a.notConfigured}</p>
+            <p role="alert" className="caption-4 mt-6 text-destructive">{a.notConfigured}</p>
           ) : null}
 
           {step === "sent" ? (
-            <div role="status" className="mt-8 rounded-2xl bg-muted p-5 text-center">
-              <p className="body-6 text-muted-foreground">{fill(a.sentBody, { email })}</p>
+            <div role="status" className="mt-10 w-full rounded-3xl bg-background/70 p-6 shadow-sm backdrop-blur-xl">
+              <p className="body-3 text-foreground/80">{fill(a.sentBody, { email })}</p>
             </div>
           ) : null}
 
           {step === "email" || step === "new" ? (
-            <form onSubmit={step === "email" ? continueWithEmail : (e) => { e.preventDefault(); void sendNewAccountLink(); }} className="mt-8 flex flex-col gap-3">
-              <label htmlFor="email" className="caption-4 text-muted-foreground">{a.email}</label>
+            <form onSubmit={step === "email" ? continueWithEmail : (e) => { e.preventDefault(); void sendNewAccountLink(); }} className="mt-10 flex w-full flex-col gap-3">
+              <label htmlFor="email" className="sr-only">{a.email}</label>
               <input
                 id="email"
                 type="email"
@@ -220,13 +220,13 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 readOnly={step === "new"}
                 placeholder={a.emailHint}
-                className={cn("min-h-12 rounded-2xl border bg-background px-4 text-base", FOCUS)}
+                className={cn("min-h-14 rounded-2xl border border-foreground/15 bg-background/80 px-5 text-center text-lg backdrop-blur-xl", FOCUS)}
               />
-              {step === "new" ? <p className="caption-4 text-muted-foreground">{a.newHere}</p> : null}
+              {step === "new" ? <p className="caption-4 text-foreground/70">{a.newHere}</p> : null}
               <button
                 type="submit"
                 disabled={busy || !email.trim() || !supabase}
-                className={cn("btn-shimmer min-h-12 rounded-full bg-primary px-6 font-semibold text-primary-foreground transition-transform active:scale-[0.98] disabled:opacity-50", FOCUS)}
+                className={cn("btn-shimmer min-h-14 rounded-full bg-primary px-6 text-lg font-semibold text-primary-foreground transition-transform duration-300 ease-base active:scale-[0.98] disabled:opacity-40", FOCUS)}
               >
                 {busy ? a.sending : step === "new" ? a.createAccount : a.cont}
               </button>
@@ -234,8 +234,8 @@ export default function LoginPage() {
           ) : null}
 
           {step === "existing" ? (
-            <div className="mt-8 flex flex-col gap-3">
-              <p className="body-6 text-center text-muted-foreground">{email}</p>
+            <div className="mt-10 flex w-full flex-col gap-3">
+              <p className="body-6 text-foreground/70">{email}</p>
               <button
                 type="button"
                 disabled={busy}
@@ -246,17 +246,17 @@ export default function LoginPage() {
                   if (otpErr) setError(otpErr.message);
                   else setStep("sent");
                 }}
-                className={cn("btn-shimmer min-h-12 rounded-full bg-primary px-6 font-semibold text-primary-foreground transition-transform active:scale-[0.98] disabled:opacity-50", FOCUS)}
+                className={cn("btn-shimmer min-h-14 rounded-full bg-primary px-6 text-lg font-semibold text-primary-foreground transition-transform duration-300 ease-base active:scale-[0.98] disabled:opacity-40", FOCUS)}
               >
                 {a.magicLink}
               </button>
               {!showPassword ? (
-                <button type="button" onClick={() => setShowPassword(true)} className={cn("min-h-12 rounded-full border bg-background px-6 font-medium transition-colors hover:bg-muted", FOCUS)}>
+                <button type="button" onClick={() => setShowPassword(true)} className={cn("min-h-14 rounded-full border border-foreground/20 px-6 text-lg font-medium transition-colors hover:bg-foreground/5", FOCUS)}>
                   {a.usePassword}
                 </button>
               ) : (
                 <form onSubmit={signInWithPassword} className="flex flex-col gap-3">
-                  <label htmlFor="password" className="caption-4 text-muted-foreground">{a.password}</label>
+                  <label htmlFor="password" className="sr-only">{a.password}</label>
                   <input
                     id="password"
                     type="password"
@@ -264,9 +264,10 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={cn("min-h-12 rounded-2xl border bg-background px-4 text-base", FOCUS)}
+                    placeholder={a.password}
+                    className={cn("min-h-14 rounded-2xl border border-foreground/15 bg-background/80 px-5 text-center text-lg backdrop-blur-xl", FOCUS)}
                   />
-                  <button type="submit" disabled={busy || !password} className={cn("min-h-12 rounded-full bg-primary px-6 font-semibold text-primary-foreground disabled:opacity-50", FOCUS)}>
+                  <button type="submit" disabled={busy || !password} className={cn("min-h-14 rounded-full bg-primary px-6 text-lg font-semibold text-primary-foreground disabled:opacity-40", FOCUS)}>
                     {a.signInPassword}
                   </button>
                 </form>
@@ -274,36 +275,36 @@ export default function LoginPage() {
             </div>
           ) : null}
 
-          <div className="my-6 flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
+          <div className="my-8 flex w-full items-center gap-4 text-sm text-foreground/50">
+            <span className="h-px flex-1 bg-foreground/15" />
             {a.or}
-            <span className="h-px flex-1 bg-border" />
+            <span className="h-px flex-1 bg-foreground/15" />
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex w-full flex-col gap-3">
             <button
               type="button"
               onClick={signInWithGoogle}
               disabled={!supabase}
-              className={cn("min-h-12 rounded-full border bg-background px-6 font-medium transition-colors hover:bg-muted disabled:opacity-50", FOCUS)}
+              className={cn("min-h-14 rounded-full border border-foreground/20 bg-background/60 px-6 text-lg font-medium backdrop-blur-xl transition-colors hover:bg-background disabled:opacity-40", FOCUS)}
             >
               {a.google}
             </button>
             <div className="flex flex-col items-center gap-2">
-              {TELEGRAM_BOT ? <div ref={widgetRef} className="min-h-11" /> : <p className="caption-5 text-center text-muted-foreground">{a.telegramOff}</p>}
+              {TELEGRAM_BOT ? <div ref={widgetRef} className="min-h-11" /> : <p className="caption-5 text-foreground/60">{a.telegramOff}</p>}
             </div>
             <StartAnonymously labels={{ label: a.guest, busy: "…", error: a.failed, off: a.notConfigured }} />
           </div>
 
-          {error ? <p role="alert" className="caption-4 mt-6 text-center text-destructive">{error}</p> : null}
+          {error ? <p role="alert" className="caption-4 mt-6 text-destructive">{error}</p> : null}
 
-          <p className="caption-5 mt-8 text-center text-muted-foreground">
+          <p className="caption-5 mt-10 text-foreground/60">
             {a.legal}{" "}
             <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">{a.terms}</Link>
-            {" and "}
+            {` ${a.and} `}
             <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">{a.privacy}</Link>.
           </p>
-        </section>
+        </div>
       </main>
     </div>
   );

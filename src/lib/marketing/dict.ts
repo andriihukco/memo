@@ -32,7 +32,7 @@ export type Dict = {
     modeSignIn: string; modeSignUp: string; email: string; emailHint: string; sendLink: string; sending: string;
     sent: string; sentBody: string; or: string; google: string; telegram: string; telegramOff: string;
     anon: string; legal: string; terms: string; privacy: string; notConfigured: string; failed: string;
-    home: string; cont: string; welcomeBack: string; newHere: string; usePassword: string; password: string;
+    and: string; home: string; cont: string; welcomeBack: string; newHere: string; usePassword: string; password: string;
     signInPassword: string; magicLink: string; createAccount: string; wrongPassword: string; guest: string;
   };
   meta: { title: string; description: string };
@@ -97,7 +97,7 @@ const en: Dict = {
     or: 'or', google: 'Continue with Google', telegram: 'Continue with Telegram', telegramOff: 'Telegram sign-in is not set up on this server.',
     anon: 'Start as Guest', legal: 'By continuing you agree to our', terms: 'Terms', privacy: 'Privacy policy',
     notConfigured: 'Sign-in is not set up on this server yet.', failed: 'Something went wrong. Try again.', home: 'Memo home',
-    cont: 'Continue', welcomeBack: 'Welcome back', newHere: 'New here? Let’s create your account.', usePassword: 'Use a password instead',
+    and: 'and', cont: 'Continue', welcomeBack: 'Welcome back', newHere: 'New here? Let’s create your account.', usePassword: 'Use a password instead',
     password: 'Password', signInPassword: 'Sign in with password', magicLink: 'Email me a link', createAccount: 'Create account',
     wrongPassword: 'That password did not match. Try again or use a link.', guest: 'Start as Guest',
   },
@@ -351,7 +351,7 @@ const uk: Dict = {
     or: 'або', google: 'Продовжити з Google', telegram: 'Продовжити з Telegram', telegramOff: 'Вхід через Telegram не налаштований на цьому сервері.',
     anon: 'Почати як гість', legal: 'Продовжуючи, ти погоджуєшся з', terms: 'умовами', privacy: 'політикою приватності',
     notConfigured: 'Вхід ще не налаштований на цьому сервері.', failed: 'Щось пішло не так. Спробуй ще раз.', home: 'Memo, головна',
-    cont: 'Продовжити', welcomeBack: 'З поверненням', newHere: 'Вперше тут? Створімо твій акаунт.', usePassword: 'Увійти з паролем',
+    and: 'і', cont: 'Продовжити', welcomeBack: 'З поверненням', newHere: 'Вперше тут? Створімо твій акаунт.', usePassword: 'Увійти з паролем',
     password: 'Пароль', signInPassword: 'Увійти з паролем', magicLink: 'Надіслати посилання на email', createAccount: 'Створити акаунт',
     wrongPassword: 'Пароль не підійшов. Спробуй ще раз або скористайся посиланням.', guest: 'Почати як гість',
   },
