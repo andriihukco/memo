@@ -8,7 +8,7 @@ export default function YouPage() {
   const { t } = useI18n();
   return (
     <>
-      <PageHeader title={t('shell.you')} />
+      <PageHeader title={t('settings.title')} back />
       <LegacySettings />
     </>
   );

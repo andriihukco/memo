@@ -10,7 +10,7 @@ export function generateMetadata(): Metadata {
 }
 
 export default function PricingPage() {
-  const { t } = getDict();
+  const { t, locale } = getDict();
   const billingOpen = !BILLING_ENABLED;
   return (
     <>
@@ -23,7 +23,7 @@ export default function PricingPage() {
           </p>
         ) : null}
         <div className="mt-12">
-          <PricingTable t={t.pricing} billingOpen={billingOpen} />
+          <PricingTable t={t.pricing} billingOpen={billingOpen} locale={locale} />
         </div>
       </section>
       <Faq t={{ eyebrow: t.faq.eyebrow, title: t.pricing.title, items: t.pricing.faq }} />

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Pressable, Text, type PressableProps, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { Pressable, type PressableProps, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { Text } from '../theme/typography';
 import Animated, {
   Easing,
   FadeIn,

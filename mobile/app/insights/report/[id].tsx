@@ -1,5 +1,6 @@
 import { t } from '../../../src/i18n';
-import { ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { ScrollView, StyleSheet, View, Pressable } from 'react-native';
+import { Text } from '../../../src/theme/typography';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEntries } from '../../../src/lib/entry-store';
 import { Empty, TOUCH } from '../../../src/components/ui';

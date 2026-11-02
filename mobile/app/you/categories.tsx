@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../../src/theme/typography';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useEntries } from '../../src/lib/entry-store';

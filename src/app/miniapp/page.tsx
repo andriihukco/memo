@@ -26,6 +26,7 @@ import { useI18n } from '@/lib/i18n/context';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
 import { entryTime, isShortNote, layoutTimeline } from '@/lib/timeline';
 import { ENTRIES_CHANGED_EVENT } from '@/components/features/compose/compose-drawer';
+import { ProfileButton } from '@/components/shell/profile-button';
 
 interface Entry {
   id: string;
@@ -841,6 +842,7 @@ export default function FeedPage() {
                 {t('miniapp.feed.trial_badge', { days: String(trialDaysLeft) })}
               </Badge>
             )}
+            <ProfileButton className="ml-auto" />
           </div>
           {/* Usage warning — shown when Free tier and usage ≥ 80% of entry limit */}
           {userTier === 'free' && usageCounts !== null && (() => {

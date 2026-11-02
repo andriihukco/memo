@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, View, Pressable } from 'react-native';
+import { Text } from '../../src/theme/typography';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { useEntries } from '../../src/lib/entry-store';
@@ -12,6 +13,7 @@ import { Chip, Empty, TOUCH } from '../../src/components/ui';
 import { Symbol } from '../../src/components/symbol';
 import { useThemed, type Theme } from '../../src/theme/theme';
 import { PressScale, ScreenEnter } from '../../src/motion';
+import { TabHeader } from '../../src/components/tab-header';
 
 const dayTitle = (key: string): string => {
   const [y, m, d] = key.split('-').map(Number);
@@ -154,8 +156,8 @@ function FeedScreenBody() {
       contentInsetAdjustmentBehavior="automatic"
       refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={colors.muted} />}
     >
+      <TabHeader title={t('miniapp.feed.title')} />
       <View style={styles.titleRow}>
-        <Text style={[styles.title, { fontFamily: colors.heading }]} accessibilityRole="header">{t('miniapp.feed.title')}</Text>
         {selecting === null ? (
           <Pressable accessibilityRole="button" onPress={() => setSelecting(new Set())} style={styles.selectButton}>
             <Text style={styles.selectText}>{t('feed.select')}</Text>
@@ -192,7 +194,12 @@ function FeedScreenBody() {
       </ScrollView>
 
       {entries.length === 0 ? (
-        <Empty title={t('miniapp.feed.empty.title')} subtitle={t('miniapp.feed.empty.subtitle')} />
+        <Empty
+          icon="book.closed"
+          title={t('miniapp.feed.empty.title')}
+          subtitle={t('miniapp.feed.empty.subtitle')}
+          action={{ label: t('feed.empty_cta'), onPress: () => router.push('/compose') }}
+        />
       ) : filtered.length === 0 ? (
         <Empty title={t('miniapp.feed.empty_cat.title')} subtitle={t('miniapp.feed.empty_cat.subtitle')} />
       ) : (

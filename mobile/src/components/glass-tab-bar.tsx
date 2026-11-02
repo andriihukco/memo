@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/typography';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
@@ -28,10 +29,13 @@ const PAD = 4;
 const SPRING = { damping: 20, stiffness: 260, mass: 0.9 };
 
 /** SF Symbols for each tab, with the filled variant for the active one. */
-const TABS: Record<string, { label: string; icon: string; iconActive: string }> = {
-  index: { label: t('shell.journal'), icon: 'doc.text', iconActive: 'doc.text.fill' },
-  insights: { label: t('shell.insights'), icon: 'lightbulb', iconActive: 'lightbulb.fill' },
-  you: { label: t('shell.you'), icon: 'person.crop.circle', iconActive: 'person.crop.circle.fill' },
+/** Light yellow for the active Insights bulb, with a soft glow behind it. */
+const BULB_GLOW = '#FFE27A';
+
+const TABS: Record<string, { label: string; icon: string; iconActive: string; glow?: boolean }> = {
+  index: { label: t('shell.journal'), icon: 'book.closed', iconActive: 'book.closed.fill' },
+  insights: { label: t('shell.insights'), icon: 'lightbulb', iconActive: 'lightbulb.fill', glow: true },
+  graph: { label: t('shell.graph'), icon: 'point.3.connected.trianglepath.dotted', iconActive: 'point.3.filled.connected.trianglepath.dotted' },
 };
 
 /**
@@ -75,6 +79,7 @@ export function GlassTabBar({ routes, activeIndex, onSelect, onCompose, onHoldSt
               label={tab.label}
               icon={i === activeIndex ? tab.iconActive : tab.icon}
               selected={i === activeIndex}
+              glow={!!tab.glow && i === activeIndex}
               onPress={() => {
                 if (i !== activeIndex) {
                   void Haptics.selectionAsync();
@@ -92,7 +97,7 @@ export function GlassTabBar({ routes, activeIndex, onSelect, onCompose, onHoldSt
 }
 
 /** One tab. Presses shrink slightly and spring back. */
-function TabItem({ label, icon, selected, onPress }: { label: string; icon: string; selected: boolean; onPress: () => void }) {
+function TabItem({ label, icon, selected, glow, onPress }: { label: string; icon: string; selected: boolean; glow: boolean; onPress: () => void }) {
   const { colors, styles } = useThemed(makeStyles);
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -111,7 +116,14 @@ function TabItem({ label, icon, selected, onPress }: { label: string; icon: stri
       style={styles.tab}
     >
       <Animated.View style={[styles.tabInner, style]}>
-        <Symbol name={icon as never} size={22} color={selected ? colors.tint : colors.muted} weight={selected ? 'semibold' : 'regular'} />
+        <View style={glow ? styles.glow : undefined}>
+          <Symbol
+            name={icon as never}
+            size={22}
+            color={glow ? BULB_GLOW : selected ? colors.tint : colors.muted}
+            weight={selected ? 'semibold' : 'regular'}
+          />
+        </View>
         <Text style={[styles.label, selected && styles.labelActive]}>{label}</Text>
       </Animated.View>
     </Pressable>
@@ -184,6 +196,7 @@ const makeStyles = (colors: Theme) => StyleSheet.create({
   indicatorFallback: { backgroundColor: colors.separator },
   tab: { flex: 1, minHeight: TOUCH, alignItems: 'center', justifyContent: 'center' },
   tabInner: { alignItems: 'center', justifyContent: 'center', gap: 2 },
+  glow: { shadowColor: BULB_GLOW, shadowOpacity: 0.9, shadowRadius: 10, shadowOffset: { width: 0, height: 0 } },
   label: { fontSize: colors.fs(11), fontWeight: '500', color: colors.muted },
   labelActive: { color: colors.tint, fontWeight: '600' },
   compose: { width: 64, height: 64 },

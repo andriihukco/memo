@@ -102,7 +102,28 @@ export interface EntriesPage {
   next_cursor: string | null;
 }
 
+/** Knowledge graph payload from GET /api/graph (same shape as the web app). */
+export interface GraphNode {
+  id: string;
+  label: string;
+  category: string;
+  categories: string[];
+  created_at: string;
+  edge_count: number;
+}
+export interface GraphEdge {
+  source: string;
+  target: string;
+  weight: number;
+  type: 'branch' | 'similarity' | 'cross_category';
+}
+export interface GraphPayload {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
 export const api = {
+  getGraph: (token: string) => request<GraphPayload>('/api/graph', token),
   listEntries: (token: string, opts: { category?: string | null; before?: string | null } = {}) => {
     const q = new URLSearchParams({ limit: '30' });
     if (opts.category) q.set('category', opts.category);

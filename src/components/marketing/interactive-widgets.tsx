@@ -200,12 +200,11 @@ export function StepsBars({ t }: { t: T }) {
     <Panel icon={<Footprints className="size-4" aria-hidden />} title={t.steps.title}>
       <p className="heading-4 tabular-nums" aria-live="polite">{values[sel].toLocaleString('en-US')}</p>
       <p className="caption-4 text-muted-foreground">{t.steps.caption}</p>
-      <div className="mt-6 flex h-28 items-end gap-2" role="list">
+      <div className="mt-6 flex h-28 items-end gap-2">
         {values.map((v, i) => (
           <button
             key={i}
             type="button"
-            role="listitem"
             aria-label={`${t.week.days[i]}: ${v.toLocaleString('en-US')}`}
             aria-pressed={sel === i}
             onClick={() => { setSel(i); play('TYPE'); }}
@@ -364,20 +363,43 @@ export function ReflectionCard({ t }: { t: T }) {
   );
 }
 
-/** The "Try it" band on the landing page: six working demos plus one read-only sample retro. */
+/**
+ * The day, as a story: three chapters, each a bento of working demos. Chapter one is the day's
+ * tasks, chapter two the body, chapter three the week and what it means. Sample data throughout.
+ */
 export function TrySection({ t }: { t: Dict['try'] }) {
   return (
-    <section className="mx-auto max-w-6xl scroll-mt-24 px-4 py-24 sm:px-6" aria-labelledby="try-title">
-      <p className="caption-3 uppercase tracking-widest text-muted-foreground">{t.eyebrow}</p>
-      <h2 id="try-title" className="heading-3 mt-3 max-w-[680px]">{t.title}</h2>
-      <p className="body-3 mt-4 max-w-[680px] text-muted-foreground">{t.sub}</p>
-      <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <DayChecklist t={t} />
-        <SleepRing t={t} />
-        <WeekCalendar t={t} />
-        <StepsBars t={t} />
+    <section className="mx-auto max-w-6xl scroll-mt-24 space-y-24 px-4 py-24 sm:px-6" aria-labelledby="try-title">
+      <header className="max-w-3xl">
+        <p className="caption-3 uppercase tracking-widest text-muted-foreground">{t.eyebrow}</p>
+        <h2 id="try-title" className="heading-2 mt-3">{t.title}</h2>
+        <p className="body-3 mt-4 text-muted-foreground">{t.sub}</p>
+      </header>
+
+      <div className="grid gap-4 md:grid-cols-6">
+        <div className="md:col-span-4">
+          <DayChecklist t={t} />
+        </div>
+        <div className="md:col-span-2">
+          <SleepRing t={t} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-6">
+        <div className="md:col-span-2">
+          <StepsBars t={t} />
+        </div>
+        <div className="md:col-span-4">
+          <WeekCalendar t={t} />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
         <ReminderToggles t={t} />
         <ReflectionCard t={t} />
+      </div>
+
+      <div>
         <TopicExplorer t={t} />
       </div>
     </section>

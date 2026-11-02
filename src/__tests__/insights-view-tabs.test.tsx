@@ -20,7 +20,7 @@ vi.mock('@/components/shell/page-header', () => ({
 }));
 vi.mock('@/components/legacy/pages/dashboard', () => ({ default: () => <p>legacy-dashboard</p> }));
 vi.mock('@/components/legacy/pages/reports', () => ({ default: () => <p>legacy-reports</p> }));
-vi.mock('@/components/legacy/pages/graph', () => ({ default: () => <p>legacy-graph</p> }));
+vi.mock('@/components/features/goals/goals-content', () => ({ GoalsContent: () => <p>goals-content</p> }));
 
 import InsightsPage from '@/app/miniapp/insights/page';
 
@@ -33,11 +33,12 @@ const tab = (v: string) => screen.getByRole('tab', { name: `insights.view.${v}` 
 
 describe('Insights view tabs', () => {
   it.each([
-    ['', 'overview', 'legacy-dashboard'],
-    ['view=overview', 'overview', 'legacy-dashboard'],
+    ['', 'widgets', 'legacy-dashboard'],
+    ['view=overview', 'widgets', 'legacy-dashboard'],
+    ['view=widgets', 'widgets', 'legacy-dashboard'],
+    ['view=goals', 'goals', 'goals-content'],
     ['view=reports', 'reports', 'legacy-reports'],
-    ['view=graph', 'graph', 'legacy-graph'],
-    ['view=bogus', 'overview', 'legacy-dashboard'],
+    ['view=bogus', 'widgets', 'legacy-dashboard'],
   ])('?%s → %s tab active, renders %s', (search, active, body) => {
     nav.search = search;
     render(<InsightsPage />);
@@ -47,8 +48,8 @@ describe('Insights view tabs', () => {
 
   it.each([
     ['x=1', 'reports', '/miniapp/insights?x=1&view=reports'],
-    ['x=1', 'graph', '/miniapp/insights?x=1&view=graph'],
-    ['view=graph&x=1', 'overview', '/miniapp/insights?view=overview&x=1'],
+    ['x=1', 'goals', '/miniapp/insights?x=1&view=goals'],
+    ['view=goals&x=1', 'widgets', '/miniapp/insights?view=widgets&x=1'],
   ])('from ?%s selecting %s → router.replace(%s)', (search, v, url) => {
     nav.search = search;
     render(<InsightsPage />);

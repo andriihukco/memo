@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../theme/typography';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '../i18n';
 import { useSession } from '../lib/session';

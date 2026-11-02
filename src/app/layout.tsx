@@ -1,18 +1,13 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Commissioner } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-provider";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+const commissioner = Commissioner({
+  subsets: ["latin", "cyrillic"],
+  variable: "--font-commissioner",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -44,7 +39,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${commissioner.variable} antialiased`}
       >
         <ThemeProvider>{children}</ThemeProvider>
       </body>

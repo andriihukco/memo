@@ -35,7 +35,8 @@ export type Dict = {
   hero: {
     h1: readonly string[]; sub: string;
     pickLabel: string; cta: string; telegramCta: string; proofOpen: string; proofPaid: string;
-    you: string; memo: string; parsed: string;
+    you: string; memo: string; parsed: string; analyzing: string; placeholder: string;
+    kinds: { record: string; reminder: string; note: string; thought: string };
   };
   band: { eyebrow: string; magnet: string };
   personas: Record<PersonaSlug, PersonaCopy>;
@@ -58,6 +59,11 @@ export type Dict = {
   final: { title: string; anon: string; anonBusy: string; anonError: string; anonOff: string };
   footer: { tagline: string; product: string; legal: string; privacy: string; terms: string; note: string };
   pricing: {
+    calc: {
+      title: string; sub: string; costLabel: string; costHint: string; perMonth: string; youPay: string;
+      youGet: string; margin: string; noCost: string; bestUser: string; bestDev: string; assumption: string;
+      starRateLabel: string; fxLabel: string;
+    };
     title: string; sub: string; early: string; monthly: string; quarterly: string; annual: string;
     perMonth: string; billed: string; free: string; current: string; cta: string;
     plans: Record<'free' | 'stars_basic' | 'stars_pro', string>;
@@ -94,6 +100,9 @@ const en: Dict = {
     you: 'You',
     memo: 'Memo',
     parsed: 'Saved and counted',
+    analyzing: 'Reading your entry',
+    placeholder: 'Write or say what happened',
+    kinds: { record: 'Record', reminder: 'Reminder', note: 'Note', thought: 'Thought' },
   },
   band: { eyebrow: 'Made for this', magnet: 'Free to try' },
   personas: {
@@ -191,9 +200,9 @@ const en: Dict = {
   },
   tagline: ['Write it the way you would tell a friend.', 'Memo keeps the numbers.'],
   try: {
-    eyebrow: 'Try it',
-    title: 'Touch the sample. Nothing is saved.',
-    sub: 'These are working demos with sample numbers. Tick a task, drag the sleep ring, pick a day.',
+    eyebrow: 'Chapter one · Your day',
+    title: 'Your day, in a few taps.',
+    sub: 'Tick a task, drag the sleep ring, pick a day. The numbers are samples, and nothing is saved.',
     checklist: { title: 'Today', progress: '{done} of {total} done', items: ['Daily reminder', 'Stretch and water', 'Read 10 pages', 'Checklist'] },
     sleep: { title: 'Hours of sleep', hours: '{h} h {m} min', goal: 'of 8 h goal', label: 'Drag to log last night' },
     week: { title: 'This week', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], stepsLabel: 'Steps', moodLabel: 'Mood' },
@@ -280,6 +289,22 @@ const en: Dict = {
     note: 'Entries are encrypted at rest on the server. They are not end to end encrypted yet.',
   },
   pricing: {
+    calc: {
+      title: 'Unit economics',
+      sub: 'See what each plan costs you, and what it returns us. Change the blue numbers to your own.',
+      costLabel: 'Your cost per active user, per month',
+      costHint: 'Enter your own figure. Gemini, Supabase and hosting all count here.',
+      perMonth: 'per month',
+      youPay: 'You pay',
+      youGet: 'We receive (before Telegram fees)',
+      margin: 'Margin per user per month',
+      noCost: 'Enter a cost to see the margin.',
+      bestUser: 'Best for you: the lowest price per month.',
+      bestDev: 'Best for us: the most cash up front and the fewest renewals.',
+      assumption: 'Assumptions, not live rates. Edit them before you rely on the numbers.',
+      starRateLabel: 'Value of one Star (USD)',
+      fxLabel: 'UAH per USD',
+    },
     title: 'Plans',
     sub: 'Start free and stay free as long as you like. Paid plans add room and AI features.',
     early: 'Early access: billing is off and every feature is open to everyone. The prices below are planned.',
@@ -328,6 +353,9 @@ const uk: Dict = {
     you: 'Ти',
     memo: 'Memo',
     parsed: 'Збережено й пораховано',
+    analyzing: 'Читаю запис',
+    placeholder: 'Напиши або скажи, що сталося',
+    kinds: { record: 'Запис', reminder: 'Нагадування', note: 'Нотатка', thought: 'Думка' },
   },
   band: { eyebrow: 'Саме для цього', magnet: 'Спробуй безкоштовно' },
   personas: {
@@ -425,9 +453,9 @@ const uk: Dict = {
   },
   tagline: ['Пиши так, як розповів би другові.', 'Цифри Memo збереже сам.'],
   try: {
-    eyebrow: 'Спробуй',
-    title: 'Торкнись прикладу. Нічого не зберігається.',
-    sub: 'Це робочі демо з прикладними цифрами. Познач завдання, посувай кільце сну, обери день.',
+    eyebrow: 'Розділ перший · Твій день',
+    title: 'Твій день, за кілька дотиків.',
+    sub: 'Познач завдання, посувай кільце сну, обери день. Цифри прикладні, і нічого не зберігається.',
     checklist: { title: 'Сьогодні', progress: 'Зроблено {done} з {total}', items: ['Щоденне нагадування', 'Розтяжка і вода', 'Прочитати 10 сторінок', 'Чек-лист'] },
     sleep: { title: 'Годин сну', hours: '{h} год {m} хв', goal: 'з цілі 8 год', label: 'Посунь, щоб записати минулу ніч' },
     week: { title: 'Цей тиждень', days: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд'], stepsLabel: 'Кроки', moodLabel: 'Настрій' },
@@ -514,6 +542,22 @@ const uk: Dict = {
     note: 'Записи зберігаються зашифрованими на сервері. Наскрізного шифрування поки немає.',
   },
   pricing: {
+    calc: {
+      title: 'Економіка одного користувача',
+      sub: 'Що коштує кожен план вам і що він приносить нам. Змінюйте сині числа під свої.',
+      costLabel: 'Ваша вартість одного активного користувача на місяць',
+      costHint: 'Введіть власну цифру. Gemini, Supabase і хостинг входять сюди.',
+      perMonth: 'на місяць',
+      youPay: 'Ви платите',
+      youGet: 'Ми отримуємо (до комісії Telegram)',
+      margin: 'Маржа з користувача на місяць',
+      noCost: 'Введіть вартість, щоб побачити маржу.',
+      bestUser: 'Найвигідніше для вас: найнижча ціна за місяць.',
+      bestDev: 'Найвигідніше для нас: більше грошей наперед і менше продовжень.',
+      assumption: 'Це припущення, а не курс у реальному часі. Змініть їх перед тим, як покладатися на цифри.',
+      starRateLabel: 'Вартість однієї зірки (USD)',
+      fxLabel: 'UAH за USD',
+    },
     title: 'Плани',
     sub: 'Починай безкоштовно й лишайся на безкоштовному скільки хочеш. Платні плани додають місця й AI функцій.',
     early: 'Ранній доступ: оплата вимкнена, усі функції відкриті для всіх. Ціни нижче заплановані.',

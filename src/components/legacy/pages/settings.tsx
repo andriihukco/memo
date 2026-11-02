@@ -18,7 +18,8 @@ import { BILLING_ENABLED, TIER_INFO, type SubscriptionTier } from '@/lib/billing
 import { useI18n } from '@/lib/i18n/context';
 import { SUPPORTED_LOCALES, LOCALE_META, type Locale } from '@/i18n/locales';
 import { hapticNotification, hapticImpact } from '@/lib/haptics';
-import { AppearanceSection } from '@/components/features/settings/appearance-section';
+import { getBrowserAuthClient } from '@/lib/supabase/browser';
+import Link from 'next/link';
 
 type SetupStep = 'idle' | 'enter_current' | 'enter_current_to_disable' | 'set_new' | 'confirm_new' | 'success';
 
@@ -187,7 +188,7 @@ function useSheetBodyAttr(open: boolean) {
 // LanguageSection component
 // ---------------------------------------------------------------------------
 
-function LanguageSection() {
+export function LanguageSection() {
   const { locale, setLocale, t } = useI18n();
   const { accessToken } = useAuth();
   const [saving, setSaving] = useState(false);
@@ -607,6 +608,13 @@ export default function SettingsPage() {
   const { t } = useI18n();
 
   const { accessToken } = useAuth();
+  const [email, setEmail] = useState<string | null>(null);
+
+  // The signed-in address, shown on the account card at the top of Settings.
+  useEffect(() => {
+    if (!accessToken) return;
+    void getBrowserAuthClient()?.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
+  }, [accessToken]);
 
   // Delete account state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -771,6 +779,65 @@ export default function SettingsPage() {
       transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       className="flex flex-col gap-6 px-4 pt-5 pb-6"
     >
+
+      {/* ── Акаунт: першим. Вхід, а після входу профіль. ─────────────── */}
+      <motion.section
+        id="account-card"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <Card>
+          <CardContent className="p-0">
+            {accessToken ? (
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary">
+                  {email?.trim().charAt(0).toUpperCase() ?? '•'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{email ?? t('settings.profile_anon')}</p>
+                  <p className="text-xs text-muted-foreground">{email ? t('settings.profile_sub') : t('settings.profile_anon')}</p>
+                </div>
+              </div>
+            ) : (
+              <Link href="/login" onClick={() => play('OPEN')} className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+                  <Icon name="person" size={22} className="text-primary" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{t('settings.guest')}</p>
+                  <p className="text-xs text-muted-foreground">{t('settings.guest_sub')}</p>
+                </div>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      </motion.section>
+
+      {/* ── Мова і зовнішній вигляд: окремі сторінки ─────────────────── */}
+      <motion.section
+        id="preferences"
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.04, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <h2 className="mb-2 px-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t('miniapp.settings.appearance')}</h2>
+        <Card>
+          <CardContent className="p-0">
+            <Link href="/miniapp/you/language" onClick={() => play('OPEN')} className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10"><Icon name="translate" size={16} className="text-primary" /></div>
+              <div className="min-w-0 flex-1"><p className="text-sm font-medium">{t('miniapp.settings.language')}</p><p className="text-xs text-muted-foreground">{t('settings.language_sub')}</p></div>
+              <Icon name="chevron_right" size={18} className="text-muted-foreground" />
+            </Link>
+            <Separator />
+            <Link href="/miniapp/you/appearance" onClick={() => play('OPEN')} className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10"><Icon name="palette" size={16} className="text-primary" /></div>
+              <div className="min-w-0 flex-1"><p className="text-sm font-medium">{t('miniapp.settings.appearance')}</p><p className="text-xs text-muted-foreground">{t('settings.appearance_sub')}</p></div>
+              <Icon name="chevron_right" size={18} className="text-muted-foreground" />
+            </Link>
+          </CardContent>
+        </Card>
+      </motion.section>
 
       {/* ── Підписка ────────────────────────────────────────────────────── */}
       {BILLING_ENABLED && (
@@ -970,15 +1037,6 @@ export default function SettingsPage() {
         </Card>
       </motion.section>
 
-      {/* ── Зовнішній вигляд ───────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <AppearanceSection />
-      </motion.div>
-
       {/* ── Звук ───────────────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -986,15 +1044,6 @@ export default function SettingsPage() {
         transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
       >
         <SoundSection />
-      </motion.div>
-
-      {/* ── Мова ───────────────────────────────────────────────────────── */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.28, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <LanguageSection />
       </motion.div>
 
       {/* ── Підтримка ─────────────────────────────────────────────────────── */}

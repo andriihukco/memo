@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
+import { Text } from '../../src/theme/typography';
 import { Tabs, router, usePathname } from 'expo-router';
 import { GlassTabBar } from '../../src/components/glass-tab-bar';
 import { startLiveTranscription } from '../../src/lib/speech';
@@ -78,7 +79,7 @@ export default function TabsLayout() {
       >
         <Tabs.Screen name="index" />
         <Tabs.Screen name="insights" />
-        <Tabs.Screen name="you" />
+        <Tabs.Screen name="graph" />
       </Tabs>
       {recording !== null ? (
         <View style={styles.overlay} pointerEvents="none" accessibilityLiveRegion="polite">

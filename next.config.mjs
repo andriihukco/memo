@@ -9,7 +9,6 @@ const nextConfig = {
     return [
       ['/miniapp/dashboard', '/miniapp/insights?view=overview'],
       ['/miniapp/reports', '/miniapp/insights?view=reports'],
-      ['/miniapp/graph', '/miniapp/insights?view=graph'],
       ['/miniapp/settings', '/miniapp/you'],
       ['/miniapp/subscriptions', '/miniapp/you/plan'],
       ['/miniapp/categories', '/miniapp/you/categories'],

@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
-import { StyleSheet, Text, View, type PressableProps } from 'react-native';
+import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
+import { Text } from '../theme/typography';
+import { Symbol } from './symbol';
 import { PressScale } from '../motion';
 import { useThemed, type Theme } from '../theme/theme';
 
@@ -47,12 +49,36 @@ export function PrimaryButton({ label, onPress, disabled }: { label: string; onP
   );
 }
 
-export function Empty({ title, subtitle }: { title: string; subtitle?: string }) {
-  const { styles } = useThemed(makeStyles);
+/**
+ * Empty state: an icon in a soft circle, a short title and subtitle, and one action when there is a next step.
+ * Used wherever a list has no items yet.
+ */
+export function Empty({
+  title,
+  subtitle,
+  icon,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  icon?: string;
+  action?: { label: string; onPress: () => void };
+}) {
+  const { colors, styles } = useThemed(makeStyles);
   return (
     <View style={styles.empty}>
+      {icon ? (
+        <View style={styles.emptyIcon}>
+          <Symbol name={icon} size={26} color={colors.tint} />
+        </View>
+      ) : null}
       <Text style={styles.emptyTitle}>{title}</Text>
       {subtitle ? <Text style={styles.emptySub}>{subtitle}</Text> : null}
+      {action ? (
+        <Pressable accessibilityRole="button" onPress={action.onPress} style={styles.emptyAction}>
+          <Text style={styles.emptyActionText}>{action.label}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -103,7 +129,10 @@ const makeStyles = (colors: Theme) => StyleSheet.create({
     marginHorizontal: 16,
   },
   primaryText: { color: colors.onTint, fontSize: colors.fs(17), fontWeight: '600' },
-  empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 32 },
+  empty: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 32, gap: 8 },
+  emptyIcon: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.card, marginBottom: 6 },
+  emptyAction: { marginTop: 14, minHeight: TOUCH, paddingHorizontal: 18, borderRadius: 14, backgroundColor: colors.tintFill, justifyContent: 'center' },
+  emptyActionText: { fontSize: colors.fs(16), fontWeight: '600', color: colors.onTint },
   emptyTitle: { fontSize: colors.fs(20), fontWeight: '600', color: colors.label, textAlign: 'center' },
   emptySub: { fontSize: colors.fs(15), color: colors.muted, textAlign: 'center', marginTop: 6 },
   dot: { width: 10, height: 10, borderRadius: 5 },

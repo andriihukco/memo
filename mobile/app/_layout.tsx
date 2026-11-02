@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Stack } from 'expo-router';
+import { useFonts } from 'expo-font';
 import { StatusBar } from 'expo-status-bar';
 import { AppState, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -12,6 +13,7 @@ import { setLocale, useLocale, isLocale } from '../src/i18n';
 import { Onboarding } from '../src/components/onboarding';
 import { LockScreen } from '../src/components/lock-screen';
 import { ThemeProvider, useTheme } from '../src/theme/theme';
+import { COMMISSIONER_FONTS } from '../src/theme/typography';
 
 type Gate = 'loading' | 'onboarding' | 'locked' | 'ready';
 
@@ -25,6 +27,8 @@ const sheet = (background: string, detent: number) => ({
 });
 
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts(COMMISSIONER_FONTS);
+  if (!fontsLoaded) return null;
   return (
     <SafeAreaProvider>
       <ThemeProvider>
@@ -100,6 +104,9 @@ function RootGate() {
               <Stack.Screen name="insights/report/[id]" options={screen} />
               <Stack.Screen name="you/categories" options={screen} />
               <Stack.Screen name="goals" options={screen} />
+              <Stack.Screen name="settings" options={screen} />
+              <Stack.Screen name="settings/language" options={screen} />
+              <Stack.Screen name="settings/appearance" options={screen} />
               <Stack.Screen name="sign-in" options={sheet(palette.bg, 0.92)} />
               <Stack.Screen name="invite" options={sheet(palette.bg, 0.6)} />
               <Stack.Screen name="compose" options={sheet(palette.bg, 0.92)} />

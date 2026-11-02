@@ -124,24 +124,19 @@
   html[data-text-scale="large"] {
     font-size: 115%;
   }
-  html[data-heading-font="serif"] {
-    --heading-font: ui-serif, "New York", Georgia, Cambria, "Times New Roman", serif;
+  /* The app font applies to all text (src/lib/appearance.ts). Sans is the Commissioner default. */
+  html[data-font="serif"] {
+    --app-font: ui-serif, "New York", Georgia, Cambria, "Times New Roman", serif;
   }
-  html[data-heading-font="mono"] {
-    --heading-font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  }
-  h1,
-  h2,
-  h3,
-  [data-heading] {
-    font-family: var(--heading-font, inherit);
+  html[data-font="mono"] {
+    --app-font: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
     /* Use dvh so the body fills visible viewport (avoids iOS Safari 100vh bug) */
     min-height: 100dvh;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro", Roboto, "Segoe UI", sans-serif;
+    font-family: var(--app-font, var(--font-commissioner), system-ui, sans-serif);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -386,6 +381,37 @@
 :root {
   --tab-bar-h: 5rem;
   --bottom-inset: env(safe-area-inset-bottom, 0px);
+}
+
+/* Marketing site accent: blue ribbon 600 (#1f51ff) on buttons, chips and links. Scoped to the site. */
+.brand-accent {
+  --primary: 227 100% 56%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 227 100% 56%;
+}
+
+/* Shimmer for primary buttons on the marketing site: a soft light band sweeps across every few seconds. */
+.btn-shimmer {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.btn-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.35) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: btn-shimmer 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes btn-shimmer {
+  0%, 55% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-shimmer::after { animation: none; }
 }
 
 /* Marketing site text styles (landing skill B1). Headings step down one or two scale steps on small screens. */

@@ -12,8 +12,15 @@ const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 const TOKEN_KEY = 'memo.access_token';
 const REFRESH_KEY = 'memo.refresh_token';
 
+/** Who is signed in, for the profile card in Settings. Null when signed out. */
+export interface Account {
+  email: string | null;
+  anonymous: boolean;
+}
+
 interface SessionValue {
   token: string | null;
+  account: Account | null;
   /** True when the API is configured, so screens hit real data. */
   live: boolean;
   ready: boolean;
@@ -45,8 +52,24 @@ async function storeSession(access: string, refresh: string | null): Promise<voi
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
+  // Stored with the token it belongs to, so a sign-out or a new session never shows the old account.
+  const [accountFor, setAccountFor] = useState<{ token: string; account: Account | null } | null>(null);
+  const account = token && accountFor?.token === token ? accountFor.account : null;
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Read the account once a session exists, so Settings can show a profile instead of Sign in.
+  useEffect(() => {
+    if (!token || !supabaseConfigured) return;
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      const user = data.user;
+      if (active) setAccountFor({ token, account: user ? { email: user.email ?? null, anonymous: !user.email && !!user.is_anonymous } : null });
+    });
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   useEffect(() => {
     void (async () => {
@@ -153,6 +176,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const value = useMemo<SessionValue>(
     () => ({
       token,
+      account,
       live: API_URL !== '' && token !== null,
       ready,
       signIn,
@@ -164,7 +188,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signOut,
       error,
     }),
-    [token, ready, signIn, sendEmailCode, verifyEmailCode, signInWithGoogle, signInWithTelegram, signInAnonymously, signOut, error],
+    [token, account, ready, signIn, sendEmailCode, verifyEmailCode, signInWithGoogle, signInWithTelegram, signInAnonymously, signOut, error],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

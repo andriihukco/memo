@@ -10,6 +10,7 @@ const config: Config = {
   theme: {
     extend: {
       borderRadius: {
+        "4xl": "2rem",
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
@@ -34,6 +35,13 @@ const config: Config = {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         // Landing scenes. Fixed palettes: the day band is always paper-light, the night band always dark.
+        // Brand palette (blue ribbon). Marketing buttons and chips use 600 through the brand-accent class.
+        'blue-ribbon': {
+          50: '#edf3ff', 100: '#d7e5ff', 200: '#b9d2ff', 300: '#88b5ff', 400: '#508fff', 500: '#2866ff',
+          600: '#1f51ff', 700: '#0a31eb', 800: '#0f28be', 900: '#132995', 950: '#111b5a',
+        },
+        // Active Insights bulb: light yellow, used with a drop-shadow glow.
+        glow: "hsl(48 100% 75%)",
         day: {
           top: "hsl(204 80% 88%)",
           bottom: "hsl(202 70% 95%)",
@@ -81,6 +89,21 @@ const config: Config = {
         'lp-draw': 'lp-draw 2.2s cubic-bezier(0.16,1,0.3,1) both',
         // Marketing site. Base curve from the landing skill (B7).
         'mk-in': 'mk-in 0.6s cubic-bezier(0.22,1,0.36,1) both',
+        // Liquid chip fill: two wave layers drift sideways at different speeds.
+        'mk-wave': 'mk-wave 3.2s linear infinite',
+        'mk-wave-slow': 'mk-wave 5.4s linear infinite reverse',
+        'mk-scan': 'mk-scan 1.6s ease-in-out infinite',
+        'mk-caret': 'mk-caret 1s steps(1) infinite',
+        'mk-bounce': 'mk-bounce 0.9s ease-in-out infinite',
+        'mk-pulse-dot': 'mk-pulse-dot 1.1s ease-in-out infinite',
+        'mk-wave-y': 'mk-wave-y 3s linear infinite',
+        'mk-char': 'mk-char 220ms cubic-bezier(0.22,1,0.36,1) both',
+        'mk-rise': 'mk-rise 480ms cubic-bezier(0.34,1.56,0.64,1) both',
+        'mk-send': 'mk-send 700ms cubic-bezier(0.22,1,0.36,1) both',
+        'mk-orbit': 'mk-orbit 6s linear infinite',
+        'mk-pop-up': 'mk-pop-up 900ms cubic-bezier(0.22,1,0.36,1) both',
+        'mk-fade-in': 'mk-fade-in 420ms cubic-bezier(0.22,1,0.36,1) both',
+        'mk-fade-out': 'mk-fade-out 300ms cubic-bezier(0.22,1,0.36,1) both',
       },
       keyframes: {
         // Uses the `translate` property, so a rotate() set with `transform` survives the fill.
@@ -111,6 +134,62 @@ const config: Config = {
         'mk-in': {
           from: { opacity: '0', translate: '0 16px' },
           to: { opacity: '1', translate: '0 0' },
+        },
+        'mk-wave': {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-50%)' },
+        },
+        'mk-scan': {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        },
+        'mk-bounce': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-3px)' },
+        },
+        'mk-pulse-dot': {
+          '0%, 100%': { opacity: '0.35' },
+          '50%': { opacity: '1' },
+        },
+        'mk-wave-y': {
+          from: { transform: 'translateY(0)' },
+          to: { transform: 'translateY(-50%)' },
+        },
+        'mk-char': {
+          from: { opacity: '0', transform: 'translateY(6px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'mk-rise': {
+          from: { opacity: '0', transform: 'translateY(18px) scale(0.9)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'mk-send': {
+          '0%': { transform: 'scale(1)' },
+          '25%': { transform: 'scale(0.84)' },
+          '55%': { transform: 'translate(7px, -7px) rotate(10deg) scale(1)', opacity: '0.35' },
+          '60%': { transform: 'translate(-6px, 6px) rotate(0deg)', opacity: '0' },
+          '100%': { transform: 'translate(0, 0) scale(1)', opacity: '1' },
+        },
+        'mk-fade-in': {
+          from: { opacity: '0', transform: 'translateY(8px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+        'mk-fade-out': {
+          from: { opacity: '1', transform: 'translateY(0)' },
+          to: { opacity: '0', transform: 'translateY(-8px)' },
+        },
+        'mk-pop-up': {
+          '0%': { opacity: '0', transform: 'translate(-50%, 6px) scale(0.9)' },
+          '30%': { opacity: '1', transform: 'translate(-50%, 0) scale(1)' },
+          '100%': { opacity: '0', transform: 'translate(-50%, -64px) scale(0.6)' },
+        },
+        'mk-orbit': {
+          from: { transform: 'rotate(0deg)' },
+          to: { transform: 'rotate(360deg)' },
+        },
+        'mk-caret': {
+          '0%, 50%': { opacity: '1' },
+          '51%, 100%': { opacity: '0' },
         },
       },
       transitionTimingFunction: {

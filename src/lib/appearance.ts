@@ -1,20 +1,20 @@
 /**
  * Appearance preferences shared with the native app (mobile/src/theme/theme.tsx):
- * text size and heading font. Theme (light, dark, system) is next-themes' choice.
- * Body text always uses the system font on every platform.
+ * text size and the app font. The font applies to all text, headings and body alike.
+ * Theme (light, dark, system) is next-themes' choice.
  */
 export type TextScale = 'small' | 'medium' | 'large';
-export type HeadingFont = 'sans' | 'serif' | 'mono';
+export type AppFont = 'sans' | 'serif' | 'mono';
 
 export interface AppearancePrefs {
   textScale: TextScale;
-  headingFont: HeadingFont;
+  font: AppFont;
 }
 
 export const TEXT_SCALES: TextScale[] = ['small', 'medium', 'large'];
-export const HEADING_FONTS: HeadingFont[] = ['sans', 'serif', 'mono'];
+export const APP_FONTS: AppFont[] = ['sans', 'serif', 'mono'];
 
-export const DEFAULT_PREFS: AppearancePrefs = { textScale: 'medium', headingFont: 'sans' };
+export const DEFAULT_PREFS: AppearancePrefs = { textScale: 'medium', font: 'sans' };
 
 const KEY = 'memo.appearance';
 
@@ -26,10 +26,12 @@ export function readAppearance(): AppearancePrefs {
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return DEFAULT_PREFS;
-    const parsed = JSON.parse(raw) as Partial<AppearancePrefs>;
+    // Older saves stored the heading font under headingFont; it is the same choice.
+    const parsed = JSON.parse(raw) as Partial<AppearancePrefs> & { headingFont?: unknown };
+    const font = parsed.font ?? parsed.headingFont;
     return {
       textScale: isOneOf(parsed.textScale, TEXT_SCALES) ? parsed.textScale : DEFAULT_PREFS.textScale,
-      headingFont: isOneOf(parsed.headingFont, HEADING_FONTS) ? parsed.headingFont : DEFAULT_PREFS.headingFont,
+      font: isOneOf(font, APP_FONTS) ? font : DEFAULT_PREFS.font,
     };
   } catch {
     return DEFAULT_PREFS;
@@ -49,5 +51,5 @@ export function writeAppearance(prefs: AppearancePrefs): void {
 export function applyAppearance(prefs: AppearancePrefs): void {
   const root = document.documentElement;
   root.dataset.textScale = prefs.textScale;
-  root.dataset.headingFont = prefs.headingFont;
+  root.dataset.font = prefs.font;
 }

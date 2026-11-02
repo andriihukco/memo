@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../theme/typography';
 import Animated from 'react-native-reanimated';
 import { Symbol } from './symbol';
 import { PressScale, useShake } from '../motion';

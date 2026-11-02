@@ -1,14 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
 import { BILLING_PERIODS, TIER_INFO, calcPrice, type BillingPeriod, type SubscriptionTier } from '@/lib/billing/plans';
-import { fill, type Dict } from '@/lib/marketing/dict';
+import { fill, type Dict, type SiteLocale } from '@/lib/marketing/dict';
 import { cn } from '@/lib/utils';
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
 const TIERS: SubscriptionTier[] = ['free', 'stars_basic', 'stars_pro'];
+const PERIODS: BillingPeriod[] = ['monthly', 'quarterly', 'annual'];
+
+/**
+ * Assumptions for the money view. Telegram Stars are priced in Stars, so the USD value of one Star
+ * is an input the owner sets. The defaults are placeholders and are shown as such on the page.
+ */
+const DEFAULT_STAR_USD = 0.013;
+const DEFAULT_UAH_PER_USD = 41.5;
 
 /** Feature flags per tier, mirrored from TIER_INFO in src/lib/billing/plans.ts. */
 const FLAGS: Record<SubscriptionTier, (keyof Dict['pricing']['rows'])[]> = {
@@ -25,14 +33,44 @@ function limitRows(tier: SubscriptionTier, t: Dict['pricing']['rows']) {
   return [n(l.entries, 'entries'), n(l.ai_widgets, 'aiWidgets'), n(l.reports, 'reports'), history, fill(t.voice, { n: l.voiceMaxSeconds })];
 }
 
-export function PricingTable({ t, billingOpen }: { t: Dict['pricing']; billingOpen: boolean }) {
+export function PricingTable({ t, billingOpen, locale }: { t: Dict['pricing']; billingOpen: boolean; locale: SiteLocale }) {
   const [period, setPeriod] = useState<BillingPeriod>('monthly');
-  const periods: BillingPeriod[] = ['monthly', 'quarterly', 'annual'];
+  const [starUsd, setStarUsd] = useState(DEFAULT_STAR_USD);
+  const [uahPerUsd, setUahPerUsd] = useState(DEFAULT_UAH_PER_USD);
+  const [cost, setCost] = useState('');
+
+  const currency = locale === 'uk' ? 'UAH' : 'USD';
+  const money = useMemo(
+    () => new Intl.NumberFormat(locale === 'uk' ? 'uk-UA' : 'en-US', { style: 'currency', currency, maximumFractionDigits: currency === 'UAH' ? 0 : 2 }),
+    [locale, currency],
+  );
+  /** Stars to the chosen currency. */
+  const toMoney = (stars: number) => stars * starUsd * (currency === 'UAH' ? uahPerUsd : 1);
+  const months = BILLING_PERIODS[period].months;
+
+  const rows = TIERS.filter((tier) => TIER_INFO[tier].priceStars > 0).map((tier) => {
+    const base = TIER_INFO[tier].priceStars;
+    const total = calcPrice(base, period);
+    const perMonthStars = total / months;
+    const monthlyTotal = base * months;
+    return {
+      tier,
+      total,
+      perMonthStars,
+      saved: monthlyTotal - total,
+      perMonthMoney: toMoney(perMonthStars),
+      totalMoney: toMoney(total),
+    };
+  });
+
+  const costNum = Number(cost);
+  const hasCost = cost.trim() !== '' && Number.isFinite(costNum);
 
   return (
-    <div>
-      <div role="radiogroup" aria-label={t.title} className="mx-auto flex w-fit gap-1 rounded-full border bg-card p-1">
-        {periods.map((p) => (
+    <div className="flex flex-col gap-16">
+      {/* Period switch */}
+      <div role="radiogroup" aria-label={t.title} className="mx-auto flex w-fit gap-1 rounded-full bg-muted p-1">
+        {PERIODS.map((p) => (
           <button
             key={p}
             type="button"
@@ -40,61 +78,61 @@ export function PricingTable({ t, billingOpen }: { t: Dict['pricing']; billingOp
             aria-checked={period === p}
             onClick={() => setPeriod(p)}
             className={cn(
-              'body-5 flex min-h-11 items-center gap-2 rounded-full px-4 transition-colors duration-300 ease-base',
-              period === p ? 'bg-foreground text-background' : 'text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:text-foreground',
+              'body-5 flex min-h-11 items-center gap-2 rounded-full px-5 transition-colors duration-300 ease-base',
+              period === p ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:text-foreground',
               FOCUS,
             )}
           >
             {t[p]}
-            {BILLING_PERIODS[p].badge ? <span className="caption-3 tabular-nums opacity-80">{BILLING_PERIODS[p].badge}</span> : null}
+            {BILLING_PERIODS[p].badge ? <span className="caption-3 tabular-nums text-primary">{BILLING_PERIODS[p].badge}</span> : null}
           </button>
         ))}
       </div>
 
-      <div className="mt-12 grid gap-4 lg:grid-cols-3">
+      {/* Plans: one column each, the price large and the features under it. */}
+      <div className="grid gap-4 lg:grid-cols-3">
         {TIERS.map((tier) => {
           const info = TIER_INFO[tier];
-          const total = calcPrice(info.priceStars, period);
-          const months = BILLING_PERIODS[period].months;
+          const row = rows.find((r) => r.tier === tier);
           const featured = tier === 'stars_basic';
           return (
             <article
               key={tier}
-              className={cn('flex flex-col rounded-3xl border bg-card p-6 sm:p-8', featured && 'border-foreground')}
+              className={cn('flex flex-col rounded-4xl p-8 sm:p-10', featured ? 'bg-foreground text-background' : 'bg-muted')}
               aria-labelledby={`plan-${tier}`}
             >
               <h2 id={`plan-${tier}`} className="title-1">{info.name}</h2>
-              <p className="body-6 mt-1 text-muted-foreground">{t.plans[tier]}</p>
-              <p className="mt-6 flex items-baseline gap-2">
-                {info.priceStars === 0 ? (
-                  <span className="heading-4">{t.free}</span>
-                ) : (
+              <p className={cn('body-6 mt-1', featured ? 'text-background/70' : 'text-muted-foreground')}>{t.plans[tier]}</p>
+              <p className="mt-8 flex items-baseline gap-2">
+                {row ? (
                   <>
-                    <span className="heading-4 tabular-nums">{Math.round(total / months).toLocaleString('en-US')} ⭐</span>
-                    <span className="body-6 text-muted-foreground">{t.perMonth}</span>
+                    <span className="heading-2 tabular-nums">{money.format(row.perMonthMoney)}</span>
+                    <span className={cn('body-6', featured ? 'text-background/70' : 'text-muted-foreground')}>{t.perMonth}</span>
                   </>
+                ) : (
+                  <span className="heading-2">{t.free}</span>
                 )}
               </p>
-              <p className="caption-5 mt-1 min-h-4 text-muted-foreground tabular-nums">
-                {info.priceStars > 0 && months > 1 ? fill(t.billed, { total: total.toLocaleString('en-US'), months }) : null}
-              </p>
-              <ul className="mt-6 flex flex-col gap-2">
-                {[...limitRows(tier, t.rows), ...FLAGS[tier].map((k) => t.rows[k])].map((row) => (
-                  <li key={row} className="body-6 flex items-start gap-2">
-                    <Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-                    {row}
+              {row && months > 1 ? (
+                <p className={cn('caption-4 mt-2 tabular-nums', featured ? 'text-background/70' : 'text-muted-foreground')}>
+                  {money.format(row.totalMoney)} · {fill(t.billed, { total: row.total.toLocaleString('en-US'), months })}
+                </p>
+              ) : null}
+              <ul className="mt-8 flex flex-col gap-3">
+                {[...limitRows(tier, t.rows), ...FLAGS[tier].map((k) => t.rows[k])].map((line) => (
+                  <li key={line} className="body-6 flex items-start gap-3">
+                    <Check className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    {line}
                   </li>
                 ))}
               </ul>
-              <div className="mt-auto pt-8">
-                {billingOpen && tier !== 'free' ? (
-                  <p className="caption-4 mb-3 text-muted-foreground">{t.current}</p>
-                ) : null}
+              <div className="mt-auto pt-10">
+                {billingOpen && tier !== 'free' ? <p className={cn('caption-4 mb-3', featured ? 'text-background/70' : 'text-muted-foreground')}>{t.current}</p> : null}
                 <Link
                   href="/login"
                   className={cn(
-                    'button-md flex min-h-12 items-center justify-center rounded-full px-6 transition-transform duration-300 ease-base active:scale-[0.98]',
-                    featured ? 'bg-primary text-primary-foreground' : 'border bg-background',
+                    'btn-shimmer button-md flex min-h-12 items-center justify-center rounded-full px-6 transition-transform duration-300 ease-base active:scale-[0.98]',
+                    featured ? 'bg-background text-foreground' : 'bg-primary text-primary-foreground',
                     FOCUS,
                   )}
                 >
@@ -104,6 +142,82 @@ export function PricingTable({ t, billingOpen }: { t: Dict['pricing']; billingOp
             </article>
           );
         })}
+      </div>
+
+      {/* Unit economics: the same numbers for you and for us, with the assumptions in view. */}
+      <div className="rounded-4xl bg-muted p-8 sm:p-12">
+        <h2 className="heading-4">{t.calc.title}</h2>
+        <p className="body-3 mt-3 max-w-2xl text-muted-foreground">{t.calc.sub}</p>
+
+        <div className="mt-10 grid gap-8 md:grid-cols-2">
+          <div className="flex flex-col gap-4">
+            <label className="flex flex-col gap-2">
+              <span className="body-5">{t.calc.costLabel}</span>
+              <input
+                inputMode="decimal"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                className={cn('min-h-11 rounded-2xl border bg-background px-4 text-base tabular-nums', FOCUS)}
+                placeholder="0"
+              />
+              <span className="caption-5 text-muted-foreground">{t.calc.costHint}</span>
+            </label>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="flex flex-col gap-2">
+                <span className="caption-4">{t.calc.starRateLabel}</span>
+                <input
+                  inputMode="decimal"
+                  value={starUsd}
+                  onChange={(e) => setStarUsd(Number(e.target.value) || 0)}
+                  className={cn('min-h-11 rounded-2xl border bg-background px-4 tabular-nums', FOCUS)}
+                />
+              </label>
+              {currency === 'UAH' ? (
+                <label className="flex flex-col gap-2">
+                  <span className="caption-4">{t.calc.fxLabel}</span>
+                  <input
+                    inputMode="decimal"
+                    value={uahPerUsd}
+                    onChange={(e) => setUahPerUsd(Number(e.target.value) || 0)}
+                    className={cn('min-h-11 rounded-2xl border bg-background px-4 tabular-nums', FOCUS)}
+                  />
+                </label>
+              ) : null}
+            </div>
+            <p className="caption-5 text-muted-foreground">{t.calc.assumption}</p>
+          </div>
+
+          <div className="grid gap-3">
+            {rows.map((r) => (
+              <div key={r.tier} className="flex items-center justify-between gap-4 rounded-2xl bg-background p-5">
+                <div>
+                  <p className="title-3">{TIER_INFO[r.tier].name}</p>
+                  <p className="caption-5 text-muted-foreground">
+                    {t.calc.youPay}: {money.format(r.totalMoney)}
+                    {r.saved > 0 ? ` · −${money.format(toMoney(r.saved))}` : ''}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="title-2 tabular-nums">{money.format(r.perMonthMoney)}</p>
+                  <p className="caption-5 text-muted-foreground">
+                    {hasCost ? (
+                      <>
+                        {t.calc.margin}: <span className="tabular-nums">{money.format(r.perMonthMoney - costNum)}</span>
+                      </>
+                    ) : (
+                      t.calc.noCost
+                    )}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-10 grid gap-3 md:grid-cols-2">
+          <p className="body-5 rounded-2xl bg-background p-5">{t.calc.bestUser}</p>
+          <p className="body-5 rounded-2xl bg-background p-5">{t.calc.bestDev}</p>
+        </div>
       </div>
     </div>
   );

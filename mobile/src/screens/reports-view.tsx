@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { StyleSheet, View, Pressable } from 'react-native';
+import { Text } from '../theme/typography';
 import { router } from 'expo-router';
 import { useEntries } from '../lib/entry-store';
 import { t } from '../i18n';

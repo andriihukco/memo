@@ -9,12 +9,12 @@ import { useI18n } from '@/lib/i18n/context';
 import { hapticImpact } from '@/lib/haptics';
 import {
   DEFAULT_PREFS,
-  HEADING_FONTS,
+  APP_FONTS,
   TEXT_SCALES,
   readAppearance,
   writeAppearance,
   type AppearancePrefs,
-  type HeadingFont,
+  type AppFont,
   type TextScale,
 } from '@/lib/appearance';
 
@@ -35,7 +35,7 @@ const TEXT_SIZES: Option<TextScale>[] = TEXT_SCALES.map((value) => ({
   labelKey: `miniapp.settings.appearance.text_${value}`,
 }));
 
-const FONTS: Option<HeadingFont>[] = HEADING_FONTS.map((value) => ({
+const FONTS: Option<AppFont>[] = APP_FONTS.map((value) => ({
   value,
   labelKey: `miniapp.settings.appearance.font_${value}`,
 }));
@@ -117,8 +117,8 @@ export function AppearanceSection() {
       <OptionCard
         label={t('miniapp.settings.appearance.font')}
         options={FONTS}
-        value={prefs.headingFont}
-        onChange={(headingFont) => update({ headingFont })}
+        value={prefs.font}
+        onChange={(font) => update({ font })}
       />
       <p className="px-1 text-xs text-muted-foreground">{t('miniapp.settings.appearance.body_note')}</p>
     </div>

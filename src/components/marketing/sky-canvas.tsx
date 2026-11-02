@@ -3,7 +3,7 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
 /**
- * Hero sky drawn by one WebGL fragment shader: gradient sky, sun or moon, stars and two layers of
+ * Hero sky drawn by one WebGL fragment shader: gradient sky, stars and two layers of
  * lit fbm clouds. No Three.js. Day and night blend through `uNight` when the theme changes.
  *
  * Cost control: renders below device resolution (clouds are soft), stops when off screen or when
@@ -59,19 +59,10 @@ void main() {
   float t = smoothstep(0.0, 1.0, uv.y);
   vec3 sky = mix(mix(dayHor, dayTop, t), mix(nightHor, nightTop, t), uNight);
 
-  // Sun sets while the moon rises: top right on wide screens, half off the top right corner on narrow ones.
-  float wide = step(1.0, aspect);
-  vec2 anchor = mix(vec2(aspect * 0.97, 0.93), vec2(aspect - 0.32, 0.78), wide) + par * 2.0;
-  vec2 sunC = anchor - vec2(0.0, uNight * 0.7);
-  vec2 moonC = anchor - vec2(0.0, (1.0 - uNight) * 0.7);
-  float r = 0.075;
+  // No sun or moon. Light for the clouds comes from a fixed point high on the right.
+  vec2 lightC = vec2(aspect * 0.85, 1.15) + par * 2.0;
 
-  float ds = length(p - sunC);
-  vec3 sunCol = vec3(1.0, 0.86, 0.58);
-  sky += sunCol * (exp(-ds * 7.0) * 0.45 + exp(-ds * 28.0) * 0.5) * (1.0 - uNight);
-  sky = mix(sky, vec3(1.0, 0.97, 0.88), smoothstep(r, r - 0.004, ds) * (1.0 - uNight));
-
-  // Stars, fixed to pixels so density is the same on every screen.
+  // Stars, fixed to pixels so density is the same on every screen. Night only.
   vec2 g = gl_FragCoord.xy / 7.0;
   vec2 id = floor(g);
   float h = hash(id);
@@ -79,19 +70,10 @@ void main() {
   float star = smoothstep(0.09, 0.0, length(fract(g) - 0.5 - off * 0.6)) * step(0.982, h);
   float twinkle = 0.55 + 0.45 * sin(uTime * (0.8 + h * 2.5) + h * 40.0);
   float starMask = smoothstep(0.2, 0.7, uv.y) * uNight;
+  sky += vec3(1.0) * star * twinkle * starMask;
 
-  float dm = length(p - moonC);
-  vec2 lm = (p - moonC) / r;
-  float moonDisc = smoothstep(r, r - 0.004, dm);
-  float crescent = smoothstep(0.9, 1.15, length(lm - vec2(0.55, 0.2)));
-  float craters = 0.82 + 0.18 * fbm(lm * 3.0 + 4.0);
-  vec3 moonCol = vec3(0.96, 0.94, 0.86) * craters * (0.16 + 0.84 * crescent);
-  sky += vec3(0.55, 0.62, 0.85) * exp(-dm * 9.0) * 0.32 * uNight;
-  sky += vec3(1.0) * star * twinkle * starMask * (1.0 - moonDisc);
-  sky = mix(sky, moonCol, moonDisc * uNight);
+  // Clouds: a far thin layer and a near full layer, lit from the fixed light point.
 
-  // Clouds: a far thin layer and a near full layer, lit from the sun or moon.
-  vec2 lightC = mix(sunC, moonC, uNight);
   vec2 far = clouds(vec2(p.x * 2.2, p.y * 5.0) + par, 0.010, 0.44, normalize(lightC - p));
   vec2 near = clouds(vec2(p.x * 1.3, p.y * 3.2) + par * 2.5 + 11.0, 0.022, 0.40, normalize(lightC - p));
   float farMask = smoothstep(0.3, 0.6, uv.y) * (1.0 - smoothstep(0.92, 1.0, uv.y));
@@ -101,10 +83,9 @@ void main() {
   vec3 litNight = vec3(0.40, 0.42, 0.56); vec3 shadeNight = vec3(0.08, 0.09, 0.16);
   vec3 lit = mix(litDay, litNight, uNight);
   vec3 shade = mix(shadeDay, shadeNight, uNight);
-  float glowNear = exp(-length(p - lightC) * 3.0);
 
-  sky = mix(sky, mix(shade, lit, far.y) + glowNear * 0.15, far.x * farMask * mix(0.65, 0.5, uNight));
-  sky = mix(sky, mix(shade, lit, near.y) + glowNear * 0.2, near.x * nearMask * mix(0.95, 0.8, uNight));
+  sky = mix(sky, mix(shade, lit, far.y) , far.x * farMask * mix(0.65, 0.5, uNight));
+  sky = mix(sky, mix(shade, lit, near.y) , near.x * nearMask * mix(0.95, 0.8, uNight));
 
   // Haze behind the hero copy keeps the heading readable on any cloud.
   float haze = exp(-pow(length(gl_FragCoord.xy - uHaze.xy) / max(uHaze.z, 1.0), 2.0));

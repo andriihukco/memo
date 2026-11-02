@@ -2,16 +2,18 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { Platform, useColorScheme } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { palettes, resolveScheme, scaleFontSize, THEME_CHOICES, type Palette, type Scheme, type ThemeChoice, type TextScale } from './palettes';
+import { setAppFont } from './font-store';
 
 export type { Palette, Scheme, ThemeChoice, TextScale } from './palettes';
 
-export type HeadingFont = 'sans' | 'serif' | 'mono';
+export type AppFont = 'sans' | 'serif' | 'mono';
 
 export const TEXT_SCALES: TextScale[] = ['small', 'medium', 'large'];
-export const HEADING_FONTS: HeadingFont[] = ['sans', 'serif', 'mono'];
+/** The app font applies to all text on the web and native apps, not only headings. */
+export const APP_FONTS: AppFont[] = ['sans', 'serif', 'mono'];
 
-/** Body text always uses the system font. Only headings take the family chosen here. */
-const HEADING_FAMILY: Record<HeadingFont, string | undefined> = {
+/** Family for the chosen font, kept on the theme for screens that name a family. Text applies it itself. */
+const FAMILY: Record<AppFont, string | undefined> = {
   sans: undefined,
   serif: Platform.select({ ios: 'Georgia', default: 'serif' }),
   mono: Platform.select({ ios: 'Menlo', default: 'monospace' }),
@@ -21,7 +23,7 @@ const HEADING_FAMILY: Record<HeadingFont, string | undefined> = {
 export type Theme = Palette & {
   /** Scales a design font size by the user's text size. */
   fs: (size: number) => number;
-  /** Font family for headings (Text with accessibilityRole="header"). Undefined keeps the system font. */
+  /** Family of the app font. Undefined for sans, which uses Commissioner through Text. */
   heading: string | undefined;
 };
 
@@ -30,10 +32,10 @@ interface ThemeValue {
   scheme: Scheme;
   palette: Theme;
   textScale: TextScale;
-  headingFont: HeadingFont;
+  font: AppFont;
   setChoice: (choice: ThemeChoice) => void;
   setTextScale: (scale: TextScale) => void;
-  setHeadingFont: (font: HeadingFont) => void;
+  setFont: (font: AppFont) => void;
 }
 
 const ThemeContext = createContext<ThemeValue | null>(null);
@@ -69,7 +71,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const system = useColorScheme();
   const [choice, setChoice] = useStoredChoice<ThemeChoice>(THEME_KEY, THEME_CHOICES, 'system');
   const [textScale, setTextScale] = useStoredChoice<TextScale>(SCALE_KEY, TEXT_SCALES, 'medium');
-  const [headingFont, setHeadingFont] = useStoredChoice<HeadingFont>(FONT_KEY, HEADING_FONTS, 'sans');
+  const [font, setFont] = useStoredChoice<AppFont>(FONT_KEY, APP_FONTS, 'sans');
+
+  // Every Text reads the app font from the store, so a change re-renders all text at once.
+  useEffect(() => setAppFont(font), [font]);
 
   const value = useMemo<ThemeValue>(() => {
     const scheme = resolveScheme(choice, system);
@@ -79,15 +84,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       palette: {
         ...palettes[scheme],
         fs: (size) => scaleFontSize(size, textScale),
-        heading: HEADING_FAMILY[headingFont],
+        heading: FAMILY[font],
       },
       textScale,
-      headingFont,
+      font,
       setChoice,
       setTextScale,
-      setHeadingFont,
+      setFont,
     };
-  }, [choice, system, textScale, headingFont, setChoice, setTextScale, setHeadingFont]);
+  }, [choice, system, textScale, font, setChoice, setTextScale, setFont]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

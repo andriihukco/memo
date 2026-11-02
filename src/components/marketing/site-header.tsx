@@ -122,7 +122,7 @@ export function SiteHeader({ t, locale }: { t: Nav; locale: SiteLocale }) {
         </a>
         <nav
           aria-label="Main"
-          className="pointer-events-auto flex w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-foreground/10 bg-background/70 p-1 pl-4 shadow-sm backdrop-blur-xl md:w-auto md:justify-start md:gap-4"
+          className="pointer-events-auto flex h-16 w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-foreground/10 bg-background/70 py-2 pl-6 pr-4 shadow-sm backdrop-blur-xl md:w-auto md:justify-start md:gap-4"
         >
           <Link href="/" aria-label={t.home} className={cn('flex min-h-11 items-center gap-2 rounded-full pr-2', FOCUS)}>
             <LogoMark className="size-6" />
@@ -162,7 +162,7 @@ export function SiteHeader({ t, locale }: { t: Nav; locale: SiteLocale }) {
             <Link
               href="/login"
               className={cn(
-                'button-sm flex min-h-11 items-center rounded-full bg-primary px-4 text-primary-foreground transition-transform duration-300 active:scale-[0.98]',
+                'btn-shimmer button-sm flex min-h-11 items-center rounded-full bg-primary px-4 text-primary-foreground transition-transform duration-300 active:scale-[0.98]',
                 EASE,
                 FOCUS,
               )}

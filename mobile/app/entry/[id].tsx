@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, View, Pressable } from 'react-native';
+import { Alert, ScrollView, StyleSheet, View, Pressable } from 'react-native';
+import { Text, TextInput } from '../../src/theme/typography';
 import { router, useLocalSearchParams } from 'expo-router';
 import { t } from '../../src/i18n';
 import { useEntries } from '../../src/lib/entry-store';

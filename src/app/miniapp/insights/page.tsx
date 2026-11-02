@@ -1,26 +1,30 @@
 'use client';
 
 import { Suspense } from 'react';
-import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { PageHeader } from '@/components/shell/page-header';
+import { ProfileButton } from '@/components/shell/profile-button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useI18n } from '@/lib/i18n/context';
+import { GoalsContent } from '@/components/features/goals/goals-content';
 import LegacyDashboard from '@/components/legacy/pages/dashboard';
 import LegacyReports from '@/components/legacy/pages/reports';
-import LegacyGraph from '@/components/legacy/pages/graph';
 
-const VIEWS = ['overview', 'reports', 'graph'] as const;
+/** Insights tabs, in order: Widgets, Goals, Reports. Graph has its own tab. */
+const VIEWS = ['widgets', 'goals', 'reports'] as const;
 type View = (typeof VIEWS)[number];
 
-// Phase 0 bridge: ?view= picks the legacy screen until Phase 1 C/D replace them.
+const toView = (raw: string | null): View => {
+  if (raw === 'overview') return 'widgets';
+  return (VIEWS as readonly string[]).includes(raw ?? '') ? (raw as View) : 'widgets';
+};
+
 function Insights() {
   const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const raw = params.get('view');
-  const view: View = (VIEWS as readonly string[]).includes(raw ?? '') ? (raw as View) : 'overview';
+  const view = toView(params.get('view'));
 
   const select = (v: string) => {
     const next = new URLSearchParams(params.toString());
@@ -30,7 +34,7 @@ function Insights() {
 
   return (
     <>
-      <PageHeader title={t('shell.insights')}>
+      <PageHeader title={t('shell.insights')} actions={<ProfileButton />}>
         <Tabs value={view} onValueChange={select}>
           <TabsList className="grid w-full grid-cols-3">
             {VIEWS.map((v) => (
@@ -41,10 +45,7 @@ function Insights() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      <div className="px-4 pt-3">
-        <Link href="/miniapp/goals" className="text-sm font-medium underline">Goals and weekly retro</Link>
-      </div>
-      {view === 'reports' ? <LegacyReports /> : view === 'graph' ? <LegacyGraph /> : <LegacyDashboard />}
+      {view === 'goals' ? <GoalsContent /> : view === 'reports' ? <LegacyReports /> : <LegacyDashboard />}
     </>
   );
 }

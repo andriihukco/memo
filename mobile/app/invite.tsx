@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Share, StyleSheet, View } from 'react-native';
+import { Text } from '../src/theme/typography';
 import { router } from 'expo-router';
 import { t } from '../src/i18n';
 import { api } from '../src/lib/api';

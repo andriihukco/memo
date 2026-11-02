@@ -21,19 +21,25 @@ describe('isTabActive', () => {
     ['insights', '/miniapp/insights', true],
     ['insights', '/miniapp/insights/reports/7', true],
     ['insights', '/miniapp/insightsx', false],
-    ['you', '/miniapp/you/plan', true],
-    ['you', '/miniapp', false],
+    ['graph', '/miniapp/graph', true],
+    ['graph', '/miniapp', false],
   ] as const)('%s on %s → %s', (tab, path, want) => expect(isTabActive(tab, path)).toBe(want));
 });
 
 describe('TabBar', () => {
   it('marks only the active tab with aria-current and semibold', () => {
-    nav.pathname = '/miniapp/you/categories';
+    nav.pathname = '/miniapp/graph';
     render(<TabBar />);
-    const you = screen.getByRole('link', { name: 'shell.you' });
-    expect(you.getAttribute('aria-current')).toBe('page');
-    expect(you.className).toContain('font-semibold');
+    const graph = screen.getByRole('link', { name: 'shell.graph' });
+    expect(graph.getAttribute('aria-current')).toBe('page');
+    expect(graph.className).toContain('font-semibold');
     expect(screen.getByRole('link', { name: 'shell.journal' }).getAttribute('aria-current')).toBeNull();
+  });
+
+  it('has no You tab: Settings opens from the header instead', () => {
+    nav.pathname = '/miniapp';
+    render(<TabBar />);
+    expect(screen.queryByRole('link', { name: 'shell.you' })).toBeNull();
   });
 
   it('Compose opens the drawer and announces a saved draft', () => {

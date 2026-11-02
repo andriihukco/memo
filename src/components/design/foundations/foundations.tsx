@@ -55,7 +55,7 @@ export function Foundations() {
       <DemoCard title="Categories (12 hues, used by CategoryBadge)">
         <div className="grid grid-cols-4 gap-3 sm:grid-cols-6">{CATEGORY_TOKENS.map((t) => <Swatch key={t} token={t} />)}</div>
       </DemoCard>
-      <DemoCard title="Type scale (Geist, loaded in src/app/layout.tsx)">
+      <DemoCard title="Type scale (Commissioner, loaded in src/app/layout.tsx)">
         <div className="divide-y">
           {TYPE_SCALE.map((row) => (
             <div key={row.name} className="flex flex-col gap-1 py-3 sm:flex-row sm:items-baseline sm:justify-between">

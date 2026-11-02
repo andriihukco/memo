@@ -18,7 +18,7 @@ export function generateMetadata(): Metadata {
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   const { t, locale } = getDict();
   return (
-    <div lang={locale} className="min-h-screen overflow-x-clip bg-background text-foreground">
+    <div lang={locale} className="brand-accent min-h-screen overflow-x-clip bg-background text-foreground">
       <SoundProvider>
         <SiteHeader t={t.nav} locale={locale} />
         <main id="main" tabIndex={-1} className="outline-none">

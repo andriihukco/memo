@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '../theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeIn, FadeInRight, FadeOut, FadeOutLeft, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
