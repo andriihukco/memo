@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState, type CSSProperties, type ElementType } from 'react';
-import { ArrowRight, ArrowUp, BedDouble, CalendarDays, Check, Clock, Dumbbell, Gauge, NotebookPen, Send, ShieldCheck, Tag, Target, Wallet } from 'lucide-react';
+import { Ban, ArrowRight, ArrowUp, BedDouble, CalendarDays, Check, ChartColumn, Clock, Dumbbell, Droplets, Gauge, ListChecks, Tag, Target, Utensils, Wallet } from 'lucide-react';
 import { SkyCanvas } from './sky-canvas';
 import { PERSONAS, TELEGRAM_HREF, isPersona, type Dict, type PersonaSlug } from '@/lib/marketing/dict';
 import { cn } from '@/lib/utils';
@@ -14,19 +14,16 @@ const STEP_MS = 12000;
 const TYPE_MS = 58;
 /** The AI reading pass: the words in the entry are scanned left to right. */
 const SCAN_MS = 2600;
-/** Gap between result chips appearing one after another. */
-const CHIP_MS = 220;
 
-type Kind = 'record' | 'reminder' | 'note' | 'thought';
+type Kind = 'record' | 'reminder' | 'note' | 'thought' | 'chart' | 'ring' | 'todo';
 
 const ICONS: Record<PersonaSlug, ElementType> = {
-  fitness: Dumbbell,
-  reflect: NotebookPen,
+  food: Utensils,
   money: Wallet,
+  water: Droplets,
+  quit: Ban,
   sleep: BedDouble,
-  goals: Target,
-  privacy: ShieldCheck,
-  telegram: Send,
+  fitness: Dumbbell,
 };
 
 /**
@@ -34,13 +31,12 @@ const ICONS: Record<PersonaSlug, ElementType> = {
  * Numbers and goals become records, times become reminders, dates become notes, and categories become thoughts.
  */
 const KINDS: Record<PersonaSlug, Kind[]> = {
-  fitness: ['record', 'record', 'record', 'record'],
-  reflect: ['thought', 'record', 'record', 'note'],
-  money: ['record', 'record', 'note', 'thought'],
-  sleep: ['record', 'record', 'record', 'reminder'],
-  goals: ['record', 'record', 'record', 'record'],
-  privacy: ['thought', 'record', 'record', 'record'],
-  telegram: ['record', 'record', 'thought', 'record'],
+  food: ['record', 'record', 'chart', 'todo'],
+  money: ['record', 'chart', 'note', 'thought'],
+  water: ['record', 'record', 'ring', 'reminder'],
+  quit: ['record', 'record', 'thought', 'reminder'],
+  sleep: ['record', 'ring', 'record', 'reminder'],
+  fitness: ['record', 'record', 'chart', 'record'],
 };
 
 /** One hue per kind. Chips use it at 10% fill, with the hue on the border and icon. */
@@ -49,6 +45,9 @@ const KIND_STYLE: Record<Kind, { hue: string; icon: ElementType }> = {
   reminder: { hue: '38 95% 55%', icon: Clock },
   note: { hue: '160 70% 42%', icon: CalendarDays },
   thought: { hue: '262 70% 64%', icon: Tag },
+  chart: { hue: '152 65% 42%', icon: ChartColumn },
+  ring: { hue: '190 85% 45%', icon: Target },
+  todo: { hue: '330 75% 58%', icon: ListChecks },
 };
 
 const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background';
@@ -65,16 +64,38 @@ function resolveHref(href: string, telegramUrl: string | null) {
   return href === TELEGRAM_HREF ? telegramUrl ?? '/login' : href;
 }
 
-/** The demo timeline for one persona, as a function of elapsed time. */
-function timeline(input: string, elapsed: number) {
+/** Pause between one value lifting out of the text and the next. Slow on purpose. */
+const LIFT_STEP = 900;
+/** How long a value takes to lift out of the text before its widget bounces in. */
+const LIFT_MS = 800;
+
+/** The index of the word each detected value comes from, or -1 when the entry does not name it. */
+function valueWordIndex(input: string, values: string[]): number[] {
+  const norm = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const words = input.split(' ');
+  const claimed = new Set<number>();
+  return values.map((value) => {
+    const tokens = value.split(' ').map(norm).filter((x) => x.length > 0);
+    const at = words.findIndex((w, wi) => !claimed.has(wi) && tokens.includes(norm(w)));
+    if (at >= 0) claimed.add(at);
+    return at;
+  });
+}
+
+/**
+ * The demo timeline for one persona, as a function of elapsed time. Typing, then the reading pass,
+ * then one step per value: its word lifts out of the text, and its widget bounces in.
+ */
+function timeline(input: string, elapsed: number, count: number) {
   const words = input.split(' ').length;
   const typeEnd = input.length * TYPE_MS;
   const scanEnd = typeEnd + SCAN_MS;
   const typed = Math.min(input.length, Math.floor(elapsed / TYPE_MS));
   const phase: 'typing' | 'analyzing' | 'done' = elapsed < typeEnd ? 'typing' : elapsed < scanEnd ? 'analyzing' : 'done';
   const scanned = phase === 'analyzing' ? Math.floor(((elapsed - typeEnd) / SCAN_MS) * words) : phase === 'done' ? words : 0;
-  const chips = phase === 'done' ? Math.min(4, Math.floor((elapsed - scanEnd) / CHIP_MS) + 1) : 0;
-  return { typed, phase, scanned, chips, words };
+  const lifted = elapsed < scanEnd ? 0 : Math.min(count, Math.floor((elapsed - scanEnd) / LIFT_STEP) + 1);
+  const chips = elapsed < scanEnd + LIFT_MS ? 0 : Math.min(count, Math.floor((elapsed - scanEnd - LIFT_MS) / LIFT_STEP) + 1);
+  return { typed, phase, scanned, chips, lifted, words };
 }
 
 /**
@@ -169,8 +190,7 @@ export function AdaptiveHero({ t, initial, telegramUrl, billingOpen }: Props) {
 
   const persona = t.personas[active];
   const progress = Math.min(1, elapsed / STEP_MS);
-  const isTelegram = active === 'telegram' && telegramUrl;
-  const cta = isTelegram ? { href: telegramUrl, label: t.hero.telegramCta } : { href: '/login', label: t.hero.cta };
+  const cta = { href: '/login', label: t.hero.cta };
 
   return (
     <>
@@ -223,38 +243,19 @@ export function AdaptiveHero({ t, initial, telegramUrl, billingOpen }: Props) {
             >
               {/* Half the row of padding on each side, so the first and last chips can sit in the centre. */}
               <div role="group" aria-labelledby="persona-label" className="flex w-max items-center gap-2 px-[50%]">
-                {PERSONAS.map((slug) => {
-                  const Icon = ICONS[slug];
-                  const on = slug === active;
-                  return (
-                    <button
-                      key={slug}
-                      ref={(el) => {
-                        chipRefs.current[slug] = el;
-                      }}
-                      type="button"
-                      aria-pressed={on}
-                      onClick={() => pick(slug)}
-                      className={cn(
-                        'body-5 relative flex min-h-11 shrink-0 items-center gap-2 overflow-hidden rounded-full border px-4 transition-[border-color] duration-500 ease-base active:scale-[0.98]',
-                        on ? 'border-primary text-primary-foreground' : 'border-foreground/15 text-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:bg-foreground/10',
-                        FOCUS,
-                      )}
-                    >
-                      {on ? <LiquidFill progress={progress} /> : null}
-                      <ChipLabel icon={Icon} label={t.personas[slug].chip} className="text-foreground" />
-                      {on ? (
-                        <ChipLabel
-                          icon={Icon}
-                          label={t.personas[slug].chip}
-                          aria
-                          className="absolute inset-0 px-4 text-primary-foreground transition-[clip-path] duration-500 ease-base"
-                          style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
-                        />
-                      ) : null}
-                    </button>
-                  );
-                })}
+                {PERSONAS.map((slug) => (
+                  <PersonaChip
+                    key={slug}
+                    icon={ICONS[slug]}
+                    label={t.personas[slug].chip}
+                    on={slug === active}
+                    progress={progress}
+                    onPick={() => pick(slug)}
+                    chipRef={(el) => {
+                      chipRefs.current[slug] = el;
+                    }}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -304,101 +305,147 @@ function ChipLabel({
  * rises, with a rolling wave on its leading edge and a second, lighter crest for depth. The slide is
  * eased, so each update reads as a smooth fill rather than a jump.
  */
-/**
- * The leading edge of the fill: a gentle sine, 2.5 units deep in a 10-unit strip. It repeats every
- * 50 units, so the strip can scroll by two periods and loop with no seam.
- */
-const WAVE_EDGE = (() => {
-  const pts: string[] = [];
-  for (let y = 0; y <= 200; y += 2) {
-    const x = 5 + 2.5 * Math.sin((y / 50) * 2 * Math.PI);
-    pts.push(`${y === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y}`);
-  }
-  return `${pts.join(' ')} L0 200 L0 0 Z`;
-})();
-
-/** Left-to-right fill. The water eases in as progress rises and its edge rolls gently. */
-function LiquidFill({ progress }: { progress: number }) {
+/** Solid white fill that slides in from the left with progress. No wave. */
+function SolidFill({ progress }: { progress: number }) {
   return (
     <span aria-hidden className="absolute inset-0 overflow-hidden">
-      <span
-        className="absolute inset-y-0 left-0 w-full bg-primary transition-transform duration-500 ease-out"
-        style={{ transform: `translateX(${(progress - 1) * 100}%)` }}
-      >
-        <span className="absolute left-full top-[-50%] block h-[200%] w-2.5 animate-mk-wave-y">
-          <svg viewBox="0 0 10 200" preserveAspectRatio="none" className="size-full">
-            <path className="fill-primary" d={WAVE_EDGE} />
-          </svg>
-        </span>
-      </span>
+      <span className="absolute inset-0 bg-white" style={{ transform: `translateX(${(progress - 1) * 100}%)`, transition: 'transform 500ms ease-out' }} />
     </span>
   );
 }
 
-/** Words for the typed text: each letter rises in as it is typed, so the entry feels written, not pasted. */
-function TypedText({ text, lit }: { text: string; lit: number }) {
-  const words = text.split(' ');
-  let index = 0;
+/** Particles for the Thanos dust: fixed offsets per particle, so every burst looks the same. */
+const DUST = Array.from({ length: 22 }, (_, i) => {
+  const r = (n: number) => {
+    const x = Math.sin((i + 1) * n * 127.1) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  return {
+    left: `${4 + r(1) * 92}%`,
+    top: `${10 + r(2) * 80}%`,
+    dx: `${(r(3) - 0.3) * 80}px`,
+    dy: `${-20 - r(4) * 50}px`,
+    delay: `${r(5) * 180}ms`,
+    size: `${2 + r(6) * 3}px`,
+  };
+});
+
+/**
+ * A persona chip. Its label is set in dark over the white fill and light outside it. When the chip
+ * stops being active, its fill dissolves into dust particles, as a Thanos snap would.
+ */
+function PersonaChip({
+  icon: Icon,
+  label,
+  on,
+  progress,
+  onPick,
+  chipRef,
+}: {
+  icon: ElementType;
+  label: string;
+  on: boolean;
+  progress: number;
+  onPick: () => void;
+  chipRef: (el: HTMLButtonElement | null) => void;
+}) {
+  const wasOn = useRef(on);
+  const [burst, setBurst] = useState(0);
+  useEffect(() => {
+    if (wasOn.current && !on) setBurst((n) => n + 1);
+    wasOn.current = on;
+  }, [on]);
+
   return (
-    <>
-      {words.map((w, wi) => {
-        const wordIndex = wi;
-        const chars = Array.from(w).map((ch) => {
-          const k = index++;
-          return (
-            <span key={k} className="inline-block motion-safe:animate-mk-char" style={{ animationDelay: '0ms' }}>
-              {ch}
-            </span>
-          );
-        });
-        return (
-          <span
-            key={wordIndex}
-            className={cn(
-              'inline-block rounded-md px-0.5 transition-[background-color,transform] duration-500 ease-base',
-              wordIndex < lit && 'bg-primary/15 text-foreground -translate-y-0.5',
-            )}
-          >
-            {chars}
-            {wi < words.length - 1 ? ' ' : null}
-          </span>
-        );
-      })}
-    </>
+    <button
+      ref={chipRef}
+      type="button"
+      aria-pressed={on}
+      onClick={onPick}
+      className={cn(
+        'body-5 relative flex min-h-11 shrink-0 items-center gap-2 overflow-visible rounded-full border px-4 transition-[border-color,background-color] duration-500 ease-base active:scale-[0.98]',
+        on ? 'border-transparent bg-background/50 text-foreground' : 'border-foreground/15 bg-background/40 text-foreground [@media(hover:hover)_and_(pointer:fine)]:hover:bg-foreground/10',
+        FOCUS,
+      )}
+    >
+      <span aria-hidden className="absolute inset-0 overflow-hidden rounded-full">
+        {on ? <SolidFill progress={progress} /> : null}
+      </span>
+      <ChipLabel icon={Icon} label={label} className="text-foreground" />
+      {on ? (
+        <ChipLabel
+          icon={Icon}
+          label={label}
+          aria
+          className="absolute inset-0 px-4 text-slate-900 transition-[clip-path] duration-500 ease-out"
+          style={{ clipPath: `inset(0 ${(1 - progress) * 100}% 0 0)` }}
+        />
+      ) : null}
+      {burst > 0 ? (
+        <span key={burst} aria-hidden className="pointer-events-none absolute inset-0">
+          {DUST.map((d, i) => (
+            <span
+              key={i}
+              className="absolute rounded-full bg-white motion-safe:animate-mk-dust"
+              style={{
+                left: d.left,
+                top: d.top,
+                width: d.size,
+                height: d.size,
+                animationDelay: d.delay,
+                ['--dx' as string]: d.dx,
+                ['--dy' as string]: d.dy,
+              }}
+            />
+          ))}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
-/** Five dots in a typing row, then evenly spaced on a circle around the centre (16, 16). */
-const DOT_ROW: [number, number][] = [[7, 16], [11.5, 16], [16, 16], [20.5, 16], [25, 16]];
+/** Where the five dots start (a typing row) and where they land (the M, as in the logo). */
+/** Five dots in a wide typing row, then on a ring around the centre (16, 16), then in the M of the logo. */
+const DOT_ROW: [number, number][] = [[5, 16], [10.5, 16], [16, 16], [21.5, 16], [27, 16]];
 const DOT_RING: [number, number][] = Array.from({ length: 5 }, (_, i) => {
   const a = -Math.PI / 2 + (i / 5) * Math.PI * 2;
   return [16 + 9 * Math.cos(a), 16 + 9 * Math.sin(a)];
 });
+const DOT_M: [number, number][] = [[15.89, 22.67], [7, 22.67], [11.44, 9.33], [20.33, 9.33], [24.78, 22.67]];
+const M_PATH = 'M7 22.6666L11.4444 9.33325L15.8889 22.6666L20.3333 9.33325L24.7778 22.6666';
 
 /**
- * Memo's mark. Five dots bounce in a typing row, glide into a ring, and the ring turns.
- * Rotation is a plain CSS spin on the group, so it stays smooth.
+ * Memo's loader, in three beats: five dots in a typing row, the dots turn on a ring and the ring
+ * spins, then the dots settle into the M of the logo and the M draws itself.
  */
-type MarkStage = 'row' | 'ring';
+type MarkStage = 'row' | 'ring' | 'm';
 
 function MemoMark({ stage, className }: { stage: MarkStage; className?: string }) {
-  const ring = stage === 'ring';
+  const target = stage === 'row' ? DOT_ROW : stage === 'ring' ? DOT_RING : DOT_M;
   return (
     <span className={cn('relative block', className)} aria-hidden>
       <svg viewBox="0 0 32 32" className="size-full overflow-visible">
-        <g className={ring ? 'animate-mk-orbit' : undefined} style={{ transformOrigin: '16px 16px' }}>
+        <path
+          d={M_PATH}
+          fill="none"
+          strokeWidth="1.1"
+          pathLength={1}
+          className="stroke-foreground transition-[stroke-dashoffset,opacity] duration-700 ease-base"
+          style={{ strokeDasharray: 1, strokeDashoffset: stage === 'm' ? 0 : 1, opacity: stage === 'm' ? 1 : 0 }}
+        />
+        <g className={stage === 'ring' ? 'animate-mk-orbit' : undefined} style={{ transformOrigin: '16px 16px' }}>
           {DOT_ROW.map(([x, y], i) => {
-            const [rx, ry] = DOT_RING[i];
+            const [tx, ty] = target[i];
             return (
               <circle
                 key={i}
                 cx={x}
                 cy={y}
-                r="1.9"
-                className={cn('fill-foreground transition-transform duration-700 ease-base', !ring && 'motion-safe:animate-mk-bounce')}
+                r="1.7"
+                className={cn('fill-foreground transition-transform duration-700 ease-base', stage === 'row' && 'motion-safe:animate-mk-bounce')}
                 style={{
-                  transform: ring ? `translate(${rx - x}px, ${ry - y}px)` : 'translate(0px, 0px)',
-                  animationDelay: !ring ? `${i * 90}ms` : undefined,
+                  transform: `translate(${tx - x}px, ${ty - y}px)`,
+                  animationDelay: stage === 'row' ? `${i * 110}ms` : undefined,
                 }}
               />
             );
@@ -412,25 +459,127 @@ function MemoMark({ stage, className }: { stage: MarkStage; className?: string }
 /** Fixed tilts for the four widgets, in degrees. Fixed (not random per render), so the page is stable. */
 const TILT = [-3.8, 2.6, -4.7, 4.2];
 
-/** An Apple-style widget: a rounded card with an icon badge, the value large, and its label below. */
+/** The visual inside a widget, by kind: bars for a chart, a ring for progress, a checklist for to-dos. */
+function WidgetVisual({ kind, hue, value }: { kind: Kind; hue: string; value: string }) {
+  if (kind === 'chart') {
+    const bars = [38, 64, 46, 82, 58];
+    return (
+      <div className="flex h-10 items-end gap-1" aria-hidden>
+        {bars.map((h, i) => (
+          <span key={i} className="flex-1 rounded-sm" style={{ height: `${h}%`, background: `hsl(${hue} / ${0.35 + (i === 3 ? 0.5 : 0)})` }} />
+        ))}
+      </div>
+    );
+  }
+  if (kind === 'ring') {
+    const pct = Number((value.match(/(\d+)\s*%/) ?? value.match(/(\d+)\s*\/\s*10/) ?? [0, 60])[1]) / (value.includes('/ 10') || value.includes('/10') ? 10 : 100);
+    const C = 2 * Math.PI * 14;
+    return (
+      <svg viewBox="0 0 36 36" className="size-10 -rotate-90" aria-hidden>
+        <circle cx="18" cy="18" r="14" fill="none" strokeWidth="4" className="stroke-foreground/10" />
+        <circle cx="18" cy="18" r="14" fill="none" strokeWidth="4" strokeLinecap="round" style={{ stroke: `hsl(${hue})`, strokeDasharray: C, strokeDashoffset: C * (1 - Math.min(1, pct)) }} />
+      </svg>
+    );
+  }
+  if (kind === 'todo') {
+    const done = Number((value.match(/^(\d+)/) ?? [0, 2])[1]);
+    return (
+      <ul className="flex flex-col gap-1" aria-hidden>
+        {[0, 1, 2].map((i) => (
+          <li key={i} className="flex items-center gap-1.5">
+            <span className="grid size-3 place-items-center rounded-full border" style={i < done ? { background: `hsl(${hue})`, borderColor: `hsl(${hue})` } : { borderColor: `hsl(${hue} / 0.5)` }} />
+            <span className="h-1.5 flex-1 rounded-full" style={{ background: `hsl(${hue} / ${i < done ? 0.5 : 0.18})` }} />
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return null;
+}
+
+/** An Apple-style widget: a square card with an icon badge, a visual where the kind has one, and the value. Nothing is cut off. */
 function WidgetCard({ kind, label, value, title, tilt }: { kind: Kind; label: string; value: string; title: string; tilt: number }) {
   const { hue, icon: Icon } = KIND_STYLE[kind];
   return (
     <div
-      className="group flex min-h-[7.5rem] cursor-default flex-col justify-between rounded-3xl border border-foreground/10 bg-background/70 p-3 shadow-sm backdrop-blur-xl transition-transform duration-500 ease-base motion-safe:animate-mk-rise [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1"
+      className="group flex aspect-square w-[8.5rem] shrink-0 cursor-default flex-col justify-between gap-2 rounded-3xl border border-foreground/10 bg-background/70 p-3 shadow-sm backdrop-blur-xl transition-transform duration-500 ease-base motion-safe:animate-mk-bounce-in sm:w-[9.5rem] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1"
       style={{ rotate: `${tilt}deg` }}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="grid size-7 place-items-center rounded-full" style={{ background: `hsl(${hue} / 0.14)` }}>
+        <span className="grid size-7 shrink-0 place-items-center rounded-full" style={{ background: `hsl(${hue} / 0.16)` }}>
           <Icon className="size-3.5" style={{ color: `hsl(${hue})` }} aria-hidden />
         </span>
-        <span className="caption-5 truncate text-muted-foreground">{title}</span>
+        <span className="caption-5 text-right text-muted-foreground">{title}</span>
       </div>
-      <div className="mt-2">
-        <p className="title-1 truncate tabular-nums text-foreground">{value}</p>
-        <p className="caption-5 truncate text-muted-foreground">{label}</p>
+      <WidgetVisual kind={kind} hue={hue} value={value} />
+      <div>
+        <p className="title-2 break-words tabular-nums text-foreground">{value}</p>
+        <p className="caption-5 break-words text-muted-foreground">{label}</p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Which kind each word of the entry belongs to. A word belongs to a detected value when it is that
+ * value's number or word, so "150" in "150 UAH groceries" takes the colour of its record.
+ */
+function wordKinds(input: string, values: string[], kinds: Kind[]): (Kind | null)[] {
+  const norm = (w: string) => w.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const words = input.split(' ');
+  const claimed = new Set<number>();
+  const out: (Kind | null)[] = words.map(() => null);
+  values.forEach((value, i) => {
+    const tokens = value.split(' ').map(norm).filter((x) => x.length > 0);
+    const at = words.findIndex((w, wi) => !claimed.has(wi) && tokens.includes(norm(w)));
+    if (at >= 0) {
+      claimed.add(at);
+      out[at] = kinds[i];
+    }
+  });
+  return out;
+}
+
+/**
+ * The typed entry. Letters pop in with a springy overshoot. A word the AI has read takes its kind's
+ * colour and a bold weight, a highlight sweeps in from the left, and the word gives one small pop.
+ * A word that becomes a value lifts out of the text and fades, leaving its space behind.
+ */
+function TypedText({ text, lit, kinds, lifted }: { text: string; lit: number; kinds: (Kind | null)[]; lifted: Set<number> }) {
+  const words = text.split(' ');
+  let index = 0;
+  return (
+    <>
+      {words.map((w, wi) => {
+        const chars = Array.from(w).map((ch) => {
+          const k = index++;
+          return (
+            <span key={k} className="inline-block whitespace-pre motion-safe:animate-mk-letter">
+              {ch}
+            </span>
+          );
+        });
+        const read = wi < lit;
+        const kind = kinds[wi];
+        const hue = kind ? KIND_STYLE[kind].hue : '227 100% 60%';
+        return (
+          <span
+            key={wi}
+            style={{ ['--hl' as string]: hue }}
+            className={cn(
+              'relative inline-block rounded-md px-0.5 transition-[color,font-weight] duration-500 ease-base',
+              'before:absolute before:inset-0 before:-z-10 before:origin-left before:scale-x-0 before:rounded-md before:transition-transform before:duration-500 before:ease-base before:content-[\'\']',
+              'before:[background-color:hsl(var(--hl)/0.22)]',
+              read && 'font-semibold before:scale-x-100 motion-safe:animate-mk-word-pop [color:hsl(var(--hl))]',
+              lifted.has(wi) && 'motion-safe:animate-mk-lift',
+            )}
+          >
+            {chars}
+            {wi < words.length - 1 ? ' ' : null}
+          </span>
+        );
+      })}
+    </>
   );
 }
 
@@ -438,9 +587,10 @@ function WidgetCard({ kind, label, value, title, tilt }: { kind: Kind; label: st
 function Composer({ t, slug, elapsed }: { t: Props['t']; slug: PersonaSlug; elapsed: number }) {
   const p = t.personas[slug];
   const input = p.demoInput;
-  const { typed, phase, scanned, chips } = timeline(input, elapsed);
+  const { typed, phase, scanned, chips, lifted } = timeline(input, elapsed, p.demoOut.length);
+  const liftedWords = new Set(valueWordIndex(input, p.demoOut.map((d) => d[1])).slice(0, lifted).filter((w) => w >= 0));
   const sinceScan = elapsed - input.length * TYPE_MS;
-  const stage: MarkStage = phase === 'analyzing' && sinceScan < 700 ? 'row' : 'ring';
+  const stage: MarkStage = phase === 'analyzing' ? (sinceScan < 600 ? 'row' : sinceScan < 1800 ? 'ring' : 'm') : 'm';
   const sent = phase !== 'typing';
 
   return (
@@ -458,11 +608,15 @@ function Composer({ t, slug, elapsed }: { t: Props['t']; slug: PersonaSlug; elap
           </div>
         </div>
         {chips > 0 ? (
-          <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+          <div className="mt-4 flex items-stretch overflow-x-auto overscroll-x-contain pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {p.demoOut.map(([label, value], i) => {
               if (i >= chips) return null;
               const kind = KINDS[slug][i];
-              return <WidgetCard key={label} kind={kind} title={t.hero.kinds[kind]} label={label} value={value} tilt={TILT[i]} />;
+              return (
+                <div key={label} className={cn('flex shrink-0', i > 0 && '-ml-3')}>
+                  <WidgetCard kind={kind} title={t.hero.kinds[kind]} label={label} value={value} tilt={TILT[i]} />
+                </div>
+              );
             })}
           </div>
         ) : null}
@@ -491,21 +645,26 @@ function Composer({ t, slug, elapsed }: { t: Props['t']; slug: PersonaSlug; elap
               <span className="ml-0.5 inline-block h-4 w-px animate-mk-caret bg-foreground align-middle" />
             </span>
           ) : (
-            <TypedText text={input.slice(0, typed)} lit={phase === 'typing' ? 0 : scanned} />
+            <TypedText text={input.slice(0, typed)} lit={phase === 'typing' ? 0 : scanned} kinds={wordKinds(input, p.demoOut.map((d) => d[1]), KINDS[slug])} lifted={liftedWords} />
           )}
           {phase === 'typing' && typed > 0 ? <span className="ml-0.5 inline-block h-4 w-px animate-mk-caret bg-foreground align-middle" /> : null}
         </div>
         <div className="mt-3 flex justify-end">
           {/* Send: presses, flies up and right, and settles as the entry is sent. */}
           <span
-            key={sent ? 'sent' : 'idle'}
             className={cn(
-              'flex size-9 items-center justify-center rounded-full transition-colors duration-500',
+              'relative flex size-9 items-center justify-center rounded-full transition-colors duration-500',
               sent ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground',
-              phase === 'analyzing' && 'motion-safe:animate-mk-send',
             )}
           >
-            <ArrowUp className="size-4" aria-hidden />
+            {/* Ripple: rings spread out from the button, like a stone dropped in still water. */}
+            {phase === 'analyzing' ? (
+              <>
+                <span aria-hidden className="absolute inset-0 rounded-full border-2 border-primary motion-safe:animate-mk-ripple" />
+                <span aria-hidden className="absolute inset-0 rounded-full border-2 border-primary motion-safe:animate-mk-ripple [animation-delay:500ms]" />
+              </>
+            ) : null}
+            <ArrowUp className="relative size-4" aria-hidden />
           </span>
         </div>
       </div>

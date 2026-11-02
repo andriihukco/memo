@@ -7,7 +7,7 @@
  * src/lib/crypto.ts, metric examples to docs/04-ai-pipeline.md. See docs/marketing/landing-plan.md.
  */
 
-export const PERSONAS = ['fitness', 'reflect', 'money', 'sleep', 'goals', 'privacy', 'telegram'] as const;
+export const PERSONAS = ['food', 'money', 'water', 'quit', 'sleep', 'fitness'] as const;
 export type PersonaSlug = (typeof PERSONAS)[number];
 
 /** Special href for a lead magnet that opens the Telegram bot. */
@@ -27,6 +27,14 @@ export type PersonaCopy = {
 };
 
 export type Dict = {
+  auth: {
+    back: string; signInTitle: string; signUpTitle: string; signInSub: string; signUpSub: string;
+    modeSignIn: string; modeSignUp: string; email: string; emailHint: string; sendLink: string; sending: string;
+    sent: string; sentBody: string; or: string; google: string; telegram: string; telegramOff: string;
+    anon: string; legal: string; terms: string; privacy: string; notConfigured: string; failed: string;
+    home: string; cont: string; welcomeBack: string; newHere: string; usePassword: string; password: string;
+    signInPassword: string; magicLink: string; createAccount: string; wrongPassword: string; guest: string;
+  };
   meta: { title: string; description: string };
   nav: {
     home: string; product: string; pricing: string; blog: string; signIn: string; startFree: string;
@@ -36,7 +44,7 @@ export type Dict = {
     h1: readonly string[]; sub: string;
     pickLabel: string; cta: string; telegramCta: string; proofOpen: string; proofPaid: string;
     you: string; memo: string; parsed: string; analyzing: string; placeholder: string;
-    kinds: { record: string; reminder: string; note: string; thought: string };
+    kinds: { record: string; reminder: string; note: string; thought: string; chart: string; ring: string; todo: string };
   };
   band: { eyebrow: string; magnet: string };
   personas: Record<PersonaSlug, PersonaCopy>;
@@ -79,6 +87,20 @@ export type Dict = {
 };
 
 const en: Dict = {
+  auth: {
+    back: 'Back', signInTitle: 'Sign in to Memo', signUpTitle: 'Create your Memo account',
+    signInSub: 'We email you a one-time link. No password to remember.',
+    signUpSub: 'Start with your email. We create the account when you open the link.',
+    modeSignIn: 'Sign in', modeSignUp: 'Sign up', email: 'Email', emailHint: 'you@example.com',
+    sendLink: 'Email me a link', sending: 'Sending…', sent: 'Check your inbox',
+    sentBody: 'Open the link we sent to {email}. You can close this tab after you open it.',
+    or: 'or', google: 'Continue with Google', telegram: 'Continue with Telegram', telegramOff: 'Telegram sign-in is not set up on this server.',
+    anon: 'Start as Guest', legal: 'By continuing you agree to our', terms: 'Terms', privacy: 'Privacy policy',
+    notConfigured: 'Sign-in is not set up on this server yet.', failed: 'Something went wrong. Try again.', home: 'Memo home',
+    cont: 'Continue', welcomeBack: 'Welcome back', newHere: 'New here? Let’s create your account.', usePassword: 'Use a password instead',
+    password: 'Password', signInPassword: 'Sign in with password', magicLink: 'Email me a link', createAccount: 'Create account',
+    wrongPassword: 'That password did not match. Try again or use a link.', guest: 'Start as Guest',
+  },
   meta: {
     title: 'Memo: a diary that keeps the numbers',
     description:
@@ -102,35 +124,22 @@ const en: Dict = {
     parsed: 'Saved and counted',
     analyzing: 'Reading your entry',
     placeholder: 'Write or say what happened',
-    kinds: { record: 'Record', reminder: 'Reminder', note: 'Note', thought: 'Thought' },
+    kinds: { record: 'Record', reminder: 'Reminder', note: 'Note', thought: 'Thought', chart: 'Chart', ring: 'Progress', todo: 'To do' },
   },
   band: { eyebrow: 'Made for this', magnet: 'Free to try' },
   personas: {
-    fitness: {
-      chip: 'Training and food',
-      h1: ['Log a workout', 'in one message.'],
-      sub: 'Type “ran 5 km” or “200 g chicken”. Memo works out distance, calories and protein, then sets your week against your own past weeks.',
-      demoInput: 'ran 5 km this morning, then 200 g chicken for lunch',
-      demoOut: [['Distance', '5 km'], ['Burned', '≈ 400 kcal'], ['Steps', '≈ 6,000'], ['Protein', '≈ 62 g']],
+    food: {
+      chip: 'Food',
+      h1: ['Log a meal', 'in one line.'],
+      sub: 'Type what you ate. Memo counts calories and protein, and shows where your day stands.',
+      demoInput: 'chicken and rice for lunch, apple after the gym',
+      demoOut: [['Calories', '≈ 610 kcal'], ['Protein', '48 g'], ['Today', '1,420 kcal'], ['Meals', '3 of 4']],
       benefits: [
-        ['Food and training in one place', 'No second app for meals. Both land in the same week.'],
-        ['Numbers you can check', 'Every total shows the entries it came from.'],
-        ['Compared with you', 'This week is measured against your past weeks, not other people.'],
+        ['Counted from your words', 'Calories and protein come from what you wrote, with the math shown.'],
+        ['A daily chart', 'See each day against your goal, and the week at a glance.'],
+        ['A meal checklist', 'Tick what you ate. Missed meals show up in the week view.'],
       ],
-      magnet: { title: 'Your first weekly numbers', body: 'Log for seven days and Memo builds a weekly retro from your own entries.', cta: 'Start free', href: '/login' },
-    },
-    reflect: {
-      chip: 'Thoughts and work',
-      h1: ['Your week,', 'written back to you.'],
-      sub: 'Talk or type the way you would to a friend. Memo turns your notes into a weekly retro: what went well, what did not, and one experiment to try.',
-      demoInput: 'shipped the pricing page, but the review ran late again',
-      demoOut: [['Category', 'Work'], ['Went well', 'Pricing page shipped'], ['To watch', 'Late reviews'], ['In retro', 'Friday']],
-      benefits: [
-        ['Voice notes count', 'Speak for a minute on the way home. Memo transcribes and files it.'],
-        ['A retro, not a summary', 'Went well, did not, start stop continue, one experiment, one lesson.'],
-        ['Ask your diary', '“When did I last feel this tired?” Answers come from your own entries.'],
-      ],
-      magnet: { title: 'See a sample retro', body: 'A full weekly retro, built from a week of sample entries.', cta: 'Read the sample', href: '/blog/what-a-weekly-retro-looks-like' },
+      magnet: { title: 'Your first day of meals', body: 'Write what you eat for one day. Memo builds the chart and the checklist from it.', cta: 'Start free', href: '/login' },
     },
     money: {
       chip: 'Spending',
@@ -145,6 +154,32 @@ const en: Dict = {
       ],
       magnet: { title: 'How one message becomes numbers', body: 'What Memo pulls out of a line like “150 UAH groceries”, step by step.', cta: 'Read how it works', href: '/blog/one-message-many-numbers' },
     },
+    water: {
+      chip: 'Water',
+      h1: ['Water, counted', 'without another app.'],
+      sub: 'Say "500 ml after the gym". Memo adds it up against your daily goal.',
+      demoInput: 'glass of water, 500 ml after the gym, coffee at 3 pm',
+      demoOut: [['Today', '1.5 L'], ['Goal', '2 L'], ['Progress', '75%'], ['Next', 'Water at 4 pm']],
+      benefits: [
+        ['A goal in one line', 'Set a daily target once. Every drink adds up against it.'],
+        ['A progress ring', 'See how close you are today, at a glance.'],
+        ['Gentle reminders', 'Pick the hours Memo nudges you to drink.'],
+      ],
+      magnet: { title: 'Set your daily water goal', body: 'Pick a number for today. Memo tracks it from what you write.', cta: 'Start free', href: '/login' },
+    },
+    quit: {
+      chip: 'Quit',
+      h1: ['Quit one habit,', 'one day at a time.'],
+      sub: 'Log a slip or a win in a line. Memo keeps your streak and shows what sets off a slip.',
+      demoInput: 'no cigarettes today, one slip on Friday after work',
+      demoOut: [['Streak', '9 days'], ['This week', '1 slip'], ['Trigger', 'Evenings'], ['Next check-in', 'Fri 9 pm']],
+      benefits: [
+        ['A streak that stays honest', 'A slip does not erase what you did right. The count keeps going.'],
+        ['Triggers, named', 'Memo groups slips by time and place, so the pattern shows.'],
+        ['A check-in you choose', 'Pick a time each week to review the streak.'],
+      ],
+      magnet: { title: 'Start your streak', body: 'Log today in one line. Memo starts the count.', cta: 'Start free', href: '/login' },
+    },
     sleep: {
       chip: 'Sleep and mood',
       h1: ['See what your', 'nights say.'],
@@ -158,44 +193,18 @@ const en: Dict = {
       ],
       magnet: { title: 'A two week sleep and mood check', body: 'Set an evening reminder, write one line a night, then read your two week retro.', cta: 'Start the check', href: '/login' },
     },
-    goals: {
-      chip: 'Goals and habits',
-      h1: ['Goals that move', 'with what you log.'],
-      sub: 'Set a goal like 8,000 steps or seven hours of sleep. The entries you already write move the progress bar, and a reminder checks in at the hour you pick.',
-      demoInput: 'walked to work and back',
-      demoOut: [['Steps', '≈ 6,000'], ['Goal', '8,000 steps'], ['Progress', '75%'], ['Streak', '4 days']],
+    fitness: {
+      chip: 'Training and food',
+      h1: ['Log a workout', 'in one message.'],
+      sub: 'Type “ran 5 km” or “200 g chicken”. Memo works out distance, calories and protein, then sets your week against your own past weeks.',
+      demoInput: 'ran 5 km this morning, then 200 g chicken for lunch',
+      demoOut: [['Distance', '5 km'], ['Burned', '≈ 400 kcal'], ['Steps', '≈ 6,000'], ['Protein', '≈ 62 g']],
       benefits: [
-        ['No extra logging', 'Goals read the entries you already write.'],
-        ['Check ins you choose', 'One reminder, at the time that suits you.'],
-        ['Honest weekly review', 'The retro says what moved and what did not.'],
+        ['Food and training in one place', 'No second app for meals. Both land in the same week.'],
+        ['Numbers you can check', 'Every total shows the entries it came from.'],
+        ['Compared with you', 'This week is measured against your past weeks, not other people.'],
       ],
-      magnet: { title: 'Set your first goal', body: 'Pick one number for this week. Memo tracks it from your entries.', cta: 'Set a goal', href: '/login' },
-    },
-    privacy: {
-      chip: 'A private diary',
-      h1: ['A diary you', 'can take with you.'],
-      sub: 'Entries are encrypted on our servers with AES 256. Export everything or delete your account in Settings at any time. You can start without an account.',
-      demoInput: 'felt anxious before the call, better after a walk',
-      demoOut: [['Stored', 'Encrypted at rest'], ['Export', 'Any time'], ['Delete', 'In Settings'], ['Account', 'Optional']],
-      benefits: [
-        ['Encrypted at rest', 'AES 256 GCM, with a key derived for your account.'],
-        ['Yours to take', 'Download all your data, or delete it, from Settings.'],
-        ['Said plainly', 'Encryption runs on our server. It is not end to end yet.'],
-      ],
-      magnet: { title: 'How Memo stores your diary', body: 'What is stored, how it is encrypted, and who processes it.', cta: 'Read the details', href: '/blog/how-memo-stores-your-diary' },
-    },
-    telegram: {
-      chip: 'Telegram',
-      h1: ['Your diary,', 'inside Telegram.'],
-      sub: 'Send a message or a voice note to the Memo bot. It replies in your language, and the mini app shows your charts without leaving the chat.',
-      demoInput: 'voice note: ran 5 km, mood 8 out of 10',
-      demoOut: [['Distance', '5 km'], ['Mood', '8 / 10'], ['Reply', 'Third run this week'], ['Charts', 'In the mini app']],
-      benefits: [
-        ['No new app', 'Memo lives in the chat app you already open every day.'],
-        ['Voice in any language', 'Speak Ukrainian, English or a mix. Memo understands.'],
-        ['No card needed', 'Paid plans, when they start, use Telegram Stars.'],
-      ],
-      magnet: { title: 'Open Memo in Telegram', body: 'Send your first line to the bot. It takes ten seconds.', cta: 'Open the bot', href: TELEGRAM_HREF },
+      magnet: { title: 'Your first weekly numbers', body: 'Log for seven days and Memo builds a weekly retro from your own entries.', cta: 'Start free', href: '/login' },
     },
   },
   tagline: ['Write it the way you would tell a friend.', 'Memo keeps the numbers.'],
@@ -332,6 +341,20 @@ const en: Dict = {
 };
 
 const uk: Dict = {
+  auth: {
+    back: 'Назад', signInTitle: 'Увійти в Memo', signUpTitle: 'Створити акаунт Memo',
+    signInSub: 'Ми надішлемо одноразове посилання на email. Пароль не потрібен.',
+    signUpSub: 'Почни з email. Акаунт створюється, коли відкриєш посилання.',
+    modeSignIn: 'Увійти', modeSignUp: 'Реєстрація', email: 'Email', emailHint: 'you@example.com',
+    sendLink: 'Надіслати посилання на email', sending: 'Надсилаємо…', sent: 'Перевір пошту',
+    sentBody: 'Відкрий посилання, яке ми надіслали на {email}. Цю вкладку можна закрити після відкриття.',
+    or: 'або', google: 'Продовжити з Google', telegram: 'Продовжити з Telegram', telegramOff: 'Вхід через Telegram не налаштований на цьому сервері.',
+    anon: 'Почати як гість', legal: 'Продовжуючи, ти погоджуєшся з', terms: 'умовами', privacy: 'політикою приватності',
+    notConfigured: 'Вхід ще не налаштований на цьому сервері.', failed: 'Щось пішло не так. Спробуй ще раз.', home: 'Memo, головна',
+    cont: 'Продовжити', welcomeBack: 'З поверненням', newHere: 'Вперше тут? Створімо твій акаунт.', usePassword: 'Увійти з паролем',
+    password: 'Пароль', signInPassword: 'Увійти з паролем', magicLink: 'Надіслати посилання на email', createAccount: 'Створити акаунт',
+    wrongPassword: 'Пароль не підійшов. Спробуй ще раз або скористайся посиланням.', guest: 'Почати як гість',
+  },
   meta: {
     title: 'Memo: щоденник, що рахує за тебе',
     description:
@@ -355,35 +378,22 @@ const uk: Dict = {
     parsed: 'Збережено й пораховано',
     analyzing: 'Читаю запис',
     placeholder: 'Напиши або скажи, що сталося',
-    kinds: { record: 'Запис', reminder: 'Нагадування', note: 'Нотатка', thought: 'Думка' },
+    kinds: { record: 'Запис', reminder: 'Нагадування', note: 'Нотатка', thought: 'Думка', chart: 'Графік', ring: 'Прогрес', todo: 'Завдання' },
   },
   band: { eyebrow: 'Саме для цього', magnet: 'Спробуй безкоштовно' },
   personas: {
-    fitness: {
-      chip: 'Тренування й їжа',
-      h1: ['Тренування', 'одним повідомленням.'],
-      sub: 'Напиши «пробіг 5 км» або «200 г курки». Memo порахує дистанцію, калорії й білок і порівняє тиждень з твоїми минулими тижнями.',
-      demoInput: 'зранку пробіг 5 км, на обід 200 г курки',
-      demoOut: [['Дистанція', '5 км'], ['Спалено', '≈ 400 ккал'], ['Кроки', '≈ 6 000'], ['Білок', '≈ 62 г']],
+    food: {
+      chip: 'Їжа',
+      h1: ['Запиши їжу', 'одним рядком.'],
+      sub: 'Напиши, що їв. Memo порахує калорії й білок і покаже, де стоїть твій день.',
+      demoInput: 'курка з рисом на обід, яблуко після залу',
+      demoOut: [['Калорії', '≈ 610 ккал'], ['Білок', '48 г'], ['Сьогодні', '1 420 ккал'], ['Прийоми їжі', '3 з 4']],
       benefits: [
-        ['Їжа й тренування разом', 'Без окремого застосунку для їжі. Усе в одному тижні.'],
-        ['Цифри, які можна перевірити', 'Кожен підсумок показує записи, з яких він складений.'],
-        ['Порівняння з собою', 'Цей тиждень порівнюється з твоїми минулими, а не з іншими людьми.'],
+        ['Рахує з твоїх слів', 'Калорії й білок беруться з того, що ти написав, і видно розрахунок.'],
+        ['Денний графік', 'Бачиш кожен день відносно цілі й тиждень одним поглядом.'],
+        ['Список прийомів їжі', 'Познач, що їв. Пропущені прийоми видно в тижневому огляді.'],
       ],
-      magnet: { title: 'Твої перші тижневі цифри', body: 'Пиши сім днів, і Memo збере тижневу ретроспективу з твоїх записів.', cta: 'Почати безкоштовно', href: '/login' },
-    },
-    reflect: {
-      chip: 'Думки й робота',
-      h1: ['Твій тиждень,', 'записаний для тебе.'],
-      sub: 'Говори чи пиши як другові. Memo перетворить нотатки на тижневу ретроспективу: що вдалося, що ні, і один експеримент на наступний тиждень.',
-      demoInput: 'запустили сторінку цін, але рев’ю знову затягнулось',
-      demoOut: [['Категорія', 'Робота'], ['Вдалося', 'Сторінка цін'], ['Звернути увагу', 'Довгі рев’ю'], ['У ретро', 'Пʼятниця']],
-      benefits: [
-        ['Голосові теж рахуються', 'Надиктуй хвилину дорогою додому. Memo розшифрує й збереже.'],
-        ['Ретро, а не переказ', 'Що вдалося, що ні, почати чи кинути, один експеримент, один урок.'],
-        ['Запитай свій щоденник', '«Коли я востаннє так втомився?» Відповідь з твоїх записів.'],
-      ],
-      magnet: { title: 'Приклад ретроспективи', body: 'Повна тижнева ретроспектива з тижня прикладових записів.', cta: 'Подивитися приклад', href: '/blog/what-a-weekly-retro-looks-like' },
+      magnet: { title: 'Твій перший день харчування', body: 'Запиши, що їв за один день. Memo збере з цього графік і список.', cta: 'Почати безкоштовно', href: '/login' },
     },
     money: {
       chip: 'Витрати',
@@ -398,6 +408,32 @@ const uk: Dict = {
       ],
       magnet: { title: 'Як одне повідомлення стає цифрами', body: 'Що Memo дістає з рядка «150 грн продукти», крок за кроком.', cta: 'Як це працює', href: '/blog/one-message-many-numbers' },
     },
+    water: {
+      chip: 'Вода',
+      h1: ['Вода, порахована', 'без ще одного застосунку.'],
+      sub: 'Напиши «500 мл після залу». Memo додасть до денної цілі.',
+      demoInput: 'склянка води, 500 мл після залу, кава о третій',
+      demoOut: [['Сьогодні', '1,5 л'], ['Ціль', '2 л'], ['Прогрес', '75%'], ['Далі', 'Вода о 16:00']],
+      benefits: [
+        ['Ціль в один рядок', 'Задай денну ціль один раз. Кожен напій додається до неї.'],
+        ['Кільце прогресу', 'Одним поглядом видно, наскільки ти близько сьогодні.'],
+        ['Мʼякі нагадування', 'Обери години, коли Memo нагадує пити.'],
+      ],
+      magnet: { title: 'Постав денну ціль води', body: 'Обери число на сьогодні. Memo відстежить його з того, що ти пишеш.', cta: 'Почати безкоштовно', href: '/login' },
+    },
+    quit: {
+      chip: 'Відмова',
+      h1: ['Відмовся від однієї звички,', 'день за днем.'],
+      sub: 'Запиши зрив або перемогу одним рядком. Memo веде серію і показує, що провокує зрив.',
+      demoInput: 'сьогодні без сигарет, один зрив у пʼятницю після роботи',
+      demoOut: [['Серія', '9 днів'], ['Цей тиждень', '1 зрив'], ['Тригер', 'Вечори'], ['Наступна перевірка', 'Пт 21:00']],
+      benefits: [
+        ['Серія, яка чесна', 'Зрив не стирає того, що ти зробив добре. Лічильник іде далі.'],
+        ['Тригери, названі', 'Memo групує зриви за часом і місцем, тож видно закономірність.'],
+        ['Перевірка, яку обереш ти', 'Обери час щотижня, щоб переглянути серію.'],
+      ],
+      magnet: { title: 'Почни свою серію', body: 'Запиши сьогодні одним рядком. Memo почне лічильник.', cta: 'Почати безкоштовно', href: '/login' },
+    },
     sleep: {
       chip: 'Сон і настрій',
       h1: ['Подивись, що кажуть', 'твої ночі.'],
@@ -411,44 +447,18 @@ const uk: Dict = {
       ],
       magnet: { title: 'Двотижнева перевірка сну й настрою', body: 'Постав вечірнє нагадування, пиши рядок щоночі й прочитай ретро за два тижні.', cta: 'Почати перевірку', href: '/login' },
     },
-    goals: {
-      chip: 'Цілі й звички',
-      h1: ['Цілі, що рухаються', 'від твоїх записів.'],
-      sub: 'Постав ціль, наприклад 8 000 кроків чи сім годин сну. Записи, які ти вже робиш, рухають прогрес, а нагадування приходить у твій час.',
-      demoInput: 'пішки на роботу й назад',
-      demoOut: [['Кроки', '≈ 6 000'], ['Ціль', '8 000 кроків'], ['Прогрес', '75%'], ['Серія', '4 дні']],
+    fitness: {
+      chip: 'Тренування й їжа',
+      h1: ['Тренування', 'одним повідомленням.'],
+      sub: 'Напиши «пробіг 5 км» або «200 г курки». Memo порахує дистанцію, калорії й білок і порівняє тиждень з твоїми минулими тижнями.',
+      demoInput: 'зранку пробіг 5 км, на обід 200 г курки',
+      demoOut: [['Дистанція', '5 км'], ['Спалено', '≈ 400 ккал'], ['Кроки', '≈ 6 000'], ['Білок', '≈ 62 г']],
       benefits: [
-        ['Без зайвих записів', 'Цілі читають записи, які ти вже робиш.'],
-        ['Нагадування на твій вибір', 'Одне нагадування, у зручний час.'],
-        ['Чесний тижневий огляд', 'Ретро каже, що зрушило, а що ні.'],
+        ['Їжа й тренування разом', 'Без окремого застосунку для їжі. Усе в одному тижні.'],
+        ['Цифри, які можна перевірити', 'Кожен підсумок показує записи, з яких він складений.'],
+        ['Порівняння з собою', 'Цей тиждень порівнюється з твоїми минулими, а не з іншими людьми.'],
       ],
-      magnet: { title: 'Постав першу ціль', body: 'Обери одне число на цей тиждень. Memo відстежить його з записів.', cta: 'Поставити ціль', href: '/login' },
-    },
-    privacy: {
-      chip: 'Приватний щоденник',
-      h1: ['Щоденник, який', 'можна забрати з собою.'],
-      sub: 'Записи шифруються на наших серверах за AES 256. Експортуй усе або видали акаунт у Налаштуваннях коли завгодно. Можна почати без акаунта.',
-      demoInput: 'хвилювався перед дзвінком, після прогулянки краще',
-      demoOut: [['Зберігання', 'Зашифровано'], ['Експорт', 'Коли завгодно'], ['Видалення', 'У Налаштуваннях'], ['Акаунт', 'Необовʼязковий']],
-      benefits: [
-        ['Шифрування на сервері', 'AES 256 GCM з ключем, виведеним для твого акаунта.'],
-        ['Твоє, щоб забрати', 'Завантаж або видали всі дані в Налаштуваннях.'],
-        ['Чесно', 'Шифрування працює на нашому сервері. Наскрізного шифрування поки немає.'],
-      ],
-      magnet: { title: 'Як Memo зберігає щоденник', body: 'Що зберігається, як шифрується і хто це обробляє.', cta: 'Читати деталі', href: '/blog/how-memo-stores-your-diary' },
-    },
-    telegram: {
-      chip: 'Telegram',
-      h1: ['Щоденник', 'прямо в Telegram.'],
-      sub: 'Надішли повідомлення чи голосове боту Memo. Він відповість твоєю мовою, а застосунок у Telegram покаже графіки, не виходячи з чату.',
-      demoInput: 'голосове: пробіг 5 км, настрій 8 з 10',
-      demoOut: [['Дистанція', '5 км'], ['Настрій', '8 / 10'], ['Відповідь', 'Третя пробіжка за тиждень'], ['Графіки', 'У застосунку']],
-      benefits: [
-        ['Без нового застосунку', 'Memo живе в месенджері, який ти й так відкриваєш щодня.'],
-        ['Голос якою завгодно мовою', 'Українською, англійською чи впереміш. Memo зрозуміє.'],
-        ['Без картки', 'Платні плани, коли зʼявляться, будуть за Telegram Stars.'],
-      ],
-      magnet: { title: 'Відкрий Memo в Telegram', body: 'Надішли боту перший рядок. Це десять секунд.', cta: 'Відкрити бота', href: TELEGRAM_HREF },
+      magnet: { title: 'Твої перші тижневі цифри', body: 'Пиши сім днів, і Memo збере тижневу ретроспективу з твоїх записів.', cta: 'Почати безкоштовно', href: '/login' },
     },
   },
   tagline: ['Пиши так, як розповів би другові.', 'Цифри Memo збереже сам.'],

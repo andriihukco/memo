@@ -97,6 +97,25 @@ export function SiteHeader({ t, locale }: { t: Nav; locale: SiteLocale }) {
   const items = links(t);
 
   useEffect(() => setOpen(false), [pathname]);
+
+  // Scrolled past the hero: the single header button turns solid. Throttled through rAF, not a raw scroll handler.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      setScrolled(window.scrollY > 120);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, []);
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -125,7 +144,7 @@ export function SiteHeader({ t, locale }: { t: Nav; locale: SiteLocale }) {
           className="pointer-events-auto flex h-16 w-full max-w-5xl items-center justify-between gap-2 rounded-full border border-foreground/10 bg-background/70 py-2 pl-6 pr-4 shadow-sm backdrop-blur-xl md:w-auto md:justify-start md:gap-4"
         >
           <Link href="/" aria-label={t.home} className={cn('flex min-h-11 items-center gap-2 rounded-full pr-2', FOCUS)}>
-            <LogoMark className="size-6" />
+            <LogoMark className="size-9" />
             <span className="title-3">Memo</span>
           </Link>
 
@@ -152,22 +171,19 @@ export function SiteHeader({ t, locale }: { t: Nav; locale: SiteLocale }) {
               <LangSwitch locale={locale} t={t} />
               <SoundToggle t={t} />
               <ThemeToggle t={t} />
-              <Link
-                href="/login"
-                className={cn('button-sm flex min-h-11 items-center rounded-full px-3 transition-colors duration-300', HOVER, FOCUS)}
-              >
-                {t.signIn}
-              </Link>
             </div>
+            {/* One button. Outline at the top of the page, solid once the page has scrolled. */}
             <Link
               href="/login"
               className={cn(
-                'btn-shimmer button-sm flex min-h-11 items-center rounded-full bg-primary px-4 text-primary-foreground transition-transform duration-300 active:scale-[0.98]',
-                EASE,
+                'button-sm flex min-h-11 items-center rounded-full border px-4 transition-[background-color,color,border-color] duration-500 ease-base active:scale-[0.98]',
+                scrolled
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-primary bg-transparent text-primary dark:border-white dark:text-white',
                 FOCUS,
               )}
             >
-              {t.startFree}
+              {scrolled ? t.startFree : t.signIn}
             </Link>
             <button
               type="button"
