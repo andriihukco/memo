@@ -67,11 +67,7 @@ export type Dict = {
   final: { title: string; anon: string; anonBusy: string; anonError: string; anonOff: string };
   footer: { tagline: string; product: string; legal: string; privacy: string; terms: string; note: string };
   pricing: {
-    calc: {
-      title: string; sub: string; costLabel: string; costHint: string; perMonth: string; youPay: string;
-      youGet: string; margin: string; noCost: string; bestUser: string; bestDev: string; assumption: string;
-      starRateLabel: string; fxLabel: string;
-    };
+    everything: string; seeAll: string; showLess: string;
     title: string; sub: string; early: string; monthly: string; quarterly: string; annual: string;
     perMonth: string; billed: string; free: string; current: string; cta: string;
     plans: Record<'free' | 'stars_basic' | 'stars_pro', string>;
@@ -298,22 +294,7 @@ const en: Dict = {
     note: 'Entries are encrypted at rest on the server. They are not end to end encrypted yet.',
   },
   pricing: {
-    calc: {
-      title: 'Unit economics',
-      sub: 'See what each plan costs you, and what it returns us. Change the blue numbers to your own.',
-      costLabel: 'Your cost per active user, per month',
-      costHint: 'Enter your own figure. Gemini, Supabase and hosting all count here.',
-      perMonth: 'per month',
-      youPay: 'You pay',
-      youGet: 'We receive (before Telegram fees)',
-      margin: 'Margin per user per month',
-      noCost: 'Enter a cost to see the margin.',
-      bestUser: 'Best for you: the lowest price per month.',
-      bestDev: 'Best for us: the most cash up front and the fewest renewals.',
-      assumption: 'Assumptions, not live rates. Edit them before you rely on the numbers.',
-      starRateLabel: 'Value of one Star (USD)',
-      fxLabel: 'UAH per USD',
-    },
+    everything: 'Everything in {plan}', seeAll: 'See all features', showLess: 'Show fewer',
     title: 'Plans',
     sub: 'Start free and stay free as long as you like. Paid plans add room and AI features.',
     early: 'Early access: billing is off and every feature is open to everyone. The prices below are planned.',
@@ -552,22 +533,7 @@ const uk: Dict = {
     note: 'Записи зберігаються зашифрованими на сервері. Наскрізного шифрування поки немає.',
   },
   pricing: {
-    calc: {
-      title: 'Економіка одного користувача',
-      sub: 'Що коштує кожен план вам і що він приносить нам. Змінюйте сині числа під свої.',
-      costLabel: 'Ваша вартість одного активного користувача на місяць',
-      costHint: 'Введіть власну цифру. Gemini, Supabase і хостинг входять сюди.',
-      perMonth: 'на місяць',
-      youPay: 'Ви платите',
-      youGet: 'Ми отримуємо (до комісії Telegram)',
-      margin: 'Маржа з користувача на місяць',
-      noCost: 'Введіть вартість, щоб побачити маржу.',
-      bestUser: 'Найвигідніше для вас: найнижча ціна за місяць.',
-      bestDev: 'Найвигідніше для нас: більше грошей наперед і менше продовжень.',
-      assumption: 'Це припущення, а не курс у реальному часі. Змініть їх перед тим, як покладатися на цифри.',
-      starRateLabel: 'Вартість однієї зірки (USD)',
-      fxLabel: 'UAH за USD',
-    },
+    everything: 'Усе з {plan}', seeAll: 'Усі функції', showLess: 'Менше',
     title: 'Плани',
     sub: 'Починай безкоштовно й лишайся на безкоштовному скільки хочеш. Платні плани додають місця й AI функцій.',
     early: 'Ранній доступ: оплата вимкнена, усі функції відкриті для всіх. Ціни нижче заплановані.',
