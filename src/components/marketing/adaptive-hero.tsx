@@ -502,7 +502,7 @@ function WidgetCard({ kind, label, value, title, tilt }: { kind: Kind; label: st
   const { hue, icon: Icon } = KIND_STYLE[kind];
   return (
     <div
-      className="group flex aspect-square w-[8.5rem] shrink-0 cursor-default flex-col justify-between gap-2 rounded-3xl border border-foreground/10 bg-background/70 p-3 shadow-sm backdrop-blur-xl transition-transform duration-500 ease-base motion-safe:animate-mk-bounce-in sm:w-[9.5rem] [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1"
+      className="group flex aspect-square w-full min-w-0 cursor-default flex-col justify-between gap-2 rounded-3xl border border-foreground/10 bg-background/70 p-2.5 shadow-sm backdrop-blur-xl transition-transform duration-500 ease-base motion-safe:animate-mk-bounce-in sm:p-3 [@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-1"
       style={{ rotate: `${tilt}deg` }}
     >
       <div className="flex items-center justify-between gap-2">
@@ -608,12 +608,12 @@ function Composer({ t, slug, elapsed }: { t: Props['t']; slug: PersonaSlug; elap
           </div>
         </div>
         {chips > 0 ? (
-          <div className="mt-4 flex items-stretch overflow-x-auto overscroll-x-contain pb-3 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mt-4 flex items-stretch px-3 py-4">
             {p.demoOut.map(([label, value], i) => {
               if (i >= chips) return null;
               const kind = KINDS[slug][i];
               return (
-                <div key={label} className={cn('flex shrink-0', i > 0 && '-ml-3')}>
+                <div key={label} className={cn('flex min-w-0 flex-1', i > 0 && '-ml-3')}>
                   <WidgetCard kind={kind} title={t.hero.kinds[kind]} label={label} value={value} tilt={TILT[i]} />
                 </div>
               );
