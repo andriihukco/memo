@@ -14,6 +14,9 @@ import { Symbol } from '../../src/components/symbol';
 import { useThemed, type Theme } from '../../src/theme/theme';
 import { PressScale, ScreenEnter } from '../../src/motion';
 import { TabHeader } from '../../src/components/tab-header';
+import { TimelineCard, isTimelineEntry } from '../../src/components/timeline-card';
+import { AddToTimeline } from '../../src/components/add-to-timeline';
+import { useSession } from '../../src/lib/session';
 
 const dayTitle = (key: string): string => {
   const [y, m, d] = key.split('-').map(Number);
@@ -35,6 +38,7 @@ export default function FeedScreen() {
 function FeedScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { entries, categories, loading, refresh, remove } = useEntries();
+  const { token } = useSession();
   const [filter, setFilter] = useState<string | null>(null);
   /** Null outside selection mode; while selecting, the ids picked so far. */
   const [selecting, setSelecting] = useState<Set<string> | null>(null);
@@ -81,6 +85,14 @@ function FeedScreenBody() {
   };
 
   const renderCard = (e: Entry, idx: number) => {
+    // Photos, videos, audio, music, quotes and stickers get their own cards.
+    if (isTimelineEntry(e)) {
+      return (
+        <Animated.View key={e.id} entering={FadeInDown.delay(Math.min(idx, 10) * 45).duration(340).springify().damping(18)}>
+          <TimelineCard entry={e} />
+        </Animated.View>
+      );
+    }
     const meta = metaOf(e.category);
     const picked = selecting?.has(e.id) ?? false;
     return (
@@ -107,6 +119,8 @@ function FeedScreenBody() {
   };
 
   const renderTile = (e: Entry) => {
+    // A media entry never shrinks to a tile: it keeps its card.
+    if (isTimelineEntry(e)) return <View key={e.id} style={styles.fullWidth}><TimelineCard entry={e} /></View>;
     const meta = metaOf(e.category);
     const picked = selecting?.has(e.id) ?? false;
     return (
@@ -158,6 +172,7 @@ function FeedScreenBody() {
     >
       <TabHeader title={t('miniapp.feed.title')} />
       <View style={styles.titleRow}>
+        {selecting === null ? <AddToTimeline token={token} onSaved={() => void refresh()} /> : null}
         {selecting === null ? (
           <Pressable accessibilityRole="button" onPress={() => setSelecting(new Set())} style={styles.selectButton}>
             <Text style={styles.selectText}>{t('feed.select')}</Text>
@@ -224,6 +239,7 @@ function FeedScreenBody() {
 
 const makeStyles = (colors: Theme) => StyleSheet.create({
   content: { paddingBottom: 40 },
+  fullWidth: { width: '100%' },
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingRight: 16 },
   title: { fontSize: colors.fs(34), fontWeight: '700', color: colors.label, paddingHorizontal: 20, paddingTop: 8, flexShrink: 1 },
   selectButton: { minHeight: TOUCH, minWidth: TOUCH, justifyContent: 'center', paddingHorizontal: 8 },

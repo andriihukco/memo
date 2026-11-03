@@ -31,7 +31,7 @@ const ONBOARDING_SLIDES = [
   { emoji: '📊', titleKey: 'miniapp.onboarding.slide2.title', bodyKey: 'miniapp.onboarding.slide2.body', bg: 'from-blue-950 to-slate-950' },
   { emoji: '💡', titleKey: 'miniapp.onboarding.slide3.title', bodyKey: 'miniapp.onboarding.slide3.body', bg: 'from-amber-950 to-slate-950' },
   { emoji: '🔐', titleKey: 'miniapp.onboarding.slide4.title', bodyKey: 'miniapp.onboarding.slide4.body', bg: 'from-emerald-950 to-slate-950' },
-  { emoji: '⭐', titleKey: 'miniapp.onboarding.slide5.title', bodyKey: 'miniapp.onboarding.slide5.body', bg: 'from-yellow-950 to-slate-950', isFinal: true },
+  { emoji: '✨', titleKey: 'miniapp.onboarding.slide5.title', bodyKey: 'miniapp.onboarding.slide5.body', bg: 'from-yellow-950 to-slate-950', isFinal: true },
 ];
 
 function OnboardingReplay({ onClose }: { onClose: () => void }) {
@@ -856,7 +856,7 @@ export default function SettingsPage() {
               className="flex w-full items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/50">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-400/15 shrink-0">
                 <span className="text-base leading-none">
-                  {userTier ? (TIER_INFO[userTier as SubscriptionTier]?.icon ?? '⭐') : '⭐'}
+                  {userTier ? (TIER_INFO[userTier as SubscriptionTier]?.icon ?? '✨') : '✨'}
                 </span>
               </div>
               <div className="flex-1 text-left min-w-0">

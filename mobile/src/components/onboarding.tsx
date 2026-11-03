@@ -18,7 +18,7 @@ const SLIDES = [
   { symbol: 'chart.bar.xaxis', key: 'slide2', tint: '#60A5FA' },
   { symbol: 'lightbulb.fill', key: 'slide3', tint: '#FBBF24' },
   { symbol: 'lock.shield.fill', key: 'slide4', tint: '#34D399' },
-  { symbol: 'star.circle.fill', key: 'slide5', tint: '#FACC15' },
+  { symbol: 'sparkles', key: 'slide5', tint: '#FACC15' },
 ] as const;
 
 const SPRING = { damping: 22, stiffness: 240 };

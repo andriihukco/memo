@@ -92,7 +92,7 @@ export const WIKI: Record<WikiCategory, { label: string; intro: string; entries:
       },
       {
         title: 'Billing',
-        body: 'Trial, paid plan and Telegram Stars invoices. Usage is shown as a chip and a warning banner.',
+        body: 'Trial, paid plan and checkout invoices. Usage is shown as a chip and a warning banner.',
         refs: ['docs/08-subscription-system.md', 'src/lib/billing', 'src/app/api/stars/invoice/route.ts'],
       },
     ],

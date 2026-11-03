@@ -408,7 +408,7 @@ function OnboardingPaywall({ finish, play }: OnboardingPaywallProps) {
                     <span className="text-[15px] font-semibold text-white">{plan.name}</span>
                   </div>
                   <div className="text-right">
-                    <p className="text-[15px] font-bold text-white">{price} ⭐</p>
+                    <p className="text-[15px] font-bold text-white">{price}</p>
                     <p className="text-[10px] text-white/40">
                       {billingPeriod === 'monthly' ? t('miniapp.onboarding.paywall.per_month') : `/ ${BILLING[billingPeriod].label.toLowerCase()}`}
                     </p>

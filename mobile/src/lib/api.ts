@@ -13,15 +13,26 @@ export interface Metric {
   aggregate: 'sum' | 'avg' | 'last';
 }
 
+/** A file or link attached to an entry. Files carry a signed `url`; music carries `meta.url`. */
+export interface EntryMedia {
+  id: string;
+  kind: 'photo' | 'video' | 'audio' | 'music';
+  url?: string | null;
+  mime?: string | null;
+  duration_s?: number | null;
+  meta?: { url?: string; provider?: string } | null;
+}
+
 export interface Entry {
   id: string;
   content: string;
   category: string;
-  metadata: { dashboard_metrics?: Metric[]; occurred_at?: string } | null;
+  metadata: { dashboard_metrics?: Metric[]; occurred_at?: string; kind?: 'quote'; sticker?: string } | null;
   bot_reply: string | null;
   thread_id: string | null;
   reply_to_entry_id: string | null;
   created_at: string;
+  media?: EntryMedia[];
 }
 
 export type RepeatRule = 'none' | 'daily' | 'weekly';
@@ -135,6 +146,41 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ content, category, ...(metadata ? { metadata } : {}) }),
     }),
+  /** Attach a photo or a video to an entry. The file is a React Native `{ uri, name, type }`. */
+  attachFile: async (token: string, entryId: string, kind: 'photo' | 'video', file: { uri: string; name: string; type: string }) => {
+    if (!API_URL) throw new ApiError(0, 'API_URL is not configured');
+    const form = new FormData();
+    form.append('kind', kind);
+    form.append('file', file as unknown as Blob);
+    const res = await fetch(`${API_URL}/api/entries/${entryId}/media`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    if (!res.ok) throw new ApiError(res.status, `HTTP ${res.status}`);
+  },
+  /** Attach a music link. Only the supported services are accepted by the server. */
+  attachMusic: (token: string, entryId: string, url: string) =>
+    request<{ media: EntryMedia }>(`/api/entries/${entryId}/media`, token, {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'music', url }),
+    }),
+  /** Audio note: the recording is classified and saved like a typed entry. */
+  uploadAudio: async (token: string, file: { uri: string; name: string; type: string }, durationS: number) => {
+    if (!API_URL) throw new ApiError(0, 'API_URL is not configured');
+    const form = new FormData();
+    form.append('file', file as unknown as Blob);
+    form.append('duration_s', String(durationS));
+    const res = await fetch(`${API_URL}/api/entries/audio`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new ApiError(res.status, body.error ?? `HTTP ${res.status}`);
+    }
+  },
   createReminder: (token: string, text: string, remindAt: string, repeat: RepeatRule) =>
     request<{ reminder: Reminder }>('/api/reminders', token, {
       method: 'POST',

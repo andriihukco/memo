@@ -25,6 +25,8 @@ import type { SubscriptionTier } from '@/lib/billing/plans';
 import { useI18n } from '@/lib/i18n/context';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
 import { entryTime, isShortNote, layoutTimeline } from '@/lib/timeline';
+import { TimelineCard, isTimelineEntry, type MediaItem } from '@/components/features/timeline/timeline-card';
+import { AddToTimeline } from '@/components/features/timeline/add-to-timeline';
 import { ENTRIES_CHANGED_EVENT } from '@/components/features/compose/compose-drawer';
 import { ProfileButton } from '@/components/shell/profile-button';
 
@@ -38,6 +40,7 @@ interface Entry {
   bot_reply?: string | null;
   thread_id?: string | null;
   reply_to_entry_id?: string | null;
+  media?: MediaItem[];
 }
 
 function formatTime(iso: string) {
@@ -789,6 +792,10 @@ export default function FeedPage() {
         />
       );
     }
+    // Photos, videos, audio, music, quotes and stickers get their own cards; plain notes keep the swipe card.
+    if (isTimelineEntry(item)) {
+      return <TimelineCard key={item.id} entry={item} />;
+    }
     return (
       <SwipeableCard
         key={item.id}
@@ -940,6 +947,9 @@ export default function FeedPage() {
           transition={{ duration: 0.3 }}
           className="flex flex-col gap-3 pb-4"
         >
+          <div className="flex justify-end">
+            <AddToTimeline accessToken={accessToken} onSaved={() => { fetchEntries(); }} />
+          </div>
           {groupByDate(groupByThread([...entries].sort((a, b) => Date.parse(entryTime(b)) - Date.parse(entryTime(a))))).map((group, groupIdx) => (
             <motion.div
               key={group.dateKey}

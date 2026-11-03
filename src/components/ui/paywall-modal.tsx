@@ -338,14 +338,14 @@ function PaywallSheet({
             </div>
             <div className="text-right">
               <p className="text-[22px] font-bold leading-tight text-yellow-400">
-                {starsPrice} ⭐
+                {starsPrice}
               </p>
               <p className="text-[10px] text-white/40">
                 {billingPeriod === 'monthly' ? t('miniapp.subs.per_month') : `/ ${periodInfo.label.toLowerCase()}`}
               </p>
               {billingPeriod !== 'monthly' && (
                 <p className="text-[10px] text-green-400 font-medium">
-                  ≈ {Math.round(starsPrice / periodInfo.months)} ⭐/{t('miniapp.subs.billing.monthly').toLowerCase()}
+                  ≈ {Math.round(starsPrice / periodInfo.months)}/{t('miniapp.subs.billing.monthly').toLowerCase()}
                 </p>
               )}
             </div>

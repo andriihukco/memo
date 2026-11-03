@@ -190,7 +190,7 @@ function PlanCard({
             <p className="text-[14px] font-semibold text-muted-foreground">{t('miniapp.subs.free_price')}</p>
           ) : (
             <>
-              <p className="text-[18px] font-bold leading-tight text-foreground">{starsPrice} ⭐</p>
+              <p className="text-[18px] font-bold leading-tight text-foreground">{starsPrice}</p>
               <p className="text-[10px] text-muted-foreground">
                 {billingPeriod === 'monthly' ? t('miniapp.subs.per_month') : `/ ${billingLabel.toLowerCase()}`}
               </p>

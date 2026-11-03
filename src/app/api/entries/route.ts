@@ -7,6 +7,8 @@ import { getEffectiveTier, TIER_INFO } from "@/lib/stars/paywall";
 import { rateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { resolveCalorieMetrics } from "@/lib/nutrition";
 import { aiEnabled } from "@/lib/ai";
+import { SIGNED_URL_SECONDS } from "@/lib/media";
+import { serviceClient } from "@/lib/entry-api";
 import { parseBody, CreateEntrySchema, UpdateEntrySchema, DeleteEntriesSchema } from "@/lib/schemas";
 
 /** CSRF / Origin guard — state-changing edge routes only */
@@ -32,6 +34,28 @@ function _checkOrigin(req: Request): boolean {
     return allowed.some((a) => referer.startsWith(a));
   }
   return false;
+}
+
+/** Adds a `media` list to each entry: signed links for stored files, the link itself for music. */
+async function signEntryMedia<T extends { entry_media?: unknown }>(entries: T[]): Promise<(Omit<T, "entry_media"> & { media: unknown[] })[]> {
+  // Storage is only touched when an entry actually has files, so text-only feeds never call it.
+  const hasFiles = entries.some((e) => Array.isArray(e.entry_media) && e.entry_media.length > 0);
+  const storage = hasFiles ? serviceClient().storage.from("entry-media") : null;
+  return Promise.all(
+    entries.map(async (e) => {
+      const rows = (Array.isArray(e.entry_media) ? e.entry_media : []) as { storage_path?: string | null }[];
+      const media = await Promise.all(
+        rows.map(async (row) => {
+          if (!row.storage_path || !storage) return row;
+          const { data } = await storage.createSignedUrl(row.storage_path, SIGNED_URL_SECONDS);
+          return { ...row, url: data?.signedUrl ?? null };
+        }),
+      );
+      const { entry_media: _unused, ...rest } = e;
+      void _unused;
+      return { ...rest, media };
+    }),
+  );
 }
 
 function getUserJwt(req: Request): string | null {
@@ -352,7 +376,7 @@ export async function GET(req: Request): Promise<Response> {
 
   let query = supabase
     .from("entries")
-    .select("id, content, category, metadata, bot_reply, thread_id, reply_to_entry_id, created_at")
+    .select("id, content, category, metadata, bot_reply, thread_id, reply_to_entry_id, created_at, entry_media(id, kind, storage_path, mime, bytes, duration_s, meta)")
     .order("created_at", { ascending: false });
 
   if (category) query = query.eq("category", category);
@@ -435,10 +459,13 @@ export async function GET(req: Request): Promise<Response> {
     // Return entries as-is (may be plaintext legacy entries)
   }
 
+  // Attachments: photos, videos and audio get signed links; music keeps its link.
+  const withMedia = await signEntryMedia(entries);
+
   // Return cursor-based response shape; include legacy `total` and `page` for backward compat
   return new Response(
     JSON.stringify({
-      entries,
+      entries: withMedia,
       has_more: hasMore,
       next_cursor: nextCursor,
       // Legacy fields (kept for backward compat with existing callers)
