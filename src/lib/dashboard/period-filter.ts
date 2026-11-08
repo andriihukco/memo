@@ -11,19 +11,27 @@ export interface Entry {
   created_at: string;
 }
 
-// UTC+3 aware helpers — all boundaries computed in user's local timezone
-const TZ_OFFSET_MS = 3 * 60 * 60 * 1000;
-
+/*
+ * Day boundaries in the viewer's own time zone (the browser's). Kyiv is UTC+2 in winter and UTC+3
+ * in summer, so a fixed offset put late-evening entries on the wrong day for half the year.
+ */
 export function startOfDay(d: Date): Date {
-  const local = new Date(d.getTime() + TZ_OFFSET_MS);
-  local.setUTCHours(0, 0, 0, 0);
-  return new Date(local.getTime() - TZ_OFFSET_MS);
+  const r = new Date(d);
+  r.setHours(0, 0, 0, 0);
+  return r;
 }
 
 export function endOfDay(d: Date): Date {
-  const local = new Date(d.getTime() + TZ_OFFSET_MS);
-  local.setUTCHours(23, 59, 59, 999);
-  return new Date(local.getTime() - TZ_OFFSET_MS);
+  const r = new Date(d);
+  r.setHours(23, 59, 59, 999);
+  return r;
+}
+
+/** When the entry happened: occurred_at when set, otherwise when it was saved. */
+function happenedAt(e: Entry): number {
+  const occurred = e.metadata?.occurred_at;
+  const t = typeof occurred === 'string' ? new Date(occurred).getTime() : NaN;
+  return Number.isNaN(t) ? new Date(e.created_at).getTime() : t;
 }
 
 /**
@@ -41,17 +49,17 @@ export function filterEntriesByPeriod(entries: Entry[], period?: string): Entry[
     const from = startOfDay(now);
     const to = endOfDay(now);
     return entries.filter(e => {
-      const t = new Date(e.created_at).getTime();
+      const t = happenedAt(e);
       return t >= from.getTime() && t <= to.getTime();
     });
   }
   if (period === 'week') {
     const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    return entries.filter(e => new Date(e.created_at).getTime() >= from.getTime());
+    return entries.filter(e => happenedAt(e) >= from.getTime());
   }
   if (period === 'month') {
     const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    return entries.filter(e => new Date(e.created_at).getTime() >= from.getTime());
+    return entries.filter(e => happenedAt(e) >= from.getTime());
   }
   return entries;
 }

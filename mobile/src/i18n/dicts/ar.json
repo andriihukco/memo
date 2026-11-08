@@ -815,6 +815,8 @@
   "entry.not_found": "لم يُعثر على الإدخال",
   "signin.anonymous": "ابدأ بدون حساب",
   "signin.anonymous_failed": "البدء بدون حساب غير متاح حاليًا. سجّل الدخول بالبريد أو Google.",
+  "signin.google_off": "تسجيل الدخول عبر Google غير مفعّل بعد. استخدم البريد الإلكتروني حاليًا.",
+  "signin.guest_off": "البدء بدون حساب غير مفعّل بعد. استخدم البريد الإلكتروني حاليًا.",
   "signin.telegram": "المتابعة عبر Telegram",
   "signin.theme": "المظهر"
 }

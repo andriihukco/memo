@@ -815,6 +815,8 @@
   "entry.not_found": "Eintrag nicht gefunden",
   "signin.anonymous": "Ohne Konto starten",
   "signin.anonymous_failed": "Start ohne Konto ist derzeit nicht verfügbar. Melde dich stattdessen mit E-Mail oder Google an.",
+  "signin.google_off": "Die Anmeldung mit Google ist noch nicht aktiviert. Nutze vorerst E-Mail.",
+  "signin.guest_off": "Start ohne Konto ist noch nicht aktiviert. Nutze vorerst E-Mail.",
   "signin.telegram": "Weiter mit Telegram",
   "signin.theme": "Design"
 }

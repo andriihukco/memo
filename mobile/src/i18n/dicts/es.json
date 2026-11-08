@@ -815,6 +815,8 @@
   "entry.not_found": "Registro no encontrado",
   "signin.anonymous": "Empezar sin cuenta",
   "signin.anonymous_failed": "Empezar sin cuenta no está disponible ahora. Inicia sesión con correo o Google.",
+  "signin.google_off": "El acceso con Google aún no está activado. Usa el correo por ahora.",
+  "signin.guest_off": "Empezar sin cuenta aún no está activado. Usa el correo por ahora.",
   "signin.telegram": "Continuar con Telegram",
   "signin.theme": "Tema"
 }

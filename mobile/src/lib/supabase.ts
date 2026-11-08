@@ -12,3 +12,7 @@ export const supabase = createClient(url, anonKey, {
 });
 
 export const supabaseConfigured = url !== '' && anonKey !== '';
+
+/** Public project address and key, for reading which sign-in methods are turned on. */
+export const supabaseUrl = url;
+export const supabaseAnonKey = anonKey;

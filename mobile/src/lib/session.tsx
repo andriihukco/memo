@@ -138,6 +138,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (oauthError || !data.url) return fail(oauthError?.message ?? 'Sign-in failed');
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
     if (result.type !== 'success') return false;
+    // Provider turned off or refused: Supabase sends the reason in the query.
+    const query = new URLSearchParams(result.url.split('?')[1]?.split('#')[0] ?? '');
+    if (query.get('error')) return fail(t('signin.google_off'));
     // Supabase returns the tokens in the URL fragment.
     const params = new URLSearchParams(result.url.split('#')[1] ?? '');
     const access = params.get('access_token');
@@ -163,7 +166,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (!supabaseConfigured) return fail('Supabase is not configured');
     const { data, error: anonError } = await supabase.auth.signInAnonymously();
     const session = data.session;
-    if (anonError || !session) return fail(t('signin.anonymous_failed'));
+    if (anonError || !session) return fail(/disabled/i.test(anonError?.message ?? '') ? t('signin.guest_off') : t('signin.anonymous_failed'));
     return adopt(session.access_token, session.refresh_token);
   }, [adopt, fail]);
 

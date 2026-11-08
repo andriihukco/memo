@@ -4,7 +4,9 @@
  * A goal is a daily or weekly target for one metric (for example steps per day).
  * Progress comes from the numeric metrics on diary entries. Everything here is pure,
  * so it runs on the server (retro) and in the browser (progress bars).
+ * Days and totals follow src/lib/metrics.ts: local calendar days, canonical keys, set corrections.
  */
+import { CANON, canonicalKey, dailyValues, dayKeyBefore, localDayKey, type Aggregate, type MetricMode, type MetricPoint as CanonPoint } from './metrics';
 
 export type GoalPeriod = "day" | "week";
 
@@ -17,11 +19,14 @@ export interface Goal {
   period: GoalPeriod;
 }
 
-/** One numeric value logged for a metric on a given day. */
+/** One numeric value logged for a metric. `day` defaults to the local day of `date`. */
 export interface MetricPoint {
   date: Date;
   key: string;
   value: number;
+  day?: string;
+  aggregate?: Aggregate;
+  mode?: MetricMode;
 }
 
 export interface GoalProgress {
@@ -34,20 +39,30 @@ export interface GoalProgress {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Calendar day key in UTC, e.g. "2026-11-01". */
+/** Local calendar day key, e.g. "2026-11-01". */
 export function dayKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return localDayKey(date);
 }
 
-/** Sum of a metric per calendar day. */
+/**
+ * Value of a metric per local day. Aliases count as the same metric ("steps" and "steps_count"),
+ * sums add up, averages average, and a set correction replaces the running total.
+ */
 export function dailyTotals(points: MetricPoint[], key: string): Map<string, number> {
-  const totals = new Map<string, number>();
-  for (const p of points) {
-    if (p.key !== key || !Number.isFinite(p.value)) continue;
-    const k = dayKey(p.date);
-    totals.set(k, (totals.get(k) ?? 0) + p.value);
-  }
-  return totals;
+  const k = canonicalKey(key);
+  const own: CanonPoint[] = points
+    .filter((p) => canonicalKey(p.key) === k && Number.isFinite(p.value))
+    .map((p) => ({
+      date: p.date,
+      day: p.day ?? localDayKey(p.date),
+      key: k,
+      value: p.value,
+      aggregate: CANON[k]?.aggregate ?? p.aggregate ?? 'sum',
+      mode: p.mode,
+      label: k,
+      unit: '',
+    }));
+  return dailyValues(own, k);
 }
 
 /** Progress for one goal at `now`. Day goals use today; week goals use the last 7 days. */
@@ -56,7 +71,7 @@ export function goalProgress(goal: Goal, points: MetricPoint[], now: Date): Goal
   const days = goal.period === "day" ? 1 : 7;
   let current = 0;
   for (let i = 0; i < days; i++) {
-    current += totals.get(dayKey(new Date(now.getTime() - i * DAY_MS))) ?? 0;
+    current += totals.get(dayKeyBefore(now, i)) ?? 0;
   }
   const ratio = goal.target > 0 ? Math.min(1, current / goal.target) : 0;
   return { goal, current, target: goal.target, ratio, met: goal.target > 0 && current >= goal.target };
@@ -69,7 +84,7 @@ export function goalProgress(goal: Goal, points: MetricPoint[], now: Date): Goal
 export function dayStreak(goal: Goal, points: MetricPoint[], now: Date): number {
   if (goal.period !== "day") return 0;
   const totals = dailyTotals(points, goal.metric);
-  const met = (offset: number) => (totals.get(dayKey(new Date(now.getTime() - offset * DAY_MS))) ?? 0) >= goal.target;
+  const met = (offset: number) => (totals.get(dayKeyBefore(now, offset)) ?? 0) >= goal.target;
 
   let offset = met(0) ? 0 : 1;
   let streak = 0;

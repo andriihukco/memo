@@ -815,6 +815,8 @@
   "entry.not_found": "Entrée introuvable",
   "signin.anonymous": "Commencer sans compte",
   "signin.anonymous_failed": "Commencer sans compte n’est pas disponible pour le moment. Connectez-vous par e-mail ou Google.",
+  "signin.google_off": "La connexion Google n’est pas encore activée. Utilise l’e-mail pour l’instant.",
+  "signin.guest_off": "Le démarrage sans compte n’est pas encore activé. Utilise l’e-mail pour l’instant.",
   "signin.telegram": "Continuer avec Telegram",
   "signin.theme": "Thème"
 }

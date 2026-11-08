@@ -95,7 +95,8 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
         return;
       }
       const { entry } = await api.createEntry(token, content, category, metadata);
-      setEntries((prev) => [entry, ...prev]);
+      // A correction returns the entry it fixed, which may already be in the list.
+      setEntries((prev) => (prev.some((e) => e.id === entry.id) ? prev.map((e) => (e.id === entry.id ? entry : e)) : [entry, ...prev]));
       if (extra.reminder) {
         await api.createReminder(token, content, extra.reminder.at.toISOString(), extra.reminder.repeat);
       }

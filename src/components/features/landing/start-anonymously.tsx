@@ -9,7 +9,8 @@ import { getBrowserAuthClient } from '@/lib/supabase/browser';
  * Start without an account: a Supabase anonymous session. The profile is created by the
  * web-accounts trigger (migration 20240001000025). The user can link an email or Google later.
  */
-type Labels = { label: string; busy: string; error: string; off: string };
+/** `disabled`: shown when the server says guest sign-in is turned off. */
+type Labels = { label: string; busy: string; error: string; off: string; disabled?: string };
 
 const DEFAULT_LABELS: Labels = {
   label: 'Start without an account',
@@ -18,7 +19,8 @@ const DEFAULT_LABELS: Labels = {
   off: 'Sign-in is not configured on this server.',
 };
 
-export function StartAnonymously({ labels = DEFAULT_LABELS }: { labels?: Labels }) {
+/** `unavailable`: the reason guest mode is off on this server. The button is disabled and the reason shown under it. */
+export function StartAnonymously({ labels = DEFAULT_LABELS, unavailable = null }: { labels?: Labels; unavailable?: string | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export function StartAnonymously({ labels = DEFAULT_LABELS }: { labels?: Labels 
     const { error: authErr } = await supabase.auth.signInAnonymously();
     if (authErr) {
       setBusy(false);
-      setError(labels.error);
+      setError(/anonymous sign-ins are disabled/i.test(authErr.message) ? labels.disabled ?? labels.error : labels.error);
       return;
     }
     router.replace('/miniapp');
@@ -39,10 +41,11 @@ export function StartAnonymously({ labels = DEFAULT_LABELS }: { labels?: Labels 
 
   return (
     <div className="flex flex-col gap-2">
-      <Button variant="outline" onClick={start} disabled={busy} className="min-h-11">
+      <Button variant="outline" onClick={start} disabled={busy || !!unavailable} aria-describedby={unavailable ? 'guest-off' : undefined} className="min-h-11">
         {busy ? labels.busy : labels.label}
       </Button>
-      {error ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
+      {unavailable ? <p id="guest-off" className="text-sm text-muted-foreground">{unavailable}</p> : null}
+      {error && !unavailable ? <p role="alert" className="text-sm text-destructive">{error}</p> : null}
     </div>
   );
 }

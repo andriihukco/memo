@@ -706,6 +706,8 @@
   "bot.action.edit_no_changes": "Didn't understand what to change. Say, for example: _\"Fix the last food entry — I ate 300g, not 200g\"_",
   "bot.action.edit_error": "Something went wrong while updating the entry. Please try again 🙏",
   "bot.action.edit_success": "✅ Updated!\n\n_{content}_",
+  "bot.action.metric_updated": "✅ Corrigé : {label} est maintenant {value} {unit}.",
+  "bot.action.total_set": "✅ {label} aujourd’hui : {value} {unit}. Les nouvelles saisies s’ajouteront.",
   "bot.action.widget_created": "✨ Got it! Widget *{label}* ({unit}) will appear on the dashboard automatically once you start logging {description}.\n\nJust say, for example: _\"Meditated for 20 minutes\"_ — and I'll add the `{metricKey}` metric to the entry.",
   "bot.action.merge_wip": "🔗 Merging *{keys}* into *{newLabel}* — this feature is in development. But I've noted your request 😊",
   "bot.action.schedule_updated": "📅 Report schedule updated{time}:\n{parts}",

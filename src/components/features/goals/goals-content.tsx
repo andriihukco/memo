@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/supabase/auth-context';
 import { dayStreak, goalProgress, type Goal, type GoalPeriod, type MetricPoint } from '@/lib/goals';
+import { collectPoints, type MetricEntry } from '@/lib/metrics';
 
 interface EntryRow {
   id: string;
@@ -51,25 +52,19 @@ export function GoalsContent() {
       setGoals(loaded);
       setLogGoalId((id) => id || loaded[0]?.id || '');
 
-      const collected: MetricPoint[] = [];
+      const loadedEntries: MetricEntry[] = [];
       let before: string | null = null;
       for (let page = 0; page < PAGES_TO_LOAD; page++) {
         const url = `/api/entries?limit=50${before ? `&before=${before}` : ''}`;
         const res = await fetch(url, { headers });
         if (!res.ok) throw new Error('Could not load entries');
         const body = (await res.json()) as { entries: EntryRow[]; has_more: boolean; next_cursor: string | null };
-        for (const e of body.entries) {
-          for (const m of e.metadata?.dashboard_metrics ?? []) {
-            if (typeof m.key === 'string' && typeof m.value === 'number') {
-              collected.push({ date: new Date(e.created_at), key: m.key, value: m.value });
-            }
-          }
-        }
+        loadedEntries.push(...(body.entries as MetricEntry[]));
         if (!body.has_more || !body.next_cursor) break;
         before = body.next_cursor;
       }
       setNow(new Date());
-      setPoints(collected);
+      setPoints(collectPoints(loadedEntries));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {

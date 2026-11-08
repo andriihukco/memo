@@ -815,6 +815,8 @@
   "entry.not_found": "प्रविष्टि नहीं मिली",
   "signin.anonymous": "खाता बनाए बिना शुरू करें",
   "signin.anonymous_failed": "अभी बिना खाते के शुरू करना उपलब्ध नहीं है। ईमेल या Google से साइन इन करें।",
+  "signin.google_off": "Google साइन-इन अभी चालू नहीं है। अभी ईमेल का उपयोग करें।",
+  "signin.guest_off": "बिना खाते के शुरू करना अभी चालू नहीं है। अभी ईमेल का उपयोग करें।",
   "signin.telegram": "Telegram से जारी रखें",
   "signin.theme": "थीम"
 }

@@ -111,8 +111,10 @@ export function ComposeDrawer() {
       const res = await fetch('/api/entries', {
         method: 'POST',
         headers: auth,
-        body: JSON.stringify({ content: fullText, category, ...(metadata ? { metadata } : {}) }),
+        // Only a category the user picked is sent; otherwise the server classifies it like the bot does.
+        body: JSON.stringify({ content: fullText, ...(picked ? { category: picked } : {}), ...(metadata ? { metadata } : {}) }),
       });
+      if (res.status === 409) throw new Error(t('compose.error_correction'));
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? t('compose.error_save'));
 
       if (remind) {

@@ -815,6 +815,8 @@
   "entry.not_found": "未找到记录",
   "signin.anonymous": "无需账号开始",
   "signin.anonymous_failed": "暂时无法无账号开始。请改用邮箱或 Google 登录。",
+  "signin.google_off": "Google 登录尚未开启。请先使用邮箱。",
+  "signin.guest_off": "无账号开始尚未开启。请先使用邮箱。",
   "signin.telegram": "使用 Telegram 继续",
   "signin.theme": "主题"
 }

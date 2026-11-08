@@ -815,6 +815,8 @@
   "entry.not_found": "Voce non trovata",
   "signin.anonymous": "Inizia senza account",
   "signin.anonymous_failed": "Inizia senza account non è disponibile ora. Accedi con e-mail o Google.",
+  "signin.google_off": "L’accesso con Google non è ancora attivo. Per ora usa l’email.",
+  "signin.guest_off": "Iniziare senza account non è ancora attivo. Per ora usa l’email.",
   "signin.telegram": "Continua con Telegram",
   "signin.theme": "Tema"
 }

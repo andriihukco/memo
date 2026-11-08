@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getBrowserAuthClient } from "@/lib/supabase/browser";
+import { fetchAuthProviders, type AuthProviders } from "@/lib/supabase/auth-providers";
 import { DICTS, fill, type SiteLocale } from "@/lib/marketing/dict";
 import { LogoMark } from "@/components/marketing/logo-mark";
 import { StartAnonymously } from "@/components/features/landing/start-anonymously";
@@ -41,6 +42,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [providers, setProviders] = useState<AuthProviders | null>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
   const supabase = getBrowserAuthClient();
   const a = DICTS[locale].auth;
@@ -48,6 +50,13 @@ export default function LoginPage() {
   useEffect(() => {
     setLocale(readLocale());
   }, []);
+
+  // Which options the project has turned on. Unknown (null) keeps every option enabled.
+  useEffect(() => {
+    void fetchAuthProviders(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "").then(setProviders);
+  }, []);
+  const googleOff = providers?.google === false;
+  const guestOff = providers?.anonymous === false;
 
   // Already signed in: go straight to the app.
   useEffect(() => {
@@ -157,12 +166,13 @@ export default function LoginPage() {
 
   async function signInWithGoogle() {
     if (!supabase) return setError(a.notConfigured);
+    if (googleOff) return setError(a.googleOff);
     setError(null);
     const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
     });
-    if (oauthErr) setError(oauthErr.message);
+    if (oauthErr) setError(/not enabled|unsupported provider/i.test(oauthErr.message) ? a.googleOff : a.failed);
   }
 
   const back = () => {
@@ -285,15 +295,17 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={signInWithGoogle}
-              disabled={!supabase}
+              disabled={!supabase || googleOff}
+              aria-describedby={googleOff ? "google-off" : undefined}
               className={cn("min-h-14 rounded-full border border-foreground/20 bg-background/60 px-6 text-lg font-medium backdrop-blur-xl transition-colors hover:bg-background disabled:opacity-40", FOCUS)}
             >
               {a.google}
             </button>
+            {googleOff ? <p id="google-off" className="caption-5 -mt-1 text-foreground/60">{a.googleOff}</p> : null}
             <div className="flex flex-col items-center gap-2">
               {TELEGRAM_BOT ? <div ref={widgetRef} className="min-h-11" /> : <p className="caption-5 text-foreground/60">{a.telegramOff}</p>}
             </div>
-            <StartAnonymously labels={{ label: a.guest, busy: "…", error: a.failed, off: a.notConfigured }} />
+            <StartAnonymously labels={{ label: a.guest, busy: "…", error: a.failed, off: a.notConfigured, disabled: a.guestOff }} unavailable={guestOff ? a.guestOff : null} />
           </div>
 
           {error ? <p role="alert" className="caption-4 mt-6 text-destructive">{error}</p> : null}

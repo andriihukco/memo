@@ -6,6 +6,8 @@ import type { ClassificationResult } from "@/lib/classifier";
 import { deriveUserKey, decryptField } from "@/lib/crypto";
 import type { Locale } from "@/i18n/locales";
 import { t } from "@/i18n/t";
+import { applyCorrection } from "@/lib/logging/corrections";
+import { metricLabel, unitLabel } from "@/lib/metrics";
 
 interface BotContext extends Context {
   profile?: Profile;
@@ -114,7 +116,8 @@ export async function checkPendingDelete(ctx: BotContext): Promise<boolean> {
 
 // ── Main action handler ───────────────────────────────────────────────────────
 
-export async function handleAction(ctx: BotContext, result: ClassificationResult): Promise<void> {
+/** `text`: what the user sent, kept as the text of a set-total correction. */
+export async function handleAction(ctx: BotContext, result: ClassificationResult, text?: string): Promise<void> {
   const profile = ctx.profile;
   if (!profile) return;
 
@@ -189,68 +192,52 @@ export async function handleAction(ctx: BotContext, result: ClassificationResult
     }
 
     // ── UPDATE / EDIT ────────────────────────────────────────────────────────
-    case "update_entry": {
-      const entryId     = params.entry_id    as string | undefined;
-      const newContent  = params.new_content  as string | undefined;
-      const newCategory = params.new_category as string | undefined;
-      // description is extracted for context but search uses category/entry_id
-
-      // If no entry_id provided, find the most recent matching entry
-      let targetId = entryId;
-      if (!targetId) {
-        const searchCategory = newCategory ?? (params.category as string | undefined);
-        let q = supabase
-          .from("entries")
-          .select("id, content")
-          .eq("user_id", profile.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (searchCategory) q = q.eq("category", searchCategory);
-        const { data } = await q;
-        targetId = data?.[0]?.id;
+    case "update_entry":
+    case "set_metric_total": {
+      // Shared with the web (src/lib/logging/corrections.ts): encrypted text, metrics recalculated.
+      let cryptoKey: CryptoKey | null = null;
+      try {
+        const { data: salt } = await supabase.from("profiles").select("encryption_salt").eq("id", profile.id).single();
+        cryptoKey = await deriveUserKey(profile.telegram_id.toString(), salt?.encryption_salt ?? null);
+      } catch (err) {
+        console.error("[action] key derivation failed:", err);
       }
 
-      if (!targetId) {
-        await ctx.reply(t('bot.action.edit_not_found', ctx.locale), { parse_mode: "Markdown" });
-        return;
-      }
-
-      const updates: Record<string, unknown> = {};
-      if (newContent) updates.content = newContent;
-      if (newCategory) updates.category = newCategory;
-
-      if (Object.keys(updates).length === 0) {
-        await ctx.reply(t('bot.action.edit_no_changes', ctx.locale), { parse_mode: "Markdown" });
-        return;
-      }
-
-      const { data: updated, error } = await supabase
-        .from("entries")
-        .update(updates)
-        .eq("id", targetId)
-        .eq("user_id", profile.id)
-        .select("content, category")
-        .single();
-
-      if (error || !updated) {
-        console.error("[action] update_entry error:", error?.message);
-        await ctx.reply(t('bot.action.edit_error', ctx.locale));
-        return;
-      }
-
-      await ctx.reply(
-        t('bot.action.edit_success', ctx.locale, { content: updated.content }),
-        { parse_mode: "Markdown" }
-      );
-
-      // Re-embed the updated entry asynchronously
-      const { embedEntry } = await import("@/lib/embedding");
-      embedEntry(targetId, updated.content, {
+      const outcome = await applyCorrection(supabase, {
         userId: profile.id,
-        category: updated.category,
-        created_at: new Date().toISOString(),
-      }).catch((err) => console.error("[action] re-embed after update failed:", err));
+        actionType: result.action_type,
+        params,
+        text: text ?? String(params.description ?? ""),
+        cryptoKey,
+      });
 
+      if (!outcome.ok) {
+        const key = outcome.reason === "not_found" ? "bot.action.edit_not_found" : outcome.reason === "no_changes" ? "bot.action.edit_no_changes" : "bot.action.edit_error";
+        await ctx.reply(t(key, ctx.locale), outcome.reason === "error" ? undefined : { parse_mode: "Markdown" });
+        return;
+      }
+
+      const m = outcome.metric;
+      const shown = m
+        ? { label: metricLabel(m.key, ctx.locale, m.label), value: String(m.value), unit: unitLabel(m.unit, ctx.locale) }
+        : null;
+      if (outcome.kind === "total_set" && shown) {
+        await ctx.reply(t("bot.action.total_set", ctx.locale, shown));
+      } else if (outcome.kind === "metric_updated" && shown) {
+        await ctx.reply(t("bot.action.metric_updated", ctx.locale, shown));
+      } else {
+        await ctx.reply(t("bot.action.edit_success", ctx.locale, { content: outcome.content ?? "" }), { parse_mode: "Markdown" });
+      }
+
+      // Re-embed when the text changed.
+      if (outcome.content) {
+        const { embedEntry } = await import("@/lib/embedding");
+        embedEntry(outcome.entryId, outcome.content, {
+          userId: profile.id,
+          category: outcome.category,
+          created_at: new Date().toISOString(),
+        }).catch((err) => console.error("[action] re-embed after update failed:", err));
+      }
       break;
     }
 

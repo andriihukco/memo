@@ -34,6 +34,7 @@ export type Dict = {
     anon: string; legal: string; terms: string; privacy: string; notConfigured: string; failed: string;
     and: string; home: string; cont: string; welcomeBack: string; newHere: string; usePassword: string; password: string;
     signInPassword: string; magicLink: string; createAccount: string; wrongPassword: string; guest: string;
+    googleOff: string; guestOff: string;
   };
   meta: { title: string; description: string };
   nav: {
@@ -96,6 +97,8 @@ const en: Dict = {
     and: 'and', cont: 'Continue', welcomeBack: 'Welcome back', newHere: 'New here? Let’s create your account.', usePassword: 'Use a password instead',
     password: 'Password', signInPassword: 'Sign in with password', magicLink: 'Email me a link', createAccount: 'Create account',
     wrongPassword: 'That password did not match. Try again or use a link.', guest: 'Start as Guest',
+    googleOff: 'Google sign-in is not turned on yet. Use email for now.',
+    guestOff: 'Guest mode is not turned on yet. Use email for now.',
   },
   meta: {
     title: 'Memo: a diary that keeps the numbers',
@@ -335,6 +338,8 @@ const uk: Dict = {
     and: 'і', cont: 'Продовжити', welcomeBack: 'З поверненням', newHere: 'Вперше тут? Створімо твій акаунт.', usePassword: 'Увійти з паролем',
     password: 'Пароль', signInPassword: 'Увійти з паролем', magicLink: 'Надіслати посилання на email', createAccount: 'Створити акаунт',
     wrongPassword: 'Пароль не підійшов. Спробуй ще раз або скористайся посиланням.', guest: 'Почати як гість',
+    googleOff: 'Вхід через Google ще не ввімкнений. Поки що скористайся email.',
+    guestOff: 'Гостьовий режим ще не ввімкнений. Поки що скористайся email.',
   },
   meta: {
     title: 'Memo: щоденник, що рахує за тебе',

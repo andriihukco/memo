@@ -10,6 +10,11 @@ import { aiEnabled } from "@/lib/ai";
 import { SIGNED_URL_SECONDS } from "@/lib/media";
 import { serviceClient } from "@/lib/entry-api";
 import { parseBody, CreateEntrySchema, UpdateEntrySchema, DeleteEntriesSchema } from "@/lib/schemas";
+import { enrichWebEntry } from "@/lib/logging/enrich";
+import { applyCorrection } from "@/lib/logging/corrections";
+import { normalizeMetrics } from "@/lib/metrics";
+import { finalizeMetrics } from "@/lib/metric-extract";
+import { loadUserCategories, swatchFor } from "@/lib/category-config";
 
 /** CSRF / Origin guard — state-changing edge routes only */
 function _checkOrigin(req: Request): boolean {
@@ -178,26 +183,86 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) return parsed.error;
 
   const { content, category, metadata } = parsed.data;
+  const text = content.trim();
+  const meta = (metadata ?? {}) as Record<string, unknown>;
 
-  // Encrypt content
-  let storedContent = content.trim();
+  // Key for encrypting the text (and any correction it triggers)
+  let cryptoKey: CryptoKey | null = null;
   try {
     const telegramProfile = await getTelegramProfile(jwt);
-    if (telegramProfile) {
-      const key = await deriveUserKey(telegramProfile.telegramId, telegramProfile.encryptionSalt);
-      storedContent = await encryptField(storedContent, key);
-    }
+    if (telegramProfile) cryptoKey = await deriveUserKey(telegramProfile.telegramId, telegramProfile.encryptionSalt);
   } catch (cryptoErr) {
     console.error("[api/entries POST] encryption error:", cryptoErr);
   }
+
+  /*
+   * Same pipeline as the bot. A missing or "uncategorized" category lets the classifier choose;
+   * a category the user picked only gets its metrics read. Entries that already carry metrics
+   * (a goal log) and stickers or quotes skip the model; every metric still gets the fixed rules.
+   */
+  const picked = category && category !== "uncategorized" ? category.trim() : undefined;
+  const hasOwnMetrics = Array.isArray(meta.dashboard_metrics);
+  const isDecoration = typeof meta.kind === "string" || typeof meta.sticker === "string";
+  const onlyTime = Object.keys(meta).every((k) => k === "occurred_at");
+
+  let saveCategory = category ?? "uncategorized";
+  let saveMeta: Record<string, unknown> = meta;
+
+  if (hasOwnMetrics) {
+    saveMeta = { ...meta, dashboard_metrics: normalizeMetrics(meta.dashboard_metrics) };
+  } else if (isDecoration) {
+    const metrics = finalizeMetrics(text, []);
+    if (metrics.length > 0) saveMeta = { ...meta, dashboard_metrics: metrics };
+  } else {
+    const categories = await loadUserCategories(supabase, userId).catch(() => []);
+    const enriched = await enrichWebEntry({ content: text, picked, metadata: meta, categories, allowCorrection: onlyTime });
+
+    if (enriched.kind === "correction") {
+      const outcome = await applyCorrection(supabase, { userId, actionType: enriched.actionType, params: enriched.params, text, cryptoKey });
+      if (!outcome.ok) {
+        const status = outcome.reason === "error" ? 500 : 409;
+        return new Response(JSON.stringify({ error: outcome.reason === "error" ? "Failed to apply correction" : "correction_not_found", reason: outcome.reason }), {
+          status,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const { data: fixed } = await supabase
+        .from("entries")
+        .select("id, content, category, metadata, bot_reply, thread_id, reply_to_entry_id, created_at")
+        .eq("id", outcome.entryId)
+        .single();
+      const plain = fixed && cryptoKey ? { ...fixed, content: await decryptField(fixed.content as string, cryptoKey).catch(() => fixed.content) } : fixed;
+      return new Response(JSON.stringify({ entry: plain ?? { id: outcome.entryId }, correction: { kind: outcome.kind, metric: outcome.metric } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    saveCategory = enriched.category;
+    saveMeta = {
+      ...enriched.metadata,
+      ...(enriched.metrics.length > 0 ? { dashboard_metrics: enriched.metrics } : {}),
+      ...(enriched.goals.length > 0 ? { goal_metrics: enriched.goals } : {}),
+    };
+    if (enriched.newCategory) {
+      await serviceClient()
+        .from("categories")
+        .upsert(
+          { user_id: userId, name: enriched.newCategory.name, label_ua: enriched.newCategory.label, color: swatchFor(enriched.newCategory.name), icon: "tag" },
+          { onConflict: "user_id,name", ignoreDuplicates: true },
+        );
+    }
+  }
+
+  const storedContent = cryptoKey ? await encryptField(text, cryptoKey) : text;
 
   const { data, error } = await supabase
     .from("entries")
     .insert({
       user_id: userId,
       content: storedContent,
-      category: category ?? "uncategorized",
-      metadata: metadata ?? {},
+      category: saveCategory,
+      metadata: saveMeta,
     })
     .select("id, content, category, metadata, bot_reply, thread_id, reply_to_entry_id, created_at")
     .single();
@@ -210,7 +275,8 @@ export async function POST(req: Request): Promise<Response> {
     });
   }
 
-  return new Response(JSON.stringify({ entry: data }), {
+  // Send back what the author typed, not the stored ciphertext.
+  return new Response(JSON.stringify({ entry: { ...data, content: text } }), {
     status: 201,
     headers: { "Content-Type": "application/json" },
   });

@@ -242,7 +242,7 @@ export async function handleTextMessage(ctx: BotContext): Promise<void> {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   if (result.intent === "action") {
-    await handleAction(ctx, result);
+    await handleAction(ctx, result, text);
     return;
   }
 

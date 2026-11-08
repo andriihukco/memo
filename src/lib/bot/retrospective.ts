@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildLocalRetro, dayKey, type Goal, type MetricPoint } from "@/lib/goals";
+import { collectPoints } from "@/lib/metrics";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 import { deriveUserKey, decryptField } from "@/lib/crypto";
@@ -203,15 +204,7 @@ export async function generateLocalRetrospective(
   const entries = await loadEntriesForPeriod(userId, from, to);
   if (entries.length === 0) return null;
 
-  const points: MetricPoint[] = [];
-  for (const e of entries) {
-    const metrics = (e.metadata?.dashboard_metrics ?? []) as Array<{ key?: string; value?: unknown }>;
-    for (const m of metrics) {
-      if (typeof m.key === "string" && typeof m.value === "number") {
-        points.push({ date: new Date(e.created_at), key: m.key, value: m.value });
-      }
-    }
-  }
+  const points: MetricPoint[] = collectPoints(entries);
 
   const entryDays = new Set(entries.map((e) => dayKey(new Date(e.created_at)))).size;
   const retro = buildLocalRetro({ from, to, entryCount: entries.length, entryDays, points, goals }, to);

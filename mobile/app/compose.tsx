@@ -5,6 +5,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useEntries } from '../src/lib/entry-store';
+import { ApiError } from '../src/lib/api';
 import { suggestCategory, metaFor, AUTO_META } from '../src/lib/category-meta';
 import { Chip, PrimaryButton, TOUCH } from '../src/components/ui';
 import type { AutoCategory } from '../src/lib/auto-category';
@@ -70,14 +71,15 @@ function ComposeScreenBody() {
     }
     setSaving(true);
     try {
-      await add(fullText, category, {
+      // Only a category the user picked is sent; otherwise the server classifies it like the bot does.
+      await add(fullText, picked ?? 'uncategorized', {
         occurredAt: whenSet ? when : undefined,
         reminder: remind ? { at: remindAt, repeat } : undefined,
       });
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (e) {
-      setNote(e instanceof Error ? e.message : t('compose.error_save'));
+      setNote(e instanceof ApiError && e.status === 409 ? t('compose.error_correction') : e instanceof Error ? e.message : t('compose.error_save'));
     } finally {
       setSaving(false);
     }

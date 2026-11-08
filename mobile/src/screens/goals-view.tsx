@@ -7,6 +7,7 @@ import { t } from '../i18n';
 import { api, ApiError, type Goal, type Report } from '../lib/api';
 import { useSession } from '../lib/session';
 import { dayStreak, goalProgress, type GoalPeriod, type MetricPoint } from '../lib/goals';
+import { collectPoints, type MetricEntry } from '../lib/metrics';
 import { Empty, Group, PrimaryButton, SectionHeader, TOUCH } from '../components/ui';
 import { useThemed, type Theme } from '../theme/theme';
 import { AnimatedBar, Enter } from '../motion';
@@ -51,21 +52,15 @@ export function GoalsView() {
       setGoals(loaded);
       setLogGoalId((id) => id || loaded[0]?.id || '');
 
-      const collected: MetricPoint[] = [];
+      const loadedEntries: MetricEntry[] = [];
       let before: string | null = null;
       for (let page = 0; page < PAGES_TO_LOAD; page++) {
         const body = await api.listEntriesBefore(token, before);
-        for (const e of body.entries) {
-          for (const m of e.metadata?.dashboard_metrics ?? []) {
-            if (typeof m.key === 'string' && typeof m.value === 'number') {
-              collected.push({ date: new Date(e.created_at), key: m.key, value: m.value });
-            }
-          }
-        }
+        loadedEntries.push(...(body.entries as MetricEntry[]));
         if (!body.has_more || !body.next_cursor) break;
         before = body.next_cursor;
       }
-      setPoints(collected);
+      setPoints(collectPoints(loadedEntries));
       setNow(new Date());
     } catch {
       setError(t('goals.error_load'));

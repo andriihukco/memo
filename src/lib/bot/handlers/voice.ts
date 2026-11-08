@@ -205,7 +205,7 @@ export async function handleVoiceMessage(ctx: BotContext): Promise<void> {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   if (result.intent === "action") {
-    await handleAction(ctx, result);
+    await handleAction(ctx, result, result.content);
     return;
   }
 

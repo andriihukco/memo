@@ -815,6 +815,8 @@
   "entry.not_found": "Nie znaleziono wpisu",
   "signin.anonymous": "Zacznij bez konta",
   "signin.anonymous_failed": "Start bez konta jest teraz niedostępny. Zaloguj się e-mailem lub przez Google.",
+  "signin.google_off": "Logowanie przez Google nie jest jeszcze włączone. Na razie użyj e-maila.",
+  "signin.guest_off": "Start bez konta nie jest jeszcze włączony. Na razie użyj e-maila.",
   "signin.telegram": "Kontynuuj z Telegram",
   "signin.theme": "Motyw"
 }

@@ -4,6 +4,7 @@
  */
 
 import type { DashboardMetric } from '@/lib/classifier';
+import { normalizeMetrics } from '@/lib/metrics';
 import type { Entry } from '@/lib/dashboard/period-filter';
 
 export interface AggregatedMetric {
@@ -29,7 +30,8 @@ export function aggregateMetrics(entries: Entry[]): AggregatedMetric[] {
   const map = new Map<string, { metric: DashboardMetric; values: number[] }>();
 
   for (const entry of entries) {
-    const metrics = entry.metadata.dashboard_metrics as DashboardMetric[] | undefined;
+    // Canonical keys and units, so "water" in glasses and "water_ml" in ml add up.
+    const metrics = normalizeMetrics(entry.metadata.dashboard_metrics) as DashboardMetric[];
 
     if (Array.isArray(metrics) && metrics.length > 0) {
       for (const m of metrics) {

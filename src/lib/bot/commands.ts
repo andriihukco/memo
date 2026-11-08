@@ -5,7 +5,8 @@ import { getRecommendationsForUser } from "@/lib/bot/recommendations";
 import { sanitizeMarkdown } from "@/lib/utils";
 import { createClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
-import type { DashboardMetric } from "@/lib/classifier";
+import { entryTime, localDayKey, todayTotals, unitLabel } from "@/lib/metrics";
+import { userTimeZone } from "@/lib/format";
 import type { Locale } from "@/i18n/locales";
 import { SUPPORTED_LOCALES, LOCALE_META } from "@/i18n/locales";
 import { t } from "@/i18n/t";
@@ -150,21 +151,26 @@ export async function handleStats(ctx: BotContext): Promise<void> {
   const profile = ctx.profile;
   if (!profile) return;
 
-  const { from, to } = localDayBounds();
+  // Today in the user's own time zone. Entries count on the day they happened (occurred_at).
+  const tz = userTimeZone(profile);
+  const now = new Date();
+  const today = localDayKey(now, tz);
+  const since = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
   });
 
-  const { data: entries } = await supabase
+  const { data: recent } = await supabase
     .from("entries")
     .select("content, category, metadata, created_at")
     .eq("user_id", profile.id)
-    .gte("created_at", from.toISOString())
-    .lte("created_at", to.toISOString())
+    .gte("created_at", since.toISOString())
     .order("created_at", { ascending: true });
 
-  if (!entries || entries.length === 0) {
+  const entries = (recent ?? []).filter((e) => localDayKey(entryTime(e), tz) === today);
+
+  if (entries.length === 0) {
     await ctx.reply(
       t('bot.stats.empty', ctx.locale),
       { reply_markup: miniappButton(ctx.locale) }
@@ -172,26 +178,8 @@ export async function handleStats(ctx: BotContext): Promise<void> {
     return;
   }
 
-  // Aggregate dashboard_metrics
-  const metricMap = new Map<string, { metric: DashboardMetric; values: number[] }>();
-  for (const entry of entries) {
-    const metrics = (entry.metadata as Record<string, unknown>)?.dashboard_metrics as DashboardMetric[] | undefined;
-    if (!Array.isArray(metrics)) continue;
-    for (const m of metrics) {
-      if (!metricMap.has(m.key)) metricMap.set(m.key, { metric: m, values: [] });
-      metricMap.get(m.key)!.values.push(m.value);
-      metricMap.get(m.key)!.metric = m;
-    }
-  }
-
-  const aggregated: Array<{ label: string; value: number; unit: string; icon: string }> = [];
-  for (const [, { metric, values }] of metricMap) {
-    let value: number;
-    if (metric.aggregate === "sum") value = values.reduce((a, b) => a + b, 0);
-    else if (metric.aggregate === "avg") value = values.reduce((a, b) => a + b, 0) / values.length;
-    else value = values[values.length - 1];
-    aggregated.push({ label: metric.label, value: Math.round(value * 10) / 10, unit: metric.unit, icon: metric.icon ?? "" });
-  }
+  // One rule for totals everywhere: canonical keys, units converted, set corrections applied.
+  const aggregated = todayTotals(entries, now, tz).map((m) => ({ key: m.key, label: m.label, value: m.value, unit: unitLabel(m.unit, ctx.locale), icon: m.icon ?? "" }));
 
   // Count by category
   const catCount = new Map<string, number>();
@@ -200,10 +188,10 @@ export async function handleStats(ctx: BotContext): Promise<void> {
   }
 
   const localeCode = ctx.locale === 'uk' ? 'uk-UA' : ctx.locale === 'zh' ? 'zh-CN' : ctx.locale === 'ar' ? 'ar-SA' : ctx.locale;
-  const today = localNow().toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "long" });
+  const todayLabel = now.toLocaleDateString(localeCode, { weekday: "long", day: "numeric", month: "long", timeZone: tz });
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-  let lines = `📊 *${cap(today)}*\n\n`;
+  let lines = `📊 *${cap(todayLabel)}*\n\n`;
   lines += `${t('bot.stats.entries_today', ctx.locale)}: *${entries.length}*\n`;
 
   if (aggregated.length > 0) {
@@ -214,7 +202,7 @@ export async function handleStats(ctx: BotContext): Promise<void> {
   }
 
   // Energy balance
-  const intake = aggregated.find(m => m.label.toLowerCase().includes("калор") || m.label.toLowerCase().includes("calor"))
+  const intake = aggregated.find(m => m.key === "kcal_intake")
     ?? ((): { label: string; value: number; unit: string; icon: string } | undefined => {
       const values = entries
         .map((entry) => getMetricValueByKey(entry.metadata as Record<string, unknown>, "kcal_intake"))

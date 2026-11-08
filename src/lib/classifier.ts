@@ -2,6 +2,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { z } from "zod";
 import { env } from "./env";
 import { resolveCalorieMetrics } from "./nutrition";
+import { finalizeMetrics } from "./metric-extract";
 import { type KnownCategory } from "./category-config";
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
@@ -27,6 +28,8 @@ const DashboardMetricSchema = z.object({
   unit: z.string(),
   icon: z.string().optional(),
   aggregate: z.enum(["sum", "avg", "last"]).default("sum"),
+  /** "set": replaces the day's running value from this point (a correction like "2 l in total today"). */
+  mode: z.enum(["add", "set"]).optional(),
 });
 export type DashboardMetric = z.infer<typeof DashboardMetricSchema>;
 
@@ -54,7 +57,7 @@ export type EntryPayload = z.infer<typeof EntryPayloadSchema>;
 const ClassificationResultSchema = z.object({
   intent: IntentSchema,
   entries: z.array(EntryPayloadSchema).default([]),
-  action_type: z.enum(["delete_entries", "create_widget", "merge_widgets", "update_schedule", "update_entry", "none"]).default("none"),
+  action_type: z.enum(["delete_entries", "create_widget", "merge_widgets", "update_schedule", "update_entry", "set_metric_total", "none"]).default("none"),
   action_params: z.record(z.string(), z.unknown()).default(() => ({})),
   // backward-compat aliases
   category: z.string().min(1).regex(/^[a-z][a-z0-9_]*$/).default("thoughts"),
@@ -128,7 +131,10 @@ INTENT RULES — read carefully:
 - question   → user asks about PAST diary data they already logged ("скільки я з'їв", "що я робив вчора", "покажи мої витрати"). Also: "insight about me", "what do you know about me", "my habits", "my patterns", "recent activity", "what have I been doing", "show me my stats", "how much did I eat", "what did I eat most", "tell me about myself", "my recent entries", "що ти знаєш про мене", "що ти знаєш про мене від мене", "що тобі відомо про мене", "що тобі від мене", "розкажи про мене", "що ти про мене знаєш", "що ти можеш сказати про мене", "які мої звички", "мої патерни", "моя активність", "що я робив", "що я їв", "мої записи", "покажи мої дані", "що в моєму щоденнику", "що ти пам'ятаєш про мене", "що ти знаєш"
 - converse   → user shares feelings, vents, reflects, asks for personal advice, shares worries or concerns — save + empathetic reply
 - smalltalk  → greetings, thanks, "ok", "👍", bye, general advice/life questions not about diary data, personal conversations, asking for recommendations/tips on life topics — do NOT save
-- action     → command to the bot: delete records, edit records, configure settings, create widgets
+- action     → command to the bot: delete records, edit records, configure settings, create widgets.
+  Corrections of something already logged are actions too: "actually it was 3 glasses", "не 8, а 7 годин сну",
+  "виправ: 300 ккал", "today I drank 2 liters in total", "всього за день 2 л води".
+  A NEW amount without correction words ("another glass of water", "ще склянка води") is save_entry, not action.
 
 CRITICAL: Personal advice requests and life conversations are smalltalk, NOT questions:
 - "ти можеш мені щось порадити" → smalltalk (asking for advice/conversation)
@@ -187,7 +193,9 @@ CATEGORY RULES:
 
 For action intent set action_type:
 - delete_entries: {"category":"<cat|null>","period":"<today|week|month|all|null>","description":"<what>"}
-- update_entry: {"entry_id":null,"category":"<cat>","new_content":"<text>","description":"<what>"}
+- update_entry (fixes ONE earlier entry: "actually it was 3 glasses", "не 8, а 7 годин"): {"entry_id":null,"category":"<cat|null>","metric_key":"<snake_case metric being fixed|null>","value":<corrected number|null>,"unit":"<unit of value|null>","new_content":"<the full corrected entry text, or null>","description":"<what>"}
+  metric keys: water_ml, kcal_intake, sleep_hours, steps_count, distance_km, weight_kg, mood_score, caffeine_mg, active_min
+- set_metric_total (states the TOTAL for today, replacing what was logged: "today I drank 2 l in total", "всього 8000 кроків сьогодні"): {"metric_key":"<snake_case>","value":<number>,"unit":"<unit>","label":"<label in user language>"}
 - create_widget: {"metric_key":"<key>","label":"<label>","unit":"<unit>","description":"<what>"}
 - update_schedule: {"daily":<bool>,"weekly":<bool>,"monthly":<bool>,"time":"<HH:MM>"}
 
@@ -226,7 +234,7 @@ FOOD/CALORIES (category=calories):
 - icons: utensils(kcal), beef(protein), wheat(carbs), droplets(fat)
 
 WATER (category=health, mentions water/вода/склянка/bottle):
-- water_ml(sum): 1 glass/склянка=250ml, 1 bottle=500ml, 1 cup=200ml
+- water_ml(sum): 1 glass/cup/склянка/чашка/стакан = 250ml, 1 bottle/пляшка = 500ml
 - icon: droplets
 
 WORKOUT/RUNNING:
@@ -342,22 +350,18 @@ async function classifyText(input: string | Array<unknown>, categories: KnownCat
         entry.goal_metrics = [];
         return;
       }
-      try {
-        const metricsPrompt = `Category: ${entry.category}\nContent: ${entry.content}`;
-        const metricsRaw = (await metricsModel.generateContent(metricsPrompt)).response.text();
-        const metricsParsed = JSON.parse(metricsRaw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim());
-        entry.dashboard_metrics = Array.isArray(metricsParsed.dashboard_metrics) ? metricsParsed.dashboard_metrics : [];
-        entry.goal_metrics = Array.isArray(metricsParsed.goal_metrics) ? metricsParsed.goal_metrics : [];
-        if (entry.category === "calories") {
-          const corrected = await resolveCalorieMetrics(entry.content, entry.metadata as Record<string, unknown>, entry.dashboard_metrics);
-          entry.metadata = corrected.metadata;
-          entry.dashboard_metrics = corrected.metrics;
-        }
-      } catch {
-        entry.dashboard_metrics = [];
-        entry.goal_metrics = [];
-      }
+      const extracted = await runMetricsPass(metricsModel, entry.category, entry.content, entry.metadata as Record<string, unknown>);
+      entry.dashboard_metrics = extracted.dashboard_metrics;
+      entry.goal_metrics = extracted.goal_metrics;
+      entry.metadata = extracted.metadata;
     }));
+  }
+
+  // Entries that skipped the model pass still get the fixed rules (a glass of water in any category).
+  if (["save_entry", "converse"].includes(classifyParsed.intent)) {
+    for (const entry of classifyParsed.entries as EntryPayload[]) {
+      if (entry.dashboard_metrics.length === 0) entry.dashboard_metrics = finalizeMetrics(entry.content, []);
+    }
   }
 
   // Populate backward-compat aliases
@@ -381,6 +385,52 @@ async function classifyText(input: string | Array<unknown>, categories: KnownCat
   }
 
   return ClassificationResultSchema.parse(classifyParsed);
+}
+
+type MetricsModel = ReturnType<ReturnType<typeof getGenAI>["getGenerativeModel"]>;
+
+/**
+ * Pass 2 for one entry: the model reads the numbers, then fixed rules take over (water servings,
+ * calorie lookup, canonical keys and units). A failure returns no metrics instead of throwing.
+ */
+async function runMetricsPass(
+  model: MetricsModel,
+  category: string,
+  content: string,
+  metadata: Record<string, unknown>,
+): Promise<{ dashboard_metrics: DashboardMetric[]; goal_metrics: GoalMetric[]; metadata: Record<string, unknown> }> {
+  let metrics: unknown[] = [];
+  let goals: GoalMetric[] = [];
+  let meta = metadata;
+  try {
+    const raw = (await model.generateContent(`Category: ${category}\nContent: ${content}`)).response.text();
+    const parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim());
+    metrics = Array.isArray(parsed.dashboard_metrics) ? parsed.dashboard_metrics : [];
+    goals = Array.isArray(parsed.goal_metrics) ? parsed.goal_metrics : [];
+    if (category === "calories") {
+      const corrected = await resolveCalorieMetrics(content, meta, metrics as Record<string, unknown>[]);
+      meta = corrected.metadata;
+      metrics = corrected.metrics;
+    }
+  } catch {
+    metrics = [];
+    goals = [];
+  }
+  // Fixed rules run even when the model failed, so "2 glasses of water" is never lost.
+  return { dashboard_metrics: finalizeMetrics(content, metrics), goal_metrics: goals, metadata: meta };
+}
+
+/**
+ * Metrics for an entry whose category is already known (the user picked it on the web).
+ * Same pass and rules as the bot uses after classifying.
+ */
+export async function extractEntryMetrics(
+  category: string,
+  content: string,
+  metadata: Record<string, unknown> = {},
+): Promise<{ dashboard_metrics: DashboardMetric[]; goal_metrics: GoalMetric[]; metadata: Record<string, unknown> }> {
+  const model = getGenAI().getGenerativeModel({ model: MODEL_ID, systemInstruction: METRICS_PROMPT, generationConfig: {} });
+  return runMetricsPass(model, category, content, metadata);
 }
 
 async function attempt<T>(fn: () => Promise<T>, retries = 2): Promise<T> {

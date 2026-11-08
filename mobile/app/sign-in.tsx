@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, TextInput } from '../src/theme/typography';
 import { router } from 'expo-router';
 import { t } from '../src/i18n';
 import { useSession } from '../src/lib/session';
+import { fetchAuthProviders, type AuthProviders } from '../src/lib/auth-providers';
+import { supabaseAnonKey, supabaseUrl } from '../src/lib/supabase';
 import { PrimaryButton, TOUCH } from '../src/components/ui';
 import { THEME_CHOICES, type ThemeChoice } from '../src/theme/palettes';
 import { useTheme, useThemed, type Theme } from '../src/theme/theme';
@@ -36,6 +38,13 @@ function SignInScreenBody() {
   const [code, setCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Which options the project has turned on. Unknown (null) keeps every option enabled.
+  const [providers, setProviders] = useState<AuthProviders | null>(null);
+  useEffect(() => {
+    void fetchAuthProviders(supabaseUrl, supabaseAnonKey).then(setProviders);
+  }, []);
+  const googleOff = providers?.google === false;
+  const guestOff = providers?.anonymous === false;
 
   const finish = (ok: boolean) => {
     if (ok) router.back();
@@ -132,12 +141,15 @@ function SignInScreenBody() {
 
         <Pressable
           accessibilityRole="button"
-          disabled={busy}
+          accessibilityState={{ disabled: busy || googleOff }}
+          accessibilityHint={googleOff ? t('signin.google_off') : undefined}
+          disabled={busy || googleOff}
           onPress={() => void run(signInWithGoogle)}
-          style={({ pressed }) => [styles.secondary, pressed && { opacity: 0.6 }]}
+          style={({ pressed }) => [styles.secondary, googleOff && styles.off, pressed && { opacity: 0.6 }]}
         >
           <Text style={styles.secondaryText}>{t('signin.google')}</Text>
         </Pressable>
+        {googleOff ? <Text style={styles.offNote}>{t('signin.google_off')}</Text> : null}
 
         <Pressable
           accessibilityRole="button"
@@ -150,12 +162,15 @@ function SignInScreenBody() {
 
         <Pressable
           accessibilityRole="button"
-          disabled={busy}
+          accessibilityState={{ disabled: busy || guestOff }}
+          accessibilityHint={guestOff ? t('signin.guest_off') : undefined}
+          disabled={busy || guestOff}
           onPress={() => void run(signInAnonymously)}
-          style={({ pressed }) => [styles.secondary, pressed && { opacity: 0.6 }]}
+          style={({ pressed }) => [styles.secondary, guestOff && styles.off, pressed && { opacity: 0.6 }]}
         >
           <Text style={styles.secondaryText}>{t('signin.anonymous')}</Text>
         </Pressable>
+        {guestOff ? <Text style={styles.offNote}>{t('signin.guest_off')}</Text> : null}
 
         <Text style={styles.or}>{t('signin.theme')}</Text>
         <View style={styles.themeRow} accessibilityRole="radiogroup">
@@ -202,6 +217,8 @@ const makeStyles = (colors: Theme) => StyleSheet.create({
   input: { minHeight: TOUCH + 4, borderRadius: 14, backgroundColor: colors.card, color: colors.label, paddingHorizontal: 16, fontSize: colors.fs(17) },
   hint: { fontSize: colors.fs(14), color: colors.muted, textAlign: 'center' },
   error: { color: colors.destructive, fontSize: colors.fs(14), textAlign: 'center' },
+  off: { opacity: 0.4 },
+  offNote: { color: colors.muted, fontSize: colors.fs(13), textAlign: 'center', marginTop: -4 },
   or: { fontSize: colors.fs(14), color: colors.muted, textAlign: 'center', marginVertical: 4 },
   secondary: { minHeight: TOUCH + 4, borderRadius: 14, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' },
   secondaryText: { fontSize: colors.fs(17), color: colors.label, fontWeight: '600' },
