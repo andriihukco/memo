@@ -42,9 +42,9 @@ const PARITY = [
   { rule: 'Safe areas', web: 'env(safe-area-inset-*)', ios: 'Insets (react-native-safe-area-context)', android: 'Insets (edge-to-edge)' },
   { rule: 'Hover states', web: 'Only under (hover: hover)', ios: 'Pressed states', android: 'Ripple / pressed states' },
   { rule: 'Overlays', web: 'Dialog, Drawer, Popover', ios: 'Sheet (Expo Router modal)', android: 'Sheet / modal route' },
-  { rule: 'Tabs', web: 'Today · Journal · Trends + compose (shell/tab-bar.tsx)', ios: 'Same three tabs + compose (glass-tab-bar.tsx)', android: 'Same tabs. Gap: tab and metric icons are SF Symbols, which Android does not draw (components/symbol.tsx has no fallback)' },
+  { rule: 'Tabs', web: 'Today · Journal · Trends + compose (shell/tab-bar.tsx)', ios: 'Same three tabs + compose (glass-tab-bar.tsx)', android: 'Same tabs. Icons: SF Symbols mapped to Material Symbols (components/symbol.tsx, checked by android-symbols.test.ts)' },
   { rule: 'Settings (You)', web: 'Header avatar on every tab', ios: 'Header avatar (TabHeader)', android: 'Header avatar (TabHeader)' },
-  { rule: 'Composer', web: 'One drawer: text + attachment bar (photo, video, music, voice, quote, sticker), category, when, reminder', ios: 'Same, as the compose sheet (components/attachment-bar.tsx)', android: 'Same screen. Gap: bar icons are SF Symbols (see Tabs)' },
+  { rule: 'Composer', web: 'One drawer: text + attachment bar (photo, video, music, voice, quote, sticker), category, when, reminder', ios: 'Same, as the compose sheet (components/attachment-bar.tsx)', android: 'Same screen, Material Symbols icons' },
   { rule: 'Trends segments', web: 'Charts, Goals, Reports, Graph', ios: 'Charts, Goals, Reports, Graph', android: 'Same. Gap (web): graph category chips use Ukrainian labels in every language' },
 ];
 
