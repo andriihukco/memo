@@ -148,7 +148,7 @@ function NodeDetailPanel({ node, linkedNodes, onClose, onUpdate, onDelete, acces
           whileTap={{ scale: 0.88 }}
           onClick={() => { play('CLOSE'); onClose(); }}
           className="absolute right-4 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground"
-          aria-label="Закрити"
+          aria-label={t('miniapp.common.close')}
         >
           <X size={14} />
         </motion.button>
@@ -460,7 +460,7 @@ export default function GraphPage() {
     } catch (err) {
       clearTimeout(timeout);
       if (err instanceof Error && err.name === 'AbortError') {
-        setErrorMsg('Завантаження зайняло надто довго. Перевір з\'єднання та спробуй знову.');
+        setErrorMsg('graph.timeout'); // an i18n key, translated where it renders
       } else {
         setErrorMsg(err instanceof Error ? err.message : 'Failed to load graph');
       }
@@ -988,7 +988,7 @@ export default function GraphPage() {
               <button
                 onClick={() => { play('OPEN'); setShowInfo(true); }}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors"
-                aria-label="Як це працює"
+                aria-label={t('miniapp.graph.info.title')}
               >
                 <Icon name="info" size={18} />
               </button>
@@ -1019,7 +1019,7 @@ export default function GraphPage() {
                   : 'bg-muted/40 border-border/50 text-muted-foreground'
               )}
             >
-              Всі
+              {t('miniapp.feed.filter.all')}
             </button>
             {allCategories.map(cat => (
               <button
@@ -1050,7 +1050,7 @@ export default function GraphPage() {
               exit={{ opacity: 0 }}
               className="h-full w-full relative flex items-center justify-center"
             >
-              <svg viewBox="0 0 220 280" style={{ width: 'min(55vw, 260px)', overflow: 'visible' }} aria-label="Завантаження...">
+              <svg viewBox="0 0 220 280" style={{ width: 'min(55vw, 260px)', overflow: 'visible' }} aria-label={t('graph.loading')}>
                 <defs>
                   <style>{`
                     @keyframes softJiggle {
@@ -1125,9 +1125,9 @@ export default function GraphPage() {
               transition={{ type: 'spring', stiffness: 300, damping: 25 }}
               className="flex h-full flex-col items-center justify-center px-6 text-center"
             >
-              <p className="mb-1 text-sm font-medium">Не вдалося завантажити граф</p>
-              <p className="mb-4 text-xs text-muted-foreground">{errorMsg}</p>
-              <Button size="sm" onClick={() => { play('BUTTON'); fetchGraph(); }}>Спробувати знову</Button>
+              <p className="mb-1 text-sm font-medium">{t('graph.load_failed')}</p>
+              <p className="mb-4 text-xs text-muted-foreground">{errorMsg === 'graph.timeout' ? t(errorMsg) : errorMsg}</p>
+              <Button size="sm" onClick={() => { play('BUTTON'); fetchGraph(); }}>{t('miniapp.common.retry')}</Button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1175,7 +1175,7 @@ export default function GraphPage() {
                   onClick={() => { play('CLOSE'); exitFocusMode(); }}
                   className="shadow-lg"
                 >
-                  Показати все
+                  {t('graph.show_all')}
                 </Button>
               </motion.div>
 
@@ -1190,7 +1190,7 @@ export default function GraphPage() {
                   className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
                 >
                   <div className="rounded-2xl bg-background/90 backdrop-blur-sm border border-border/40 px-4 py-2.5 shadow-lg text-center">
-                    <p className="text-[13px] text-muted-foreground">Цей запис не має пов&apos;язаних записів</p>
+                    <p className="text-[13px] text-muted-foreground">{t('graph.no_links')}</p>
                   </div>
                 </motion.div>
               )}

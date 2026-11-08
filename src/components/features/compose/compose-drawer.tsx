@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/supabase/auth-context';
 import type { AutoCategory } from '@/lib/auto-category';
 import { isHexColor, swatchFor } from '@/lib/category-config';
 import { AttachmentBar, useVoiceNote, type Attachment } from './attachments';
+import { getCategoryLabel } from '@/components/ui/edit-drawer';
 
 interface ComposeCtx {
   /** Opens the composer, optionally with text already typed (a quick-log prompt). */
@@ -290,7 +291,7 @@ export function ComposeDrawer() {
                     style={{ backgroundColor: isHexColor(c.color) ? c.color : swatchFor(c.name) }}
                     aria-hidden
                   />
-                  {c.label_ua}
+                  {getCategoryLabel(c.name, c.label_ua)}
                 </Button>
               ))}
             </div>

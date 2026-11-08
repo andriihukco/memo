@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { hapticNotification } from '@/lib/haptics';
 import { CATEGORY_SWATCHES, isHexColor, swatchFor } from '@/lib/category-config';
+import { getCategoryLabel } from '@/components/ui/edit-drawer';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 
@@ -175,7 +176,7 @@ export default function CategoriesPage() {
     fetch('/api/categories', { headers: { Authorization: `Bearer ${accessToken}` } })
       .then(r => r.json())
       .then(d => setDbCategories(d.categories ?? []))
-      .catch(() => setError('Не вдалося завантажити категорії'))
+      .catch(() => setError('categories.load_failed')) // an i18n key, translated where it renders
       .finally(() => setLoading(false));
   }, [accessToken]);
 
@@ -200,11 +201,11 @@ export default function CategoriesPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ name: renameTarget.name, label_ua: renameValue.trim(), color: renameColor }),
       });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? t('timeline.error')); }
       setDbCategories(prev => prev.map(c => c.name === renameTarget.name ? { ...c, label_ua: renameValue.trim(), color: renameColor } : c));
       setRenameTarget(null);
     } catch (err) {
-      setRenameError(err instanceof Error ? err.message : 'Помилка');
+      setRenameError(err instanceof Error ? err.message : t('timeline.error'));
       play('CAUTION');
     } finally { setRenameLoading(false); }
   };
@@ -216,11 +217,11 @@ export default function CategoriesPage() {
       const res = await fetch(`/api/categories/${encodeURIComponent(deleteTarget.name)}`, {
         method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` },
       });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? t('timeline.error')); }
       setDbCategories(prev => prev.filter(c => c.name !== deleteTarget.name));
       setDeleteTarget(null);
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Помилка');
+      setDeleteError(err instanceof Error ? err.message : t('timeline.error'));
       play('CAUTION');
     } finally { setDeleteLoading(false); }
   };
@@ -234,11 +235,11 @@ export default function CategoriesPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ source: mergeSource.name, target: mergeTarget.name }),
       });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? t('timeline.error')); }
       setDbCategories(prev => prev.filter(c => c.name !== mergeSource.name));
       setMergeSource(null); setMergeTarget(null);
     } catch (err) {
-      setMergeError(err instanceof Error ? err.message : 'Помилка');
+      setMergeError(err instanceof Error ? err.message : t('timeline.error'));
       play('CAUTION');
     } finally { setMergeLoading(false); }
   };
@@ -252,7 +253,7 @@ export default function CategoriesPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({ label_ua: createName.trim(), color: createColor }),
       });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Помилка'); }
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? t('timeline.error')); }
       const d = await res.json();
       setDbCategories(prev => [...prev, d.category]);
       play('CELEBRATION');
@@ -260,7 +261,7 @@ export default function CategoriesPage() {
       setCreateName('');
       setCreateColor(CATEGORY_SWATCHES[0]);
     } catch (err) {
-      setCreateError(err instanceof Error ? err.message : 'Помилка');
+      setCreateError(err instanceof Error ? err.message : t('timeline.error'));
       play('CAUTION');
     } finally { setCreateLoading(false); }
   };
@@ -286,11 +287,11 @@ export default function CategoriesPage() {
         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         className="text-center"
       >
-        <h1 className="text-[28px] font-bold leading-tight">Категорії</h1>
-        <p className="text-[13px] text-muted-foreground">Управляй категоріями записів</p>
+        <h1 className="text-[28px] font-bold leading-tight">{t('shell.categories')}</h1>
+        <p className="text-[13px] text-muted-foreground">{t('categories.subtitle')}</p>
       </motion.div>
 
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{t(error)}</p>}
 
       {/* ── Custom categories ── */}
       <motion.section
@@ -300,7 +301,7 @@ export default function CategoriesPage() {
       >
         <div className="mb-2 flex items-center justify-between px-1">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Власні
+            {t('categories.custom')}
           </p>
           <motion.button
             whileTap={{ scale: 0.94 }}
@@ -308,7 +309,7 @@ export default function CategoriesPage() {
             className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-[12px] font-medium text-primary transition-colors hover:bg-primary/20"
           >
             <Icon name="add" size={14} />
-            Нова
+            {t('categories.new_short')}
           </motion.button>
         </div>
         {customCats.length > 0 ? (
@@ -323,9 +324,9 @@ export default function CategoriesPage() {
               >
                 {i > 0 && <Separator />}
                 <CategoryRow
-                  label={cat.label_ua}
+                  label={getCategoryLabel(cat.name, cat.label_ua)}
                   color={swatchOf(cat)}
-                  onEdit={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(cat.label_ua); setRenameColor(swatchOf(cat)); }}
+                  onEdit={() => { play('OPEN'); setRenameTarget(cat); setRenameValue(getCategoryLabel(cat.name, cat.label_ua)); setRenameColor(swatchOf(cat)); }}
                   onMerge={() => { play('OPEN'); setMergeSource(cat); }}
                   onDelete={() => { play('OPEN'); setDeleteTarget(cat); }}
                 />
@@ -338,7 +339,7 @@ export default function CategoriesPage() {
             onClick={() => { play('OPEN'); setShowCreate(true); }}
             className="w-full rounded-2xl border border-dashed border-border/50 py-5 text-center text-[13px] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
           >
-            + Створити власну категорію
+            + {t('categories.create_own')}
           </motion.button>
         )}
       </motion.section>
@@ -351,7 +352,7 @@ export default function CategoriesPage() {
           transition={{ duration: 0.3, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
         >
           <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Використовуються
+            {t('categories.in_use')}
           </p>
           <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden">
             {activatedDefaults.map((cat, i) => {
@@ -366,9 +367,9 @@ export default function CategoriesPage() {
                 >
                   {i > 0 && <Separator />}
                   <CategoryRow
-                    label={db.label_ua || cat.label_ua}
+                    label={getCategoryLabel(cat.name, db.label_ua || cat.label_ua)}
                     color={swatchOf(db)}
-                    onEdit={() => { play('OPEN'); setRenameTarget(db); setRenameValue(db.label_ua); setRenameColor(swatchOf(db)); }}
+                    onEdit={() => { play('OPEN'); setRenameTarget(db); setRenameValue(getCategoryLabel(db.name, db.label_ua)); setRenameColor(swatchOf(db)); }}
                     onMerge={() => { play('OPEN'); setMergeSource(db); }}
                     onDelete={() => { play('OPEN'); setDeleteTarget(db); }}
                   />
@@ -386,7 +387,7 @@ export default function CategoriesPage() {
         transition={{ duration: 0.3, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
       >
         <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Стандартні
+          {t('categories.standard')}
         </p>
         {loading ? (
           <div className="rounded-2xl bg-card/60 border border-border/30 overflow-hidden">
@@ -413,8 +414,8 @@ export default function CategoriesPage() {
                 {i > 0 && <Separator />}
                 <div className="flex items-center gap-3 px-4 py-3">
                   <span className="text-xl leading-none w-7 text-center">{cat.emoji}</span>
-                  <p className="flex-1 text-[14px] text-foreground/60">{cat.label_ua}</p>
-                  <p className="text-[11px] text-muted-foreground/50">Не використовується</p>
+                  <p className="flex-1 text-[14px] text-foreground/60">{getCategoryLabel(cat.name, cat.label_ua)}</p>
+                  <p className="text-[11px] text-muted-foreground/50">{t('categories.unused')}</p>
                 </div>
               </motion.div>
             ))}
@@ -424,7 +425,7 @@ export default function CategoriesPage() {
 
       {/* ── Create custom category sheet ── */}
       <InlineSheet open={showCreate} onClose={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateColor(CATEGORY_SWATCHES[0]); }}>
-        <h3 className="mb-3 text-sm font-semibold">Нова категорія</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('categories.new')}</h3>
         <input
           type="text"
           value={createName}
@@ -434,7 +435,7 @@ export default function CategoriesPage() {
           autoFocus
           maxLength={40}
         />
-        <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Колір</p>
+        <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('category.color')}</p>
         <div className="mb-3">
           <ColorPicker selected={createColor} onSelect={setCreateColor} />
         </div>
@@ -444,21 +445,21 @@ export default function CategoriesPage() {
             onClick={() => { play('CLOSE'); setShowCreate(false); setCreateError(null); setCreateName(''); setCreateColor(CATEGORY_SWATCHES[0]); }}
             className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground"
           >
-            Скасувати
+            {t('compose.cancel')}
           </button>
           <button
             onClick={() => { play('BUTTON'); handleCreate(); }}
             disabled={createLoading || !createName.trim()}
             className="flex-1 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
-            {createLoading ? '...' : 'Створити'}
+            {createLoading ? '…' : t('categories.create')}
           </button>
         </div>
       </InlineSheet>
 
       {/* ── Rename sheet ── */}
       <InlineSheet open={!!renameTarget} onClose={() => { play('CLOSE'); setRenameTarget(null); setRenameError(null); }}>
-        <h3 className="mb-3 text-sm font-semibold">Редагувати категорію</h3>
+        <h3 className="mb-3 text-sm font-semibold">{t('categories.edit')}</h3>
         <input
           type="text"
           value={renameValue}
@@ -467,36 +468,36 @@ export default function CategoriesPage() {
           placeholder={t('miniapp.categories.new_name_placeholder')}
           autoFocus
         />
-        <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Колір</p>
+        <p className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{t('category.color')}</p>
         <div className="mb-3">
           <ColorPicker selected={renameColor} onSelect={setRenameColor} />
         </div>
         {renameError && <p className="mb-2 text-xs text-destructive">{renameError}</p>}
         <div className="flex gap-3">
-          <button onClick={() => { play('CLOSE'); setRenameTarget(null); setRenameError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
+          <button onClick={() => { play('CLOSE'); setRenameTarget(null); setRenameError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">{t('compose.cancel')}</button>
           <button onClick={() => { play('BUTTON'); handleRename(); }} disabled={renameLoading || !renameValue.trim()} className="flex-1 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50">
-            {renameLoading ? '...' : 'Зберегти'}
+            {renameLoading ? '…' : t('compose.save')}
           </button>
         </div>
       </InlineSheet>
 
       {/* ── Delete sheet ── */}
       <InlineSheet open={!!deleteTarget} onClose={() => { play('CLOSE'); setDeleteTarget(null); setDeleteError(null); }}>
-        <h3 className="mb-1 text-sm font-semibold">Видалити категорію?</h3>
-        <p className="mb-4 text-xs text-muted-foreground">Всі записи з «{deleteTarget?.label_ua}» будуть переміщені до «Без категорії».</p>
+        <h3 className="mb-1 text-sm font-semibold">{t('categories.delete_title')}</h3>
+        <p className="mb-4 text-xs text-muted-foreground">{t('categories.delete_body', { name: deleteTarget ? getCategoryLabel(deleteTarget.name, deleteTarget.label_ua) : '' })}</p>
         {deleteError && <p className="mb-2 text-xs text-destructive">{deleteError}</p>}
         <div className="flex gap-3">
-          <button onClick={() => { play('CLOSE'); setDeleteTarget(null); setDeleteError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
+          <button onClick={() => { play('CLOSE'); setDeleteTarget(null); setDeleteError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">{t('compose.cancel')}</button>
           <button onClick={() => { play('BUTTON'); hapticNotification('warning'); handleDelete(); }} disabled={deleteLoading} className="flex-1 rounded-full bg-destructive py-3 text-sm font-medium text-destructive-foreground disabled:opacity-50">
-            {deleteLoading ? '...' : 'Видалити'}
+            {deleteLoading ? '…' : t('edit.delete')}
           </button>
         </div>
       </InlineSheet>
 
       {/* ── Merge sheet ── */}
       <InlineSheet open={!!mergeSource} onClose={() => { play('CLOSE'); setMergeSource(null); setMergeTarget(null); setMergeError(null); }}>
-        <h3 className="mb-1 text-sm font-semibold">Об&apos;єднати «{mergeSource?.label_ua}» з...</h3>
-        <p className="mb-3 text-xs text-muted-foreground">Оберіть цільову категорію</p>
+        <h3 className="mb-1 text-sm font-semibold">{t('categories.merge_title', { name: mergeSource ? getCategoryLabel(mergeSource.name, mergeSource.label_ua) : '' })}</h3>
+        <p className="mb-3 text-xs text-muted-foreground">{t('categories.merge_pick')}</p>
         <div className="mb-3 flex flex-col gap-1 max-h-48 overflow-y-auto">
           {mergeTargets.map(c => (
             <button
@@ -504,15 +505,15 @@ export default function CategoriesPage() {
               onClick={() => setMergeTarget(c)}
               className={cn('flex items-center justify-between rounded-xl px-3 py-2.5 text-sm transition-colors', mergeTarget?.name === c.name ? 'bg-primary/10 text-primary' : 'hover:bg-muted/50')}
             >
-              {c.label_ua}
+              {getCategoryLabel(c.name, c.label_ua)}
               {mergeTarget?.name === c.name && <Icon name="check" size={16} className="text-primary" />}
             </button>
           ))}
-          {mergeTargets.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">Немає доступних категорій</p>}
+          {mergeTargets.length === 0 && <p className="text-xs text-muted-foreground text-center py-2">{t('categories.merge_none')}</p>}
         </div>
         {mergeError && <p className="mb-2 text-xs text-destructive">{mergeError}</p>}
         <div className="flex gap-3">
-          <button onClick={() => { play('CLOSE'); setMergeSource(null); setMergeTarget(null); setMergeError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">Скасувати</button>
+          <button onClick={() => { play('CLOSE'); setMergeSource(null); setMergeTarget(null); setMergeError(null); }} className="flex-1 rounded-full border border-border py-3 text-sm text-muted-foreground">{t('compose.cancel')}</button>
           <button onClick={() => { play('BUTTON'); handleMerge(); }} disabled={mergeLoading || !mergeTarget} className="flex-1 rounded-full bg-primary py-3 text-sm font-medium text-primary-foreground disabled:opacity-50">
             {mergeLoading ? '...' : t('miniapp.categories.merge_button')}
           </button>
@@ -532,6 +533,7 @@ function CategoryRow({ label, emoji, color, onEdit, onMerge, onDelete }: {
   onMerge: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <motion.div
       className="flex items-center gap-3 px-4 py-3"
@@ -551,7 +553,7 @@ function CategoryRow({ label, emoji, color, onEdit, onMerge, onDelete }: {
           whileTap={{ scale: 0.88 }}
           onClick={onEdit}
           className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
-          aria-label="Перейменувати"
+          aria-label={t('categories.rename')}
           style={{ minHeight: 0, minWidth: 0 }}
         >
           <Icon name="edit" size={15} />
@@ -560,7 +562,7 @@ function CategoryRow({ label, emoji, color, onEdit, onMerge, onDelete }: {
           whileTap={{ scale: 0.88 }}
           onClick={onMerge}
           className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 transition-colors"
-          aria-label="Об'єднати"
+          aria-label={t('categories.merge')}
           style={{ minHeight: 0, minWidth: 0 }}
         >
           <Icon name="merge" size={15} />
@@ -569,7 +571,7 @@ function CategoryRow({ label, emoji, color, onEdit, onMerge, onDelete }: {
           whileTap={{ scale: 0.88 }}
           onClick={onDelete}
           className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-          aria-label="Видалити"
+          aria-label={t('edit.delete')}
           style={{ minHeight: 0, minWidth: 0 }}
         >
           <Icon name="delete" size={15} />

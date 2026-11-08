@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { useSound } from '@/lib/sound/use-sound';
 import { ConfirmSheet } from '@/components/ui/confirm-sheet';
 import { ICON_LIBRARY, COLOR_PALETTE } from '@/lib/categories';
+import { categoryLabel } from '@/lib/category-labels';
+import { useI18n } from '@/lib/i18n/context';
 export { ICON_LIBRARY, COLOR_PALETTE };
 
 // ── Icon library (Material Symbols names for categories) ──────────────────────
@@ -74,19 +76,6 @@ const STATIC_COLORS: Record<string, string> = {
   learning: 'bg-sky-500/15 text-sky-400 border-sky-500/30',
 };
 
-const STATIC_LABELS: Record<string, string> = {
-  thoughts: 'Думки', ideas: 'Ідеї', feelings: 'Почуття',
-  expenses: 'Витрати', calories: 'Калорії', workout: 'Тренування',
-  dreams: 'Сни', relationships: 'Стосунки', health: "Здоров'я",
-  travel: 'Подорожі', books: 'Книги', gratitude: 'Вдячність',
-  goals: 'Цілі', sleep: 'Сон', music: 'Музика',
-  work: 'Робота', career: "Кар'єра", social: 'Соціальне',
-  sex_life: 'Інтимне', sport: 'Спорт', food: 'Їжа',
-  finance: 'Фінанси', meditation: 'Медитація', hobby: 'Хобі',
-  family: "Сім'я", friends: 'Друзі', nature: 'Природа',
-  art: 'Мистецтво', learning: 'Навчання',
-};
-
 const FALLBACK_PALETTE = [
   // Dark mode optimized fallback palette
   'bg-violet-500/15 text-violet-400 border-violet-500/30',
@@ -110,11 +99,17 @@ function hashPalette(cat: string): string {
 const _runtimeLabels: Record<string, string> = {};
 const _runtimeColors: Record<string, string> = {};
 
+/** The app's language, which the i18n provider writes to <html lang>. */
+function currentLocale(): string {
+  return (typeof document !== 'undefined' && document.documentElement.lang) || 'en';
+}
+
+/**
+ * Category name in the reader's language: built-ins are translated unless the user renamed them
+ * (src/lib/category-labels.ts). A stored label from the database or the entry is the fallback.
+ */
 export function getCategoryLabel(cat: string, serverLabel?: string): string {
-  if (_runtimeLabels[cat]) return _runtimeLabels[cat];
-  if (STATIC_LABELS[cat]) return STATIC_LABELS[cat];
-  if (serverLabel) return serverLabel;
-  return cat.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+  return categoryLabel(cat, currentLocale(), _runtimeLabels[cat] ?? serverLabel);
 }
 
 export function getCategoryColor(cat: string): string {
@@ -127,45 +122,46 @@ export const categoryBadge = getCategoryColor;
 
 // ── Emoji picker for new category ────────────────────────────────────────────
 
+/** `label` is an i18n key. */
 const EMOJI_GROUPS: { label: string; emojis: string[] }[] = [
   {
-    label: 'Спорт',
+    label: 'emoji.sport',
     emojis: ['💪','🏃','🧘','🚴','🏋️','🤸','🧗','🏊','⚽','🎾','🏀','🏈','⚾','🎱','🏓','🥊','🤼','🏇','🎿','🛹'],
   },
   {
-    label: 'Їжа',
+    label: 'emoji.food',
     emojis: ['🍎','🥗','🍕','☕','🧃','🍷','🥤','🍜','🥑','🍳','🍔','🍣','🍰','🧁','🍩','🥐','🥩','🥦','🍇','🍓'],
   },
   {
-    label: 'Розум',
+    label: 'emoji.mind',
     emojis: ['🧠','💭','😊','😴','🎯','⚡','🔥','💡','✨','🌟','🤔','😌','😤','🥳','😎','🧐','🤩','😇','🥰','😤'],
   },
   {
-    label: 'Природа',
+    label: 'emoji.nature',
     emojis: ['🌿','🌸','🌊','☀️','🌙','🍀','🌺','🦋','🌈','❄️','🌻','🍁','🐉','🦄','🦅','🌴','🌵','🍄','🐬','🦁'],
   },
   {
-    label: 'Фінанси',
+    label: 'emoji.money',
     emojis: ['💰','💳','📈','💸','🏦','🛒','🎁','💎','🪙','📊','📉','🏧','💹','🤑','🏷️','🛍️','🎰','🪄','🔑','🗝️'],
   },
   {
-    label: 'Робота',
+    label: 'emoji.work',
     emojis: ['💻','📚','✏️','🎓','🔬','📝','🗂️','🏆','🎨','🎵','📱','📷','🎥','🎮','🕹️','🎸','🎹','🎤','🎧','🖥️'],
   },
   {
-    label: 'Подорожі',
+    label: 'emoji.travel',
     emojis: ['✈️','🏠','🗺️','🚗','🚂','⛵','🏔️','🌍','🏖️','🗼','🏡','🏰','🚀','🛸','🚁','🛺','🚢','🏕️','🗽','🎡'],
   },
   {
-    label: 'Люди',
+    label: 'emoji.people',
     emojis: ['❤️','🤝','👶','🐾','👥','🙏','🎉','🥂','💌','🫂','👨‍👩‍👧','💑','🤗','👏','🫶','💪','🙌','🤲','👐','🫵'],
   },
   {
-    label: 'Метрики',
+    label: 'emoji.metrics',
     emojis: ['⏱️','📏','🔢','📉','🎲','🔐','🧪','⚗️','🔭','🧬','⚖️','🌡️','🔋','💊','🩺','🩻','🧫','🔩','⚙️','🛠️'],
   },
   {
-    label: 'Інше',
+    label: 'emoji.other',
     emojis: ['⭐','🏅','🎖️','💫','🌀','🎭','🎪','🎬','🎊','🎀','🎁','🎉','🪅','🎠','🎡','🎢','🎯','🎳','🎲','🃏'],
   },
 ];
@@ -187,6 +183,7 @@ interface NewCategorySheetProps {
 }
 
 function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheetProps) {
+  const { t } = useI18n();
   const [label, setLabel] = useState(initialName.replace(/^\w/, c => c.toUpperCase()));
   const [selectedColor, setSelectedColor] = useState<string>('indigo');
   const [selectedEmoji, setSelectedEmoji] = useState<string>('💡');
@@ -211,15 +208,15 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
           <button
             onClick={onCancel}
             className="absolute left-4 flex h-8 w-8 items-center justify-center rounded-full bg-muted/70 text-muted-foreground hover:bg-muted transition-colors"
-            aria-label="Назад"
+            aria-label={t('shell.back')}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M10 3L5 8L10 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>
           <div className="text-center">
-            <p className="text-[15px] font-semibold leading-tight">Іконка</p>
-            <p className="text-[12px] text-muted-foreground leading-tight">Оберіть емодзі та колір</p>
+            <p className="text-[15px] font-semibold leading-tight">{t('category.icon')}</p>
+            <p className="text-[12px] text-muted-foreground leading-tight">{t('category.icon_hint')}</p>
           </div>
         </div>
 
@@ -240,7 +237,7 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
             type="text"
             value={label}
             onChange={e => setLabel(e.target.value)}
-            placeholder="Назва категорії"
+            placeholder={t('category.name')}
             className="w-full rounded-xl border border-input bg-muted/30 px-4 py-2.5 text-sm font-medium text-center focus:outline-none focus:ring-1 focus:ring-ring"
             autoFocus
           />
@@ -258,7 +255,7 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              🎨 Колір
+              🎨 {t('category.color')}
             </button>
             <button
               onClick={() => setActiveTab('emoji')}
@@ -269,7 +266,7 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
                   : 'text-muted-foreground hover:text-foreground'
               )}
             >
-              😊 Емодзі
+              😊 {t('category.emoji')}
             </button>
           </div>
         </div>
@@ -308,7 +305,7 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
                         : 'bg-muted/40 text-muted-foreground hover:bg-muted/70'
                     )}
                   >
-                    {g.label}
+                    {t(g.label)}
                   </button>
                 ))}
               </div>
@@ -347,7 +344,7 @@ function NewCategorySheet({ initialName, onConfirm, onCancel }: NewCategorySheet
               color.bg, color.text, 'border', color.border
             )}
           >
-            Додати категорію
+            {t('category.add')}
           </button>
         </div>
       </div>
@@ -372,6 +369,7 @@ interface EditDrawerProps {
 }
 
 export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: EditDrawerProps) {
+  const { t } = useI18n();
   const initialCats = entry.category.split(',').map(s => s.trim()).filter(Boolean);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set(initialCats));
   const [customInput, setCustomInput] = useState('');
@@ -534,7 +532,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
         <button
           onClick={onClose}
           className="absolute right-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-muted/70"
-          aria-label="Закрити"
+          aria-label={t('timeline.close')}
         >
           <Icon name="close" size={16} />
         </button>
@@ -544,7 +542,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
           <button
             onClick={() => setConfirmDelete(true)}
             className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-600 transition-colors"
-            aria-label="Видалити"
+            aria-label={t('edit.delete')}
           >
             <Icon name="delete" size={16} />
           </button>
@@ -596,7 +594,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
         <div className="mb-3 flex gap-2">
           <input
             type="text"
-            placeholder="Нова категорія..."
+            placeholder={t('category.new_placeholder')}
             value={customInput}
             onChange={e => { play('TYPE'); setCustomInput(e.target.value); }}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
@@ -607,7 +605,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
               onClick={addCustom}
               className="rounded-full bg-primary px-3 py-2 text-xs font-medium text-primary-foreground"
             >
-              Далі →
+              {t('category.next')} →
             </button>
           )}
         </div>
@@ -624,7 +622,7 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
         <Button className="w-full min-h-[44px] rounded-full mb-2" disabled={saving || !editContent.trim()} onClick={save}>
           {saving
             ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/30 border-t-primary-foreground" />
-            : 'Зберегти'}
+            : t('compose.save')}
         </Button>
       </BottomSheet>
 
@@ -642,9 +640,9 @@ export function EditDrawer({ entry, onSave, onDelete, onClose, accessToken }: Ed
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
-        title="Видалити запис?"
-        subtitle="Цю дію не можна скасувати."
-        confirmLabel={deleting ? '...' : 'Видалити'}
+        title={t('edit.delete_title')}
+        subtitle={t('edit.delete_body')}
+        confirmLabel={deleting ? '…' : t('edit.delete')}
       />
     </>
   );

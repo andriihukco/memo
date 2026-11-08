@@ -8,9 +8,13 @@ import { CATEGORY_SWATCHES, metaFor } from '../../src/lib/category-meta';
 import { categoryCounts } from '../../src/lib/entries';
 import type { Category } from '../../src/lib/api';
 import { Dot, Empty, Group, PrimaryButton, SectionHeader, TOUCH } from '../../src/components/ui';
-import { t } from '../../src/i18n';
+import { t, getLocale } from '../../src/i18n';
+import { categoryLabel } from '../../src/lib/category-labels';
 import { useThemed, type Theme } from '../../src/theme/theme';
 import { ScreenEnter } from '../../src/motion';
+
+/** Name as the reader sees it: built-ins translated, the user's own names as typed. */
+const shown = (c: { name: string; label_ua: string }): string => categoryLabel(c.name, getLocale(), c.label_ua);
 
 const NAME_MAX = 40;
 const UNCATEGORIZED = 'uncategorized';
@@ -110,7 +114,7 @@ interface EditorProps {
 function CategoryEditor({ editing, categories, onClose, onSave, onRemove, onMerge }: EditorProps) {
   const { colors, styles } = useThemed(makeStyles);
   const existing = editing.mode === 'edit' ? editing.category : null;
-  const [label, setLabel] = useState(existing?.label_ua ?? '');
+  const [label, setLabel] = useState(existing ? shown(existing) : '');
   const [color, setColor] = useState<string>(
     existing ? metaFor(existing.name, existing.label_ua, existing.color).color : CATEGORY_SWATCHES[0],
   );
@@ -143,8 +147,8 @@ function CategoryEditor({ editing, categories, onClose, onSave, onRemove, onMerg
   const confirmMerge = (target: Category) => {
     if (!existing) return;
     Alert.alert(
-      t('categories.merge_title', { name: existing.label_ua }),
-      t('categories.merge_message', { target: target.label_ua }),
+      t('categories.merge_title', { name: shown(existing) }),
+      t('categories.merge_message', { target: shown(target) }),
       [
         { text: t('categories.cancel'), style: 'cancel' },
         { text: t('categories.merge_button'), onPress: () => void run(() => onMerge(existing.name, target.name)) },
@@ -156,7 +160,7 @@ function CategoryEditor({ editing, categories, onClose, onSave, onRemove, onMerg
     if (!existing) return;
     Alert.alert(
       t('categories.delete_title'),
-      t('categories.delete_message', { name: existing.label_ua }),
+      t('categories.delete_message', { name: shown(existing) }),
       [
         { text: t('categories.cancel'), style: 'cancel' },
         { text: t('categories.delete'), style: 'destructive', onPress: () => void run(() => onRemove(existing.name)) },
@@ -226,13 +230,13 @@ function CategoryEditor({ editing, categories, onClose, onSave, onRemove, onMerg
                 <Pressable
                   key={c.name}
                   accessibilityRole="button"
-                  accessibilityLabel={c.label_ua}
+                  accessibilityLabel={shown(c)}
                   disabled={busy}
                   onPress={() => confirmMerge(c)}
                   style={({ pressed }) => [styles.row, i > 0 && styles.border, pressed && styles.pressed]}
                 >
                   <Dot color={metaFor(c.name, c.label_ua, c.color).color} />
-                  <Text style={styles.label}>{c.label_ua}</Text>
+                  <Text style={styles.label}>{shown(c)}</Text>
                 </Pressable>
               ))}
             </Group>

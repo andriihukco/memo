@@ -30,14 +30,14 @@ function usedSymbols(): Map<string, string> {
   for (const file of SOURCES) {
     const src = readFileSync(file, 'utf8');
     // <Symbol name="x" />, <Tool symbol="x" />, <Empty icon="x" /> (route names like <Tabs.Screen name="index"> are not icons)
-    for (const m of src.matchAll(/<Symbol\b[^>]*?\bname="([a-z0-9.]+)"/gs)) add(m[1], file);
+    for (const m of src.matchAll(/<Symbol\b[^>]*?\bname="([a-z0-9.]+)"/g)) add(m[1], file);
     for (const m of src.matchAll(/\b(?:symbol|icon)="([a-z0-9.]+)"/g)) add(m[1], file);
     // { icon: 'x' }, { iconActive: 'x' }, { symbol: 'x' }
     for (const m of src.matchAll(/\b(?:icon|iconActive|symbol)\s*:\s*'([a-z0-9.]+)'/g)) add(m[1], file);
     // <Symbol name={cond ? 'a' : 'b'} />, <Symbol name={MAP[x] ?? 'fallback'} />
-    for (const m of src.matchAll(/<Symbol\b[^>]*?name=\{([^}]*)\}/gs)) for (const l of m[1].matchAll(/'([a-z0-9.]+)'/g)) add(l[1], file);
+    for (const m of src.matchAll(/<Symbol\b[^>]*?name=\{([^}]*)\}/g)) for (const l of m[1].matchAll(/'([a-z0-9.]+)'/g)) add(l[1], file);
     // const SYMBOLS = { lucideName: 'sf.name', … } (metric icons on Today)
-    const map = src.match(/const SYMBOLS[^=]*=\s*\{([^}]*)\}/s);
+    const map = src.match(/const SYMBOLS[^=]*=\s*\{([^}]*)\}/);
     if (map) for (const v of map[1].matchAll(/:\s*'([a-z0-9.]+)'/g)) add(v[1], file);
   }
   return used;

@@ -45,7 +45,8 @@ const PARITY = [
   { rule: 'Tabs', web: 'Today · Journal · Trends + compose (shell/tab-bar.tsx)', ios: 'Same three tabs + compose (glass-tab-bar.tsx)', android: 'Same tabs. Icons: SF Symbols mapped to Material Symbols (components/symbol.tsx, checked by android-symbols.test.ts)' },
   { rule: 'Settings (You)', web: 'Header avatar on every tab', ios: 'Header avatar (TabHeader)', android: 'Header avatar (TabHeader)' },
   { rule: 'Composer', web: 'One drawer: text + attachment bar (photo, video, music, voice, quote, sticker), category, when, reminder', ios: 'Same, as the compose sheet (components/attachment-bar.tsx)', android: 'Same screen, Material Symbols icons' },
-  { rule: 'Trends segments', web: 'Charts, Goals, Reports, Graph', ios: 'Charts, Goals, Reports, Graph', android: 'Same. Gap (web): graph category chips use Ukrainian labels in every language' },
+  { rule: 'Trends segments', web: 'Charts, Goals, Reports, Graph', ios: 'Charts, Goals, Reports, Graph', android: 'Same' },
+  { rule: 'Category names', web: 'Built-ins in the reader\'s language, user names as typed (lib/category-labels.ts)', ios: 'Same helper, mirrored (category-meta.ts)', android: 'Same' },
 ];
 
 const REFS = [

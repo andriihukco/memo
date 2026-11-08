@@ -246,7 +246,7 @@ function TimelineRow({ time, children }: { time: string; children: ReactNode }) 
 
 interface DateGroup {
   dateKey: string;    // "2025-07-14" (UTC+3 local date)
-  dateLabel: string;  // "14 липня 2025" (uk-UA locale)
+  dateLabel: string;  // "14 July 2025", in the reader's language
   items: (Entry | ThreadGroup)[];
 }
 
@@ -564,7 +564,7 @@ function CategoryFilterBar({ entries, selected, onChange }: {
 export default function FeedPage() {
   const { accessToken } = useAuth();
   const { play } = useSound();
-  const { t, locale } = useI18n();
+  const { t, tp, locale } = useI18n();
   const [allEntries, setAllEntries] = useState<Entry[]>([]);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -715,7 +715,7 @@ export default function FeedPage() {
       setAllEntries((prev) => prev.filter((e) => !pendingDeleteIds.includes(e.id)));
       exitSelectMode();
       showUndo({
-        message: `${count} ${count === 1 ? 'запис видалено' : 'записи видалено'}`,
+        message: tp('journal.deleted', count),
         onUndo: () => {
           setAllEntries((prev) => [...deletedEntries, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
         },
@@ -741,7 +741,7 @@ export default function FeedPage() {
     const deleted = allEntries.find((e) => e.id === id);
     setAllEntries((prev) => prev.filter((e) => e.id !== id));
     showUndo({
-      message: '1 запис видалено',
+      message: tp('journal.deleted', 1),
       onUndo: () => {
         // Restore the entry in the local state (no re-fetch needed)
         if (deleted) setAllEntries((prev) => [deleted, ...prev].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
@@ -857,7 +857,7 @@ export default function FeedPage() {
               // warning variant — compact chip
               return (
                 <UsageCounterChip
-                  label={`${usageCounts.entries} / ${entryLimit} записів`}
+                  label={t('journal.usage', { used: usageCounts.entries, limit: entryLimit })}
                   onClick={() => {
                     setPaywallProps({
                       feature: 'entries',
@@ -907,7 +907,7 @@ export default function FeedPage() {
       )}
 
       {status === 'loading' && (
-        <div className="flex flex-col gap-3" role="status" aria-label="Завантаження...">
+        <div className="flex flex-col gap-3" role="status" aria-label={t('graph.loading')}>
           <SkeletonEntryCard />
           <SkeletonEntryCard />
           <SkeletonEntryCard />
@@ -983,7 +983,7 @@ export default function FeedPage() {
 
           {/* Loading skeleton — shown while fetching next page */}
           {loadingMore && (
-            <div className="flex flex-col gap-3" role="status" aria-label="Завантаження...">
+            <div className="flex flex-col gap-3" role="status" aria-label={t('graph.loading')}>
               <SkeletonEntryCard />
               <SkeletonEntryCard />
             </div>
@@ -992,14 +992,14 @@ export default function FeedPage() {
           {/* Retry button — shown when next-page fetch failed */}
           {loadMoreError && !loadingMore && (
             <div className="flex flex-col items-center gap-2 py-4">
-              <p className="text-[13px] text-muted-foreground">Не вдалося завантажити більше записів</p>
+              <p className="text-[13px] text-muted-foreground">{t('journal.load_more_failed')}</p>
               <Button
                 size="sm"
                 variant="outline"
                 className="rounded-full min-h-[36px]"
                 onClick={() => { setLoadMoreError(false); fetchMoreEntries(); }}
               >
-                Спробувати ще раз
+                {t('miniapp.common.retry')}
               </Button>
             </div>
           )}
@@ -1007,7 +1007,7 @@ export default function FeedPage() {
           {/* End-of-list message — shown when all entries have been loaded */}
           {!hasMore && !loadingMore && allEntries.length > 0 && (
             <div className="flex justify-center py-6">
-              <p className="text-[13px] text-muted-foreground/60">Це всі твої записи 🎉</p>
+              <p className="text-[13px] text-muted-foreground/60">{t('journal.end')} 🎉</p>
             </div>
           )}
         </motion.div>

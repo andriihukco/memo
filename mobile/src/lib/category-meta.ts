@@ -1,4 +1,6 @@
 import { detectCategory, type AutoCategory } from './auto-category';
+import { categoryLabel } from './category-labels';
+import { getLocale } from '../i18n';
 
 export interface CategoryMeta {
   label: string;
@@ -44,13 +46,15 @@ const FALLBACK: CategoryMeta = { label: 'Note', color: '#8E8E93', icon: 'note.te
  * colour (or a stable swatch for rows saved before colours existed).
  */
 export function metaFor(category: string, serverLabel?: string, serverColor?: string): CategoryMeta {
+  // Built-ins show in the reader's language unless the user renamed them (src/lib/category-labels.ts).
+  const label = categoryLabel(category, getLocale(), serverLabel);
   if (category in AUTO_META) {
     const known = AUTO_META[category as AutoCategory];
-    return { ...known, label: serverLabel ?? known.label };
+    return { ...known, label };
   }
-  if (category === 'uncategorized') return { ...FALLBACK, label: serverLabel ?? 'Uncategorised' };
+  if (category === 'uncategorized') return { ...FALLBACK, label };
   return {
-    label: serverLabel ?? category,
+    label,
     color: isHexColor(serverColor) ? serverColor : swatchFor(category),
     icon: 'tag',
   };
