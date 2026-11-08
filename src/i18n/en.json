@@ -824,5 +824,9 @@
   "today.goal_of": "of {target} {unit}",
   "today.error": "Couldn’t load today.",
   "today.retry": "Try again",
-  "today.no_numbers": "No numbers yet. Try “2 glasses of water” or “slept 7 hours”."
+  "today.no_numbers": "No numbers yet. Try “2 glasses of water” or “slept 7 hours”.",
+  "compose.attach": "Attach",
+  "compose.mic_denied": "Allow the microphone to record a voice note.",
+  "compose.remove_attachment": "Remove attachment",
+  "compose.error_attach": "Saved the text, but the attachment didn’t upload. Open the entry to try again."
 }

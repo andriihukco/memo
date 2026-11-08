@@ -31,6 +31,7 @@ const ORGANISMS = [
   { name: 'PasscodeScreen', file: 'src/components/ui/passcode-screen.tsx', status: 'Spec only', note: 'Full-screen lock. Native equivalent: mobile/src/components/pin-pad.tsx.' },
   { name: 'PaywallModal', file: 'src/components/ui/paywall-modal.tsx', status: 'Spec only', note: 'Needs billing state. Native parity not checked yet.' },
   { name: 'UndoToast', file: 'src/components/ui/undo-toast.tsx', status: 'Spec only', note: 'Timed action with undo. Native parity not checked yet.' },
+  { name: 'ComposeDrawer + AttachmentBar', file: 'src/components/features/compose/attachments.tsx', status: 'Live (+ button)', note: 'The single way to add an entry. Entry first, then the file or link, so a failed upload leaves no orphan file. Native: mobile/src/components/attachment-bar.tsx.' },
   { name: 'TodayContent', file: 'src/components/features/today/today-content.tsx', status: 'Live at /miniapp', note: 'Summary tiles with day-goal rings, quick log (water logs 250 ml with Undo), today\'s entries. Native: mobile/app/(tabs)/index.tsx. Data: src/lib/today.ts (mirrored).' },
 ];
 
@@ -43,6 +44,7 @@ const PARITY = [
   { rule: 'Overlays', web: 'Dialog, Drawer, Popover', ios: 'Sheet (Expo Router modal)', android: 'Sheet / modal route' },
   { rule: 'Tabs', web: 'Today · Journal · Trends + compose (shell/tab-bar.tsx)', ios: 'Same three tabs + compose (glass-tab-bar.tsx)', android: 'Same tabs. Gap: tab and metric icons are SF Symbols, which Android does not draw (components/symbol.tsx has no fallback)' },
   { rule: 'Settings (You)', web: 'Header avatar on every tab', ios: 'Header avatar (TabHeader)', android: 'Header avatar (TabHeader)' },
+  { rule: 'Composer', web: 'One drawer: text + attachment bar (photo, video, music, voice, quote, sticker), category, when, reminder', ios: 'Same, as the compose sheet (components/attachment-bar.tsx)', android: 'Same screen. Gap: bar icons are SF Symbols (see Tabs)' },
   { rule: 'Trends segments', web: 'Charts, Goals, Reports, Graph', ios: 'Charts, Goals, Reports, Graph', android: 'Same. Gap (web): graph category chips use Ukrainian labels in every language' },
 ];
 

@@ -10,6 +10,7 @@ import { useI18n } from '@/lib/i18n/context';
 import { useAuth } from '@/lib/supabase/auth-context';
 import type { AutoCategory } from '@/lib/auto-category';
 import { isHexColor, swatchFor } from '@/lib/category-config';
+import { AttachmentBar, useVoiceNote, type Attachment } from './attachments';
 
 interface ComposeCtx {
   /** Opens the composer, optionally with text already typed (a quick-log prompt). */
@@ -90,6 +91,29 @@ export function ComposeDrawer() {
   const [repeat, setRepeat] = useState<Repeat>('none');
   const [note, setNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [quote, setQuote] = useState(false);
+  const [sticker, setSticker] = useState<string | null>(null);
+
+  // A voice note is saved as soon as recording stops: the audio route transcribes and files it.
+  const voice = useVoiceNote(async (blob, seconds) => {
+    if (!accessToken) return;
+    setSaving(true);
+    setNote(null);
+    try {
+      const form = new FormData();
+      form.append('file', blob, 'note.webm');
+      form.append('duration_s', String(seconds));
+      const res = await fetch('/api/entries/audio', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` }, body: form });
+      if (!res.ok) throw new Error(t('timeline.error'));
+      window.dispatchEvent(new Event(ENTRIES_CHANGED_EVENT));
+      resetAndClose();
+    } catch (err) {
+      setNote(err instanceof Error ? err.message : t('timeline.error'));
+    } finally {
+      setSaving(false);
+    }
+  });
 
   // Refresh the user's categories each time the drawer opens, so new ones show up without a reload
   useEffect(() => {
@@ -113,8 +137,11 @@ export function ComposeDrawer() {
   // No pick means Auto: the server chooses the category, as the bot does.
   const category = picked;
 
+  const musicReady = attachment?.kind !== 'music' || /^https?:\/\/\S+$/i.test(attachment.url.trim());
+  const canSave = (!!fullText || !!attachment) && musicReady && !(quote && !fullText);
+
   const save = async () => {
-    if (!fullText || saving || !accessToken) return;
+    if (!canSave || saving || !accessToken) return;
     const remindDate = new Date(remindAt);
     if (remind && remindDate.getTime() < Date.now() - PAST_GRACE_MS) {
       setNote(t('compose.error_past'));
@@ -124,15 +151,45 @@ export function ComposeDrawer() {
     setNote(null);
     const auth = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
     try {
-      const metadata = whenSet ? { occurred_at: new Date(when).toISOString() } : undefined;
+      const metadata: Record<string, unknown> = {
+        ...(whenSet ? { occurred_at: new Date(when).toISOString() } : {}),
+        ...(quote ? { kind: 'quote' } : {}),
+        ...(sticker ? { sticker } : {}),
+        // Marks an entry that carries media, so a caption is never read as a correction.
+        ...(attachment ? { attachment: attachment.kind } : {}),
+      };
+      // Text is optional with an attachment: the title, the link or the kind stands in.
+      const content =
+        fullText ||
+        (attachment?.kind === 'music' ? attachment.title.trim() || attachment.url.trim() : attachment ? t(`timeline.${attachment.kind}`) : '');
       const res = await fetch('/api/entries', {
         method: 'POST',
         headers: auth,
         // Only a category the user picked is sent; otherwise the server classifies it like the bot does.
-        body: JSON.stringify({ content: fullText, ...(picked ? { category: picked } : {}), ...(metadata ? { metadata } : {}) }),
+        body: JSON.stringify({ content, ...(picked ? { category: picked } : {}), ...(Object.keys(metadata).length ? { metadata } : {}) }),
       });
       if (res.status === 409) throw new Error(t('compose.error_correction'));
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? t('compose.error_save'));
+      const { entry } = (await res.json()) as { entry: { id: string } };
+
+      // The entry exists first, then the file or link is attached, so a failed upload leaves no orphan file.
+      if (attachment) {
+        const body: BodyInit =
+          attachment.kind === 'music'
+            ? JSON.stringify({ kind: 'music', url: attachment.url.trim() })
+            : (() => {
+                const form = new FormData();
+                form.append('kind', attachment.kind);
+                form.append('file', attachment.file);
+                return form;
+              })();
+        const media = await fetch(`/api/entries/${entry.id}/media`, {
+          method: 'POST',
+          headers: attachment.kind === 'music' ? auth : { Authorization: `Bearer ${accessToken}` },
+          body,
+        });
+        if (!media.ok) throw new Error(t('compose.error_attach'));
+      }
 
       if (remind) {
         const rem = await fetch('/api/reminders', {
@@ -160,6 +217,9 @@ export function ComposeDrawer() {
     setRemind(false);
     setRepeat('none');
     setNote(null);
+    setAttachment(null);
+    setQuote(false);
+    setSticker(null);
     close();
   };
 
@@ -172,12 +232,24 @@ export function ComposeDrawer() {
 
         <div className="flex max-h-[70vh] flex-col gap-4 overflow-y-auto px-4 pb-2">
           <Textarea
-            aria-label={t('compose.placeholder')}
-            placeholder={t('compose.placeholder')}
+            aria-label={quote ? t('timeline.quoteText') : t('compose.placeholder')}
+            placeholder={quote ? t('timeline.quoteText') : t('compose.placeholder')}
             rows={4}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            className="text-base"
+            className={quote ? 'border-l-4 border-l-primary text-base italic' : 'text-base'}
+          />
+
+          <AttachmentBar
+            t={t}
+            attachment={attachment}
+            onAttachment={setAttachment}
+            quote={quote}
+            onQuote={setQuote}
+            sticker={sticker}
+            onSticker={setSticker}
+            voice={voice}
+            disabled={saving}
           />
 
           <section className="flex flex-col gap-2">
@@ -284,7 +356,7 @@ export function ComposeDrawer() {
         </div>
 
         <DrawerFooter>
-          <Button onClick={() => void save()} disabled={!fullText || saving || !accessToken}>
+          <Button className="min-h-11" onClick={() => void save()} disabled={!canSave || saving || voice.recording || !accessToken}>
             {saving ? t('compose.saving') : t('compose.save')}
           </Button>
         </DrawerFooter>

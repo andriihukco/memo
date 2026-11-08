@@ -5,7 +5,9 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useEntries } from '../src/lib/entry-store';
-import { ApiError } from '../src/lib/api';
+import { api, ApiError } from '../src/lib/api';
+import { useSession } from '../src/lib/session';
+import { AttachmentBar, useVoiceNote, type Attachment } from '../src/components/attachment-bar';
 import { metaFor, AUTO_META } from '../src/lib/category-meta';
 import { Chip, PrimaryButton, TOUCH } from '../src/components/ui';
 import type { AutoCategory } from '../src/lib/auto-category';
@@ -24,7 +26,10 @@ const stamp = (d: Date): string =>
 
 type PickerKey = 'when' | 'remind';
 
-/** Entry sheet. Opened by a tap on + (empty) or by releasing a hold on + (prefilled with the voice transcript). */
+/**
+ * The one composer: text plus an attachment bar (photo, video, music, voice, quote, sticker).
+ * Opened by a tap on + (empty), a quick log on Today (prefilled) or a hold on + (voice transcript).
+ */
 export default function ComposeScreen() {
   return (
     <ScreenEnter>
@@ -36,7 +41,8 @@ export default function ComposeScreen() {
 function ComposeScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { scheme } = useTheme();
-  const { add, categories } = useEntries();
+  const { add, categories, refresh } = useEntries();
+  const { token } = useSession();
   const { text: initial } = useLocalSearchParams<{ text?: string }>();
   const [text, setText] = useState(initial ?? '');
   const [picked, setPicked] = useState<string | null>(null);
@@ -48,8 +54,30 @@ function ComposeScreenBody() {
   const [picker, setPicker] = useState<PickerKey | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
+  const [quote, setQuote] = useState(false);
+  const [sticker, setSticker] = useState<string | null>(null);
+
+  // A voice note is saved as soon as recording stops: the audio route transcribes and files it.
+  const voice = useVoiceNote(async (file, seconds) => {
+    if (!token) return;
+    setSaving(true);
+    setNote(null);
+    try {
+      await api.uploadAudio(token, file, seconds);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await refresh();
+      router.back();
+    } catch {
+      setNote(t('timeline.error'));
+    } finally {
+      setSaving(false);
+    }
+  });
 
   const fullText = text.trim();
+  const musicReady = attachment?.kind !== 'music' || /^https?:\/\/\S+$/i.test(attachment.url.trim());
+  const canSave = (!!fullText || !!attachment) && musicReady && !(quote && !fullText);
 
   const onPick = (key: PickerKey) => (event: DateTimePickerEvent, date?: Date) => {
     if (Platform.OS === 'android') setPicker(null);
@@ -63,18 +91,39 @@ function ComposeScreenBody() {
   };
 
   const save = async () => {
-    if (!fullText || saving) return;
+    if (!canSave || saving) return;
     if (remind && remindAt.getTime() < Date.now() - PAST_GRACE_MS) {
       setNote(t('compose.error_past'));
       return;
     }
     setSaving(true);
     try {
+      // Text is optional with an attachment: the title, the link or the kind stands in.
+      const content =
+        fullText ||
+        (attachment?.kind === 'music' ? attachment.title.trim() || attachment.url.trim() : attachment ? t(`timeline.${attachment.kind}`) : '');
       // Only a category the user picked is sent; otherwise the server classifies it like the bot does.
-      await add(fullText, picked ?? 'uncategorized', {
+      const saved = await add(content, picked ?? 'uncategorized', {
         occurredAt: whenSet ? when : undefined,
         reminder: remind ? { at: remindAt, repeat } : undefined,
+        metadata: {
+          ...(quote ? { kind: 'quote' } : {}),
+          ...(sticker ? { sticker } : {}),
+          // Marks an entry that carries media, so a caption is never read as a correction.
+          ...(attachment ? { attachment: attachment.kind } : {}),
+        },
       });
+      // The entry exists first, then the file or link is attached, as on the web.
+      if (attachment && saved && token) {
+        try {
+          if (attachment.kind === 'music') await api.attachMusic(token, saved.id, attachment.url.trim());
+          else await api.attachFile(token, saved.id, attachment.kind, attachment.asset);
+          await refresh();
+        } catch {
+          setNote(t('compose.error_attach'));
+          return;
+        }
+      }
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (e) {
@@ -123,10 +172,21 @@ function ComposeScreenBody() {
         autoFocus={!initial}
         value={text}
         onChangeText={setText}
-        placeholder={t('compose.placeholder')}
+        placeholder={quote ? t('timeline.quoteText') : t('compose.placeholder')}
         placeholderTextColor={colors.muted}
-        style={styles.input}
-        accessibilityLabel={t('compose.placeholder')}
+        style={[styles.input, quote && styles.quote]}
+        accessibilityLabel={quote ? t('timeline.quoteText') : t('compose.placeholder')}
+      />
+
+      <AttachmentBar
+        attachment={attachment}
+        onAttachment={setAttachment}
+        quote={quote}
+        onQuote={setQuote}
+        sticker={sticker}
+        onSticker={setSticker}
+        voice={voice}
+        disabled={saving}
       />
 
       <Text style={styles.sectionLabel}>{t('compose.category')}</Text>
@@ -186,7 +246,7 @@ function ComposeScreenBody() {
       <PrimaryButton
         label={saving ? t('compose.saving') : t('compose.save')}
         onPress={() => void save()}
-        disabled={!fullText || saving}
+        disabled={!canSave || saving || voice.recording}
       />
     </ScrollView>
   );
@@ -208,6 +268,7 @@ const makeStyles = (colors: Theme) => StyleSheet.create({
     padding: 16,
     textAlignVertical: 'top',
   },
+  quote: { fontStyle: 'italic', borderLeftWidth: 4, borderLeftColor: colors.tint },
   sectionLabel: { fontSize: colors.fs(13), color: colors.muted, textTransform: 'uppercase' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   hint: { fontSize: colors.fs(13), color: colors.muted, marginTop: -8 },

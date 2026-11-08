@@ -15,8 +15,6 @@ import { useThemed, type Theme } from '../../src/theme/theme';
 import { PressScale, ScreenEnter } from '../../src/motion';
 import { TabHeader } from '../../src/components/tab-header';
 import { TimelineCard, isTimelineEntry } from '../../src/components/timeline-card';
-import { AddToTimeline } from '../../src/components/add-to-timeline';
-import { useSession } from '../../src/lib/session';
 
 const dayTitle = (key: string): string => {
   const [y, m, d] = key.split('-').map(Number);
@@ -38,7 +36,6 @@ export default function FeedScreen() {
 function FeedScreenBody() {
   const { colors, styles } = useThemed(makeStyles);
   const { entries, categories, loading, refresh, remove } = useEntries();
-  const { token } = useSession();
   const [filter, setFilter] = useState<string | null>(null);
   /** Null outside selection mode; while selecting, the ids picked so far. */
   const [selecting, setSelecting] = useState<Set<string> | null>(null);
@@ -172,7 +169,6 @@ function FeedScreenBody() {
     >
       <TabHeader title={t('shell.journal')} />
       <View style={styles.titleRow}>
-        {selecting === null ? <AddToTimeline token={token} onSaved={() => void refresh()} /> : null}
         {selecting === null ? (
           <Pressable accessibilityRole="button" onPress={() => setSelecting(new Set())} style={styles.selectButton}>
             <Text style={styles.selectText}>{t('feed.select')}</Text>

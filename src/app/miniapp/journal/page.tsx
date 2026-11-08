@@ -26,7 +26,6 @@ import { useI18n } from '@/lib/i18n/context';
 import { hapticImpact, hapticNotification } from '@/lib/haptics';
 import { entryTime, isShortNote, layoutTimeline } from '@/lib/timeline';
 import { TimelineCard, isTimelineEntry, type MediaItem } from '@/components/features/timeline/timeline-card';
-import { AddToTimeline } from '@/components/features/timeline/add-to-timeline';
 import { ENTRIES_CHANGED_EVENT } from '@/components/features/compose/compose-drawer';
 import { localDayKey } from '@/lib/metrics';
 import { ProfileButton } from '@/components/shell/profile-button';
@@ -946,9 +945,6 @@ export default function FeedPage() {
           transition={{ duration: 0.3 }}
           className="flex flex-col gap-3 pb-4"
         >
-          <div className="flex justify-end">
-            <AddToTimeline accessToken={accessToken} onSaved={() => { fetchEntries(); }} />
-          </div>
           {groupByDate(groupByThread([...entries].sort((a, b) => Date.parse(entryTime(b)) - Date.parse(entryTime(a)))), locale).map((group, groupIdx) => (
             <motion.div
               key={group.dateKey}

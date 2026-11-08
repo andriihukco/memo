@@ -391,7 +391,18 @@ export async function DELETE(req: Request): Promise<Response> {
   const { ids } = parsedDelete.data;
 
   const supabase = makeSupabase(jwt);
+  // Files of these entries, read through RLS so only the caller's own media is found. The media rows
+  // go with the entries (ON DELETE CASCADE) but the stored files do not, so they are removed here.
+  const { data: media } = await supabase.from("entry_media").select("storage_path").in("entry_id", ids);
+  const paths = (media ?? []).map((m) => m.storage_path as string | null).filter((p): p is string => !!p);
+
   const { error } = await supabase.from("entries").delete().in("id", ids);
+
+  if (!error && paths.length > 0) {
+    const { error: storageErr } = await serviceClient().storage.from("entry-media").remove(paths);
+    if (storageErr) console.error("[api/entries] media cleanup failed:", storageErr.message);
+    else console.info(`[api/entries] removed ${paths.length} media file(s)`);
+  }
 
   if (error) {
     console.error("[api/entries] delete error:", error.message);

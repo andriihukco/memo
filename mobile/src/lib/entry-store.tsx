@@ -9,6 +9,8 @@ export interface NewEntryExtra {
   occurredAt?: Date;
   /** A reminder for the same text. */
   reminder?: { at: Date; repeat: RepeatRule };
+  /** Extra metadata: quote style, sticker, or the kind of attachment that follows. */
+  metadata?: Record<string, unknown>;
 }
 
 interface EntryStore {
@@ -86,7 +88,8 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
 
   const add = useCallback(
     async (content: string, category: string, extra: NewEntryExtra = {}): Promise<Entry | null> => {
-      const metadata = extra.occurredAt ? { occurred_at: extra.occurredAt.toISOString() } : null;
+      const merged = { ...(extra.occurredAt ? { occurred_at: extra.occurredAt.toISOString() } : {}), ...(extra.metadata ?? {}) };
+      const metadata = Object.keys(merged).length > 0 ? (merged as Entry['metadata']) : null;
       if (!live || !token) {
         const now = new Date().toISOString();
         setEntries((prev) => [
