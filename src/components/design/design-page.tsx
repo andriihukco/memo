@@ -31,6 +31,7 @@ const ORGANISMS = [
   { name: 'PasscodeScreen', file: 'src/components/ui/passcode-screen.tsx', status: 'Spec only', note: 'Full-screen lock. Native equivalent: mobile/src/components/pin-pad.tsx.' },
   { name: 'PaywallModal', file: 'src/components/ui/paywall-modal.tsx', status: 'Spec only', note: 'Needs billing state. Native parity not checked yet.' },
   { name: 'UndoToast', file: 'src/components/ui/undo-toast.tsx', status: 'Spec only', note: 'Timed action with undo. Native parity not checked yet.' },
+  { name: 'TodayContent', file: 'src/components/features/today/today-content.tsx', status: 'Live at /miniapp', note: 'Summary tiles with day-goal rings, quick log (water logs 250 ml with Undo), today\'s entries. Native: mobile/app/(tabs)/index.tsx. Data: src/lib/today.ts (mirrored).' },
 ];
 
 const PARITY = [
@@ -40,6 +41,9 @@ const PARITY = [
   { rule: 'Safe areas', web: 'env(safe-area-inset-*)', ios: 'Insets (react-native-safe-area-context)', android: 'Insets (edge-to-edge)' },
   { rule: 'Hover states', web: 'Only under (hover: hover)', ios: 'Pressed states', android: 'Ripple / pressed states' },
   { rule: 'Overlays', web: 'Dialog, Drawer, Popover', ios: 'Sheet (Expo Router modal)', android: 'Sheet / modal route' },
+  { rule: 'Tabs', web: 'Today · Journal · Trends + compose (shell/tab-bar.tsx)', ios: 'Same three tabs + compose (glass-tab-bar.tsx)', android: 'Same tabs. Gap: tab and metric icons are SF Symbols, which Android does not draw (components/symbol.tsx has no fallback)' },
+  { rule: 'Settings (You)', web: 'Header avatar on every tab', ios: 'Header avatar (TabHeader)', android: 'Header avatar (TabHeader)' },
+  { rule: 'Trends segments', web: 'Charts, Goals, Reports, Graph', ios: 'Charts, Goals, Reports, Graph', android: 'Same. Gap (web): graph category chips use Ukrainian labels in every language' },
 ];
 
 const REFS = [

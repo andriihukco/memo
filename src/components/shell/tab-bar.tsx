@@ -2,17 +2,26 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Lightbulb, Network, Plus, type LucideIcon } from 'lucide-react';
+import { BookOpen, ChartLine, Plus, SunMedium, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCompose } from '@/components/features/compose/compose-drawer';
 import { useI18n } from '@/lib/i18n/context';
 import { useSound } from '@/lib/sound/use-sound';
 import { cn } from '@/lib/utils';
 
-export const isTabActive = (tab: 'journal' | 'insights' | 'graph', pathname: string): boolean =>
-  tab === 'journal'
-    ? pathname === '/miniapp' || pathname.startsWith('/miniapp/entry/')
-    : pathname === `/miniapp/${tab}` || pathname.startsWith(`/miniapp/${tab}/`);
+export type MainTab = 'today' | 'journal' | 'trends';
+
+const under = (pathname: string, base: string) => pathname === base || pathname.startsWith(`${base}/`);
+
+/**
+ * Today is the summary (Apple Health's Summary), Journal is every entry over time, Trends holds
+ * charts, goals, reports and the graph. Entry pages belong to Journal; goal and graph pages to Trends.
+ */
+export const isTabActive = (tab: MainTab, pathname: string): boolean => {
+  if (tab === 'today') return pathname === '/miniapp';
+  if (tab === 'journal') return under(pathname, '/miniapp/journal') || pathname.startsWith('/miniapp/entry/');
+  return under(pathname, '/miniapp/insights') || under(pathname, '/miniapp/graph') || under(pathname, '/miniapp/goals');
+};
 
 function Tab({ href, label, icon: Icon, active, glow = false }: { href: string; label: string; icon: LucideIcon; active: boolean; glow?: boolean }) {
   const { play } = useSound();
@@ -37,7 +46,7 @@ function Tab({ href, label, icon: Icon, active, glow = false }: { href: string; 
 }
 
 /**
- * Floating navigation: a pill with the three tabs, and a separate round +
+ * Floating navigation: a pill with Today, Journal and Trends, and a separate round +
  * beside it. The + is not part of the tab row, so it keeps its own action.
  * The outer layer ignores pointer events so taps still reach the page behind.
  */
@@ -54,15 +63,15 @@ export function TabBar() {
       {/* Total height (pt-2 + h-14 + pb-3 = 76px) plus a little air must equal --tab-bar-h (5rem) in globals.css. */}
       <div className="mx-auto flex max-w-md items-center gap-3 px-4 pb-3 pt-2">
         <div className="pointer-events-auto flex h-14 flex-1 items-center rounded-full border bg-background/80 p-1 shadow-lg backdrop-blur-xl">
-          <Tab href="/miniapp" label={t('shell.journal')} icon={BookOpen} active={isTabActive('journal', pathname)} />
-          <Tab href="/miniapp/insights" label={t('shell.insights')} icon={Lightbulb} active={isTabActive('insights', pathname)} glow />
-          <Tab href="/miniapp/graph" label={t('shell.graph')} icon={Network} active={isTabActive('graph', pathname)} />
+          <Tab href="/miniapp" label={t('shell.today')} icon={SunMedium} active={isTabActive('today', pathname)} glow />
+          <Tab href="/miniapp/journal" label={t('shell.journal')} icon={BookOpen} active={isTabActive('journal', pathname)} />
+          <Tab href="/miniapp/insights" label={t('shell.trends')} icon={ChartLine} active={isTabActive('trends', pathname)} />
         </div>
         <Button
           size="icon"
           className="pointer-events-auto relative size-14 shrink-0 rounded-full shadow-lg"
           aria-label={hasDraft ? t('shell.compose_draft') : t('shell.compose')}
-          onClick={open}
+          onClick={() => open()}
         >
           <Plus className="size-6" strokeWidth={2.5} aria-hidden="true" />
           {hasDraft && (

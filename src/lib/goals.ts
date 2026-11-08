@@ -6,7 +6,7 @@
  * so it runs on the server (retro) and in the browser (progress bars).
  * Days and totals follow src/lib/metrics.ts: local calendar days, canonical keys, set corrections.
  */
-import { CANON, canonicalKey, dailyValues, dayKeyBefore, localDayKey, type Aggregate, type MetricMode, type MetricPoint as CanonPoint } from './metrics';
+import { CANON, canonicalKey, dailyValues, dayKeyBefore, localDayKey, toBaseUnit, type Aggregate, type MetricMode, type MetricPoint as CanonPoint } from './metrics';
 
 export type GoalPeriod = "day" | "week";
 
@@ -65,16 +65,29 @@ export function dailyTotals(points: MetricPoint[], key: string): Map<string, num
   return dailyValues(own, k);
 }
 
-/** Progress for one goal at `now`. Day goals use today; week goals use the last 7 days. */
+/**
+ * Goal target in the metric's base unit. Logs are stored in base units (ml, h, km), while a goal
+ * may be set in its own ("8 glasses"), so both sides are compared in base units.
+ */
+function baseTarget(goal: Goal): number {
+  return toBaseUnit(canonicalKey(goal.metric), goal.target, goal.unit);
+}
+
+/**
+ * Progress for one goal at `now`. Day goals use today; week goals use the last 7 days.
+ * `current` and `target` are in the goal's own unit.
+ */
 export function goalProgress(goal: Goal, points: MetricPoint[], now: Date): GoalProgress {
   const totals = dailyTotals(points, goal.metric);
   const days = goal.period === "day" ? 1 : 7;
-  let current = 0;
+  let base = 0;
   for (let i = 0; i < days; i++) {
-    current += totals.get(dayKeyBefore(now, i)) ?? 0;
+    base += totals.get(dayKeyBefore(now, i)) ?? 0;
   }
-  const ratio = goal.target > 0 ? Math.min(1, current / goal.target) : 0;
-  return { goal, current, target: goal.target, ratio, met: goal.target > 0 && current >= goal.target };
+  const targetBase = baseTarget(goal);
+  const current = targetBase > 0 ? Math.round((base * goal.target) / targetBase * 100) / 100 : base;
+  const ratio = targetBase > 0 ? Math.min(1, base / targetBase) : 0;
+  return { goal, current, target: goal.target, ratio, met: targetBase > 0 && base >= targetBase };
 }
 
 /**
@@ -84,7 +97,8 @@ export function goalProgress(goal: Goal, points: MetricPoint[], now: Date): Goal
 export function dayStreak(goal: Goal, points: MetricPoint[], now: Date): number {
   if (goal.period !== "day") return 0;
   const totals = dailyTotals(points, goal.metric);
-  const met = (offset: number) => (totals.get(dayKeyBefore(now, offset)) ?? 0) >= goal.target;
+  const target = baseTarget(goal);
+  const met = (offset: number) => (totals.get(dayKeyBefore(now, offset)) ?? 0) >= target;
 
   let offset = met(0) ? 0 : 1;
   let streak = 0;

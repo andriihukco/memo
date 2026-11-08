@@ -19,7 +19,8 @@ interface EntryStore {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
-  add: (content: string, category: string, extra?: NewEntryExtra) => Promise<void>;
+  /** Saves an entry and returns it (null offline), so a quick log can offer Undo. */
+  add: (content: string, category: string, extra?: NewEntryExtra) => Promise<Entry | null>;
   remove: (id: string) => Promise<void>;
   /** Edits an entry's text or category. */
   update: (id: string, patch: { content?: string; category?: string }) => Promise<void>;
@@ -84,7 +85,7 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
   }, [refresh]);
 
   const add = useCallback(
-    async (content: string, category: string, extra: NewEntryExtra = {}) => {
+    async (content: string, category: string, extra: NewEntryExtra = {}): Promise<Entry | null> => {
       const metadata = extra.occurredAt ? { occurred_at: extra.occurredAt.toISOString() } : null;
       if (!live || !token) {
         const now = new Date().toISOString();
@@ -92,7 +93,7 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
           { id: `local-${Date.now()}`, content, category, metadata, bot_reply: null, thread_id: null, reply_to_entry_id: null, created_at: now },
           ...prev,
         ]);
-        return;
+        return null;
       }
       const { entry } = await api.createEntry(token, content, category, metadata);
       // A correction returns the entry it fixed, which may already be in the list.
@@ -100,6 +101,7 @@ export function EntryStoreProvider({ children }: { children: ReactNode }) {
       if (extra.reminder) {
         await api.createReminder(token, content, extra.reminder.at.toISOString(), extra.reminder.repeat);
       }
+      return entry;
     },
     [live, token],
   );

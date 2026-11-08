@@ -8,11 +8,12 @@ import { TabHeader } from '../../src/components/tab-header';
 import { WidgetsView } from '../../src/screens/overview-view';
 import { GoalsView } from '../../src/screens/goals-view';
 import { ReportsView } from '../../src/screens/reports-view';
+import { GraphView } from '../../src/screens/graph-view';
 import { useThemed, type Theme } from '../../src/theme/theme';
 import { ScreenEnter } from '../../src/motion';
 
-/** Insights tabs, in order: Widgets, Goals, Reports. Graph has its own bottom tab. */
-const VIEWS = ['widgets', 'goals', 'reports'] as const;
+/** Trends segments, in order: Charts (widgets), Goals, Reports, Graph. */
+const VIEWS = ['widgets', 'goals', 'reports', 'graph'] as const;
 type InsightsView = (typeof VIEWS)[number];
 
 /** Older links used "overview" for the widgets view. */
@@ -34,7 +35,7 @@ function InsightsScreenBody() {
 
   return (
     <ScrollView contentContainerStyle={styles.content} contentInsetAdjustmentBehavior="automatic">
-      <TabHeader title={t('shell.insights')} />
+      <TabHeader title={t('shell.trends')} />
       <View style={styles.segments} accessibilityRole="tablist">
         {VIEWS.map((key) => (
           <Pressable
@@ -49,7 +50,7 @@ function InsightsScreenBody() {
         ))}
       </View>
 
-      {view === 'widgets' ? <WidgetsView /> : view === 'goals' ? <GoalsView /> : <ReportsView />}
+      {view === 'widgets' ? <WidgetsView /> : view === 'goals' ? <GoalsView /> : view === 'graph' ? <GraphView /> : <ReportsView />}
     </ScrollView>
   );
 }

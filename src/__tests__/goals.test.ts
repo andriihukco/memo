@@ -70,3 +70,13 @@ describe('buildLocalRetro', () => {
     expect(r.experiment).toContain('Steps');
   });
 });
+
+describe('goal units', () => {
+  it('compares a goal set in glasses with water logged in ml', () => {
+    const water: Goal = { id: 'w', name: 'Water', metric: 'water', unit: 'glasses', target: 8, period: 'day' };
+    const p = goalProgress(water, [{ date: NOW, key: 'water_ml', value: 1000 }], NOW);
+    expect(p.current).toBe(4);
+    expect(p.ratio).toBeCloseTo(0.5);
+    expect(p.met).toBe(false);
+  });
+});

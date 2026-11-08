@@ -20,6 +20,7 @@ vi.mock('@/components/shell/page-header', () => ({
 }));
 vi.mock('@/components/legacy/pages/dashboard', () => ({ default: () => <p>legacy-dashboard</p> }));
 vi.mock('@/components/legacy/pages/reports', () => ({ default: () => <p>legacy-reports</p> }));
+vi.mock('@/components/legacy/pages/graph', () => ({ default: () => <p>legacy-graph</p> }));
 vi.mock('@/components/features/goals/goals-content', () => ({ GoalsContent: () => <p>goals-content</p> }));
 
 import InsightsPage from '@/app/miniapp/insights/page';
@@ -38,6 +39,7 @@ describe('Insights view tabs', () => {
     ['view=widgets', 'widgets', 'legacy-dashboard'],
     ['view=goals', 'goals', 'goals-content'],
     ['view=reports', 'reports', 'legacy-reports'],
+    ['view=graph', 'graph', 'legacy-graph'],
     ['view=bogus', 'widgets', 'legacy-dashboard'],
   ])('?%s → %s tab active, renders %s', (search, active, body) => {
     nav.search = search;

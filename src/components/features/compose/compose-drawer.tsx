@@ -8,14 +8,18 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/lib/i18n/context';
 import { useAuth } from '@/lib/supabase/auth-context';
-import { detectCategory, type AutoCategory } from '@/lib/auto-category';
+import type { AutoCategory } from '@/lib/auto-category';
 import { isHexColor, swatchFor } from '@/lib/category-config';
 
 interface ComposeCtx {
-  open(): void;
+  /** Opens the composer, optionally with text already typed (a quick-log prompt). */
+  open(seed?: string): void;
   close(): void;
   isOpen: boolean;
   hasDraft: boolean;
+  /** Text to start with on the next open; read once by the drawer. */
+  seed: string | null;
+  clearSeed(): void;
 }
 
 const Ctx = createContext<ComposeCtx | null>(null);
@@ -46,12 +50,17 @@ function readDraft(): boolean {
 export function ComposeProvider({ children }: { children: ReactNode }) {
   const [isOpen, setOpen] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
-  const open = useCallback(() => setOpen(true), []);
+  const [seed, setSeed] = useState<string | null>(null);
+  const open = useCallback((text?: string) => {
+    setSeed(typeof text === 'string' ? text : null);
+    setOpen(true);
+  }, []);
   const close = useCallback(() => setOpen(false), []);
+  const clearSeed = useCallback(() => setSeed(null), []);
 
   useEffect(() => setHasDraft(readDraft()), [isOpen]);
 
-  const value = useMemo(() => ({ open, close, isOpen, hasDraft }), [open, close, isOpen, hasDraft]);
+  const value = useMemo(() => ({ open, close, isOpen, hasDraft, seed, clearSeed }), [open, close, isOpen, hasDraft, seed, clearSeed]);
   return (
     <Ctx.Provider value={value}>
       {children}
@@ -69,7 +78,7 @@ function toLocalInput(d: Date): string {
 export function ComposeDrawer() {
   const { t } = useI18n();
   const { accessToken } = useAuth();
-  const { isOpen, close } = useCompose();
+  const { isOpen, close, seed, clearSeed } = useCompose();
 
   const [text, setText] = useState('');
   const [picked, setPicked] = useState<string | null>(null);
@@ -93,8 +102,16 @@ export function ComposeDrawer() {
       .catch(() => {});
   }, [isOpen, accessToken]);
 
+  // A quick-log prompt starts the text; the cursor lands after it.
+  useEffect(() => {
+    if (!isOpen || seed === null) return;
+    setText(seed);
+    clearSeed();
+  }, [isOpen, seed, clearSeed]);
+
   const fullText = text.trim();
-  const category = picked ?? detectCategory(fullText).category;
+  // No pick means Auto: the server chooses the category, as the bot does.
+  const category = picked;
 
   const save = async () => {
     if (!fullText || saving || !accessToken) return;
@@ -166,6 +183,15 @@ export function ComposeDrawer() {
           <section className="flex flex-col gap-2">
             <h3 className="text-xs font-medium uppercase tracking-widest text-muted-foreground">{t('compose.category')}</h3>
             <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={picked === null ? 'default' : 'secondary'}
+                className="min-h-11 rounded-full"
+                onClick={() => setPicked(null)}
+                aria-pressed={picked === null}
+              >
+                {t('compose.cat.auto')}
+              </Button>
               {CATEGORIES.map((c) => (
                 <Button
                   key={c}

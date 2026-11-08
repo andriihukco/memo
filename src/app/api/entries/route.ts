@@ -542,8 +542,9 @@ export async function GET(req: Request): Promise<Response> {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        // Private (user-specific data) — cache for 30s, stale-while-revalidate for 60s
-        "Cache-Control": "private, max-age=30, stale-while-revalidate=60",
+        // Never cache: a list read right after a save must include it, and the token is in a
+        // header the browser cache does not key on.
+        "Cache-Control": "private, no-store",
       },
     }
   );

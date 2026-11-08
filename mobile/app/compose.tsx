@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useEntries } from '../src/lib/entry-store';
 import { ApiError } from '../src/lib/api';
-import { suggestCategory, metaFor, AUTO_META } from '../src/lib/category-meta';
+import { metaFor, AUTO_META } from '../src/lib/category-meta';
 import { Chip, PrimaryButton, TOUCH } from '../src/components/ui';
 import type { AutoCategory } from '../src/lib/auto-category';
 import type { RepeatRule } from '../src/lib/api';
@@ -49,7 +49,6 @@ function ComposeScreenBody() {
   const [note, setNote] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const category = picked ?? suggestCategory(text);
   const fullText = text.trim();
 
   const onPick = (key: PickerKey) => (event: DateTimePickerEvent, date?: Date) => {
@@ -132,10 +131,12 @@ function ComposeScreenBody() {
 
       <Text style={styles.sectionLabel}>{t('compose.category')}</Text>
       <View style={styles.chips}>
+        {/* Auto: no category is sent and the server picks one, as the bot does. */}
+        <Chip label={t('compose.cat.auto')} color={colors.tint} selected={picked === null} onPress={() => setPicked(null)} />
         {AUTO_KEYS.map((key) => {
           const meta = metaFor(key);
           return (
-            <Chip key={key} label={meta.label} color={meta.color} selected={category === key} onPress={() => setPicked(key)} />
+            <Chip key={key} label={meta.label} color={meta.color} selected={picked === key} onPress={() => setPicked(key)} />
           );
         })}
         {categories
@@ -143,7 +144,7 @@ function ComposeScreenBody() {
           .map((c) => {
             const meta = metaFor(c.name, c.label_ua, c.color);
             return (
-              <Chip key={c.name} label={meta.label} color={meta.color} selected={category === c.name} onPress={() => setPicked(c.name)} />
+              <Chip key={c.name} label={meta.label} color={meta.color} selected={picked === c.name} onPress={() => setPicked(c.name)} />
             );
           })}
       </View>

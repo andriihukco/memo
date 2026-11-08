@@ -1,14 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { PageHeader } from '@/components/shell/page-header';
-import { GoalsContent } from '@/components/features/goals/goals-content';
-
-/** The Goals route: header with back, then the content. */
+/** Goals live in Trends. Old links land on its segment. */
 export default function GoalsPage() {
-  return (
-    <>
-      <PageHeader title="Goals" back />
-      <GoalsContent />
-    </>
-  );
+  redirect('/miniapp/insights?view=goals');
 }

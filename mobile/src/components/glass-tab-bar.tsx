@@ -4,7 +4,7 @@ import { Text } from '../theme/typography';
 import { GlassView, isLiquidGlassAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
-import { t } from '../i18n';
+import { t, useLocale } from '../i18n';
 import { TOUCH } from './ui';
 import { Symbol } from './symbol';
 import { useThemed, type Theme } from '../theme/theme';
@@ -29,13 +29,15 @@ const PAD = 4;
 const SPRING = { damping: 20, stiffness: 260, mass: 0.9 };
 
 /** SF Symbols for each tab, with the filled variant for the active one. */
-/** Light yellow for the active Insights bulb, with a soft glow behind it. */
+/** Light yellow for the active Today sun, with a soft glow behind it. */
 const BULB_GLOW = '#FFE27A';
 
-const TABS: Record<string, { label: string; icon: string; iconActive: string; glow?: boolean }> = {
-  index: { label: t('shell.journal'), icon: 'book.closed', iconActive: 'book.closed.fill' },
-  insights: { label: t('shell.insights'), icon: 'lightbulb', iconActive: 'lightbulb.fill', glow: true },
-  graph: { label: t('shell.graph'), icon: 'point.3.connected.trianglepath.dotted', iconActive: 'point.3.filled.connected.trianglepath.dotted' },
+/** Today, Journal, Trends. Labels are read on each render so a language change shows at once. */
+const tabFor = (name: string): { label: string; icon: string; iconActive: string; glow?: boolean } | null => {
+  if (name === 'index') return { label: t('shell.today'), icon: 'sun.max', iconActive: 'sun.max.fill', glow: true };
+  if (name === 'journal') return { label: t('shell.journal'), icon: 'book.closed', iconActive: 'book.closed.fill' };
+  if (name === 'insights') return { label: t('shell.trends'), icon: 'chart.line.uptrend.xyaxis', iconActive: 'chart.line.uptrend.xyaxis' };
+  return null;
 };
 
 /**
@@ -43,6 +45,7 @@ const TABS: Record<string, { label: string; icon: string; iconActive: string; gl
  * so the selection moves instead of jumping. On iOS below 26 it falls back to a tinted fill.
  */
 export function GlassTabBar({ routes, activeIndex, onSelect, onCompose, onHoldStart, onHoldEnd }: Props) {
+  useLocale(); // re-render labels when the language changes
   const { styles } = useThemed(makeStyles);
   const glass = isLiquidGlassAvailable();
   const [barWidth, setBarWidth] = useState(0);
@@ -71,7 +74,7 @@ export function GlassTabBar({ routes, activeIndex, onSelect, onCompose, onHoldSt
           </Animated.View>
         ) : null}
         {routes.map((route, i) => {
-          const tab = TABS[route.name];
+          const tab = tabFor(route.name);
           if (!tab) return null;
           return (
             <TabItem

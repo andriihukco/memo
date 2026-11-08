@@ -9,9 +9,10 @@ import { useI18n } from '@/lib/i18n/context';
 import { GoalsContent } from '@/components/features/goals/goals-content';
 import LegacyDashboard from '@/components/legacy/pages/dashboard';
 import LegacyReports from '@/components/legacy/pages/reports';
+import LegacyGraph from '@/components/legacy/pages/graph';
 
-/** Insights tabs, in order: Widgets, Goals, Reports. Graph has its own tab. */
-const VIEWS = ['widgets', 'goals', 'reports'] as const;
+/** Trends segments, in order: Charts (widgets), Goals, Reports, Graph. */
+const VIEWS = ['widgets', 'goals', 'reports', 'graph'] as const;
 type View = (typeof VIEWS)[number];
 
 const toView = (raw: string | null): View => {
@@ -34,9 +35,9 @@ function Insights() {
 
   return (
     <>
-      <PageHeader title={t('shell.insights')} actions={<ProfileButton />}>
+      <PageHeader title={t('shell.trends')} actions={<ProfileButton />}>
         <Tabs value={view} onValueChange={select}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             {VIEWS.map((v) => (
               <TabsTrigger key={v} value={v}>
                 {t(`insights.view.${v}`)}
@@ -45,7 +46,7 @@ function Insights() {
           </TabsList>
         </Tabs>
       </PageHeader>
-      {view === 'goals' ? <GoalsContent /> : view === 'reports' ? <LegacyReports /> : <LegacyDashboard />}
+      {view === 'goals' ? <GoalsContent /> : view === 'reports' ? <LegacyReports /> : view === 'graph' ? <LegacyGraph /> : <LegacyDashboard />}
     </>
   );
 }

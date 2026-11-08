@@ -15,14 +15,16 @@ afterEach(cleanup);
 
 describe('isTabActive', () => {
   it.each([
-    ['journal', '/miniapp', true],
+    ['today', '/miniapp', true],
+    ['today', '/miniapp/journal', false],
+    ['journal', '/miniapp/journal', true],
     ['journal', '/miniapp/entry/42', true],
-    ['journal', '/miniapp/insights', false],
-    ['insights', '/miniapp/insights', true],
-    ['insights', '/miniapp/insights/reports/7', true],
-    ['insights', '/miniapp/insightsx', false],
-    ['graph', '/miniapp/graph', true],
-    ['graph', '/miniapp', false],
+    ['journal', '/miniapp', false],
+    ['trends', '/miniapp/insights', true],
+    ['trends', '/miniapp/insights/reports/7', true],
+    ['trends', '/miniapp/graph', true],
+    ['trends', '/miniapp/goals', true],
+    ['trends', '/miniapp/insightsx', false],
   ] as const)('%s on %s → %s', (tab, path, want) => expect(isTabActive(tab, path)).toBe(want));
 });
 
@@ -30,9 +32,10 @@ describe('TabBar', () => {
   it('marks only the active tab with aria-current and semibold', () => {
     nav.pathname = '/miniapp/graph';
     render(<TabBar />);
-    const graph = screen.getByRole('link', { name: 'shell.graph' });
-    expect(graph.getAttribute('aria-current')).toBe('page');
-    expect(graph.className).toContain('font-semibold');
+    const trends = screen.getByRole('link', { name: 'shell.trends' });
+    expect(trends.getAttribute('aria-current')).toBe('page');
+    expect(trends.className).toContain('font-semibold');
+    expect(screen.getByRole('link', { name: 'shell.today' }).getAttribute('aria-current')).toBeNull();
     expect(screen.getByRole('link', { name: 'shell.journal' }).getAttribute('aria-current')).toBeNull();
   });
 

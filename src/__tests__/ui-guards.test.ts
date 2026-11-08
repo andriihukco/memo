@@ -30,7 +30,7 @@ export const LEGACY_ALLOWLIST: string[] = [
   'src/components/legacy/',
   'src/components/features/dashboard/',
   'src/components/features/voice/',
-  'src/app/miniapp/page.tsx',
+  'src/app/miniapp/journal/page.tsx', // the Journal tab (moved from /miniapp in the Today redesign)
   'src/components/shell/boot.tsx', // rewritten in Phase 1 Task F
   'src/components/ui/bottom-sheet.tsx',
   'src/components/ui/confirm-sheet.tsx',

@@ -6,8 +6,8 @@ import { GlassTabBar } from '../../src/components/glass-tab-bar';
 import { startLiveTranscription } from '../../src/lib/speech';
 import { useThemed, type Theme } from '../../src/theme/theme';
 
-/** Tabs whose + records a voice entry on hold. Other tabs have no hold action. */
-const VOICE_TABS = ['/'];
+/** Tabs whose + records a voice entry on hold (Today and Journal). Trends has no hold action. */
+const VOICE_TABS = ['/', '/journal'];
 
 export default function TabsLayout() {
   const { colors, styles } = useThemed(makeStyles);
@@ -78,8 +78,8 @@ export default function TabsLayout() {
         )}
       >
         <Tabs.Screen name="index" />
+        <Tabs.Screen name="journal" />
         <Tabs.Screen name="insights" />
-        <Tabs.Screen name="graph" />
       </Tabs>
       {recording !== null ? (
         <View style={styles.overlay} pointerEvents="none" accessibilityLiveRegion="polite">
